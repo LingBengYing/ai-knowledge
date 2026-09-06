@@ -1,8 +1,38 @@
 # 验证记录：Java 开发纵切
 
-## 最新：0002 文本 Adapter · 2026-09-06
+## 当前：0003 文本摄取 · 本地验收通过（2026-09-06）
 
-本次仅新增独立模型/Milvus协议与显式环境配置，不提供新的业务HTTP能力。以下结果绑定 [source-manifest](source-manifest.json) 的55个构建/源码/测试文件，聚合SHA-256为 `80900f041c101c27b9faac7ecebd1cf80019d706ce2b604fdef3918870afb09d`；不是生产证明。
+范围：真实文本上传 → 持久任务 → 独立Java解析进程 → 权威页/segment。Java整体仍在IMPLEMENTATION，不是索引、问答、多模态或生产完成。以下结果绑定当前 [source-manifest](source-manifest.json) 的71个构建/源码/测试文件，聚合SHA-256为 `a2fb82286938a6bd428733642f0c21ff2ffc4432615792fcebdc4f3d868d54fd`。最终JAR SHA-256为 `96227b53f03cb38217833d620f5d63344b9674c883dcf1720b929d0c1c4a5ef4`；开发启动复制的不变JAR与之相同。文档由Git提交另外绑定，不属于源码manifest。
+
+| 检查 | 最终实际结果 |
+| --- | --- |
+| `mvn -o -B -ntp -s .mvn/settings.xml -gs .mvn/settings.xml spotless:apply clean verify`（隔离本地依赖缓存） | 190 JUnit通过，0失败/错误/跳过；22:58:56 +08:00完成 |
+| 原管理/鉴权/HTTP/SQLite/解析/Adapter基线 | 148项完整保留；完整suite在最后一次共享分块算法修改后重新执行 |
+| JaCoCo line / branch | 2442/2531 = 96.48%；1442/1604 = 89.90%；80%双门禁未改动 |
+| Spotless / `javac -Xlint:all` | 通过，无编译告警；生命周期测试的显式close仅作局部try告警说明，不改变断言 |
+| `node --test ui-tests/*.test.mjs scripts/check-secrets.test.mjs` | 31项UI + 11项检查器测试通过，0跳过 |
+| 独立只读审查 | Standards与Spec两个维度scoped PASS；71个文件、聚合、JAR和覆盖计数再次独立核验一致 |
+| 真正打包JAR + 独立前端浏览器 | PDF上传、任务轮询、解析终态；空白TXT失败、两次显式重试、attempt 3后关闭重试；身份切换清除其他用户的资料及任务 |
+| 真实HTTP补充验收 | 空白/emoji Markdown解析成2个分块；改显示名/标签不改PDF原文件hash/revision/attempt；其他身份读任务404 |
+| 停止并重启同一隔离Java目录 | 3资料/3 revisions/2 pages/3 segments保留；3个locator全部精确对应页内原文；active均null；失败attempt 3及整理元数据保留；live200、ready503 |
+
+本地运行OpenJDK22.0.2 / release21、Maven3.9.9、Node22.23.2。实际Java21结果须以本次提交对应的 [Actions](https://github.com/LingBengYing/ai-knowledge/actions) 为准，历史CI不能认证本次源码。未访问真实provider/Milvus，也未读取或修改其他服务数据。PDFBox合成PDF仍有替代字体警告；文字和locator断言通过，不证明渲染质量。
+
+### 红绿与独立审查修复
+
+HTTP入口最初上传期望202、旧实现实际404；authority、子进程、HTTP配置/限额/取消恢复分别有先失败回归。独立审查发现空白裁剪后重叠窗口可能产生重复分块起点：新增直接解析、真实子进程和authority提交三条回归，首次完整相关32项运行出现1 failure + 2 errors。修复推进窗口而不放宽严格校验后，最终190项完整通过。当前parser revision为 `java-text-parser-v2-monotonic-codepoints`；既有解析证据不就地改写。
+
+取消/真实child终止/重试以及shutdown中断恢复由自动化测试验证；本次浏览器未手动验收取消、移动端或JWT上传流程。迁移测试覆盖v1一致性备份、失败拒绝升级和v2重开；不代表旧Python生产数据迁移演练。loopback权限和测试夹具错误均单独分类，获准后重跑，没有跳过或降低失败测试。
+
+### 浏览器与未验证边界
+
+独立前端版本为 `55a65ee2574380b0a27d3eb01a7a1e1a10dc5658`，其58项独立测试与 [CI](https://github.com/LingBengYing/ai-knowledge-web/actions/runs/34040356414) 通过；本次实际连接新Java JAR进行上述摄取验收，不用先前管理页面截图冒充。重启后截图确认三份资料和PDF解析任务，浏览器控制台读取为0条消息/错误/警告。截图、测试库和运行日志只留本地，不随公开仓库上传。
+
+原六个golden仍未在Java最终问答链路执行，不能报告RAG6/6、召回率或事实支持质量。没有索引发布、当前active authority、最终答案/引用HTTP、多模态、真实provider/Milvus、OS沙箱、性能对照、生产身份与部署验收。`parsed`不等于`indexed`，未解除readiness/production gate。
+
+## 历史：0002 文本 Adapter · 2026-09-06
+
+本次仅新增独立模型/Milvus协议与显式环境配置，不提供新的业务HTTP能力。以下结果绑定 [历史source-manifest](changes/0002-text-adapters/source-manifest.json) 的55个构建/源码/测试文件，聚合SHA-256为 `80900f041c101c27b9faac7ecebd1cf80019d706ce2b604fdef3918870afb09d`；不是生产证明。
 
 | 检查 | 最终实际结果 |
 | --- | --- |
@@ -65,7 +95,7 @@ TextParser 在空实现上首次运行 6 项测试，其中 5 项报错；实现
 
 0001推送前再次检查：67 个跟踪文件、工作树 clean、历史扫描无命中；[历史source-manifest](changes/0001-java-publication/source-manifest.json) 中45个源码/测试/构建文件逐项与当时HEAD相同，不认证0002源码。聚合指纹按路径排序后连接 `path + NUL + sha256 + LF`，对其 UTF-8 字节求 SHA-256。发布状态文档不属于该源码指纹；Git 提交身份另外绑定完整仓库。
 
-### 0001 当时未验收（当前以页首0002范围为准）
+### 0001 当时未验收（当前以页首0003范围为准）
 
 - Java 上传/worker/Milvus/三类模型/问答/引用、删除/重建、图片/音频/视频均未完成。
 - `docs/evals/golden.json` 的6个问答预期尚未在 Java RAG 上执行；不能从 PDF 提取测试推导 recall、grounding 或拒答质量。

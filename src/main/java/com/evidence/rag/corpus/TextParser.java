@@ -15,7 +15,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
  * Untrusted text extraction. All locators are Unicode code point offsets within normalized pages.
  */
 public final class TextParser {
-  public static final String REVISION = "java-text-parser-v1-codepoints";
+  public static final String REVISION = "java-text-parser-v2-monotonic-codepoints";
   public static final int MAX_BYTES = 20 * 1024 * 1024;
 
   public record Page(int number, String text) {}
@@ -131,7 +131,9 @@ public final class TextParser {
             new Segment(
                 output.size(), page.number(), left, right, new String(points, left, right - left)));
       if (end >= points.length) break;
-      int next = Math.max(end - 120, start + 1);
+      // Trimming can move left into the overlap. Never emit the same evidence start twice;
+      // the previous segment already covers left, while empty windows must not skip new text.
+      int next = Math.max(end - 120, right > left ? left + 1 : start + 1);
       for (int i = next; i < end; i++)
         if (points[i] == '\n') {
           next = i + 1;

@@ -1,47 +1,47 @@
 {
-  "scope": "java_management_text_ingestion_and_standalone_text_adapters",
+  "scope": "java_management_parser_and_standalone_text_adapters",
   "production_attestation": false,
   "external_provider_milvus_verified": false,
-  "generated_at": "2026-09-06T15:05:25.900Z",
+  "generated_at": "2026-09-06T12:40:23.161Z",
   "java_runtime": "22.0.2",
   "compiler_release": 21,
   "junit": {
-    "tests": 190,
+    "tests": 148,
     "failures": 0,
     "errors": 0,
     "skipped": 0
   },
-  "ui_tests": 31,
+  "ui_tests": 20,
   "secret_checker_tests": 11,
   "counters": {
     "INSTRUCTION": {
-      "missed": 406,
-      "covered": 12687
+      "missed": 143,
+      "covered": 8445
     },
     "BRANCH": {
-      "missed": 162,
-      "covered": 1442
+      "missed": 98,
+      "covered": 1055
     },
     "LINE": {
-      "missed": 89,
-      "covered": 2442
+      "missed": 26,
+      "covered": 1631
     },
     "COMPLEXITY": {
-      "missed": 160,
-      "covered": 991
+      "missed": 96,
+      "covered": 722
     },
     "METHOD": {
-      "missed": 7,
-      "covered": 337
+      "missed": 3,
+      "covered": 235
     },
     "CLASS": {
       "missed": 0,
-      "covered": 54
+      "covered": 42
     }
   },
-  "source_file_count": 71,
-  "source_fingerprint_sha256": "a2fb82286938a6bd428733642f0c21ff2ffc4432615792fcebdc4f3d868d54fd",
-  "jar_sha256": "96227b53f03cb38217833d620f5d63344b9674c883dcf1720b929d0c1c4a5ef4",
+  "source_file_count": 55,
+  "source_fingerprint_sha256": "80900f041c101c27b9faac7ecebd1cf80019d706ce2b604fdef3918870afb09d",
+  "jar_sha256": "6804de83f0f1a9658342cc1d84de254e0a07c7b6b42c085289ac8722245ae4d7",
   "files": [
     {
       "path": ".mvn/settings.xml",
@@ -57,7 +57,7 @@
     },
     {
       "path": "src/main/java/com/evidence/rag/RagApplication.java",
-      "sha256": "2d78f5d58db6aeb0902c94d2ac57fbe0d96acf01e35146f913d518c30070ca45"
+      "sha256": "d1ab4b83d10e7dbff57a8dcd6a5ca802116bba81822a0e151dbf469c08d9dff6"
     },
     {
       "path": "src/main/java/com/evidence/rag/config/DemoFixtures.java",
@@ -76,36 +76,8 @@
       "sha256": "509e15150c6e4d462193fbf4a36e3021c4266c5c76e5b92d91039c3a92327788"
     },
     {
-      "path": "src/main/java/com/evidence/rag/corpus/ParserWorker.java",
-      "sha256": "0fd53d756555d25679ef62dcdc2e1bcb68f220828bc740f3a1c3ef11d9119a77"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/corpus/ProcessTextParser.java",
-      "sha256": "9e37607d9d53b547cd8b9e66778977e415da0c1692464f6b6acfa5d660d57b6a"
-    },
-    {
       "path": "src/main/java/com/evidence/rag/corpus/TextParser.java",
-      "sha256": "232b223db459cdc73c762e558116666557c85c8e0f42e6e57b3b3447f8860083"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/ingestion/IngestionConfiguration.java",
-      "sha256": "5c153970e14610122f7da1bd89a9e34c4e7c5b771ddebbc57ecd57662776ba9a"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/ingestion/IngestionController.java",
-      "sha256": "30bed538f6eb1bd9d0c90800e4943730f068916d84bccbf7337007621196d77a"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/ingestion/IngestionRuntime.java",
-      "sha256": "d35d38374890fb0c88363e815e258f9b270968c05243525bf2fc736778b8328e"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/ingestion/IngestionSettings.java",
-      "sha256": "be354c19e3b9a1719369d93b606b57592f43f87aca669eb2f9095b8726c09026"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/ingestion/UploadServlet.java",
-      "sha256": "da2783090f31d3793330ff9742444a9b6322ec17aafb925de0d8ed6307395182"
+      "sha256": "09dc1350c15ebf438f0e2e04d28d6b2d75557254e665c281db22f18536f9e817"
     },
     {
       "path": "src/main/java/com/evidence/rag/management/ManagementController.java",
@@ -113,7 +85,7 @@
     },
     {
       "path": "src/main/java/com/evidence/rag/management/ManagementModule.java",
-      "sha256": "58be9b79ad1b6189e2425ad25ff2d1b8ee474f78e871c4c133c41c1b78d40f55"
+      "sha256": "a94f878ad8dfcd99e6e6e84d6c2e9015f548b7874b529981dabf93729b4734b4"
     },
     {
       "path": "src/main/java/com/evidence/rag/models/OpenAiCompatibleModels.java",
@@ -165,23 +137,23 @@
     },
     {
       "path": "src/main/java/com/evidence/rag/web/RuntimeController.java",
-      "sha256": "89e21f54448f4c31c7bcf6733664ccb9d1e5e9e909f0884f8451536bba6c50ca"
+      "sha256": "2d87f8b10bbe37f10afd44e59cbf68577b3b0eb62da6e84a1f3211af182ef81a"
     },
     {
       "path": "src/main/resources/application.properties",
-      "sha256": "10301bbc5c4687d9e957a0d8556f544a2a79284314dd4718a0e88151d879dcf2"
+      "sha256": "f493751755aab664f048bcde8e14e410a948e45a3d4d9b5d94b65a27bbf69ff5"
     },
     {
       "path": "src/main/resources/static/api.mjs",
-      "sha256": "0ac55f0895cb9416f4dae137eb2480e1320a2dcb5b3c95d3ecf6b1e50b4bcbad"
+      "sha256": "fb1173ebd5f443458a2eef1fa412a7ca84b088ac3a0291967214a5f780e390ed"
     },
     {
       "path": "src/main/resources/static/app.js",
-      "sha256": "7ec8ed28afd6e948338cb9cc04a8735670820248fa01b7e7ef529ded58a966a4"
+      "sha256": "32f185d906a391f3fa8a220d7f682add57420a59a9bd2e4b8c23b6521d379cf5"
     },
     {
       "path": "src/main/resources/static/index.html",
-      "sha256": "24f4f0082ddb4961e9d41cdf6ceec35d9a162a9d985b0beee37752d076ea9355"
+      "sha256": "bd9b710d9a08486900f2cde59cdb132e1feb1d58e36ea9150edc434357dabbb1"
     },
     {
       "path": "src/main/resources/static/notices.mjs",
@@ -189,11 +161,11 @@
     },
     {
       "path": "src/main/resources/static/styles.css",
-      "sha256": "66e9b29f7815841579af33e0f10e9e2d979b8f6280d2cf8e81af0867d6285829"
+      "sha256": "482f447ddb95738a954d79891aa9f0df05a95b4838a6d858f15b711d6d42bd97"
     },
     {
       "path": "src/main/resources/static/workbench-state.mjs",
-      "sha256": "cf1df7aa3f323fa43ea5dcb366c3eee46d354cdc22a9d475fca7a23ba3330329"
+      "sha256": "5805823c8ffe4c992cfafde179a5169afc3cb56752630e4904b8ed775e8fdd07"
     },
     {
       "path": "src/test/java/com/evidence/rag/config/DemoFixturesTest.java",
@@ -212,36 +184,8 @@
       "sha256": "c0c7c12b8252906497c7bcf1a2a58a4aca756ad4f7e2f6cc1184ec61c8f21f7e"
     },
     {
-      "path": "src/test/java/com/evidence/rag/corpus/ParserWorkerTest.java",
-      "sha256": "63bc3e0c4c968381146b1d73c82f11ad64008cd803438e512557c5e605ebbd10"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/corpus/ProcessTextParserTest.java",
-      "sha256": "2bdff701f5d04de0155c4bc073f228a6e03ba29748353cf1f9ada55e88c90534"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/corpus/SlowParserFixture.java",
-      "sha256": "0f11f9cc29a1de23a5b46d792280565039f603e83977c2e7c6c1f2e68c68a2f3"
-    },
-    {
       "path": "src/test/java/com/evidence/rag/corpus/TextParserTest.java",
-      "sha256": "5c02467041287f02c4ced6de5ffea6807f081d6cca1481c0e90afb90eb232c08"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/ingestion/IngestionRuntimeTest.java",
-      "sha256": "8d5217c1f4e3684e239a74c9bba318a8a1a6ef41c65556a43a7ebc9fbe338d7b"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/ingestion/IngestionSettingsTest.java",
-      "sha256": "b13b3aee40d1e08a59c4449177d5e45e96853bfca5339167a67fbaa8379abf70"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/management/IngestionAuthorityTest.java",
-      "sha256": "c99e9f589d07c6b8213d5dde131f143c17e5fc458d89d3af0b61beb44db25380"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/management/IngestionMigrationTest.java",
-      "sha256": "e768ddc5805478d891c9447e7825bd1146c585201ab3604333a0974b204a9f6a"
+      "sha256": "a8be01945ecbe804bd4adc5efc5e9439b21ad5a970cc5dfd25d4c453374d9960"
     },
     {
       "path": "src/test/java/com/evidence/rag/management/ManagementModuleTest.java",
@@ -280,10 +224,6 @@
       "sha256": "ac24d1a6a5dca2dbd7d6d19517d995248a89901391f0bc0396e825456015e99b"
     },
     {
-      "path": "src/test/java/com/evidence/rag/web/IngestionHttpTest.java",
-      "sha256": "265fd9729f3f6632474d7b1b8285403f7f9056b2ac4cfdb0e21bbdb4d860edac"
-    },
-    {
       "path": "src/test/java/com/evidence/rag/web/ManagementHttpTest.java",
       "sha256": "ac541f2178ae08b1b3c0274409808cbc51275b063945abe7dd2485f8a03d7ae0"
     },
@@ -310,10 +250,6 @@
     {
       "path": "ui-tests/api.test.mjs",
       "sha256": "9fb658eb7237c557d6e1efe34cc56ceb3f4578193dbcc2697251293ce629fca5"
-    },
-    {
-      "path": "ui-tests/ingestion.test.mjs",
-      "sha256": "69026c571f7f1e8a354bd0b15f206975a70567f8ed500bc6869cb78c298eb193"
     },
     {
       "path": "ui-tests/markup.test.mjs",

@@ -1,6 +1,7 @@
 package com.evidence.rag.web;
 
 import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.ingestion.IngestionSettings;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -10,9 +11,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RuntimeController {
   private final RagProperties properties;
+  private final IngestionSettings ingestion;
 
-  public RuntimeController(RagProperties properties) {
+  public RuntimeController(RagProperties properties, IngestionSettings ingestion) {
     this.properties = properties;
+    this.ingestion = ingestion;
   }
 
   @GetMapping("/v1/config")
@@ -25,11 +28,22 @@ public class RuntimeController {
         "edition",
         "java",
         "migration_stage",
-        "management_slice",
+        ingestion.enabled() ? "text_ingestion" : "management_slice",
         "capabilities",
-        List.of("management", "folders", "metadata", "batch_move", "batch_tag"),
+        ingestion.enabled()
+            ? List.of(
+                "management",
+                "folders",
+                "metadata",
+                "batch_move",
+                "batch_tag",
+                "text_upload",
+                "ingestions")
+            : List.of("management", "folders", "metadata", "batch_move", "batch_tag"),
         "unavailable",
-        List.of("upload", "answers", "sources", "ingestions", "reindex", "document_delete"));
+        ingestion.enabled()
+            ? List.of("answers", "sources", "reindex", "document_delete")
+            : List.of("upload", "answers", "sources", "ingestions", "reindex", "document_delete"));
   }
 
   @GetMapping("/health/live")

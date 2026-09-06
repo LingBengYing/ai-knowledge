@@ -2,9 +2,9 @@
 
 一个面向单组织的 **Java AI 知识库 / RAG（Retrieval-Augmented Generation）** 项目。
 
-当前可运行的是 **资料管理工作台**：列表、授权分页、目录、标签、改名、批量整理和审计。后续目标是 Milvus 混合检索 + OpenAI-compatible 模型接入 + 可追溯引用 + 图片、音频、视频知识处理。
+当前可运行的是 **资料管理工作台与本机文本摄取**：列表、授权分页、目录、标签、改名、批量整理和审计；显式开启后支持PDF/TXT/Markdown上传、持久解析任务与分块。后续目标是 Milvus 混合检索 + OpenAI-compatible 模型接入 + 可追溯引用 + 图片、音频、视频知识处理。
 
-> **状态：开发中，非生产版。** 不要把路线图当作已实现功能。独立模型和 Milvus Adapter 已通过 [0002](docs/changes/0002-text-adapters/intent.md) 本地协议回归与独立源码审查，尚未接入上传、语料发布、检索问答或多模态流水线；`/health/ready` 有意返回 503。验证结论只见 [VERIFICATION](docs/VERIFICATION.md)。
+> **状态：开发中，非生产版。** 当前 [0003](docs/changes/0003-text-ingestion/intent.md) 的真实文本上传、持久任务及独立Java解析进程已通过本地验收：190项Java测试、42项Node测试、独立审查、浏览器和重启验证。模型和 Milvus Adapter 已通过 [0002](docs/changes/0002-text-adapters/intent.md) 协议回归，仍未接索引发布与问答。`parsed`不等于可问答，`/health/ready`仍为503。当前源码验证只见 [VERIFICATION](docs/VERIFICATION.md)，不要套用历史报告。
 
 **For AI agents:** A standalone Java knowledge-management application being extended into an evidence-grounded RAG system. Read [AI_CONTEXT](docs/AI_CONTEXT.md), [AGENTS.md](AGENTS.md), and the capability table before making claims or changes. Planned capabilities are not implemented APIs.
 
@@ -16,10 +16,11 @@
 | 目录、改名、手工标签、批量移动/加标签 | 可运行 | 整理不会修改原文件身份或触发模型 |
 | JWT / HttpOnly 会话 / 文档角色 | 可运行 | owner、editor、reader；开发身份仅限显式 loopback |
 | SQLite 持久化与哈希审计 | 可运行 | 单写入者；重启保留；独立数据目录 |
-| PDF / TXT / Markdown 文本解析 | 独立 Module 已测试 | Unicode code point 定位；**尚未接 HTTP 或隔离 worker，不可对公网文件使用** |
+| PDF / TXT / Markdown 文本解析 | 本地验收通过 | 受限独立Java进程、Unicode code point定位；不是OS沙箱，不可对公网文件使用 |
 | Milvus dense + BM25 协议 | 独立 Adapter，未接业务 | Java 专用 collection、完整授权范围前置、RRF；真实集成尚未验收 |
 | 嵌入、重排、原文摘取 | 独立 Adapter，未接业务 | 三种模型独立配置；rerank 为 provider 扩展协议；摘录不是最终有证答案 |
-| 上传、任务、语料发布与有证问答 | 待接通 | 仍无相关 HTTP 能力，不把 Adapter 测试当端到端 RAG |
+| 上传、持久任务、取消/重试、版本化解析证据 | 本地验收通过 | 默认关闭；显式启用且loopback；解析完成标为parsed，保留原文件 |
+| 索引发布与有证问答 | 待接通 | 不能把解析或协议测试当端到端RAG |
 | 图片、音频、视频、联合事实与文件摘要 | 规划中 | 不等同于仅生成文件摘要 |
 | 生产部署、迁移与真实性能对比 | 未验收 | 不声称 Java 版本已比 Python 更快 |
 
@@ -52,6 +53,17 @@ RAG_AUTH_MODE=development_headers RAG_DATA_DIRECTORY=./demo-data bash run-dev.sh
 `owner` 可整理四条合成资料，`reader` 只能读取两条被授权资料，`editor` 可编辑其被授权资料。重复 seed 同一目录会被拒绝，避免覆盖。
 
 `run-dev.sh` 会复制一个不变 JAR 后启动，避免后续 Maven 打包覆盖运行中的程序。默认绑定 `127.0.0.1:18084`。
+
+### 文本摄取开发入口（0003）
+
+新建专用目录和端口，不重启或替换其他演示进程：
+
+```bash
+RAG_AUTH_MODE=development_headers RAG_INGESTION_ENABLED=true \
+RAG_DATA_DIRECTORY=./text-demo-data RAG_PORT=18086 bash run-dev.sh
+```
+
+页面接受PDF/TXT/MD，最大20MiB。任务持久化为queued/processing/parsed/failed/cancelled；解析成功后仍未索引，问答继续禁用。默认30秒解析/上传接收时限、最多2个在途上传、单解析并发。上传仅授予创建者owner，其他身份不自动获得权限。详见 [TEXT_INGESTION](docs/TEXT_INGESTION.md)。仅允许字面loopback绑定，不得放到公网或代理后当生产服务。
 
 ## 配置与密钥
 

@@ -8,6 +8,7 @@ export class WorkbenchState {
   detail = null;
   mutation = null;
   identityPending = false;
+  task = null;
 
   invalidate() {
     this.epoch += 1;
@@ -16,6 +17,7 @@ export class WorkbenchState {
     this.selected.clear();
     this.detail = null;
     this.mutation = null;
+    this.task = null;
   }
 
   beginRead(kind) {
@@ -30,10 +32,18 @@ export class WorkbenchState {
 
   commitPage(ticket, items) {
     if (!this.isCurrent(ticket)) return false;
-    this.items = items;
+    // A list request may have captured an earlier attempt before a task poll/action finished.
+    // Reconcile only existing authorized rows; never add a task's document to the page.
+    this.items = items.map(item => {
+      if (!this.task || item.document_id !== this.task.document_id || item.latest_job?.task_id !== this.task.task_id
+        || item.latest_job?.revision_id !== this.task.revision_id) return item;
+      const listed = checkedTask(item.latest_job);
+      if (taskAdvances(this.task, listed)) this.task = listed;
+      return { ...item, status: this.task.state, latest_job: this.task };
+    });
     const available = new Set(items.map(item => item.document_id));
     this.selected = new Set([...this.selected].filter(id => available.has(id)));
-    this.detail = items.find(item => item.document_id === this.detail?.document_id) ?? null;
+    this.detail = this.items.find(item => item.document_id === this.detail?.document_id) ?? null;
     return true;
   }
 
@@ -79,6 +89,58 @@ export class WorkbenchState {
   }
 
   finishIdentityChange() { this.identityPending = false; }
+
+  watchTask(value) {
+    this.reads.delete('ingestion');
+    this.task = value === null ? null : checkedTask(value);
+    return this.task;
+  }
+
+  taskForDocument(id) {
+    // Detail controls can outlive their captured row; resolve only the current authorized page.
+    const item = this.items.find(row => row.document_id === id);
+    if (!item) throw new Error('unavailable task document');
+    const task = checkedTask(item.latest_job);
+    if (task.document_id !== id) throw new Error('invalid task document');
+    return task;
+  }
+
+  commitTask(ticket, value) {
+    if (!this.isCurrent(ticket) || !this.task) return false;
+    const next = checkedTask(value);
+    if (next.task_id !== this.task.task_id || next.document_id !== this.task.document_id || next.revision_id !== this.task.revision_id) {
+      throw new Error('invalid task identity');
+    }
+    if (next.attempt < this.task.attempt) return false;
+    if (!taskAdvances(this.task, next)) throw new Error('invalid task transition');
+    this.task = next;
+    this.items = this.items.map(item => item.document_id === next.document_id ? { ...item, status: next.state, latest_job: next } : item);
+    if (this.detail?.document_id === next.document_id) this.detail = this.items.find(item => item.document_id === next.document_id) ?? this.detail;
+    return true;
+  }
+}
+
+const taskNames = { queued: '等待解析', processing: '正在解析', parsed: '已解析 · 未索引', failed: '解析失败', cancelled: '已取消' };
+
+export function taskLabel(state) { return taskNames[state] ?? '未知任务状态'; }
+export function taskPending(task) { return task?.state === 'queued' || task?.state === 'processing'; }
+
+function taskAdvances(current, next) {
+  if (next.attempt !== current.attempt) return next.attempt > current.attempt;
+  if (!taskPending(current)) return next.state === current.state;
+  return current.state !== 'processing' || next.state !== 'queued';
+}
+
+export function checkedTask(value) {
+  const validId = id => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(id);
+  if (!value || !validId(value.task_id) || !validId(value.document_id) || !validId(value.revision_id)
+    || !Object.hasOwn(taskNames, value.state) || !Number.isInteger(value.attempt) || value.attempt < 1 || value.attempt > 3
+    || typeof value.can_cancel !== 'boolean' || typeof value.can_retry !== 'boolean'
+    || !(value.error_code === null || (typeof value.error_code === 'string' && /^[A-Za-z0-9_:-]{1,100}$/u.test(value.error_code)))
+    || (value.can_cancel && !taskPending(value))
+    || (value.can_retry && (!['failed', 'cancelled'].includes(value.state) || value.attempt >= 3))) throw new Error('invalid task response');
+  return Object.freeze({ task_id: value.task_id, document_id: value.document_id, revision_id: value.revision_id,
+    state: value.state, attempt: value.attempt, error_code: value.error_code, can_cancel: value.can_cancel, can_retry: value.can_retry });
 }
 
 export function batchFeedback(ids, results) {

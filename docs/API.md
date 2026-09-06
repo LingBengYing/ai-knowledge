@@ -1,5 +1,7 @@
 # HTTP API：当前资料管理契约
 
+0003额外提供显式启用的本机文本摄取接口：[TEXT_INGESTION](TEXT_INGESTION.md)。原始文件POST不是JSON；任务status/cancel/retry无body。默认关闭时保持下方管理基线config，启用后migration_stage=text_ingestion并增加text_upload/ingestions能力，问答/来源仍不可用。
+
 本文只记录当前代码已映射的端点。基础 URL 使用本地配置的 scheme/host/port，默认端口 `18084`；请求与响应使用 JSON。源码依据：[ManagementController](../src/main/java/com/evidence/rag/management/ManagementController.java)、[ManagementModule](../src/main/java/com/evidence/rag/management/ManagementModule.java)、[RuntimeController](../src/main/java/com/evidence/rag/web/RuntimeController.java)、[SessionController](../src/main/java/com/evidence/rag/security/SessionController.java)。
 
 ## 认证与公共约定
@@ -68,7 +70,7 @@ X-Principal-Id: owner
 | --- | --- |
 | `q` | 原文件名或显示名的子串搜索，最多 200 code points；使用 SQLite `lower`，大小写折叠主要覆盖 ASCII，不承诺完整 Unicode casefold；不是全文/向量检索 |
 | `type` | `document` / `image` / `audio` / `video` |
-| `status` | 接受 `ready/processing/failed/cancelled/deleting`；当前仅有 ready 合成行，其他合法状态返回空列表 |
+| `status` | 接受 `ready/queued/processing/parsed/failed/cancelled/deleting`；真实行按任务状态过滤，合成行仍为ready；parsed不等于已索引 |
 | `folder_id` | 指定可见目录 ID；`unfiled` 表示未归档；省略/空字符串不限制目录 |
 | `tag` | 精确手工标签匹配，最多 40 code points |
 | `sort` | `updated_desc`（默认）、`updated_asc`、`name_asc`、`name_desc`；名称使用 SQLite `NOCASE`（主要 ASCII），同值以资料 ID 排序 |

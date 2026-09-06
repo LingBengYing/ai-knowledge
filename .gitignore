@@ -16,6 +16,7 @@ secrets/
 # Runtime data, original uploads, logs and generated binaries
 .data/
 demo-data/
+text-demo-data/
 data/
 uploads/
 *.db
@@ -33,6 +34,8 @@ coverage/
 playwright-report/
 test-results/
 .playwright/
+.playwright-cli/
+output/playwright/
 cookies.txt
 storage-state*.json
 

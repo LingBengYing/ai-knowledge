@@ -1,5 +1,5 @@
-import { createApi, ApiError } from './api.mjs';
-import { WorkbenchState, batchFeedback, parseTags } from './workbench-state.mjs';
+import { createApi, ApiError, validateUpload } from './api.mjs';
+import { WorkbenchState, batchFeedback, parseTags, checkedTask, taskPending, taskLabel } from './workbench-state.mjs';
 import { showNotice } from './notices.mjs';
 
 const $ = id => document.getElementById(id);
@@ -17,6 +17,10 @@ let totalPages = 0;
 let loading = false;
 let searchTimer;
 let dialogIntent = null;
+let taskTimer;
+let taskPollPaused = false;
+
+function ingestionEnabled() { return config?.capabilities?.includes('text_upload') && config.capabilities.includes('ingestions'); }
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -49,7 +53,9 @@ function clearFeedback() {
 
 function resetContext({ identity = false } = {}) {
   clearTimeout(searchTimer);
+  stopTaskPolling();
   state.invalidate();
+  renderTask();
   for (const controller of controllers.values()) controller.abort();
   controllers.clear();
   loading = false;
@@ -100,6 +106,8 @@ async function read(kind, path, success, errorId) {
         renderRows();
         renderDetails();
         renderControls();
+        renderTask();
+        scheduleTask();
       }
     }
   }
@@ -125,7 +133,7 @@ function loadDocuments() {
     totalPages = result.total_pages;
     if (totalPages > 0 && page > totalPages) {
       page = totalPages;
-      state.invalidate();
+      resetContext();
       loadData();
       return;
     }
@@ -177,6 +185,11 @@ function renderControls() {
   const unavailable = !connected || busy;
   $('refresh').disabled = unavailable || loading;
   $('new-folder').disabled = unavailable;
+  $('upload').disabled = unavailable || !ingestionEnabled();
+  $('upload').title = ingestionEnabled() ? 'PDF / TXT / Markdown，1字节至20MiB' : '服务未启用文本上传';
+  for (const id of ['task-refresh', 'task-dismiss']) $(id).disabled = unavailable;
+  $('task-cancel').disabled = unavailable || !state.task?.can_cancel;
+  $('task-retry').disabled = unavailable || !state.task?.can_retry;
   $('select-page').disabled = unavailable || loading || state.items.length === 0;
   $('select-page').checked = state.items.length > 0 && state.selected.size === state.items.length;
   $('select-page').indeterminate = state.selected.size > 0 && state.selected.size < state.items.length;
@@ -237,7 +250,7 @@ function dateLabel(value) {
 }
 
 const types = { document: '文档', image: '图片', audio: '音频', video: '视频' };
-const statuses = { ready: '就绪', processing: '处理中', failed: '失败', cancelled: '已取消' };
+const statuses = { ready: '演示就绪', queued: '等待解析', processing: '正在解析', parsed: '已解析 · 未索引', failed: '解析失败', cancelled: '已取消' };
 const roles = { owner: '所有者', editor: '可编辑', reader: '只读' };
 
 function openDetail(id) {
@@ -265,7 +278,7 @@ function renderRows() {
     return;
   }
   const empty = $('list-empty');
-  empty.replaceChildren(element('strong', connected ? '当前筛选下没有资料' : '请先确认访问身份'), element('p', connected ? '试试清除筛选条件。此开发版不提供上传，请由测试工具通过 Java Module 注入合成资料。' : '只有通过服务器身份验证后，才会显示有权访问的资料。'));
+  empty.replaceChildren(element('strong', connected ? '当前筛选下没有资料' : '请先确认访问身份'), element('p', connected ? (ingestionEnabled() ? '上传PDF、TXT或Markdown，或试试清除筛选条件。解析完成后仍未索引，不能问答。' : '试试清除筛选条件。当前服务未启用文本上传，合成演示资料需由Java显式seed工具创建。') : '只有通过服务器身份验证后，才会显示有权访问的资料。'));
   for (const item of state.items) {
     const row = element('tr');
     row.classList.toggle('active', state.detail?.document_id === item.document_id);
@@ -292,6 +305,7 @@ function renderRows() {
     const updated = element('td', undefined, 'optional');
     updated.append(element('div', dateLabel(item.updated_at)), element('div', roles[item.current_role] ?? '未知权限', 'filename'));
     const action = element('td'); action.append(button('详情', () => openDetail(item.document_id), 'row-detail'));
+    if (ingestionEnabled() && item.latest_job) action.append(button('任务', () => openTask(item), 'row-detail'));
     row.append(checkCell, name, type, classification, status, updated, action);
     rows.append(row);
   }
@@ -328,10 +342,11 @@ function renderDetails() {
   $('close-detail').hidden = !item;
   container.className = item ? '' : 'detail-empty';
   if (!item) {
-    container.append(element('strong', '选择一份资料'), element('p', '点击列表中的名称，查看文件信息并修改显示名称、目录或标签。'), element('p', '当前仅支持整理合成资料，尚无正文、摘要和来源预览。'));
+    container.append(element('strong', '选择一份资料'), element('p', '点击列表中的名称，查看文件信息并修改显示名称、目录或标签。'), element('p', '真实上传资料可查看解析任务，尚无正文、摘要和来源预览。'));
     return;
   }
   container.append(element('h3', item.display_name, 'detail-title'), element('span', item.synthetic_fixture ? 'synthetic_fixture · 合成验证资料' : '资料元数据', 'fixture-badge'));
+  if (ingestionEnabled() && item.latest_job) container.append(button('查看解析任务', () => openTask(item), 'detail-task'));
   const form = element('form', undefined, 'detail-form');
   const name = element('input'); name.id = 'detail-name'; name.value = item.display_name; name.maxLength = 255; name.required = true;
   const folder = folderSelect('detail-folder', item.folder_id);
@@ -375,6 +390,105 @@ function feedback(title, items) {
   $('feedback-items').replaceChildren(...items.map(item => element('li', `${item.ok ? '成功' : '失败'} · ${item.detail}`, item.ok ? '' : 'failed')));
 }
 
+function stopTaskPolling() {
+  clearTimeout(taskTimer);
+  controllers.get('ingestion')?.abort();
+  controllers.delete('ingestion');
+  state.reads.delete('ingestion');
+}
+
+function renderTask() {
+  const task = state.task;
+  $('task-panel').hidden = !task;
+  $('task-metadata').replaceChildren();
+  if (!task) {
+    $('task-status').textContent = '';
+    notice('task-error');
+    return;
+  }
+  $('task-status').textContent = `${taskLabel(task.state)} · 第${task.attempt}/3次尝试${taskPending(task) && !taskPollPaused ? ' · 自动刷新中' : ''}`;
+  for (const [label, value] of [['任务编号', task.task_id], ['资料编号', task.document_id], ['解析版本', task.revision_id], ...(task.error_code ? [['失败代码', task.error_code]] : [])]) {
+    $('task-metadata').append(element('dt', label), element('dd', value));
+  }
+  $('task-cancel').hidden = !task.can_cancel;
+  $('task-retry').hidden = !task.can_retry;
+  $('task-boundary').textContent = task.state === 'parsed'
+    ? '原文件已解析并保存版本化结果，但尚未索引、发布可检索版本或接通问答。'
+    : task.state === 'failed' || task.state === 'cancelled'
+      ? '不会自动重试。只有服务器允许时才能显式重试；最多3次尝试。'
+      : '任务已接收不代表解析完成。关闭或收起此页面不会取消服务器任务，请使用“取消解析”。';
+}
+
+function scheduleTask() {
+  clearTimeout(taskTimer);
+  if (connected && ingestionEnabled() && taskPending(state.task) && !taskPollPaused) taskTimer = setTimeout(loadTask, 1500);
+}
+
+function watchTask(value) {
+  stopTaskPolling();
+  state.watchTask(value);
+  taskPollPaused = false;
+  notice('task-error');
+  renderTask();
+  renderControls();
+  scheduleTask();
+}
+
+function openTask(item) {
+  if (!connected || state.mutating || loading || !ingestionEnabled()) return;
+  try {
+    const task = state.taskForDocument(item.document_id);
+    watchTask(task);
+    $('task-heading').focus();
+    loadTask();
+  } catch { notice('global-error', '任务信息暂时不可用，请刷新资料列表后重试。'); }
+}
+
+async function loadTask() {
+  const task = state.task;
+  if (!task || !connected || !ingestionEnabled()) return;
+  if (state.mutating) { scheduleTask(); return; }
+  stopTaskPolling();
+  const controller = new AbortController();
+  controllers.set('ingestion', controller);
+  const ticket = state.beginRead('ingestion');
+  try {
+    const result = await api(`/v1/ingestions/${encodeURIComponent(task.task_id)}`, { signal: controller.signal });
+    if (!state.commitTask(ticket, result)) return;
+    notice('task-error');
+    renderTask();
+    renderRows();
+    renderControls();
+  } catch (error) {
+    if (error.name === 'AbortError' || !state.isCurrent(ticket)) return;
+    if (authenticationFailed(error)) return;
+    if (error instanceof ApiError && [403, 404].includes(error.status)) {
+      resetContext();
+      notice('global-error', '任务已不可访问，请按当前权限重新查看资料。');
+      await loadData();
+      return;
+    }
+    taskPollPaused = true;
+    notice('task-error', `${messageFor(error)} 自动刷新已暂停，请手动刷新任务核对结果。`);
+    renderTask();
+  } finally {
+    if (state.isCurrent(ticket)) { controllers.delete('ingestion'); scheduleTask(); }
+  }
+}
+
+function taskAction(action) {
+  const before = state.task;
+  if (!before || state.mutating || !ingestionEnabled() || (action === 'cancel' ? !before.can_cancel : !before.can_retry)) return;
+  stopTaskPolling();
+  mutate(() => api(`/v1/ingestions/${encodeURIComponent(before.task_id)}/${action}`, { method: 'POST' }), result => {
+    const task = checkedTask(result);
+    if (task.task_id !== before.task_id || task.document_id !== before.document_id || task.revision_id !== before.revision_id
+      || task.attempt !== before.attempt + (action === 'retry' ? 1 : 0)) throw new Error('invalid task action result');
+    watchTask(task);
+    return loadData();
+  }, 'task-error');
+}
+
 async function mutate(request, success, errorId) {
   if (!connected) return;
   const ticket = state.beginMutation();
@@ -392,6 +506,7 @@ async function mutate(request, success, errorId) {
   } finally {
     renderControls();
     renderFolders();
+    scheduleTask();
   }
 }
 
@@ -433,8 +548,29 @@ function batchDialog(action) {
 $('dialog-form').addEventListener('submit', event => {
   event.preventDefault();
   const intent = dialogIntent;
-  if (!intent) return;
-  if (intent.kind === 'batch') {
+  if (!intent || state.mutating || !connected) return;
+  if (intent.kind === 'upload') {
+    if (!ingestionEnabled()) return;
+    let file;
+    try { file = validateUpload($('upload-file').files[0]); }
+    catch (error) { notice('dialog-error', messageFor(error)); return; }
+    const controller = new AbortController();
+    controllers.set('upload', controller);
+    mutate(async () => {
+      try { return await api(`/v1/documents?filename=${encodeURIComponent(file.name)}`, { method: 'POST', file, signal: controller.signal }); }
+      finally { if (controllers.get('upload') === controller) controllers.delete('upload'); }
+    }, result => {
+      const task = checkedTask(result);
+      closeDialog();
+      $('filters').reset();
+      folderId = ''; page = 1;
+      resetContext();
+      watchTask(task);
+      feedback('上传任务已创建', [{ ok: true, detail: '原文件已接收，正在等待解析；这不是索引或问答完成。' }]);
+      $('task-heading').focus();
+      return loadData();
+    }, 'dialog-error');
+  } else if (intent.kind === 'batch') {
     let body;
     try { body = { document_ids: intent.ids, action: intent.action, ...(intent.action === 'move' ? { folder_id: $('dialog-folder').value || null } : { tags: checkedTags($('dialog-tags').value, true) }) }; }
     catch (error) { notice('dialog-error', messageFor(error)); return; }
@@ -451,7 +587,7 @@ $('dialog-form').addEventListener('submit', event => {
     const body = intent.kind === 'remove' ? undefined : { name: $('dialog-name').value.trim() };
     mutate(() => api(path, { method, body }), () => {
       closeDialog();
-      if (intent.kind === 'remove' && folderId === intent.folder.folder_id) { folderId = ''; page = 1; state.invalidate(); }
+      if (intent.kind === 'remove' && folderId === intent.folder.folder_id) { folderId = ''; page = 1; resetContext(); }
       feedback('目录操作已完成', [{ ok: true, detail: intent.kind === 'remove' ? '空目录已删除，资料未删除。' : '目录名称已保存。' }]);
       return loadData();
     }, 'dialog-error');
@@ -461,6 +597,16 @@ $('dialog-form').addEventListener('submit', event => {
 $('dialog-cancel').addEventListener('click', () => { if (!state.mutating) closeDialog(); });
 $('edit-dialog').addEventListener('cancel', event => { if (state.mutating) event.preventDefault(); else dialogIntent = null; });
 $('new-folder').addEventListener('click', () => folderDialog('create'));
+$('upload').addEventListener('click', () => {
+  if (!ingestionEnabled()) return;
+  const input = element('input'); input.id = 'upload-file'; input.type = 'file'; input.required = true;
+  input.accept = '.pdf,.txt,.md,application/pdf,text/plain,text/markdown';
+  showDialog('上传文本资料', '支持PDF、TXT和Markdown，1字节至20MiB。文件会作为当前身份的资料保存并异步解析；图片、音频和视频暂不支持。', [field('选择原文件', input), element('p', '上传后请查看任务状态。已解析不等于已索引，不能用于问答。', 'help-text')], { kind: 'upload' }, '上传并解析');
+});
+$('task-refresh').addEventListener('click', () => { taskPollPaused = false; notice('task-error'); loadTask(); });
+$('task-cancel').addEventListener('click', () => taskAction('cancel'));
+$('task-retry').addEventListener('click', () => taskAction('retry'));
+$('task-dismiss').addEventListener('click', () => watchTask(null));
 $('batch-move').addEventListener('click', () => batchDialog('move'));
 $('batch-tag').addEventListener('click', () => batchDialog('tag'));
 $('dismiss-feedback').addEventListener('click', clearFeedback);
@@ -536,6 +682,8 @@ async function start() {
     config = await api('/v1/config');
     if (!['development_headers', 'jwt'].includes(config?.auth_mode) || !config.capabilities?.includes('management')) throw new Error('unsupported config');
     api = createApi(config, () => principal);
+    $('scope-title').textContent = ingestionEnabled() ? '当前可用：资料整理 + 文本解析' : '当前可用：资料整理';
+    $('scope-description').textContent = ingestionEnabled() ? '支持PDF/TXT/Markdown真实上传。已解析仍未索引，问答不可用；synthetic_fixture合成资料单独标识。' : '服务尚未启用文本上传。合成资料会单独标识，不代表已完成解析、索引或问答。';
     $('dev-identity').hidden = config.auth_mode !== 'development_headers';
     $('jwt-identity').hidden = config.auth_mode !== 'jwt';
     connected = true;

@@ -1,5 +1,6 @@
 package com.evidence.rag.management;
 
+import com.evidence.rag.corpus.TextParser;
 import com.evidence.rag.shared.Actor;
 import com.evidence.rag.shared.Problem;
 import java.io.IOException;
@@ -9,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -24,6 +26,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -33,8 +37,17 @@ public final class ManagementModule implements AutoCloseable {
   private static final Set<String> ROLES = Set.of("reader", "editor", "owner");
   private static final Set<String> TYPES = Set.of("document", "image", "audio", "video");
   private static final Set<String> STATUS =
-      Set.of("ready", "processing", "failed", "cancelled", "deleting");
+      Set.of("ready", "queued", "processing", "parsed", "failed", "cancelled", "deleting");
   private static final String FORMAT = "evidence-rag-java-management-v1";
+  private static final long MAX_ORIGINAL_BYTES = 256L * 1024 * 1024;
+  private static final int MAX_PENDING_INGESTIONS = 32;
+  private static final Set<String> INGESTION_ERRORS =
+      Set.of(
+          "unsupported_document",
+          "parser_failed",
+          "parser_timeout",
+          "parser_output_invalid",
+          "worker_interrupted");
   private Connection connection;
   private FileChannel lockChannel;
   private FileLock writerLock;
@@ -68,6 +81,11 @@ public final class ManagementModule implements AutoCloseable {
       execute("PRAGMA foreign_keys=ON");
       execute("PRAGMA busy_timeout=5000");
       if (!exists) initialize();
+      if (count("PRAGMA user_version") == 1) {
+        if (exists) backupVersionOne(canonicalDirectory);
+        migrateVersionTwo();
+      }
+      recoverIngestions();
     } catch (IOException | SQLException | RuntimeException error) {
       close();
       throw new IllegalStateException("Cannot open isolated Java library", error);
@@ -165,7 +183,10 @@ public final class ManagementModule implements AutoCloseable {
             predicate.append(" AND d.document_type=?");
             args.add(type);
           }
-          if (status != null && !status.equals("ready")) predicate.append(" AND 0=1");
+          if (status != null) {
+            predicate.append(" AND COALESCE(j.state,'ready')=?");
+            args.add(status);
+          }
           if ("unfiled".equals(folder)) predicate.append(" AND d.folder_id IS NULL");
           else if (folder != null && !folder.isEmpty()) {
             predicate.append(" AND d.folder_id=?");
@@ -176,7 +197,8 @@ public final class ManagementModule implements AutoCloseable {
                 " AND EXISTS(SELECT 1 FROM document_tags t WHERE t.document_id=d.id AND t.tag=?)");
             args.add(tag);
           }
-          String from = " FROM documents d JOIN document_acl acl ON acl.document_id=d.id";
+          String from =
+              " FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN ingestion_jobs j ON j.document_id=d.id";
           long total = count("SELECT COUNT(*)" + from + predicate, args.toArray());
           args.add(size);
           args.add((long) (page - 1) * size);
@@ -203,6 +225,507 @@ public final class ManagementModule implements AutoCloseable {
               size,
               "total_pages",
               (total + size - 1) / size);
+        });
+  }
+
+  /** Internal worker claim; raw source bytes and the fencing token are never HTTP response data. */
+  public record IngestionClaim(
+      String jobId,
+      String documentId,
+      String revisionId,
+      String workspaceId,
+      int attempt,
+      String token,
+      String filename,
+      String mimeType,
+      String parserRevision,
+      byte[] content) {
+    public IngestionClaim {
+      if (content == null) throw invalid();
+      content = content.clone();
+    }
+
+    @Override
+    public byte[] content() {
+      return content.clone();
+    }
+
+    @Override
+    public String toString() {
+      return "IngestionClaim[redacted]";
+    }
+  }
+
+  public synchronized Map<String, Object> uploadDocument(
+      Actor owner, String filename, String mime, byte[] content) {
+    if (owner == null
+        || content == null
+        || content.length == 0
+        || content.length > TextParser.MAX_BYTES) throw invalid();
+    byte[] original = content.clone();
+    try {
+      TextParser.validateEnvelope(filename, mime, original);
+    } catch (TextParser.Failure failure) {
+      throw new Problem(422, "unsupported_document", "仅支持符合文件格式的 PDF、TXT 和 Markdown。");
+    }
+    String canonicalMime =
+        filename.toLowerCase(Locale.ROOT).endsWith(".pdf")
+            ? "application/pdf"
+            : filename.toLowerCase(Locale.ROOT).endsWith(".md") ? "text/markdown" : "text/plain";
+    String sourceHash = sha256(original);
+    return transaction(
+        () -> {
+          checkPendingQuota(owner.workspaceId());
+          long stored =
+              count(
+                  "SELECT COALESCE(SUM(d.size_bytes),0) FROM documents d JOIN corpus_documents c ON c.document_id=d.id WHERE d.workspace_id=?",
+                  owner.workspaceId());
+          if (stored > MAX_ORIGINAL_BYTES - original.length) throw quotaExceeded();
+          String documentId = UUID.randomUUID().toString();
+          String revisionId = UUID.randomUUID().toString();
+          String jobId = UUID.randomUUID().toString();
+          String now = Instant.now().toString();
+          // The legacy column remains an immutable registration ID; never use it for real
+          // retrieval.
+          execute(
+              "INSERT INTO documents VALUES(?,?,?,?,?,?,?,?,?,?,NULL)",
+              documentId,
+              owner.workspaceId(),
+              filename,
+              "document",
+              canonicalMime,
+              revisionId,
+              sourceHash,
+              original.length,
+              now,
+              filename);
+          execute(
+              "INSERT INTO document_acl VALUES(?,?,?)", documentId, owner.principalId(), "owner");
+          execute(
+              "INSERT INTO corpus_revisions(id,document_id,parser_revision,source_sha256,created_at) VALUES(?,?,?,?,?)",
+              revisionId,
+              documentId,
+              TextParser.REVISION,
+              sourceHash,
+              now);
+          execute(
+              "INSERT INTO corpus_documents(document_id,original_blob,initial_revision_id) VALUES(?,?,?)",
+              documentId,
+              original,
+              revisionId);
+          execute(
+              "INSERT INTO ingestion_jobs(id,document_id,revision_id,state,attempt,created_by,created_at,updated_at) VALUES(?,?,?,'queued',1,?,?,?)",
+              jobId,
+              documentId,
+              revisionId,
+              owner.principalId(),
+              now,
+              now);
+          audit(
+              owner,
+              documentId,
+              "ingestion_queued",
+              null,
+              map(
+                  "revision_id",
+                  revisionId,
+                  "source_sha256",
+                  sourceHash,
+                  "size_bytes",
+                  original.length,
+                  "state",
+                  "queued"),
+              Set.of("revision_id", "source_sha256", "size_bytes", "state"));
+          return taskView(authorizedTask(owner, jobId, false));
+        });
+  }
+
+  public synchronized Optional<IngestionClaim> claimIngestion(String workspaceId) {
+    Actor worker = new Actor(workspaceId, "system:ingestion");
+    return transaction(
+        () -> {
+          var queued =
+              rows(
+                  "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' ORDER BY j.created_at,j.id LIMIT 1",
+                  workspaceId);
+          if (queued.isEmpty()) return Optional.empty();
+          String jobId = (String) queued.getFirst().get("id");
+          String token = UUID.randomUUID().toString() + UUID.randomUUID();
+          String now = Instant.now().toString();
+          execute(
+              "UPDATE ingestion_jobs SET state='processing',claim_token_sha256=?,updated_at=? WHERE id=? AND state='queued'",
+              sha256(token.getBytes(StandardCharsets.UTF_8)),
+              now,
+              jobId);
+          var row = internalTask(jobId);
+          audit(
+              worker,
+              (String) row.get("document_id"),
+              "ingestion_claimed",
+              map("state", "queued"),
+              map("state", "processing", "attempt", row.get("attempt")),
+              Set.of("state", "attempt"));
+          return Optional.of(
+              new IngestionClaim(
+                  jobId,
+                  (String) row.get("document_id"),
+                  (String) row.get("revision_id"),
+                  workspaceId,
+                  ((Number) row.get("attempt")).intValue(),
+                  token,
+                  (String) row.get("filename"),
+                  (String) row.get("mime_type"),
+                  (String) row.get("parser_revision"),
+                  (byte[])
+                      rows(
+                              "SELECT original_blob FROM corpus_documents WHERE document_id=?",
+                              row.get("document_id"))
+                          .getFirst()
+                          .get("original_blob")));
+        });
+  }
+
+  public synchronized boolean completeIngestion(IngestionClaim claim, TextParser.Parsed parsed) {
+    return transaction(
+        () -> {
+          var job = currentClaim(claim);
+          if (job == null) return false;
+          if (!TextParser.REVISION.equals(job.get("parser_revision"))
+              || !sha256(claim.content()).equals(job.get("source_sha256")))
+            throw invalidParserOutput();
+          validateParsed(parsed);
+          for (TextParser.Page page : parsed.pages()) {
+            execute(
+                "INSERT INTO corpus_pages VALUES(?,?,?,?)",
+                claim.revisionId(),
+                page.number(),
+                page.text(),
+                sha256(page.text().getBytes(StandardCharsets.UTF_8)));
+          }
+          for (TextParser.Segment segment : parsed.segments()) {
+            String textHash = sha256(segment.text().getBytes(StandardCharsets.UTF_8));
+            String segmentId =
+                sha256(
+                    (claim.workspaceId()
+                            + "\u0000"
+                            + claim.documentId()
+                            + "\u0000"
+                            + claim.revisionId()
+                            + "\u0000"
+                            + segment.ordinal()
+                            + "\u0000"
+                            + textHash)
+                        .getBytes(StandardCharsets.UTF_8));
+            execute(
+                "INSERT INTO corpus_segments VALUES(?,?,?,?,?,?,?,?)",
+                segmentId,
+                claim.revisionId(),
+                segment.ordinal(),
+                segment.page(),
+                segment.start(),
+                segment.end(),
+                segment.text(),
+                textHash);
+          }
+          String now = Instant.now().toString();
+          execute(
+              "UPDATE corpus_revisions SET parsed_at=?,page_count=?,segment_count=? WHERE id=?",
+              now,
+              parsed.pages().size(),
+              parsed.segments().size(),
+              claim.revisionId());
+          execute(
+              "UPDATE corpus_documents SET parsed_revision_id=? WHERE document_id=?",
+              claim.revisionId(),
+              claim.documentId());
+          execute(
+              "UPDATE ingestion_jobs SET state='parsed',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
+              now,
+              claim.jobId());
+          execute("UPDATE documents SET updated_at=? WHERE id=?", now, claim.documentId());
+          audit(
+              new Actor(claim.workspaceId(), "system:ingestion"),
+              claim.documentId(),
+              "ingestion_parsed",
+              map("state", "processing"),
+              map(
+                  "state",
+                  "parsed",
+                  "revision_id",
+                  claim.revisionId(),
+                  "page_count",
+                  parsed.pages().size(),
+                  "segment_count",
+                  parsed.segments().size()),
+              Set.of("state", "revision_id", "page_count", "segment_count"));
+          return true;
+        });
+  }
+
+  public synchronized boolean failIngestion(IngestionClaim claim, String safeCode) {
+    if (safeCode == null || !INGESTION_ERRORS.contains(safeCode)) throw invalid();
+    return transaction(
+        () -> {
+          var job = currentClaim(claim);
+          if (job == null) return false;
+          finishFailed(job, safeCode);
+          return true;
+        });
+  }
+
+  public synchronized boolean isIngestionClaimCurrent(IngestionClaim claim) {
+    return transaction(() -> currentClaim(claim) != null);
+  }
+
+  public synchronized Map<String, Object> ingestionStatus(Actor actor, String jobId) {
+    return transaction(() -> taskView(authorizedTask(actor, jobId, false)));
+  }
+
+  public synchronized Map<String, Object> retryIngestion(Actor actor, String jobId) {
+    return transaction(
+        () -> {
+          var job = authorizedTask(actor, jobId, true);
+          if (!Set.of("failed", "cancelled").contains(job.get("state")))
+            throw new Problem(409, "ingestion_state_conflict", "当前任务状态不能重试。");
+          int attempt = ((Number) job.get("attempt")).intValue();
+          if (attempt >= 3) throw new Problem(409, "ingestion_retry_limit", "该任务已达到三次尝试上限。");
+          checkPendingQuota(actor.workspaceId());
+          execute(
+              "UPDATE ingestion_jobs SET state='queued',attempt=?,claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
+              attempt + 1,
+              Instant.now().toString(),
+              jobId);
+          audit(
+              actor,
+              (String) job.get("document_id"),
+              "ingestion_retried",
+              map("state", job.get("state"), "attempt", attempt),
+              map("state", "queued", "attempt", attempt + 1),
+              Set.of("state", "attempt"));
+          return taskView(authorizedTask(actor, jobId, false));
+        });
+  }
+
+  public synchronized Map<String, Object> cancelIngestion(Actor actor, String jobId) {
+    return transaction(
+        () -> {
+          var job = authorizedTask(actor, jobId, true);
+          if (!Set.of("queued", "processing").contains(job.get("state")))
+            throw new Problem(409, "ingestion_state_conflict", "当前任务状态不能取消。");
+          execute(
+              "UPDATE ingestion_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
+              Instant.now().toString(),
+              jobId);
+          audit(
+              actor,
+              (String) job.get("document_id"),
+              "ingestion_cancelled",
+              map("state", job.get("state")),
+              map("state", "cancelled"),
+              Set.of("state"));
+          return taskView(authorizedTask(actor, jobId, false));
+        });
+  }
+
+  public synchronized TextParser.Parsed parsedEvidence(Actor actor, String documentId) {
+    return transaction(
+        () -> {
+          var visible =
+              rows(
+                  "SELECT c.parsed_revision_id FROM corpus_documents c JOIN documents d ON d.id=c.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND c.parsed_revision_id IS NOT NULL",
+                  documentId,
+                  actor.workspaceId(),
+                  actor.principalId());
+          if (visible.isEmpty()) throw notFound();
+          String revisionId = (String) visible.getFirst().get("parsed_revision_id");
+          var pages =
+              rows(
+                      "SELECT page_number,text FROM corpus_pages WHERE revision_id=? ORDER BY page_number",
+                      revisionId)
+                  .stream()
+                  .map(
+                      row ->
+                          new TextParser.Page(
+                              ((Number) row.get("page_number")).intValue(),
+                              (String) row.get("text")))
+                  .toList();
+          var segments =
+              rows(
+                      "SELECT ordinal,page_number,start_offset,end_offset,text FROM corpus_segments WHERE revision_id=? ORDER BY ordinal",
+                      revisionId)
+                  .stream()
+                  .map(
+                      row ->
+                          new TextParser.Segment(
+                              ((Number) row.get("ordinal")).intValue(),
+                              ((Number) row.get("page_number")).intValue(),
+                              ((Number) row.get("start_offset")).intValue(),
+                              ((Number) row.get("end_offset")).intValue(),
+                              (String) row.get("text")))
+                  .toList();
+          return new TextParser.Parsed(pages, segments);
+        });
+  }
+
+  private Map<String, Object> authorizedTask(Actor actor, String jobId, boolean edit)
+      throws SQLException {
+    if (actor == null) throw invalid();
+    identifier(jobId, 100);
+    var visible =
+        rows(
+            "SELECT j.*,d.filename,acl.role AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=?"
+                + (edit ? " AND acl.role IN ('owner','editor')" : ""),
+            jobId,
+            actor.workspaceId(),
+            actor.principalId());
+    if (visible.isEmpty()) throw notFound();
+    return visible.getFirst();
+  }
+
+  private Map<String, Object> internalTask(String jobId) throws SQLException {
+    var found =
+        rows(
+            "SELECT j.*,d.workspace_id,d.filename,d.mime_type,d.source_sha256,r.parser_revision FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN corpus_documents c ON c.document_id=d.id AND c.initial_revision_id=j.revision_id JOIN corpus_revisions r ON r.id=j.revision_id AND r.document_id=d.id WHERE j.id=?",
+            jobId);
+    return found.isEmpty() ? null : found.getFirst();
+  }
+
+  private Map<String, Object> currentClaim(IngestionClaim claim) throws SQLException {
+    if (claim == null || claim.token() == null || claim.token().length() != 72) return null;
+    var job = internalTask(claim.jobId());
+    if (job == null
+        || !"processing".equals(job.get("state"))
+        || !Objects.equals(claim.workspaceId(), job.get("workspace_id"))
+        || !Objects.equals(claim.documentId(), job.get("document_id"))
+        || !Objects.equals(claim.revisionId(), job.get("revision_id"))
+        || !Objects.equals(claim.filename(), job.get("filename"))
+        || !Objects.equals(claim.mimeType(), job.get("mime_type"))
+        || !Objects.equals(claim.parserRevision(), job.get("parser_revision"))
+        || claim.attempt() != ((Number) job.get("attempt")).intValue()
+        || !MessageDigest.isEqual(
+            sha256(claim.token().getBytes(StandardCharsets.UTF_8))
+                .getBytes(StandardCharsets.US_ASCII),
+            ((String) job.get("claim_token_sha256")).getBytes(StandardCharsets.US_ASCII)))
+      return null;
+    return job;
+  }
+
+  private static Map<String, Object> taskView(Map<String, Object> job) {
+    String state = (String) job.get("state");
+    int attempt = ((Number) job.get("attempt")).intValue();
+    boolean editable = !"reader".equals(job.get("current_role"));
+    return map(
+        "task_id",
+        job.get("id"),
+        "document_id",
+        job.get("document_id"),
+        "revision_id",
+        job.get("revision_id"),
+        "filename",
+        job.get("filename"),
+        "state",
+        state,
+        "status",
+        state,
+        "attempt",
+        attempt,
+        "error_code",
+        job.get("error_code"),
+        "created_at",
+        job.get("created_at"),
+        "updated_at",
+        job.get("updated_at"),
+        "can_retry",
+        editable && attempt < 3 && Set.of("failed", "cancelled").contains(state),
+        "can_cancel",
+        editable && Set.of("queued", "processing").contains(state));
+  }
+
+  private void checkPendingQuota(String workspaceId) throws SQLException {
+    if (count(
+            "SELECT COUNT(*) FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing')",
+            workspaceId)
+        >= MAX_PENDING_INGESTIONS) throw quotaExceeded();
+  }
+
+  private static Problem quotaExceeded() {
+    return new Problem(409, "ingestion_quota_exceeded", "当前组织的待处理任务或原文件存储已达到开发配额。");
+  }
+
+  private static Problem invalidParserOutput() {
+    return new Problem(422, "parser_output_invalid", "解析结果未通过证据完整性校验。");
+  }
+
+  private static void validateParsed(TextParser.Parsed parsed) {
+    if (parsed == null
+        || parsed.pages().isEmpty()
+        || parsed.pages().size() > 500
+        || parsed.segments().isEmpty()
+        || parsed.segments().size() > 4096) throw invalidParserOutput();
+    var pagePoints = new ArrayList<int[]>();
+    long total = 0;
+    for (var page : parsed.pages()) {
+      if (page.number() != pagePoints.size() + 1 || page.text() == null)
+        throw invalidParserOutput();
+      int[] points = page.text().codePoints().toArray();
+      total += points.length;
+      if (total > 1_000_000) throw invalidParserOutput();
+      for (int point : points)
+        if ((Character.isISOControl(point) && point != '\n' && point != '\t' && point != '\f')
+            || (point >= 0xD800 && point <= 0xDFFF)) throw invalidParserOutput();
+      pagePoints.add(points);
+    }
+    int ordinal = 0, previousPage = 0, previousStart = -1;
+    long segmentPoints = 0;
+    for (var segment : parsed.segments()) {
+      if (segment.ordinal() != ordinal++
+          || segment.page() < 1
+          || segment.page() > pagePoints.size()
+          || segment.start() < 0
+          || segment.end() <= segment.start()
+          || segment.end() - segment.start() > 1200
+          || segment.text() == null
+          || segment
+              .text()
+              .codePoints()
+              .allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))
+          || segment.page() < previousPage
+          || (segment.page() == previousPage && segment.start() <= previousStart))
+        throw invalidParserOutput();
+      int[] points = pagePoints.get(segment.page() - 1);
+      if (segment.end() > points.length
+          || !segment
+              .text()
+              .equals(new String(points, segment.start(), segment.end() - segment.start())))
+        throw invalidParserOutput();
+      segmentPoints += segment.end() - segment.start();
+      if (segmentPoints > 1_500_000) throw invalidParserOutput();
+      previousPage = segment.page();
+      previousStart = segment.start();
+    }
+  }
+
+  private void finishFailed(Map<String, Object> job, String safeCode) throws SQLException {
+    execute(
+        "UPDATE ingestion_jobs SET state='failed',claim_token_sha256=NULL,error_code=?,updated_at=? WHERE id=?",
+        safeCode,
+        Instant.now().toString(),
+        job.get("id"));
+    audit(
+        new Actor((String) job.get("workspace_id"), "system:ingestion"),
+        (String) job.get("document_id"),
+        "ingestion_failed",
+        map("state", "processing"),
+        map("state", "failed", "error_code", safeCode),
+        Set.of("state", "error_code"));
+  }
+
+  private void recoverIngestions() {
+    transaction(
+        () -> {
+          for (var row : rows("SELECT id FROM ingestion_jobs WHERE state='processing'"))
+            finishFailed(internalTask((String) row.get("id")), "worker_interrupted");
+          return null;
         });
   }
 
@@ -423,17 +946,29 @@ public final class ManagementModule implements AutoCloseable {
   }
 
   private Map<String, Object> documentView(Map<String, Object> row) throws SQLException {
+    var corpus =
+        rows(
+            "SELECT c.active_revision_id,j.id,j.state,COALESCE(r.segment_count,0) AS segment_count FROM corpus_documents c JOIN ingestion_jobs j ON j.document_id=c.document_id LEFT JOIN corpus_revisions r ON r.id=c.parsed_revision_id WHERE c.document_id=?",
+            row.get("id"));
+    boolean synthetic = corpus.isEmpty();
+    var evidence = synthetic ? Map.<String, Object>of() : corpus.getFirst();
+    Map<String, Object> task = null;
+    if (!synthetic) {
+      var job = internalTask((String) evidence.get("id"));
+      job.put("current_role", row.get("current_role"));
+      task = taskView(job);
+    }
     return map(
         "document_id",
         row.get("id"),
         "filename",
         row.get("filename"),
         "status",
-        "ready",
+        synthetic ? "ready" : evidence.get("state"),
         "active_revision_id",
-        row.get("active_revision_id"),
+        synthetic ? row.get("active_revision_id") : evidence.get("active_revision_id"),
         "segment_count",
-        0,
+        synthetic ? 0 : evidence.get("segment_count"),
         "updated_at",
         row.get("updated_at"),
         "modalities",
@@ -462,10 +997,12 @@ public final class ManagementModule implements AutoCloseable {
         false,
         "can_reindex",
         false,
+        "can_answer",
+        false,
         "latest_job",
-        null,
+        task,
         "synthetic_fixture",
-        true,
+        synthetic,
         "document_type",
         row.get("document_type"));
   }
@@ -621,11 +1158,12 @@ public final class ManagementModule implements AutoCloseable {
   }
 
   private static String digest(Object object) {
+    return sha256(canonical(object).getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static String sha256(byte[] bytes) {
     try {
-      return HexFormat.of()
-          .formatHex(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(canonical(object).getBytes(StandardCharsets.UTF_8)));
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     } catch (NoSuchAlgorithmException impossible) {
       throw new IllegalStateException("SHA-256 unavailable", impossible);
     }
@@ -713,10 +1251,80 @@ public final class ManagementModule implements AutoCloseable {
   }
 
   private void verifyFormat() throws SQLException {
+    long version = count("PRAGMA user_version");
     if (count("PRAGMA application_id") != 1163280711
-        || count("PRAGMA user_version") != 1
-        || count("SELECT COUNT(*) FROM format_info WHERE format=? AND version=1", FORMAT) != 1)
-      throw new IllegalStateException("Unsupported Java database format");
+        || (version != 1 && version != 2)
+        || count("SELECT COUNT(*) FROM format_info WHERE format=? AND version=?", FORMAT, version)
+            != 1) throw new IllegalStateException("Unsupported Java database format");
+  }
+
+  private void backupVersionOne(Path directory) throws IOException, SQLException {
+    Path partial = Files.createTempFile(directory, "java-library.v1-before-v2-", ".partial");
+    execute("VACUUM INTO ?", partial.toString());
+    // A .db suffix denotes a completed consistent snapshot, never a partial VACUUM output.
+    Path complete =
+        partial.resolveSibling(partial.getFileName().toString().replace(".partial", ".db"));
+    Files.move(partial, complete, StandardCopyOption.ATOMIC_MOVE);
+  }
+
+  private void migrateVersionTwo() {
+    transaction(
+        () -> {
+          execute(
+              "CREATE TABLE corpus_revisions(id TEXT PRIMARY KEY,document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,parser_revision TEXT NOT NULL,source_sha256 TEXT NOT NULL,created_at TEXT NOT NULL,parsed_at TEXT,page_count INTEGER NOT NULL DEFAULT 0 CHECK(page_count BETWEEN 0 AND 500),segment_count INTEGER NOT NULL DEFAULT 0 CHECK(segment_count BETWEEN 0 AND 4096),UNIQUE(document_id,id))");
+          execute(
+              "CREATE TABLE corpus_documents(document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE RESTRICT,original_blob BLOB NOT NULL CHECK(length(original_blob) BETWEEN 1 AND 20971520),initial_revision_id TEXT NOT NULL,parsed_revision_id TEXT,active_revision_id TEXT CHECK(active_revision_id IS NULL),FOREIGN KEY(document_id,initial_revision_id) REFERENCES corpus_revisions(document_id,id),FOREIGN KEY(document_id,parsed_revision_id) REFERENCES corpus_revisions(document_id,id))");
+          execute(
+              "CREATE TABLE ingestion_jobs(id TEXT PRIMARY KEY,document_id TEXT NOT NULL UNIQUE REFERENCES corpus_documents(document_id) ON DELETE RESTRICT,revision_id TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('queued','processing','parsed','failed','cancelled')),attempt INTEGER NOT NULL CHECK(attempt BETWEEN 1 AND 3),claim_token_sha256 TEXT,created_by TEXT NOT NULL,error_code TEXT CHECK(error_code IN ('unsupported_document','parser_failed','parser_timeout','parser_output_invalid','worker_interrupted')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(document_id,revision_id) REFERENCES corpus_revisions(document_id,id),CHECK((state='processing' AND claim_token_sha256 IS NOT NULL AND length(claim_token_sha256)=64) OR (state!='processing' AND claim_token_sha256 IS NULL)),CHECK((state='failed' AND error_code IS NOT NULL) OR (state!='failed' AND error_code IS NULL)))");
+          execute(
+              "CREATE TABLE corpus_pages(revision_id TEXT NOT NULL REFERENCES corpus_revisions(id) ON DELETE RESTRICT,page_number INTEGER NOT NULL CHECK(page_number BETWEEN 1 AND 500),text TEXT NOT NULL,text_sha256 TEXT NOT NULL,PRIMARY KEY(revision_id,page_number))");
+          execute(
+              "CREATE TABLE corpus_segments(id TEXT PRIMARY KEY,revision_id TEXT NOT NULL,ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 4095),page_number INTEGER NOT NULL,start_offset INTEGER NOT NULL CHECK(start_offset>=0),end_offset INTEGER NOT NULL CHECK(end_offset>start_offset AND end_offset-start_offset<=1200),text TEXT NOT NULL,text_sha256 TEXT NOT NULL,UNIQUE(revision_id,ordinal),FOREIGN KEY(revision_id,page_number) REFERENCES corpus_pages(revision_id,page_number) ON DELETE RESTRICT)");
+          execute("CREATE INDEX ingestion_state ON ingestion_jobs(state,created_at,id)");
+          execute(
+              "CREATE TRIGGER corpus_source_identity BEFORE UPDATE OF document_id,original_blob,initial_revision_id ON corpus_documents BEGIN SELECT RAISE(ABORT,'immutable corpus source'); END");
+          execute(
+              "CREATE TRIGGER corpus_pointer_identity BEFORE UPDATE OF parsed_revision_id ON corpus_documents WHEN OLD.parsed_revision_id IS NOT NULL OR NEW.parsed_revision_id IS NULL OR NEW.parsed_revision_id!=OLD.initial_revision_id OR NOT EXISTS(SELECT 1 FROM corpus_revisions r WHERE r.id=NEW.parsed_revision_id AND r.parsed_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'invalid parsed revision'); END");
+          execute(
+              "CREATE TRIGGER corpus_revision_identity BEFORE UPDATE OF id,document_id,parser_revision,source_sha256,created_at ON corpus_revisions BEGIN SELECT RAISE(ABORT,'immutable revision identity'); END");
+          execute(
+              "CREATE TRIGGER corpus_revision_frozen BEFORE UPDATE ON corpus_revisions WHEN OLD.parsed_at IS NOT NULL BEGIN SELECT RAISE(ABORT,'immutable parsed revision'); END");
+          execute(
+              "CREATE TRIGGER ingestion_identity BEFORE UPDATE OF id,document_id,revision_id,created_by,created_at ON ingestion_jobs BEGIN SELECT RAISE(ABORT,'immutable ingestion identity'); END");
+          execute(
+              "CREATE TRIGGER ingestion_transition BEFORE UPDATE ON ingestion_jobs WHEN NOT ((OLD.state='queued' AND NEW.state IN ('processing','cancelled') AND NEW.attempt=OLD.attempt) OR (OLD.state='processing' AND NEW.state IN ('parsed','failed','cancelled') AND NEW.attempt=OLD.attempt) OR (OLD.state IN ('failed','cancelled') AND NEW.state='queued' AND NEW.attempt=OLD.attempt+1)) BEGIN SELECT RAISE(ABORT,'invalid ingestion transition'); END");
+          for (String table :
+              List.of(
+                  "corpus_documents",
+                  "corpus_revisions",
+                  "corpus_pages",
+                  "corpus_segments",
+                  "ingestion_jobs")) {
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_no_delete BEFORE DELETE ON "
+                    + table
+                    + " BEGIN SELECT RAISE(ABORT,'immutable corpus history'); END");
+          }
+          for (String table : List.of("corpus_pages", "corpus_segments")) {
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_no_update BEFORE UPDATE ON "
+                    + table
+                    + " BEGIN SELECT RAISE(ABORT,'immutable corpus evidence'); END");
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_frozen BEFORE INSERT ON "
+                    + table
+                    + " WHEN EXISTS(SELECT 1 FROM corpus_revisions r WHERE r.id=NEW.revision_id AND r.parsed_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'immutable parsed evidence'); END");
+          }
+          execute("UPDATE format_info SET version=2 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=2");
+          return null;
+        });
   }
 
   private void initialize() {

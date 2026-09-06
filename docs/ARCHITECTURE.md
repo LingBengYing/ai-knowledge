@@ -1,8 +1,12 @@
 # Architecture：当前实现与未来边界
 
+## 当前0003增量
+
+0003在0001/0002管理和协议基线上接通[TEXT_INGESTION](TEXT_INGESTION.md)：独立Java解析进程、持久任务/原文件/证据，显式本机opt-in，不接模型索引/答案、不解除生产gate。当前链路和迁移以该文档及[0003 spec](changes/0003-text-ingestion/spec.md)为准；[API](API.md)记录可选路由，验收以[VERIFICATION](VERIFICATION.md)为准。
+
 ## 交付边界
 
-这是独立的 Java / Spring Boot 资料管理应用，当前运行模式为 `management_slice`。可整理合成资料元数据，另有独立文本解析 Module；没有接通上传、语料发布、检索、问答或多模态处理。完整能力状态见 [ROADMAP](ROADMAP.md)，当前接口见 [API](API.md)。
+这是独立的 Java / Spring Boot 资料管理应用，默认运行模式为 `management_slice`，显式启用本机摄取后为`text_ingestion`。可整理合成或真实上传资料；文本解析结果持久化为parsed，没有接通索引发布、检索、问答或多模态处理。完整能力状态见 [ROADMAP](ROADMAP.md)，当前接口见 [API](API.md)。
 
 [pom.xml](../pom.xml)声明 Java 21 编译目标、Spring Boot 4.1.1、SQLite JDBC 与 PDFBox。运行时版本和测试结果以 [VERIFICATION](VERIFICATION.md) 为准。启用虚拟线程不构成性能承诺，尚无可比较的吞吐/延迟基准。
 
@@ -19,8 +23,13 @@ ManagementController → ManagementModule → 独立 SQLite java-library.db
 
 CLI --seed-demo → DemoFixtures → ManagementModule
 
-TextParser.parse(...) → Page / Segment
-  独立库入口；当前没有通向 HTTP、worker、数据库或模型的运行时连接
+UploadServlet → ManagementModule (original BLOB + revision + persistent task)
+  → IngestionRuntime claim → ProcessTextParser → independent ParserWorker JVM
+  → TextParser.parse(...) → bounded/validated Page + Segment
+  → ManagementModule conditional claim commit → parsed, active=null
+
+TextModels / RetrievalProjection
+  独立协议 Module，尚未连接索引发布或问答运行时
 ```
 
 ## Module / Interface / Implementation / Adapter
@@ -31,7 +40,8 @@ TextParser.parse(...) → Page / Segment
 | --- | --- | --- |
 | Management | `listDocuments`、`updateDocument`、目录/标签/批量操作；统一 ACL、事务、只允许元数据改动 | [ManagementModule](../src/main/java/com/evidence/rag/management/ManagementModule.java)封装 JDBC；[ManagementController](../src/main/java/com/evidence/rag/management/ManagementController.java)是 HTTP Adapter；[模块测试](../src/test/java/com/evidence/rag/management/ManagementModuleTest.java) |
 | Authentication | `authenticate(request)` / `exchangeToken(token)` 返回 `Actor` | [AuthenticationModule](../src/main/java/com/evidence/rag/security/AuthenticationModule.java)、[过滤器](../src/main/java/com/evidence/rag/security/AuthenticationFilter.java)与[会话 Adapter](../src/main/java/com/evidence/rag/security/SessionController.java)；[JWT HTTP 测试](../src/test/java/com/evidence/rag/security/JwtHttpTest.java) |
-| Text parsing | `parse(filename, mime, content)` 返回不可变 `Parsed` | [TextParser](../src/main/java/com/evidence/rag/corpus/TextParser.java)封装 PDFBox、UTF-8 解码与分块；[解析测试](../src/test/java/com/evidence/rag/corpus/TextParserTest.java)，未连接业务运行路径 |
+| Text parsing | `parse(filename, mime, content)` 返回不可变 `Parsed` | [TextParser](../src/main/java/com/evidence/rag/corpus/TextParser.java)封装 PDFBox、UTF-8 解码与分块；运行时通过[ProcessTextParser](../src/main/java/com/evidence/rag/corpus/ProcessTextParser.java)隔离进程，父进程重新验证输出 |
+| Text ingestion | 原子上传、claim/attempt、当前ACL、取消/重试、解析结果提交 | ManagementModule保留单连接；[IngestionRuntime](../src/main/java/com/evidence/rag/ingestion/IngestionRuntime.java)不在事务内解析，[UploadServlet](../src/main/java/com/evidence/rag/ingestion/UploadServlet.java)只负责有界接收 |
 | Browser state | 身份变化使旧票据失效；只接受当前有效读写结果 | [workbench-state.mjs](../src/main/resources/static/workbench-state.mjs)、[notices.mjs](../src/main/resources/static/notices.mjs)；[UI tests](../ui-tests/) |
 | Runtime / HTTP boundary | 配置验证、能力声明、安全错误与响应头 | [RagProperties](../src/main/java/com/evidence/rag/config/RagProperties.java)、[RuntimeGuard](../src/main/java/com/evidence/rag/config/RuntimeGuard.java)、[RuntimeController](../src/main/java/com/evidence/rag/web/RuntimeController.java)、[ProblemHandler](../src/main/java/com/evidence/rag/web/ProblemHandler.java) |
 
@@ -63,7 +73,7 @@ TextParser.parse(...) → Page / Segment
 
 [ManagementModule](../src/main/java/com/evidence/rag/management/ManagementModule.java)持有一个数据库连接；公共操作 `synchronized`，事务使用 `BEGIN IMMEDIATE`，锁等待上限配置为 5 秒。生命周期文件锁 `.java-library.lock` 阻止同一规范化目录被第二个 Java writer 打开。当前不是多副本或分布式数据库架构。
 
-- 数据库为 `java-library.db`，具有独立格式标记 `evidence-rag-java-management-v1`。
+- 数据库为 `java-library.db`，保留独立格式标记 `evidence-rag-java-management-v1`，v2由format_info与PRAGMA user_version共同标识；v1备份后事务迁移，详见TEXT_INGESTION。
 - 拒绝带旧 `rag.db` / `authority.db` 的目录、危险符号链接和不匹配的数据库格式；不就地复用其他实现数据库。
 - `documents` 保存合成源身份及可编辑展示元数据，`document_acl` 保存 `reader/editor/owner`，`folders`、`document_tags` 和 `management_audit` 保存整理状态。
 - 所有列表、总数和分页 SQL 先约束组织与 ACL；目录可见性来自目录所有者或其中有权访问的资料，目录计数只计算当前用户可见资料。
@@ -71,7 +81,7 @@ TextParser.parse(...) → Page / Segment
 - SQLite 触发器保护源身份与审计记录；元数据变更和审计在同一事务内。批量操作逐项事务，允许部分成功并返回逐项回执。
 - 审计 Interface 只返回当前 actor 最近至多 100 条；没有 HTTP 审计端点。审计保存字段名及前后值的摘要，不保存这些前后值的明文；这是本地追踪，不是外部不可篡改审计系统。
 
-合成记录的 `active_revision_id` 仅是演示元数据。当前没有真实 active revision 发布机制、持久化证据分块或可用于生成答案的 corpus authority。
+合成记录的`active_revision_id`仅是演示元数据。真实页/分块已持久化在v2 corpus sidecar中，真实active指针仍强制null；没有索引发布或可供答案使用的active corpus。不能使用legacy documents注册revision替代检索authority。
 
 ## 身份与浏览器信任边界
 
@@ -81,11 +91,11 @@ TextParser.parse(...) → Page / Segment
 - `/v1/` 写请求若携带 Origin，必须单一且与请求 scheme/host/port 精确同源。无 Origin 的非浏览器调用仍需正常身份；不要描述成独立 CSRF token 机制。
 - [RequestContextFilter](../src/main/java/com/evidence/rag/web/RequestContextFilter.java)设置请求编号、no-store、nosniff、no-referrer 与同源 CSP；错误响应不输出内部异常、令牌、源码正文或堆栈。
 - 浏览器使用 `credentials: same-origin`，不将 JWT 放入 localStorage / sessionStorage；输入提交后清空。身份切换与异步读取用 epoch/ticket 限制旧结果回写。列表切换后的选中项和详情以当前状态为界，批量失败不会被成功回执覆盖。
-- 不可信展示文字使用文本节点渲染；未迁移的上传、提问、摘要、来源及生命周期按钮明确不可用。
+- 不可信展示文字使用文本节点渲染；文本上传仅在两项后端capability同时开启时可用，提问、摘要、来源及生命周期按钮仍不可用。任务重开从当前授权行解析，旧身份、旧attempt或旧详情闭包不得回填。
 
 ## 独立 TextParser 的实际能力
 
-`TextParser.REVISION = java-text-parser-v1-codepoints`。输入为内存 `byte[]` 与文件名/MIME，输出：
+`TextParser.REVISION = java-text-parser-v2-monotonic-codepoints`（0001/0002的独立解析版本为v1）。输入为内存 `byte[]` 与文件名/MIME，输出：
 
 ```text
 Parsed(pages, segments)
@@ -97,12 +107,12 @@ PDF 按页抽取文本；TXT / MD 严格按 UTF-8 解码。统一换行，移除
 
 边界：文件 1 字节至 20 MiB；文件名不含路径分隔符，后缀与 MIME/文件头匹配；PDF 最多 500 页，加密 PDF 拒绝；总抽取文本不超过 1,000,000 code points；无可用文本则失败。它不做 OCR、表格语义还原、图像理解、音频转写或视频抽帧。
 
-这些限制**不等于解析沙箱**：当前同进程 PDFBox 没有独立 worker、强制 CPU/内存隔离或总执行时限。未完成隔离与生命周期设计前不能对外开放不可信上传。
+这些限制**不等于OS解析沙箱**：直接调用TextParser仍是同进程，应用摄取必须经过独立ProcessTextParser JVM的资源/并发/总deadline约束。它不隔离宿主文件系统或网络，仅允许本机显式开发，生产还需容器级隔离与验收。
 
 四份[合成 PDF](../src/test/resources/corpus/)和 [golden](evals/golden.json)保留解析回归及未来 RAG acceptance 的输入。解析器把恶意指令与其他组织文字作为数据抽取，是预期行为；这本身不证明未来模型会拒绝提示注入或越权检索。
 
 ## 未来连接，尚未实现
 
-目标链路是“受限上传 → 隔离解析任务 → 权威 revision/segment → 标准 OpenAI-compatible 模型 Adapter → Milvus 投影 → ACL/选中范围内混合检索与重排 → 服务端证据校验 → 有据回答/拒答”。每个箭头均需独立的失败测试、真实集成与相应验收；不能以这条目标链路宣称当前可用。
+目标链路是“受限上传 → 隔离解析任务 → 权威 revision/segment → 标准 OpenAI-compatible 模型 Adapter → Milvus 投影 → ACL/选中范围内混合检索与重排 → 服务端证据校验 → 有据回答/拒答”。0003到持久解析证据为止，后续模型/投影箭头尚未连接；每段均需独立失败测试、真实集成与相应验收。
 
 下一切、安全 invariant 和生产 gate 见 [ROADMAP](ROADMAP.md)；实际验证结论仅由 [VERIFICATION](VERIFICATION.md)记录。

@@ -74,6 +74,30 @@ class TextParserTest {
   }
 
   @Test
+  void whitespaceOverlapHasMonotonicLocatorsAndPreservesEveryNonSpaceCodePoint() {
+    for (String gap : List.of(" ", "\u00A0", "\u3000")) {
+      for (String token : List.of("x", "批准", "😀")) {
+        String content = gap.repeat(1100) + token + gap.repeat(200) + "禁止y🚫";
+        var parsed = parser.parse("spacing.txt", "text/plain", bytes(content));
+        assertLocators(parsed);
+        int previousStart = -1;
+        var covered = new java.util.BitSet();
+        for (var segment : parsed.segments()) {
+          assertTrue(
+              segment.start() > previousStart, "Same-page locators must advance after trimming");
+          assertTrue(segment.end() - segment.start() <= 1200);
+          covered.set(segment.start(), segment.end());
+          previousStart = segment.start();
+        }
+        int[] points = content.codePoints().toArray();
+        for (int i = 0; i < points.length; i++)
+          if (!Character.isWhitespace(points[i]) && !Character.isSpaceChar(points[i]))
+            assertTrue(covered.get(i), "Every non-space code point must remain in evidence");
+      }
+    }
+  }
+
+  @Test
   void maintainsPageNumbersAndRejectsEncryptedOrEmptyPdfs() throws Exception {
     var parsed = parser.parse("policy.pdf", "application/pdf", pdf(false, true));
     assertEquals(2, parsed.pages().size());
@@ -123,7 +147,7 @@ class TextParserTest {
     var parsed = parser.parse("plain.TXT", "application/octet-stream", bytes("中文 policy 650."));
     assertThrows(UnsupportedOperationException.class, () -> parsed.pages().clear());
     assertThrows(UnsupportedOperationException.class, () -> parsed.segments().clear());
-    assertEquals("java-text-parser-v1-codepoints", TextParser.REVISION);
+    assertEquals("java-text-parser-v2-monotonic-codepoints", TextParser.REVISION);
   }
 
   static byte[] bytes(String value) {

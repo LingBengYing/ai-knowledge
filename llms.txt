@@ -20,4 +20,6 @@
 
 ## Important limitations
 
-No upload, ingestion worker, vector search, answer generation, citation serving or multimodal endpoints are enabled. The isolated PDF/TXT/Markdown TextParser is not an HTTP ingestion pipeline. Metadata samples and parser regressions do not demonstrate RAG retrieval quality. Production readiness intentionally returns 503. Search engine or AI indexing is not guaranteed by this navigation file.
+Text ingestion is opt-in on literal loopback only: authenticated PDF/TXT/Markdown upload, persistent tasks, a separate bounded Java parser process, and persisted page/segment evidence. Parsed is NOT indexed or answerable. Vector search, answer generation, citation serving and multimodal endpoints remain unwired. Metadata samples and parser regressions do not demonstrate RAG retrieval quality. Process separation is not an OS sandbox; production readiness intentionally returns 503. Search engine or AI indexing is not guaranteed by this navigation file.
+# Current work: docs/changes/0003-text-ingestion/ (LOCAL_VERIFIED); full Java migration remains IMPLEMENTATION.
+# Read docs/TEXT_INGESTION.md and current docs/VERIFICATION.md before making capability claims.
