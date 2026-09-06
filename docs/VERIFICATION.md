@@ -36,12 +36,16 @@ TextParser 在空实现上首次运行 6 项测试，其中 5 项报错；实现
 
 ## GitHub 状态
 
-已配置 [Java 21 CI](../.github/workflows/verify.yml)，但截至准备提交时尚未在 GitHub 执行：现有连接可读仓库，写入返回 403，本机 SSH / GitHub CLI 尚未有可用登录。该阻断与代码测试结果分开，不能宣称已经上传或远端 CI 通过。需要仓库写入授权后正常 push，不强制改写历史。
+2026-09-06，负责人完成 GitHub CLI 网页登录后，已正常推送到公开仓库 `LingBengYing/ai-knowledge` 的 `main`。首次源码提交为 [6bfeba9](https://github.com/LingBengYing/ai-knowledge/commit/6bfeba9db5227fa7aa94fd5ae0528350dde230c2)，远端 SHA 已回读核对；没有 force-push，也没有将登录凭据写入仓库。此前 integration 的 403 是历史阻断，现已通过负责人授权的 Git 登录完成上传。
+
+[首次 Java 21 CI](https://github.com/LingBengYing/ai-knowledge/actions/runs/34031531932) 已实际触发；后续提交的运行结果以 [Actions](https://github.com/LingBengYing/ai-knowledge/actions) 为准。不能把上传、工作流配置或排队状态本身当作 CI 通过。工作流执行 Java 21、31 项 Node 测试、全历史凭据扫描、Maven verify 及双覆盖门禁，不调用真实模型。
+
+推送前再次检查：67 个跟踪文件、工作树 clean、历史扫描无命中；[source-manifest](source-manifest.json) 中45个源码/测试/构建文件逐项与 HEAD 相同。聚合指纹按路径排序后连接 `path + NUL + sha256 + LF`，对其 UTF-8 字节求 SHA-256。发布状态文档不属于该源码指纹；Git 提交身份另外绑定完整仓库。
 
 ## 明确未验收
 
 - Java 上传/worker/Milvus/三类模型/问答/引用、删除/重建、图片/音频/视频均未完成。
 - `docs/evals/golden.json` 的6个问答预期尚未在 Java RAG 上执行；不能从 PDF 提取测试推导 recall、grounding 或拒答质量。
-- 本地尚未执行 JDK 21 运行，GitHub Actions 已配置 JDK 21，实际 run 结果以 Actions 为准。
+- 本地测试环境仍为 JDK 22；JDK 21 的独立 CI 证据见上方运行页，不等同目标生产镜像验证。
 - 未重新执行浏览器全流程；未进行真实 provider/Milvus 集成、吞吐对比、生产迁移/恢复或发布审批。
 - 可公开阅读源码不等于生产安全、可横向扩展或可处理真实机密资料。
