@@ -1,0 +1,46 @@
+# Secrets and local environment (only the reviewed empty example is publishable)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+credentials*
+secrets/
+
+# Runtime data, original uploads, logs and generated binaries
+.data/
+demo-data/
+data/
+uploads/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.log
+*.pid
+*.jar
+*.class
+target/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+.playwright/
+cookies.txt
+storage-state*.json
+
+# Local tooling
+.DS_Store
+.idea/
+.vscode/
+*.iml
+.codex/
+.agents/
+.mvn/maven.config

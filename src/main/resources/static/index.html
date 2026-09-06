@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>资料管理 · Java 开发版</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#documents-heading">跳到资料列表</a>
+  <header class="topbar">
+    <div><span class="brand">证据知识库</span><span class="edition">JAVA</span></div>
+    <span class="development">Java 迁移开发版 · 非生产</span>
+  </header>
+  <div class="scope-notice"><strong>当前可用：资料整理</strong><span>本页资料为 synthetic_fixture 合成验证数据，不代表已完成上传、检索或模型处理。</span></div>
+  <section class="identity-bar" aria-label="访问身份">
+    <span id="identity-status" role="status">正在读取服务配置…</span>
+    <form id="dev-identity" hidden>
+      <label for="principal">开发身份</label><input id="principal" name="principal" value="owner" maxlength="100" autocomplete="off" required>
+      <button type="submit">切换身份</button>
+    </form>
+    <form id="jwt-identity" hidden>
+      <label for="token">访问凭证</label><input id="token" name="token" type="password" maxlength="16384" autocomplete="off" spellcheck="false" required>
+      <button type="submit">建立安全会话</button><button id="sign-out" type="button">退出会话</button>
+    </form>
+  </section>
+  <p id="global-error" class="notice error" role="alert" hidden></p>
+  <main class="layout">
+    <aside class="sidebar" aria-labelledby="folders-heading">
+      <div class="section-heading"><h2 id="folders-heading">资料目录</h2><button id="new-folder" type="button" disabled>新建</button></div>
+      <nav id="folder-list" aria-label="按目录筛选"></nav>
+      <p id="folder-error" class="notice error" role="alert" hidden></p>
+      <div class="migration-list"><h3>后续迁移</h3><p>上传资料、处理中心、问答、来源查看、重建和删除尚未迁移。</p><p>整理不会调用嵌入、重排或生成模型。</p></div>
+    </aside>
+    <section class="workspace" aria-labelledby="documents-heading">
+      <div class="section-heading page-heading"><div><p class="eyebrow">KNOWLEDGE / MANAGEMENT</p><h1 id="documents-heading" tabindex="-1">资料管理</h1></div><div class="header-actions"><button id="refresh" type="button" disabled>刷新</button><button type="button" disabled title="Java 首纵切尚未提供上传">上传 · 迁移中</button><button type="button" disabled title="Java 首纵切尚未提供问答">问答 · 迁移中</button></div></div>
+      <form id="filters" class="filters" aria-label="资料筛选">
+        <label class="search-field" for="search">搜索资料<input id="search" name="q" type="search" maxlength="200" placeholder="按显示名称或原文件名搜索"></label>
+        <label for="type">类型<select id="type" name="type"><option value="">全部类型</option><option value="document">文档</option><option value="image">图片</option><option value="audio">音频</option><option value="video">视频</option></select></label>
+        <label for="status">状态<select id="status" name="status"><option value="">全部状态</option><option value="ready">就绪</option><option value="processing">处理中</option><option value="failed">失败</option><option value="cancelled">已取消</option></select></label>
+        <label for="tag">标签<select id="tag" name="tag"><option value="">全部标签</option></select></label>
+        <label for="sort">排序<select id="sort" name="sort"><option value="updated_desc">最近更新</option><option value="updated_asc">最早更新</option><option value="name_asc">名称正序</option><option value="name_desc">名称倒序</option></select></label>
+        <button id="clear-filters" type="button">重置</button>
+      </form>
+      <div class="list-summary"><span id="list-count">尚未加载资料</span><span id="current-folder">全部资料</span></div>
+      <div class="batch-bar" aria-label="当前页批量操作"><strong id="selection-count">已选 0 项</strong><span class="muted">仅当前页</span><button id="batch-move" type="button" disabled>移动到目录</button><button id="batch-tag" type="button" disabled>添加标签</button><button id="clear-selection" type="button" disabled>清空选择</button></div>
+      <p id="list-error" class="notice error" role="alert" hidden></p>
+      <div class="table-scroll" id="table-region" aria-busy="false">
+        <table><thead><tr><th class="check-cell"><input id="select-page" type="checkbox" aria-label="全选当前页资料" disabled></th><th scope="col">名称 / 原文件名</th><th scope="col" class="optional">类型 / 大小</th><th scope="col" class="optional">目录 / 标签</th><th scope="col">状态</th><th scope="col" class="optional">更新 / 权限</th><th scope="col" class="action-cell">操作</th></tr></thead><tbody id="document-rows"></tbody></table>
+        <div id="list-empty" class="empty-state"><strong>连接 Java 资料服务</strong><p>配置和身份确认后显示当前有权访问的资料。</p></div>
+      </div>
+      <footer class="pagination"><label for="page-size">每页<select id="page-size"><option value="20">20 条</option><option value="50">50 条</option><option value="100">100 条</option></select></label><span id="page-label">第 0 / 0 页</span><button id="previous-page" type="button" disabled>上一页</button><button id="next-page" type="button" disabled>下一页</button></footer>
+      <section id="operation-feedback" class="feedback" aria-live="polite" hidden><div class="section-heading"><h2 id="feedback-title">操作结果</h2><button id="dismiss-feedback" type="button">收起结果</button></div><ul id="feedback-items"></ul></section>
+    </section>
+    <aside id="details" class="details" aria-labelledby="detail-heading"><div class="section-heading"><h2 id="detail-heading">资料详情</h2><button id="close-detail" type="button" hidden>关闭</button></div><div id="detail-content" class="detail-empty"><strong>选择一份资料</strong><p>点击列表中的名称，查看文件信息并修改显示名称、目录或标签。</p><p>当前仅支持整理合成资料，尚无正文、摘要和来源预览。</p></div></aside>
+  </main>
+  <dialog id="edit-dialog" aria-labelledby="dialog-title"><form id="dialog-form"><h2 id="dialog-title">整理资料</h2><p id="dialog-description"></p><div id="dialog-fields"></div><p id="dialog-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button id="dialog-cancel" type="button">取消</button><button id="dialog-submit" class="primary" type="submit">确认</button></div></form></dialog>
+  <noscript><p class="notice error">资料管理需要启用 JavaScript，未启用时不会提交任何操作。</p></noscript>
+</body>
+</html>

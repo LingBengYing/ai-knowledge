@@ -1,0 +1,225 @@
+{
+  "scope": "public_java_management_and_library_parser_snapshot",
+  "production_attestation": false,
+  "generated_at": "2026-09-06T10:52:32.630Z",
+  "java_runtime": "22.0.2",
+  "compiler_release": 21,
+  "junit": {
+    "tests": 100,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "ui_tests": 20,
+  "counters": {
+    "INSTRUCTION": {
+      "missed": 89,
+      "covered": 4621
+    },
+    "BRANCH": {
+      "missed": 53,
+      "covered": 518
+    },
+    "LINE": {
+      "missed": 15,
+      "covered": 820
+    },
+    "COMPLEXITY": {
+      "missed": 52,
+      "covered": 369
+    },
+    "METHOD": {
+      "missed": 3,
+      "covered": 129
+    },
+    "CLASS": {
+      "missed": 0,
+      "covered": 21
+    }
+  },
+  "source_file_count": 45,
+  "source_fingerprint_sha256": "ea2ed80c8fc2ddc9b7e98369b949b4106faaa6fe3f6f17397e3dcd355c5cb661",
+  "jar_sha256": "302bcc4e2cf44b710a322d48217e1466028ae9b476623fb9628a2ed424079d14",
+  "files": [
+    {
+      "path": ".mvn/settings.xml",
+      "sha256": "ad42eef43ca9d86c82a15cb120f7f0e8fd974cdbbf7ae85fcf041add8bc68875"
+    },
+    {
+      "path": "pom.xml",
+      "sha256": "fe543bd86062036640e7b4cb87fc69697b216171898d62bd0aecc27d9a6028e8"
+    },
+    {
+      "path": "run-dev.sh",
+      "sha256": "ccb927e2a7dd8a4e6efd769646072da2f53721ab4c606d124533b88002f87ffc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/RagApplication.java",
+      "sha256": "d1ab4b83d10e7dbff57a8dcd6a5ca802116bba81822a0e151dbf469c08d9dff6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/DemoFixtures.java",
+      "sha256": "96e329611f9d7abd8a6983248ff8044e887d3e7af494741f6ff3edac4016cb30"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RagProperties.java",
+      "sha256": "26b8cf1656353e903bbcd5dd1cbe4df48ea630c62c18dc77531817f834916f79"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RuntimeGuard.java",
+      "sha256": "379c27f69c915cae0413855b262b7ee5fd49034e50a788e30f575a7370a3149a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/corpus/TextParser.java",
+      "sha256": "09dc1350c15ebf438f0e2e04d28d6b2d75557254e665c281db22f18536f9e817"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/management/ManagementController.java",
+      "sha256": "84264aff4c123c58e62da1a959ba370703948f1772aa8207b1bd3dad88941079"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/management/ManagementModule.java",
+      "sha256": "a94f878ad8dfcd99e6e6e84d6c2e9015f548b7874b529981dabf93729b4734b4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/AuthenticationConfiguration.java",
+      "sha256": "cd71728135d6ba8a1f7fe60450c5331096c754c862a248d1cf408f17069dac30"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/AuthenticationFilter.java",
+      "sha256": "85e0ddc6b40fa2b954ca7961be7d38e573f9ca8a941bd14d0ac56ba47b41303b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/AuthenticationModule.java",
+      "sha256": "7f154953cb6a48c8cbe5b6544eced4aaa0da8c648d5517e3c1a1fdfa6a7fe222"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/SessionController.java",
+      "sha256": "6059acb001576d773454740230b4d722eb308518bb3d0af9818c08387907715a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/shared/Actor.java",
+      "sha256": "8f36333c8faceae0e08a76095c3a4a0a889b47b02a780c9bde7dd67c79bc8b3a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/shared/Problem.java",
+      "sha256": "7ed4c3f1e6e2511751da34cc06f047a97698e30ee854b0e61e6777b0f09e8599"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/ProblemHandler.java",
+      "sha256": "410277d03df31f4a59ed951b2c02b6ee056bd72c754ebfb8ba79ea4efc909799"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/RequestContextFilter.java",
+      "sha256": "2da977baeff05d56a3721d4ecc5a7cf427c0758f2aa91785bb3df17ecda17c81"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/RuntimeController.java",
+      "sha256": "2d87f8b10bbe37f10afd44e59cbf68577b3b0eb62da6e84a1f3211af182ef81a"
+    },
+    {
+      "path": "src/main/resources/application.properties",
+      "sha256": "f493751755aab664f048bcde8e14e410a948e45a3d4d9b5d94b65a27bbf69ff5"
+    },
+    {
+      "path": "src/main/resources/static/api.mjs",
+      "sha256": "fb1173ebd5f443458a2eef1fa412a7ca84b088ac3a0291967214a5f780e390ed"
+    },
+    {
+      "path": "src/main/resources/static/app.js",
+      "sha256": "32f185d906a391f3fa8a220d7f682add57420a59a9bd2e4b8c23b6521d379cf5"
+    },
+    {
+      "path": "src/main/resources/static/index.html",
+      "sha256": "bd9b710d9a08486900f2cde59cdb132e1feb1d58e36ea9150edc434357dabbb1"
+    },
+    {
+      "path": "src/main/resources/static/notices.mjs",
+      "sha256": "8e43264e4f7e52bca45f8893bd797f66e0ec2ad7ae5a5fcffe142b070da61a80"
+    },
+    {
+      "path": "src/main/resources/static/styles.css",
+      "sha256": "482f447ddb95738a954d79891aa9f0df05a95b4838a6d858f15b711d6d42bd97"
+    },
+    {
+      "path": "src/main/resources/static/workbench-state.mjs",
+      "sha256": "5805823c8ffe4c992cfafde179a5169afc3cb56752630e4904b8ed775e8fdd07"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/DemoFixturesTest.java",
+      "sha256": "91b3a1a179a39e4fa38bb1329fb28b4c5d2b72310c4fa822777c710b3d4946b4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/RagPropertiesTest.java",
+      "sha256": "58ba23eea6583773cd9d87921268d3af71764fdd4a12ab0272380db21d54d203"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/RuntimeGuardTest.java",
+      "sha256": "5d014fa91f64ef79dab28e9ab563fb387ea675b272c4999c2413e5b1d7fb9f24"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/corpus/TextParserTest.java",
+      "sha256": "a8be01945ecbe804bd4adc5efc5e9439b21ad5a970cc5dfd25d4c453374d9960"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/management/ManagementModuleTest.java",
+      "sha256": "9b46cc6be6107c53030322719eeaf5de591a82e35aacb60b93aff2bafadf2ae2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/AuthenticationFilterTest.java",
+      "sha256": "c9386e465ad59d995c0b51d94e1ba962673262f8388e0453775058b224252f0c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/AuthenticationModuleTest.java",
+      "sha256": "283e0d752183a7f379fe211fe14cef28471fc206122a9db468b7ceb6692707d7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/JwtHttpTest.java",
+      "sha256": "e443c677df2b671ac4742370cb420f0503236f5b795604b6cbe46b0a79aadd8a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/SessionControllerTest.java",
+      "sha256": "ac24d1a6a5dca2dbd7d6d19517d995248a89901391f0bc0396e825456015e99b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ManagementHttpTest.java",
+      "sha256": "ac541f2178ae08b1b3c0274409808cbc51275b063945abe7dd2485f8a03d7ae0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ProblemHandlerTest.java",
+      "sha256": "75e3e80c6eb4602406af29f2e41ae56715cc6366e7d5e4115b338b99178eaada"
+    },
+    {
+      "path": "src/test/resources/corpus/Atlas路由器运维手册.pdf",
+      "sha256": "7fa65681117ae933d2009a455ad190acb40d34eaf3ac500e97973689688df15a"
+    },
+    {
+      "path": "src/test/resources/corpus/不可信指令样例.pdf",
+      "sha256": "9bdc66d8756f1c67d1feae67f067992794164259892385ef378aecf390b5b462"
+    },
+    {
+      "path": "src/test/resources/corpus/另一组织薪酬资料.pdf",
+      "sha256": "08b8a548a153aa8e7753884daae3e0a4f46bd55f9115bf4e02cc1dc9363ddec5"
+    },
+    {
+      "path": "src/test/resources/corpus/星河制造差旅政策.pdf",
+      "sha256": "7baf4e2206a9779b59a6252217c86e610897d8e6980e06b1f05a512732f46752"
+    },
+    {
+      "path": "ui-tests/api.test.mjs",
+      "sha256": "9fb658eb7237c557d6e1efe34cc56ceb3f4578193dbcc2697251293ce629fca5"
+    },
+    {
+      "path": "ui-tests/markup.test.mjs",
+      "sha256": "92e9e4f0738fc79cba0c9d6f93d0cc662beea0cf9c71d113b2c8ea040cfa4100"
+    },
+    {
+      "path": "ui-tests/notices.test.mjs",
+      "sha256": "3f75481f62bdc677bd3408fad18c42d700ee1d616480dd71ead59a2bc0766604"
+    },
+    {
+      "path": "ui-tests/workbench-state.test.mjs",
+      "sha256": "a00130f0d8b3391754c1caf50add2e41ee968429fc67f97596fe8f93e865f2f8"
+    }
+  ]
+}
