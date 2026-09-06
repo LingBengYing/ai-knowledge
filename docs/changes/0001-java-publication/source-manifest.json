@@ -1,47 +1,45 @@
 {
-  "scope": "java_management_parser_and_standalone_text_adapters",
+  "scope": "public_java_management_and_library_parser_snapshot",
   "production_attestation": false,
-  "external_provider_milvus_verified": false,
-  "generated_at": "2026-09-06T12:40:23.161Z",
+  "generated_at": "2026-09-06T10:52:32.630Z",
   "java_runtime": "22.0.2",
   "compiler_release": 21,
   "junit": {
-    "tests": 148,
+    "tests": 100,
     "failures": 0,
     "errors": 0,
     "skipped": 0
   },
   "ui_tests": 20,
-  "secret_checker_tests": 11,
   "counters": {
     "INSTRUCTION": {
-      "missed": 143,
-      "covered": 8445
+      "missed": 89,
+      "covered": 4621
     },
     "BRANCH": {
-      "missed": 98,
-      "covered": 1055
+      "missed": 53,
+      "covered": 518
     },
     "LINE": {
-      "missed": 26,
-      "covered": 1631
+      "missed": 15,
+      "covered": 820
     },
     "COMPLEXITY": {
-      "missed": 96,
-      "covered": 722
+      "missed": 52,
+      "covered": 369
     },
     "METHOD": {
       "missed": 3,
-      "covered": 235
+      "covered": 129
     },
     "CLASS": {
       "missed": 0,
-      "covered": 42
+      "covered": 21
     }
   },
-  "source_file_count": 55,
-  "source_fingerprint_sha256": "80900f041c101c27b9faac7ecebd1cf80019d706ce2b604fdef3918870afb09d",
-  "jar_sha256": "6804de83f0f1a9658342cc1d84de254e0a07c7b6b42c085289ac8722245ae4d7",
+  "source_file_count": 45,
+  "source_fingerprint_sha256": "ea2ed80c8fc2ddc9b7e98369b949b4106faaa6fe3f6f17397e3dcd355c5cb661",
+  "jar_sha256": "302bcc4e2cf44b710a322d48217e1466028ae9b476623fb9628a2ed424079d14",
   "files": [
     {
       "path": ".mvn/settings.xml",
@@ -72,10 +70,6 @@
       "sha256": "379c27f69c915cae0413855b262b7ee5fd49034e50a788e30f575a7370a3149a"
     },
     {
-      "path": "src/main/java/com/evidence/rag/config/TextAdapterSettings.java",
-      "sha256": "509e15150c6e4d462193fbf4a36e3021c4266c5c76e5b92d91039c3a92327788"
-    },
-    {
       "path": "src/main/java/com/evidence/rag/corpus/TextParser.java",
       "sha256": "09dc1350c15ebf438f0e2e04d28d6b2d75557254e665c281db22f18536f9e817"
     },
@@ -86,22 +80,6 @@
     {
       "path": "src/main/java/com/evidence/rag/management/ManagementModule.java",
       "sha256": "a94f878ad8dfcd99e6e6e84d6c2e9015f548b7874b529981dabf93729b4734b4"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/models/OpenAiCompatibleModels.java",
-      "sha256": "f0acbe49fcecc57c56d2a0317f8e245c352b9379b9ede08df65706b371ec7dcb"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/models/TextModels.java",
-      "sha256": "971b463deb25cb891d75f2d4f71d63c1f29c6f336cf7b32df59ed3fb8165041f"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/retrieval/MilvusRestProjection.java",
-      "sha256": "1dcd624648293a4d80abb99c1f6cb47a9903289d25efdbf57e962f26c32cd9f2"
-    },
-    {
-      "path": "src/main/java/com/evidence/rag/retrieval/RetrievalProjection.java",
-      "sha256": "8af2e3666af77f05e449ee3f6569f2fa56107bb23ef8a5827981c2d952109652"
     },
     {
       "path": "src/main/java/com/evidence/rag/security/AuthenticationConfiguration.java",
@@ -180,32 +158,12 @@
       "sha256": "5d014fa91f64ef79dab28e9ab563fb387ea675b272c4999c2413e5b1d7fb9f24"
     },
     {
-      "path": "src/test/java/com/evidence/rag/config/TextAdapterSettingsTest.java",
-      "sha256": "c0c7c12b8252906497c7bcf1a2a58a4aca756ad4f7e2f6cc1184ec61c8f21f7e"
-    },
-    {
       "path": "src/test/java/com/evidence/rag/corpus/TextParserTest.java",
       "sha256": "a8be01945ecbe804bd4adc5efc5e9439b21ad5a970cc5dfd25d4c453374d9960"
     },
     {
       "path": "src/test/java/com/evidence/rag/management/ManagementModuleTest.java",
       "sha256": "9b46cc6be6107c53030322719eeaf5de591a82e35aacb60b93aff2bafadf2ae2"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/models/OpenAiCompatibleModelsTest.java",
-      "sha256": "673540ee4c1a00d3180619603861a30dbd0b957d1e2f54cadcfb4bb1265fa9a4"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/retrieval/DeterministicProjection.java",
-      "sha256": "68278be1413d510e62d0d064e5ac68fec146def3b3a8f49ae12b87dab51aef1a"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/retrieval/MilvusRestProjectionTest.java",
-      "sha256": "ce634154219402d04a1c9784909909e897069f79d1345679570e78ab2e90216c"
-    },
-    {
-      "path": "src/test/java/com/evidence/rag/retrieval/RetrievalProjectionTest.java",
-      "sha256": "96cb1c93537b08d23c7e73bef80048cd986be54fe54c2c4ac66c461aa84ec512"
     },
     {
       "path": "src/test/java/com/evidence/rag/security/AuthenticationFilterTest.java",

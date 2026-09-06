@@ -11,7 +11,7 @@ JWT 模式也不等于公网安全：尚无限流、token 吊销表或最大签�
 - 当前唯一运行 secret 是 JWT 签名密钥 `RAG_JWT_SECRET`，从进程环境读取；无硬编码默认值、缺失即失败。不要将真实值填进源码或 `.env.example`。
 - 配置的 `toString()` 隐去敏感字段；错误响应不返回底层异常、token 或配置。会话采用 HttpOnly / SameSite=Strict，非本机明文场景要求 Secure。
 - 测试中的常量是明确的公开合成值，专门验证签名和失败路径，**不具备任何真实权限，也不能用于部署**。
-- 模型接入尚未启用；未来 provider key 必须走独立环境变量/secret manager，不进前端、不进 Git、不作为文档示例值。
+- 模型业务接线尚未启用；独立 `TextAdapterSettings.load` 只显式校验环境配置，三种 provider key 和 Milvus token 走各自变量/secret manager，不进前端、不进 Git、不作为文档示例值。构造/加载配置不发请求，详见 [TEXT_ADAPTERS](docs/TEXT_ADAPTERS.md)。
 - SSH 私钥属于机器凭据，绝不属于此仓库。不要复制 `.ssh`、PEM、个人 Maven settings 或浏览器会话。
 
 ## 提交前和历史检查

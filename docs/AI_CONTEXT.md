@@ -8,6 +8,8 @@
 
 独立 `TextParser` 支持 PDF / TXT / Markdown 的文本抽取与可还原分块，尚未接入 HTTP、持久化语料、隔离 worker、嵌入、检索或回答。图片、音频、视频的处理全部属于 planned。
 
+`TextModels` / `OpenAiCompatibleModels` 与 `RetrievalProjection` / `MilvusRestProjection` 是已通过 0002 本地协议回归和独立源码审查的独立 Module；[TEXT_ADAPTERS](TEXT_ADAPTERS.md)记录小 Interface 与显式配置。它们没有 Spring 自动接线或新 HTTP 路由，本地协议检查不是完整 RAG 或真实 provider/Milvus 验收。
+
 ## 推荐阅读顺序与 source of truth
 
 1. [README](../README.md)：定位与运行方法。
@@ -15,7 +17,7 @@
 3. [ARCHITECTURE](ARCHITECTURE.md)：Module 边界、代码地图、数据与信任边界。
 4. [ROADMAP](ROADMAP.md)：下一纵切和尚未满足的发布条件。
 5. [API](API.md)：实际 HTTP 契约，而非未来接口草案。
-6. 当前变更：[intent](changes/0001-java-publication/intent.md) → [spec](changes/0001-java-publication/spec.md) → [plan](changes/0001-java-publication/plan.md) → [REVIEW](changes/0001-java-publication/REVIEW.md)。
+6. 当前变更：[intent](changes/0002-text-adapters/intent.md) → [spec](changes/0002-text-adapters/spec.md) → [plan](changes/0002-text-adapters/plan.md) → [REVIEW](changes/0002-text-adapters/REVIEW.md)。0001 的发布/测试记录保留为历史基线，不认证新增源码。
 7. [VERIFICATION](VERIFICATION.md)：本次快照的测试、浏览器证据与未验证项；没有记录的结果不可推定通过。
 
 后续变更使用 `docs/changes/NNNN-topic/{intent,spec,plan,REVIEW}.md`。工件先明确行为和验收，再按小纵切实现；验证失败不能通过删除、跳过或放宽测试来消失。
@@ -40,7 +42,7 @@
 - JWT 校验与开发用资料管理不等于企业 SSO、用户管理、令牌签发/刷新或生产身份系统。
 - 四份[合成 PDF](../src/test/resources/corpus/)用于解析回归；[golden.json](evals/golden.json)保留未来问答、安全与隔离验收预期，不是 Java 检索评测报告。
 - `TextParser` 有 6 个测试方法；运行是否通过以当前 [VERIFICATION](VERIFICATION.md) 为准。它没有 PDF 解析进程隔离或总执行时限，不能直接用于公开上传服务。
-- 本仓库未包含已接通的 Milvus / embedding / reranker / OpenAI-compatible provider / ingestion worker。不要自行接到其他系统的数据目录、集合或服务来补齐演示。
+- 本仓库包含独立 Milvus / embedding / reranker / OpenAI-compatible Adapter，但未与业务 authority/worker/问答接通。不要自行接到其他系统的数据目录、集合或服务来补齐演示；原文摘取不等于事实支持证明。
 - 启用 virtual threads 是配置事实，不是吞吐或延迟提升证据；目前没有 Java 与其他语言实现的对照基准。
 
 ## 后续 RAG 的安全基线

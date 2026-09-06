@@ -2,12 +2,12 @@
 
 ## 先读
 
-每次任务依次读 [README](README.md)、[AI_CONTEXT](docs/AI_CONTEXT.md)、[ARCHITECTURE](docs/ARCHITECTURE.md)、[ROADMAP](docs/ROADMAP.md)。再读对应 `docs/changes/NNNN-topic/` 的 `intent.md`、`spec.md`、`plan.md`、`REVIEW.md`；这些版本化工件是 source of truth。当前变更为 [0001-java-publication](docs/changes/0001-java-publication/intent.md)，验证结果见 [VERIFICATION](docs/VERIFICATION.md)。
+每次任务依次读 [README](README.md)、[AI_CONTEXT](docs/AI_CONTEXT.md)、[ARCHITECTURE](docs/ARCHITECTURE.md)、[ROADMAP](docs/ROADMAP.md)。再读对应 `docs/changes/NNNN-topic/` 的 `intent.md`、`spec.md`、`plan.md`、`REVIEW.md`；这些版本化工件是 source of truth。当前变更为 [0002-text-adapters](docs/changes/0002-text-adapters/intent.md)，0001 保留为已发布管理基线；验证结果见 [VERIFICATION](docs/VERIFICATION.md)。
 
 ## 当前边界
 
 - 这是独立 Java 资料管理纵切，不是完整 Java RAG 或生产发布。支持整理合成元数据、ACL、目录/标签和批量回执；能力契约以 [API](docs/API.md)和实际 routes 为准。
-- `TextParser` 是独立 PDF/TXT/MD 库；尚无公开上传、隔离 worker、持久化语料、Milvus、模型 provider、检索问答或来源 API。所有多模态处理仍 planned。
+- `TextParser` 是独立 PDF/TXT/MD 库；`TextModels` 与 `RetrievalProjection` 是独立模型/Milvus 协议 Module，未接业务运行链路。尚无公开上传、隔离 worker、持久化语料、检索问答或来源 API。所有多模态处理仍 planned；HTTP stub 不证明真实外部集成通过。
 - 不把 planned 写成 implemented；不把合成行的 ready、revision 字段、parser 测试或历史实现的报告当成当前可检索证据。
 - 四份合成 PDF 与 `docs/evals/golden.json` 必须保留；前者用于解析回归，后者是未来 acceptance 输入，不是当前 Java RAG 评测通过报告。
 - 仅使用独立 Java 数据目录；不读取、修改或迁移其他服务数据库、集合、文件与运行配置。没有相应授权和证据不得解除 production/readiness gate。

@@ -12,6 +12,7 @@
 
 - [Architecture](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/ARCHITECTURE.md): modules, authority and planned retrieval.
 - [API](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/API.md): actual HTTP endpoints only.
+- [Text adapters](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/TEXT_ADAPTERS.md): independent model and Milvus modules, explicit configuration; not a wired RAG service.
 - [Roadmap](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/ROADMAP.md): incomplete migration work and acceptance gates.
 - [Verification](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/VERIFICATION.md): measured checks, scope and exclusions.
 - [Security](https://github.com/LingBengYing/ai-knowledge/blob/main/SECURITY.md): secrets, threat scope and reporting.

@@ -4,7 +4,7 @@
 
 当前可运行的是 **资料管理工作台**：列表、授权分页、目录、标签、改名、批量整理和审计。后续目标是 Milvus 混合检索 + OpenAI-compatible 模型接入 + 可追溯引用 + 图片、音频、视频知识处理。
 
-> **状态：开发中，非生产版。** 不要把路线图当作已实现功能。本仓库尚未接通上传、检索问答、Milvus、嵌入/重排/生成模型或多模态流水线；`/health/ready` 有意返回 503。
+> **状态：开发中，非生产版。** 不要把路线图当作已实现功能。独立模型和 Milvus Adapter 已通过 [0002](docs/changes/0002-text-adapters/intent.md) 本地协议回归与独立源码审查，尚未接入上传、语料发布、检索问答或多模态流水线；`/health/ready` 有意返回 503。验证结论只见 [VERIFICATION](docs/VERIFICATION.md)。
 
 **For AI agents:** A standalone Java knowledge-management application being extended into an evidence-grounded RAG system. Read [AI_CONTEXT](docs/AI_CONTEXT.md), [AGENTS.md](AGENTS.md), and the capability table before making claims or changes. Planned capabilities are not implemented APIs.
 
@@ -17,8 +17,9 @@
 | JWT / HttpOnly 会话 / 文档角色 | 可运行 | owner、editor、reader；开发身份仅限显式 loopback |
 | SQLite 持久化与哈希审计 | 可运行 | 单写入者；重启保留；独立数据目录 |
 | PDF / TXT / Markdown 文本解析 | 独立 Module 已测试 | Unicode code point 定位；**尚未接 HTTP 或隔离 worker，不可对公网文件使用** |
-| 上传、任务、Milvus dense + BM25 | 待接通 | Java 专用 collection，不改写旧投影 |
-| 嵌入、重排、生成与有证问答 | 待实现/接通 | 三种模型独立配置；rerank 为 provider 扩展协议 |
+| Milvus dense + BM25 协议 | 独立 Adapter，未接业务 | Java 专用 collection、完整授权范围前置、RRF；真实集成尚未验收 |
+| 嵌入、重排、原文摘取 | 独立 Adapter，未接业务 | 三种模型独立配置；rerank 为 provider 扩展协议；摘录不是最终有证答案 |
+| 上传、任务、语料发布与有证问答 | 待接通 | 仍无相关 HTTP 能力，不把 Adapter 测试当端到端 RAG |
 | 图片、音频、视频、联合事实与文件摘要 | 规划中 | 不等同于仅生成文件摘要 |
 | 生产部署、迁移与真实性能对比 | 未验收 | 不声称 Java 版本已比 Python 更快 |
 
@@ -27,6 +28,8 @@
 Java 21 编译目标、Spring Boot 4.1.1、Maven、SQLite JDBC、PDFBox 3.0.8；前端为原生 HTML/CSS/JavaScript。JUnit、真实 SQLite/HTTP 测试、Node 原生测试、JaCoCo 行与分支双 80% 门禁。
 
 不依赖 Python，不通过 Python 代理业务。无模型 API key 也能运行当前管理工作台。
+
+前端已独立发布至 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web)，提供原生界面、本机同源开发代理及独立运行说明。本仓库仍保留同源内置页面；分仓不代表自动同步或跨域认证已启用。
 
 ## 快速开始
 
@@ -64,7 +67,7 @@ RAG_AUTH_MODE=development_headers RAG_DATA_DIRECTORY=./demo-data bash run-dev.sh
 | `RAG_DATA_DIRECTORY` | 独立的 `.data` 目录，不能指向旧数据库 |
 | `RAG_ENVIRONMENT` | `development`；当前拒绝 `production` |
 
-JWT 模式缺少 secret 会拒绝启动。浏览器通过 `POST /v1/session` 换取 HttpOnly、SameSite=Strict 会话，不把 token 放入 localStorage。当前版本不读取任何模型 provider key，添加变量不会自动启用模型。
+JWT 模式缺少 secret 会拒绝启动。浏览器通过 `POST /v1/session` 换取 HttpOnly、SameSite=Strict 会话，不把 token 放入 localStorage。管理应用不自动读取模型 provider key；独立 `TextAdapterSettings.load(environmentMap)` 可显式校验三种模型和 Milvus 的配置，加载本身无网络。完整变量与调用边界见 [TEXT_ADAPTERS](docs/TEXT_ADAPTERS.md)，添加变量不会自动启用模型。
 
 **不要提交 API key、JWT secret、SSH 私钥、`.env`、数据库或运行日志。** [.gitignore](.gitignore) 与 [敏感信息检查](scripts/check-secrets.mjs) 是双层防护；完整处理流程见 [SECURITY.md](SECURITY.md)。若密钥曾被贴入聊天或日志，应在对应平台轮换，而不是只删除代码里的字符串。
 
@@ -86,6 +89,7 @@ node scripts/check-secrets.mjs --history
 - [AI_CONTEXT](docs/AI_CONTEXT.md)：项目是什么、代码在哪里、哪些不能假设
 - [ARCHITECTURE](docs/ARCHITECTURE.md)：Module、数据与安全约束
 - [API](docs/API.md)：当前真实 HTTP 契约
+- [TEXT_ADAPTERS](docs/TEXT_ADAPTERS.md)：独立模型与 Milvus Interface、环境配置及未接线边界
 - [ROADMAP](docs/ROADMAP.md)：文本、多模态、生产迁移路线
 - [AGENTS](AGENTS.md)：AI 开发约定
 - [SECURITY](SECURITY.md)：密钥与安全报告

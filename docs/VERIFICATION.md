@@ -1,4 +1,27 @@
-# 验证记录：Java 独立公开快照
+# 验证记录：Java 开发纵切
+
+## 最新：0002 文本 Adapter · 2026-09-06
+
+本次仅新增独立模型/Milvus协议与显式环境配置，不提供新的业务HTTP能力。以下结果绑定 [source-manifest](source-manifest.json) 的55个构建/源码/测试文件，聚合SHA-256为 `80900f041c101c27b9faac7ecebd1cf80019d706ce2b604fdef3918870afb09d`；不是生产证明。
+
+| 检查 | 最终实际结果 |
+| --- | --- |
+| `mvn -s .mvn/settings.xml -gs .mvn/settings.xml spotless:apply clean verify` | 148 JUnit通过，0失败/错误/跳过，20:38:47 +08:00 完成 |
+| 原有管理/鉴权/HTTP/SQLite/PDF | 原100项完整保留并通过 |
+| 新模型 / 检索 / 配置测试 | 21 / 21 / 6项全部通过；真实本地HTTP替身，不访问真实provider |
+| JaCoCo line / branch | 1631/1657 = 98.43%；1055/1153 = 91.50%，80%双门禁未改动 |
+| Spotless / `javac -Xlint:all` | 通过，无编译告警 |
+| Node UI + secret checker | 20 + 11项通过，0跳过；launcher语法和diff检查通过 |
+| 独立只读审查 | PASS，仅当前协议Module源码 |
+| 新构建JAR隔离启动 | 全新临时库、独立端口；live200、ready503、management_slice、授权空列表200且total0 |
+
+本地仍是 OpenJDK22.0.2 / release21、Maven3.9.9、Node22.23.2。新提交的实际Java21结果以 [Actions](https://github.com/LingBengYing/ai-knowledge/actions) 对应SHA为准，不复用下面0001的CI。PDFBox原合成PDF仍有系统替代字体警告；解析与定位断言通过，不代表渲染质量。
+
+红绿记录：模型安全stub上17项行为先失败，首次实现后通过；深层JSON补测再次失败，限制深度后完整21项通过。Milvus经历缺实现、搜索/写入、workspace标记与取消先行的失败回归；最终21项完整通过。配置缺类型及不安全端点曾失败，完整6项通过。最末次取消/JSON deadline变更后主线程重新clean verify，不使用并行targeted运行的共享覆盖率报告来认证最终源码。沙箱loopback EPERM单独归类并在获准环境重跑，没有跳过测试求绿。
+
+原六个golden未在Java最终问答链路运行，不能报告RAG6/6、召回率或事实支持质量。无真实Milvus/provider、语料authority、隔离worker、active revision发布、最终引用/答案、多模态、性能对照或生产验收。前端拆分仓库的只读浏览器加载不是这些未实现功能的验收；其证据见 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web/blob/main/docs/VERIFICATION.md)。
+
+## 历史基线：0001 独立公开快照
 
 日期：2026-09-06。范围是本仓库 Java 管理工作台和独立文本解析 Module，**不是完整 RAG 或生产证明**。
 
@@ -40,9 +63,9 @@ TextParser 在空实现上首次运行 6 项测试，其中 5 项报错；实现
 
 [首次 Java 21 CI](https://github.com/LingBengYing/ai-knowledge/actions/runs/34031531932) 已成功完成（源码提交 `6bfeba9`，2026-09-06 11:54:21 UTC）。Java 21、31 项 Node 测试、全历史凭据扫描、Maven verify、双覆盖门禁与格式检查步骤均成功，不调用真实模型。后续提交的运行结果以 [Actions](https://github.com/LingBengYing/ai-knowledge/actions) 为准，不把历史 run 或排队状态自动视为新提交通过。
 
-推送前再次检查：67 个跟踪文件、工作树 clean、历史扫描无命中；[source-manifest](source-manifest.json) 中45个源码/测试/构建文件逐项与 HEAD 相同。聚合指纹按路径排序后连接 `path + NUL + sha256 + LF`，对其 UTF-8 字节求 SHA-256。发布状态文档不属于该源码指纹；Git 提交身份另外绑定完整仓库。
+0001推送前再次检查：67 个跟踪文件、工作树 clean、历史扫描无命中；[历史source-manifest](changes/0001-java-publication/source-manifest.json) 中45个源码/测试/构建文件逐项与当时HEAD相同，不认证0002源码。聚合指纹按路径排序后连接 `path + NUL + sha256 + LF`，对其 UTF-8 字节求 SHA-256。发布状态文档不属于该源码指纹；Git 提交身份另外绑定完整仓库。
 
-## 明确未验收
+### 0001 当时未验收（当前以页首0002范围为准）
 
 - Java 上传/worker/Milvus/三类模型/问答/引用、删除/重建、图片/音频/视频均未完成。
 - `docs/evals/golden.json` 的6个问答预期尚未在 Java RAG 上执行；不能从 PDF 提取测试推导 recall、grounding 或拒答质量。

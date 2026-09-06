@@ -11,8 +11,8 @@
 | JWT / 本机开发身份、Cookie 会话 | Implemented | 无 SSO、用户管理、签发/刷新服务；生产配置被 gate 拒绝 |
 | PDF / TXT / MD 文本解析与 code point 分块 | Library implemented | [TextParser](../src/main/java/com/evidence/rag/corpus/TextParser.java)的独立库能力；6 个测试方法；未接 HTTP、持久化和隔离 worker |
 | 真实文件上传、解析任务、revision 发布与恢复 | Planned | 尚无上传、状态机、任务隔离、重试或 active revision 原子切换 |
-| OpenAI-compatible embedding / generation、provider reranker Adapter | Planned | 当前快照没有接通的 provider；rerank 是 provider extension，不是标准 OpenAI 端点；均须验证真实模型维度、返回结构和能力 |
-| Milvus dense + sparse / BM25 hybrid retrieval | Planned | 无连接、集合、发布、检索或真实 staging 证据 |
+| OpenAI-compatible embedding / extraction、provider reranker Adapter | Independent module / not wired | [0002](changes/0002-text-adapters/intent.md) 协议子切，运行证据见 VERIFICATION；rerank 为 provider extension，摘取不是最终答案，尚无真实 provider 验收 |
+| Milvus dense + sparse / BM25 hybrid retrieval | Independent module / not wired | 显式初始化、身份绑定 schema、范围前置与确定性合并；尚无 authority/发布接线或真实 staging 证据 |
 | 有据问答、选中文档范围、来源引用、拒答 | Planned | 无回答或 source HTTP 路径；golden 不是当前通过报告 |
 | 文档删除、重新索引与版本追溯 | Planned | 当前动作明确拒绝，不能操作其他系统数据 |
 | 图片 OCR / vision、音频转写、视频音画联合 | Planned | 类型筛选只是元数据；处理、检索、摘要均未接通 |
@@ -29,7 +29,7 @@
 4. **回答和来源最小 API**：重排候选、权威证据回读、服务器 source locator 校验、逐事实覆盖与无证据拒答。答案记录证据版本、模型和提示版本；模型不能自行决定页码、权限或引用链接。
 5. **真实网页和冻结 acceptance**：上传 → 状态 → 列表 → 指定范围提问 → 引用定位的浏览器闭环；包括失败、越权、撤权、旧 revision、空范围、提示注入与并发变更。保留并扩展 frozen cases，不放宽旧安全预期来迁就实现。
 
-上述步骤尚未接通；只有整个最小闭环有独立测试与真实集成证据，才可称“文本 RAG 纵切完成”。它仍不等于多模态或生产发布完成。
+上述步骤尚未接通；第2–3步的独立协议 Adapter 由 [0002](changes/0002-text-adapters/intent.md) 推进，第1、4、5步仍未完成。只有整个最小闭环有独立测试与真实集成证据，才可称“文本 RAG 纵切完成”。它仍不等于多模态或生产发布完成。
 
 ## 必须保留的未来安全 invariant
 

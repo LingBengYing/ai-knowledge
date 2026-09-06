@@ -35,7 +35,9 @@ TextParser.parse(...) → Page / Segment
 | Browser state | 身份变化使旧票据失效；只接受当前有效读写结果 | [workbench-state.mjs](../src/main/resources/static/workbench-state.mjs)、[notices.mjs](../src/main/resources/static/notices.mjs)；[UI tests](../ui-tests/) |
 | Runtime / HTTP boundary | 配置验证、能力声明、安全错误与响应头 | [RagProperties](../src/main/java/com/evidence/rag/config/RagProperties.java)、[RuntimeGuard](../src/main/java/com/evidence/rag/config/RuntimeGuard.java)、[RuntimeController](../src/main/java/com/evidence/rag/web/RuntimeController.java)、[ProblemHandler](../src/main/java/com/evidence/rag/web/ProblemHandler.java) |
 
-只有确有两个 Adapter（如真实 provider 与测试替身）时才引入 Seam；目前不存在已完成的检索或模型 Seam。
+只有确有两个 Adapter（如真实 provider 与测试替身）时才引入 Seam。新增独立模型/检索协议子切见 [TEXT_ADAPTERS](TEXT_ADAPTERS.md)：真实 HTTP Adapter 在本地替身服务器上验证，尚未连接本页的管理应用运行路径。
+
+`TextAdapterSettings.load(environmentMap)` 仅生成并校验模型/投影配置，不安装 Spring bean、不发请求。模型 Endpoint 相互独立，embedding identity 绑定 URL、模型、显式 revision 与维度。Milvus 只接受 `java_` 集合；查询的完整授权 `document → revision` 范围先于两路 top-K，结果只是候选 ID/score。模型的摘录输出不负责事实支持、最终 ACL/revision 重验或引用签发。
 
 ## 启动、配置与迁移隔离
 
