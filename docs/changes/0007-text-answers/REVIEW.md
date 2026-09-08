@@ -4,6 +4,20 @@
 
 比较基准为0006已验证的173文件及297项JUnit冻结快照。审查必须分别核对Standards与Spec，尤其是完整selected set、source与generation区分、只读Milvus准入、逐事实/否定条件与冲突、最终授权/trace原子性和预算取消。不能用摘录子串、六golden或接口存在证明完整目标已实现。
 
+## 408e622之后：示例标签和多句程序的限定审查
+
+本批精确前像为408e622；审查当前WIP差异及新增文件全文，不使用三点空diff，也不沿用旧0006指纹。首轮322项相关回归及737项默认回归通过不作为审查通过的替代。
+
+Standards由authority_layering独立检查：示例标签/真实句界修复及新测试符合L05/H03/G05，原测试不变；程序新逐step调用会重复从页首/字段起点扫描，形成平方级计算，属G07/P2。root用合法5万短步骤、仅首句候选/摘录在128MiB子JVM复现8.058秒超时失败，强杀并确认退出，不以普通线程超时留下后台计算。
+
+Spec由adapter_layering只审非本人实现的程序分组，root另核示例修改。首轮指出两项：后续step未复用既有错误标注检查；必要授权前提被当作独立事实结束程序组。新增中英完整/partial及不同操作对照共10项，连同原29项真实运行39项8失败，0 errors/skips；正常禁令和完整条件仍须保留可答，不得通过全拒答关闭风险。具体复现/修复后完整回归见[verification](verification.md)。
+
+最终限定复核：Standards由authority_layering确认0项未关闭硬性问题，G07已关闭。程序安全检查改为每组固定扫描与每步局部检查；5万步骤资源负例先8.058秒失败，再0.928秒通过，未增加任意步数上限、跳过冲突或将崩溃算通过。TruthContext仅复用原SELF_QUALIFIER，Tool无新增I/O或跨层依赖。
+
+Spec由adapter_layering确认F1、F2及最后检查顺序回归全部关闭，0项未关闭限定finding。后续错误标注保持拒答，精确操作前提必须完整引用；未支持的`before resetting`前提由两项真实红测锁定，不能丢弃。新增guard一度误伤另一具名操作，追加原独立操作正例后58项中1红；root只前移具名操作边界判断，既不混入另一操作，也不忽略未知必要前提。审查者逆向扣除新增guard后源码SHA回到已审版本，确认原精确前提、引用和资源逻辑未漂移。
+
+最终Procedure源码SHA256为`8ecacb229ca6039a861ceafc2d750cfa3259d8fede0d87a3dbb7cf74f9a72ed6`，Procedure测试为`aff1a8ec222fca41e1c7bac291e99c925cc41f32dbfb942e10f99b6bd98db21d`。最后修改后12:07:08完整376项相关回归通过，完整构建与保留校验见[verification](verification.md)。本批Standards/Spec各0未关闭限定finding，不认证整个Tool语义/容量、完整0007或生产；审查者没有编辑被审实现或运行Maven/模型。
+
 ## 2026-09-08 推送后整体Tool审查：发现与处理范围
 
 审查起点 `5a30ea9`，六个 `tool/answer` 新文件完整diff相对bc82a7a；不包括parser迁移，不把它当完整0006基线。当前修复的精确前像为5a30ea9及本轮冻结归档，见plan。以下finding未全部关闭，不能把限定修复写成整个0007通过。

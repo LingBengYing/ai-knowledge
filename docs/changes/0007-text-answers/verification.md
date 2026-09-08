@@ -2,6 +2,37 @@
 
 状态：IMPLEMENTATION。当前保留0007开发实现，已完成下述既有缺陷修复和完整本地门禁，不宣称完整语义、网页、实际provider/Milvus、多模态或生产验收。下方隔离/恢复和失败记录均为历史，不能覆盖最新结果。
 
+## 本次推送快照：2026-09-08 12:08:55 +08:00
+
+相对408e622，本批修改5份生产Java、新增包私有ProcedureEvidence及4份行为测试；不修改原测试、schema、依赖、构建门禁、前端或旧服务数据。明确Example/例子标签不能成为事实；程序按完整操作分组，必要步骤/前提必须全部由实际候选摘录覆盖。权威完整页只能否决缺失或冲突，不能创造模型未见的支持。验证器为`java-text-grounding-v4-procedure-context`，历史trace不改写。
+
+最后源码修改后12:07:08完整376项相关回归通过，含58程序、23示例、16真实parser/SQLite/AnswerService/source组合、新旧资源用例、原四PDF/六golden及范围/生命周期/取消测试。12:08:55实际Temurin21.0.12.1+1（macOS arm64）隔离副本完整`clean verify`用时79秒：773项Java、76 suites，0失败/错误/跳过；227文件Spotless、行6006/6335与分支3023/3537均通过原80%门禁。Node73项通过（3.165秒）。默认不执行LiveIT，本批模型调用为零；确定性PDF acceptance不代表真实生成质量。
+
+对408e622冻结前像逐项核对，原675项JUnit class/name多重集完整保留，新增98项；91个原src/test文件SHA未变，四PDF与golden未改。240个src/.mvn/pom输入与实际构建副本逐SHA一致。324个现存未忽略候选文件（包括新文件）复制扫描无密钥规则发现，可达历史另行扫描无发现；54份Markdown相对链接存在。最终文档修改不改变上述可执行输入，提交前再验证候选快照和暂存区。有限规则扫描不保证识别所有秘密形态。
+
+审查收尾额外红绿：后续错误标注/具名前提39项中8红；5万短步骤在128MiB隔离子JVM的8秒执行预算内未退出，强杀并确认清理，修复后同用例0.928秒通过（包含启动，不是一般容量或语言性能比较）。未支持的`required before resetting`在57项中2红；新增guard误伤另一具名操作在58项中1红，均0错误/跳过。修复保留未知前提拒答，并优先划清另一具名操作边界。全部原断言保留；此前新fixture ID过长导致的8个构造错误只记夹具问题，缩短合成ID后取得真实失败，不冒充产品证据。
+
+| 冻结工件 | SHA256 |
+| --- | --- |
+| 未识别前提红XML | `262415ffa1aa575e2df7006bbcdff701c066e0d95427c9952bd1dde9a16ad667` |
+| 独立操作顺序红XML | `5e1044463bd09e18d43488ffca9862ef3260f3eb38ae5d924cbacafa2e93ad4c` |
+| 最终全量日志 | `7ba6e01a580892e9ddb801598a19991d3b28cb228ee08a24a51c98027e0ac230` |
+| 最终JAR | `9cacbc8adfff3c5d9291cbf538f301ca5ec9cbb3972df0f45658510495c423cf` |
+| 最终JaCoCo XML | `9e86f8d3831681b0a012a87251948572de3711c923119a01c8116115362fb62f` |
+| 最终src/配置/报告/JAR归档 | `4c12f3e7f5eb8d097083ca2c3a10fe3d450982cb2e0924bc9ac633fc0701b369` |
+
+最终生产源码SHA256：ProcedureEvidence `8ecacb229ca6039a861ceafc2d750cfa3259d8fede0d87a3dbb7cf74f9a72ed6`；SourceInstructions `80498614190c5b3a940bfb816e51603acb10d1ac118725fbf3ff5b6777d5faac`；EvidenceConflicts `417d51d1936748a982fc12d3c0d1aa0402065b1a0e34b4d72ede1210a6ddd6a1`；QuestionFacts `57cae36488786bb13adf43cfa6ddf205b6bdaf156c7b3de637e052eb8f52b934`；TextGrounding `8c84a41b5d9799fbf612eb73a8a82505d5b579d45d9abd9439a4b9f7fb254c7e`；TruthContext `5312bf430c4328a6bef795a8bab2ea780acd1dfb97506790908d0a7315095e68`。原始报告和运行归档仅受控保存在本地，不提交日志、数据库、凭据或个人路径。
+
+按负责人本次授权普通推送Java仓库，非部署；远端SHA及新CI须在推送后独立确认，不引用408e622的CI认证本批。Standards与Spec限定finding各0，详见[REVIEW](REVIEW.md)；不代表通用自然语言、整个Tool容量、完整0007、真实模型链路、网页、多模态或生产通过。
+
+## 408e622已推送；当前继续示例与程序语义修复
+
+远端main已回读确认 `408e622d55c60c3e3883d411ad13358b093176e4`，其[GitHub CI 34183261200](https://github.com/LingBengYing/ai-knowledge/actions/runs/34183261200)已completed/success。日志确认675项Java（0失败/错误/跳过）、222文件Spotless、双80%覆盖率和73项Node通过，日志SHA256 `a2cb1bcf8bc27ac95e496efbe5fc62bd702b4f4f1f7aa5557797a083ead75249`。这只认证该提交，不能认证本节后续修改，更不代表生产部署。
+
+当前从该干净工作树继续两项已有风险。公开Tool复现：示例初始6项2失败，扩展22项16失败；多句程序4项全失败，扩展29项23失败（句号改逗号及独立操作/事实6项对照通过）。真实parser/publication/AnswerService/source组合10项8失败，涵盖完整/缺步摘录与真实跨分块。全部0 errors/skip；不是测试夹具编译失败。冻结红XML SHA256：示例22项 `074c5a5119bc77b4dc168613489db4feed1395692f924309c8f56e13b9501fa9`；程序29项 `3547e180c74731be37204fbb0c53c1b4155e75a03c48090990db6aad6558bbcc`；Service10项 `e19c084e31d96a5b917420845e4fbd2c0003828cdcd1e27ed1503109d1fee30e`。
+
+示例最小标签修复先使22项通过，root追加同一行前置英文句子后为23项1失败；据此修正疑似标签筛选与实际句界的分工，不更改数值匹配或正文标题剥离。完整步骤、正常禁令和结束条件的正反例仍保留；此为开发阶段记录，最终回归/限定审查与追加推送授权以上节为准，无新增模型调用、前端改动或部署。
+
 ## 当前代码同步范围
 
 按负责人本次推送请求，仅交付下面11:02:21修复快照与补充说明。提交准备时319个候选文件逐SHA与最终冻结清单一致，235个src/.mvn/pom输入与实际验证副本一致，归档和完整构建日志摘要均与下表相同；本轮不重复运行Java全量，也不复用旧提交CI冒充新CI。远端main与本地提交前基准5a30ea9一致；普通推送结果和新提交CI须另行回读。本次不是生产发布，文中“本批未推送”是此前验证完成时的历史状态；示例标签、多句程序两项继续开放。

@@ -223,9 +223,18 @@ final class QuestionFacts {
     }
   }
 
-  private record ProcedureFact(String operation) implements Fact {
+  record ProcedureFact(String operation) implements Fact {
     @Override
     public String value(String field) {
+      String body = body(field);
+      return body == null
+              || REFERENCE_ONLY.matcher(body).find()
+              || !PROCEDURE_ACTION.matcher(body).find()
+          ? null
+          : body;
+    }
+
+    String body(String field) {
       String statement = normalize(field);
       String key = normalize(operation);
       if (!statement.startsWith(key)) {
@@ -235,10 +244,7 @@ final class QuestionFacts {
       if (!remainder.startsWith(":") && !remainder.startsWith("：")) {
         return null;
       }
-      String body = remainder.substring(1).strip();
-      return REFERENCE_ONLY.matcher(body).find() || !PROCEDURE_ACTION.matcher(body).find()
-          ? null
-          : body;
+      return remainder.substring(1).strip();
     }
 
     @Override

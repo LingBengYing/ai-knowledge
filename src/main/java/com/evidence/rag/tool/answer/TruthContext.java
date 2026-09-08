@@ -56,7 +56,7 @@ final class TruthContext {
     if (SourceInstructions.unsafe(page, field, fields)
         || SourceFields.hasNestedAssignment(field.text())
         || QUALIFIER.matcher(field.text()).find()
-        || SELF_QUALIFIER.matcher(field.text()).find()
+        || selfRefuted(field.text())
         || CONDITIONAL_PREFIX.matcher(field.text()).find()) {
       return true;
     }
@@ -109,6 +109,10 @@ final class TruthContext {
       immediate = false;
     }
     return previous != null && LIMITED_CLAUSE.matcher(previous.text()).find();
+  }
+
+  static boolean selfRefuted(String text) {
+    return SELF_QUALIFIER.matcher(text).find();
   }
 
   private static boolean sameRelationChanged(

@@ -13,6 +13,7 @@ final class SourceInstructions {
   private static final Pattern DIRECTIVE_LABEL =
       pattern(
           "^(?:请.{0,24}(?:回答|输出|改成)|必须回答|回答|输出|示例|样例|假设|虚构|错误)\\s*[:：]|^(?:请把|请将).{0,24}(?:答案|回复).{0,16}[:：]");
+  private static final Pattern EXAMPLE_LABEL = pattern("(?:example|例子)\\s*[:：]");
   private static final Pattern NEXT_STATEMENT =
       pattern(
           "(?:回答|输出).{0,24}(?:下面|以下)|(?:下面|以下).{0,24}(?:回答|输出)|(?:always\\s+)?answer.{0,24}(?:following|next)");
@@ -26,6 +27,7 @@ final class SourceInstructions {
   static boolean unsafe(String page, SourceFields.Field field, List<SourceFields.Field> fields) {
     if (INSTRUCTION.matcher(field.text()).find()
         || DIRECTIVE_LABEL.matcher(field.text()).find()
+        || EXAMPLE_LABEL.matcher(field.text()).lookingAt()
         || insideFence(page, field.start())) {
       return true;
     }
@@ -33,7 +35,9 @@ final class SourceInstructions {
     while (start > 0 && "。！？!?；;\r\n".indexOf(page.charAt(start - 1)) < 0) {
       start--;
     }
-    if (INSTRUCTION.matcher(page.substring(start, field.start())).find()) {
+    String prefix = page.substring(start, field.start());
+    if (INSTRUCTION.matcher(prefix).find()
+        || (EXAMPLE_LABEL.matcher(prefix).find() && continuesExampleSentence(page, field))) {
       return true;
     }
     SourceFields.Field previous = null;
@@ -48,6 +52,17 @@ final class SourceInstructions {
       }
     }
     return previous != null && NEXT_STATEMENT.matcher(previous.text()).find();
+  }
+
+  private static boolean continuesExampleSentence(String page, SourceFields.Field field) {
+    // Only a suspected inherited label needs sentence parsing. Reuse the actual source boundaries,
+    // including English periods, so an illustration cannot poison the next ordinary sentence.
+    for (var sentence : SourceFields.sentences(page)) {
+      if (sentence.start() <= field.start() && sentence.end() >= field.end()) {
+        return EXAMPLE_LABEL.matcher(sentence.text()).lookingAt();
+      }
+    }
+    return false;
   }
 
   private static boolean insideFence(String page, int position) {

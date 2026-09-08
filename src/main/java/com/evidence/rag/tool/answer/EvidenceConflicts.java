@@ -21,9 +21,20 @@ final class EvidenceConflicts {
       var fields = SourceFields.split(page);
       var sentences = SourceFields.sentences(page);
       for (var fact : facts) {
-        for (var field : fact.wholeSentence() ? sentences : fields) {
+        var possible =
+            fact instanceof QuestionFacts.ProcedureFact procedure
+                ? ProcedureEvidence.groups(procedure, page, sentences).stream()
+                    .filter(
+                        group ->
+                            group.recognized() && !ProcedureEvidence.unsafe(page, group, fields))
+                    .map(ProcedureEvidence.Group::range)
+                    .toList()
+                : fields;
+        for (var field : possible) {
           String value = fact.value(field.text());
-          if (value == null || TruthContext.unsafe(page, field, fields)) {
+          if (value == null
+              || (!(fact instanceof QuestionFacts.ProcedureFact)
+                  && TruthContext.unsafe(page, field, fields))) {
             continue;
           }
           // Only numeric grouping punctuation is presentation. Signs, decimals, units and words

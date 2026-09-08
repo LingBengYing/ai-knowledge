@@ -13,7 +13,7 @@ import java.util.List;
 
 /** Pure full-question proof and source-fragment validation; callers own current authorization. */
 public final class TextGrounding {
-  public static final String VERSION = "java-text-grounding-v3-page-conflicts";
+  public static final String VERSION = "java-text-grounding-v4-procedure-context";
   private static final int MAX_QUESTION_BYTES = 4096;
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;
@@ -67,6 +67,7 @@ public final class TextGrounding {
     }
     var verified = new LinkedHashSet<GroundedQuote>();
     var seenQuotes = new HashSet<GroundingQuote>();
+    var quotedRanges = new ArrayList<ProcedureEvidence.QuoteRange>();
     for (var quote : quotes) {
       if (quote == null
           || quote.quote() == null
@@ -88,20 +89,15 @@ public final class TextGrounding {
       String page = source.page().text();
       int absoluteStart = page.offsetByCodePoints(0, source.segment().start()) + occurrence;
       int absoluteEnd = absoluteStart + quote.quote().length();
+      quotedRanges.add(new ProcedureEvidence.QuoteRange(source, absoluteStart, absoluteEnd));
       var fields = SourceFields.split(page);
-      var ranges = new ArrayList<ProofRange>();
-      fields.forEach(field -> ranges.add(new ProofRange(field, false)));
-      SourceFields.sentences(page).forEach(field -> ranges.add(new ProofRange(field, true)));
-      for (var range : ranges) {
-        var field = range.field();
+      for (var field : fields) {
         if (field.start() < absoluteStart || field.end() > absoluteEnd) {
           continue;
         }
         var supporting =
             facts.stream()
-                .filter(
-                    fact ->
-                        fact.wholeSentence() == range.wholeSentence() && fact.matches(field.text()))
+                .filter(fact -> !fact.wholeSentence() && fact.matches(field.text()))
                 .toList();
         if (supporting.isEmpty()) {
           continue;
@@ -117,6 +113,18 @@ public final class TextGrounding {
                 field.text(),
                 supporting.stream().map(QuestionFacts.Fact::sha256).toList()));
       }
+    }
+    for (var fact : facts) {
+      if (fact instanceof QuestionFacts.ProcedureFact procedure) {
+        var proof = ProcedureEvidence.prove(procedure, quotedRanges);
+        if (proof.reason() != null) {
+          return refused(proof.reason());
+        }
+        verified.addAll(proof.quotes());
+      }
+    }
+    if (verified.size() > MAX_QUOTES) {
+      return refused("invalid_quote");
     }
     if (facts.stream()
         .anyMatch(
@@ -134,8 +142,6 @@ public final class TextGrounding {
   private static GroundingResult refused(String reason) {
     return new GroundingResult(false, reason, List.of());
   }
-
-  private record ProofRange(SourceFields.Field field, boolean wholeSentence) {}
 
   private record PageIdentity(String publicationId, int pageNumber) {}
 }

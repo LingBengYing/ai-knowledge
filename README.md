@@ -1,6 +1,6 @@
 # AI Knowledge · Java Edition
 
-2026-09-08 本次代码同步快照：新增同页冲突检查、连接词扫描资源修复和取消审计，policy 为 `java-text-grounding-v3-page-conflicts`。当前源码与已通过675项Java、73项Node及格式/双80%门禁的本地验证快照逐文件一致。示例标签与多句操作步骤仍有两项待实证/修复风险；真实生成链路尚未通过，仍非生产版。当前范围、证据及未完成项以[0007验证](docs/changes/0007-text-answers/verification.md)和[REVIEW](docs/changes/0007-text-answers/REVIEW.md)为准；下方带日期的旧测试数量是历史记录。
+2026-09-08 12:08:55 本次代码同步快照：修复明确示例语境、多句操作步骤/必要前提遗漏及程序组重复全页扫描，policy 为 `java-text-grounding-v4-procedure-context`。最后修改后773项Java、73项Node、227文件格式与双80%覆盖率门禁通过，原675项测试及91个测试/语料文件完整保留；本批限定Standards/Spec审查均无未关闭问题。完整真实生成链路、网页接线、多模态和生产仍未验收。本次只同步Java代码与说明，不部署或改前端；当前范围与源码绑定见[0007验证](docs/changes/0007-text-answers/verification.md)和[REVIEW](docs/changes/0007-text-answers/REVIEW.md)，下方日期及“未推送”均为历史状态。
 
 当前开发：[0007授权文本问答](docs/changes/0007-text-answers/intent.md)，仍为IMPLEMENTATION。2026-09-07 15:59:54 +08:00实际Temurin21.0.12.1+1干净构建通过635项Java、73项Node、212个Java文件格式检查和双80%覆盖率门禁。本批修复具名条件跨分块漏判及Model输出不变量，限定两轴审查通过。默认关闭的问答HTTP已接通，但不是完整语义、网页、真实provider/Milvus、多模态或生产验收。当前证据见[0007验证](docs/changes/0007-text-answers/verification.md)。
 
