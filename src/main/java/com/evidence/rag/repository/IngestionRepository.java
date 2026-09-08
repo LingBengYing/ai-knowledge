@@ -19,7 +19,7 @@ public final class IngestionRepository {
 
   public long pendingCount(String workspaceId) {
     return store.count(
-        "SELECT COUNT(*) FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing')",
+        "SELECT COUNT(*) FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing') AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
         workspaceId);
   }
 
@@ -65,7 +65,7 @@ public final class IngestionRepository {
   public Optional<String> nextQueuedId(String workspaceId) {
     return store
         .rows(
-            "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' ORDER BY j.created_at,j.id LIMIT 1",
+            "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id LIMIT 1",
             workspaceId)
         .stream()
         .findFirst()
@@ -93,7 +93,7 @@ public final class IngestionRepository {
   public Optional<TaskEntity> findAuthorizedTask(Actor actor, String jobId, boolean edit) {
     return store
         .rows(
-            "SELECT j.*,d.filename,acl.role AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=?"
+            "SELECT j.*,d.filename,acl.role AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
                 + (edit ? " AND acl.role IN ('owner','editor')" : ""),
             jobId,
             actor.workspaceId(),
@@ -186,7 +186,7 @@ public final class IngestionRepository {
   public Optional<String> authorizedParsedRevision(Actor actor, String documentId) {
     return store
         .rows(
-            "SELECT c.parsed_revision_id FROM corpus_documents c JOIN documents d ON d.id=c.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND c.parsed_revision_id IS NOT NULL",
+            "SELECT c.parsed_revision_id FROM corpus_documents c JOIN documents d ON d.id=c.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND c.parsed_revision_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             documentId,
             actor.workspaceId(),
             actor.principalId())

@@ -1,5 +1,7 @@
 # Roadmap：按可验收纵切推进
 
+当前继续[0008生命周期](changes/0008-document-lifecycle/spec.md)：先落实共用撤下安全边界，再做物理清理及重建。当前新增document_removal是独立本机开关，不改变下述文本stage；完整原目标保留，验证见[0008记录](changes/0008-document-lifecycle/verification.md)。
+
 默认是Java management_slice；问答关闭时摄取/索引保持text_ingestion/text_indexing，0007独立本机问答开启后为text_answers。三个开关默认关闭；后端可宣告answers/sources，列表can_answer与网页仍未接线、ready503。0005/0006已通过当时本地验收，其历史指纹不认证新增0007；本地全量通过也不是完整RAG。此文记录后续gate，不承诺日期、性能或上线；当前证据见[0007验证](changes/0007-text-answers/verification.md)。
 
 ## 能力状态
@@ -18,7 +20,8 @@
 | Milvus写入与full revision verification | 0004 IMPLEMENTATION | 固定Java collection、N+1 metadata/精确ID/float32摘要、前后Strong/schema/index校验；真实版本一致性尚待验收 |
 | Milvus dense + sparse / BM25 hybrid retrieval | 0007 backend wired / locally tested | 只读prepareSearch、完整范围前置、确定性合并及权威hydrate；不create/load/upsert，无独立候选检索端点，真实Milvus尚待验收 |
 | 有据问答、选中文档范围、来源引用、拒答 | 0007 IMPLEMENTATION / local tests passed | POST answers与GET source已接线，完整scope/资格复验及v4 trace同事务；完整语义、网页和实际质量未验收 |
-| 文档删除、重新索引与版本追溯 | Planned | 当前动作明确拒绝，不能操作其他系统数据 |
+| 文档撤下、在途取消与历史来源失效 | 0008 IMPLEMENTATION | 默认关闭；DELETE返回deleting/pending，当前服务面过滤，审计及原文保留，不等于物理删除 |
+| 物理删除、重新索引与版本追溯 | 未完成 | 清理账本与完成状态、备份恢复和重建迁移待实施；批量delete/reindex仍501，不能操作其他系统数据 |
 | 图片 OCR / vision、音频转写、视频音画联合 | Planned | 类型筛选只是元数据；处理、检索、摘要均未接通 |
 | 摘要、自动标签、证据组与多模态评测 | Planned | 不能由界面占位或独立 parser 推定已完成 |
 | 生产发布与性能结论 | Blocked by gates | readiness 为 503；没有全链路真实 provider/Milvus、运维、负载与生产验收证据 |

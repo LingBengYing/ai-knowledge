@@ -71,6 +71,10 @@ public final class IndexingTaskProcessor {
         fail(claim, "index_configuration_changed");
         return;
       }
+      if (!authority.isIndexingClaimCurrent(claim)) {
+        fail(claim, "indexing_failed");
+        return;
+      }
       try (var worker = workers.apply(timeout)) {
         var result = worker.index(claim);
         authority.completeIndexing(claim, result.entryDigests(), result.verified());

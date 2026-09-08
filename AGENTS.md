@@ -2,6 +2,8 @@
 
 ## 先读
 
+当前入口为[0008文档生命周期](docs/changes/0008-document-lifecycle/intent.md)，先读其intent→spec→plan→REVIEW。A步撤下、在途取消、旧引用失效及审计已通过2026-09-08 13:09:46实际JDK21完整857项Java、240文件格式、双80%覆盖率门禁及73项Node回归；原773项测试完整保留，证据见[0008验证](docs/changes/0008-document-lifecycle/verification.md)。本次按负责人最新“推送一下代码”提交同步，前端、旧服务/数据、模型调用与生产gate不变，不部署。物理清理仍待B步，不能将deleting/pending报告为硬删除完成；0008整体及完整目标仍IMPLEMENTATION。下方日期、旧开关状态与“不推送”均为历史记录，不认证当前源码。
+
 当前按负责人最新“推送一下代码”同步示例语境和完整程序证据修复。2026-09-08 12:08:55实际JDK21干净副本完整773项Java、227文件格式与双80%门禁通过，Node73通过；原675项及91个测试/语料文件完整保留，policy为v4-procedure-context。本批限定两轴finding已关闭；完整语义/真实生成链路、网页、多模态与生产仍未验收。只交付Java源码、测试和安全说明，不调用模型、不改前端/旧数据、不部署。以下“尚未推送”是历史状态，远端提交和新CI仍须独立回读。最新证据以[0007验证](docs/changes/0007-text-answers/verification.md)与[REVIEW](docs/changes/0007-text-answers/REVIEW.md)为准。
 
 2026-09-08 11:02:21本轮本地修复：同页未检索分块冲突不得被忽略；连接词密集页改为单调扫描并协作取消，计算取消仍留安全trace，policy升为v3-page-conflicts。实际JDK21完整675项Java、222文件格式、双80%门禁、73项Node通过；原635项和旧测试文件全部保留。新增修改尚未推送或部署；已推送5a30ea9的CI通过不认证此后修改。限定审查及仍开放的示例标签/多句程序风险见[0007验证](docs/changes/0007-text-answers/verification.md)与[REVIEW](docs/changes/0007-text-answers/REVIEW.md)，整体仍为IMPLEMENTATION。

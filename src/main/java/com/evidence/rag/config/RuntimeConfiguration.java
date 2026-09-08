@@ -11,8 +11,14 @@ public class RuntimeConfiguration {
       RagProperties p,
       IngestionSettings ingestion,
       IndexingSettings indexing,
-      AnswersSettings answers) {
+      AnswersSettings answers,
+      DocumentRemovalSettings removal) {
     return new RuntimeService(
-        p.authMode(), p.workspaceId(), ingestion.enabled(), indexing.enabled(), answers.enabled());
+        p.authMode(),
+        p.workspaceId(),
+        ingestion.enabled(),
+        indexing.enabled(),
+        answers.enabled(),
+        removal.enabled());
   }
 }

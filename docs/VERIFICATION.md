@@ -1,6 +1,10 @@
 # 验证记录：Java 开发纵切
 
-## 当前：0007 授权文本问答 · IMPLEMENTATION
+## 当前：0008 文档生命周期 · IMPLEMENTATION
+
+基准10dff37的773项Java、73项Node及GitHub CI通过属于历史。新增v5、撤下/取消/来源失效和相关真实进程、SQL、HTTP证据独立记录在[0008验证](changes/0008-document-lifecycle/verification.md)。物理清理B步、完整生命周期、多模态及生产仍未完成；不得用历史773项认证工作区新代码。
+
+## 历史：0007 授权文本问答 · IMPLEMENTATION
 
 2026-09-07 15:59:54 +08:00实际Temurin21.0.12.1+1干净副本完整clean verify通过：635项JUnit、212个Java文件格式检查、行94.83%/分支85.46%且双80%门禁不变；Node73通过。具名条件跨分块/前后顺序、独立主体和标签前提漏判及Grounding输出不变量已修复；详细红绿、旧测试保留、源码/JAR绑定、限定两轴审查和未验证项见[0007验证](changes/0007-text-answers/verification.md)。本机JDK21通过仍不是完整语义、同生产镜像、网页、实际provider/Milvus、多模态或生产验收；下面结果均为历史基线。
 

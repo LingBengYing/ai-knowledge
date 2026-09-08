@@ -32,7 +32,7 @@ final class AuthoritySchema {
   void verifyFormat() {
     long version = count("PRAGMA user_version");
     if (count("PRAGMA application_id") != 1163280711
-        || (version != 1 && version != 2 && version != 3 && version != 4)
+        || (version != 1 && version != 2 && version != 3 && version != 4 && version != 5)
         || count("SELECT COUNT(*) FROM format_info WHERE format=? AND version=?", FORMAT, version)
             != 1) {
       throw new IllegalStateException("Unsupported Java database format");
@@ -50,7 +50,7 @@ final class AuthoritySchema {
       // Pre-generation v3 was never a released format; do not silently reuse its projections.
       throw new IllegalStateException("Unsupported Java indexing generation schema");
     }
-    if (version == 4
+    if (version >= 4
         && (count(
                     "SELECT COUNT(*) FROM pragma_table_info('query_traces') WHERE name IN ('id','workspace_id','actor_id','selection_all','scope_count','citation_count','question_sha256','answer_sha256','outcome','reason_code','model_revision','prompt_revision','policy_revision','created_at')")
                 != 14
@@ -64,6 +64,15 @@ final class AuthoritySchema {
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('query_traces_complete','query_traces_no_replace','query_trace_documents_sealed','query_trace_evidence_sealed','query_trace_evidence_identity','query_traces_no_update','query_traces_no_delete','query_trace_documents_no_update','query_trace_documents_no_delete','query_trace_evidence_no_update','query_trace_evidence_no_delete')")
                 != 11)) {
       throw new IllegalStateException("Unsupported Java query trace schema");
+    }
+    if (version == 5
+        && (count(
+                    "SELECT COUNT(*) FROM pragma_table_info('document_tombstones') WHERE name IN ('document_id','workspace_id','requested_by','requested_at')")
+                != 4
+            || count(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('document_tombstones_identity','document_tombstones_no_replace','document_tombstones_no_update','document_tombstones_no_delete')")
+                != 4)) {
+      throw new IllegalStateException("Unsupported Java document removal schema");
     }
   }
 
@@ -80,6 +89,45 @@ final class AuthoritySchema {
     Path complete =
         partial.resolveSibling(partial.getFileName().toString().replace(".partial", ".db"));
     Files.move(partial, complete, StandardCopyOption.ATOMIC_MOVE);
+  }
+
+  void migrateVersionFive() {
+    transaction(
+        () -> {
+          execute(
+              """
+              CREATE TABLE document_tombstones(
+                document_id TEXT PRIMARY KEY NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,
+                workspace_id TEXT NOT NULL CHECK(length(workspace_id)>0),
+                requested_by TEXT NOT NULL CHECK(length(requested_by)>0),
+                requested_at TEXT NOT NULL CHECK(length(requested_at)>0))
+              """);
+          execute(
+              """
+              CREATE TRIGGER document_tombstones_identity BEFORE INSERT ON document_tombstones
+              WHEN NOT EXISTS(SELECT 1 FROM documents d WHERE d.id=NEW.document_id AND d.workspace_id=NEW.workspace_id)
+              BEGIN SELECT RAISE(ABORT,'invalid removal identity'); END
+              """);
+          execute(
+              """
+              CREATE TRIGGER document_tombstones_no_replace BEFORE INSERT ON document_tombstones
+              WHEN EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=NEW.document_id)
+              BEGIN SELECT RAISE(ABORT,'immutable removal request'); END
+              """);
+          execute(
+              """
+              CREATE TRIGGER document_tombstones_no_update BEFORE UPDATE ON document_tombstones
+              BEGIN SELECT RAISE(ABORT,'immutable removal request'); END
+              """);
+          execute(
+              """
+              CREATE TRIGGER document_tombstones_no_delete BEFORE DELETE ON document_tombstones
+              BEGIN SELECT RAISE(ABORT,'immutable removal request'); END
+              """);
+          execute("UPDATE format_info SET version=5 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=5");
+          return null;
+        });
   }
 
   void migrateVersionFour() {

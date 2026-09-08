@@ -28,8 +28,8 @@ class IndexingMigrationTest {
   void v2UpgradeBacksUpConsistentParsedEvidenceAndPreservesAllOldConstraints() throws Exception {
     String document = versionTwo(directory);
     try (var authority = new AuthorityTestContext(directory)) {
-      assertEquals(4, scalar(directory, "PRAGMA user_version"));
-      assertEquals(4, scalar(directory, "SELECT version FROM format_info"));
+      assertEquals(5, scalar(directory, "PRAGMA user_version"));
+      assertEquals(5, scalar(directory, "SELECT version FROM format_info"));
       assertEquals(1, authority.parsedEvidence(owner, document).segments().size());
       assertEquals(0, scalar(directory, "SELECT COUNT(*) FROM active_corpus_publications"));
       assertEquals(
@@ -143,6 +143,7 @@ class IndexingMigrationTest {
 
   /** Restore the exact v3 fixture before testing historical v2/v3 migration behavior. */
   private static void stripVersionFour(Path path) throws SQLException {
+    sql(path, "DROP TABLE IF EXISTS document_tombstones");
     for (String table : List.of("query_trace_evidence", "query_trace_documents", "query_traces")) {
       sql(path, "DROP TABLE IF EXISTS " + table);
     }

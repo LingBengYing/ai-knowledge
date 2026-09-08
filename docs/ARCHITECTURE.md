@@ -1,5 +1,7 @@
 # Architecture：当前实现与未来边界
 
+最新增量为[0008](changes/0008-document-lifecycle/spec.md)。DocumentRemovalController只处理HTTP，DocumentLifecycleService在一个Store事务内复验当前写权限、读取原回执、取消任务、解除目录、写墓碑及摘要审计；DocumentLifecycleRepository封装墓碑和专用当前ACL读取，DocumentRemovalEntity不直接出网，DocumentRemovalResult仅四个安全回执字段。Config负责独立默认关闭的本机开关，不装配模型或启动物理清理Job。已有worker和Answer/Evidence链复验当前状态，权限与墓碑过滤在分页/检索前生效；历史trace和配额不隐藏。删除后字节保留，不等于硬删除完成。
+
 安全基线[0006](changes/0006-ingestion-authorization/spec.md)在原Service/Repository/Policy职责内补齐摄取创建者权限，其297项Java、73项Node及[source-manifest](changes/0006-ingestion-authorization/source-manifest.json)只认证当时源码。当前[0007](changes/0007-text-answers/spec.md)已接通可选后端文本问答、引用与v4 trace；本地全量通过不等于完整语义、真实provider、网页或生产验收，当前结果见[0007验证](changes/0007-text-answers/verification.md)。Java整体仍为IMPLEMENTATION；下面0005保留结构基线。
 
 ## 结构基线 0005：本地重构验收通过
@@ -119,7 +121,7 @@ AnswerService在完整请求体解码后实施总预算及有界准入；远程�
 
 [SqliteAuthorityStore](../src/main/java/com/evidence/rag/repository/SqliteAuthorityStore.java)持有一个数据库连接；事务回调全程在同一 `synchronized` monitor 下执行并绑定当前线程，事务使用 `BEGIN IMMEDIATE`，锁等待上限配置为 5 秒。生命周期文件锁 `.java-library.lock` 阻止同一规范化目录被第二个 Java writer 打开。当前不是多副本或分布式数据库架构。
 
-- 数据库为`java-library.db`，保留独立格式标记`evidence-rag-java-management-v1`，当前v4由format_info与PRAGMA user_version共同标识。打开已有v1/v2/v3库逐版本一致性备份后增量迁移，即使索引/问答关闭也执行；失败不覆盖/自动恢复，回滚使用独立旧版备份目录，迁移后新增资料不在旧备份中。v3索引迁移见[TEXT_INDEXING](TEXT_INDEXING.md)，v4 trace见[0007 spec](changes/0007-text-answers/spec.md)。
+- 数据库为`java-library.db`，保留独立格式标记`evidence-rag-java-management-v1`，当前v5由format_info与PRAGMA user_version共同标识。打开已有v1/v2/v3/v4库逐版本一致性备份后增量迁移，即使功能开关关闭也执行；失败不覆盖/自动恢复。v5新增不可变document_tombstones，继承generation/trace格式检查。回滚使用独立旧版备份目录，迁移后新增资料及删除请求不在旧备份中，不能声称恢复旧备份仍保留删除状态。v3见[TEXT_INDEXING](TEXT_INDEXING.md)，v4见[0007 spec](changes/0007-text-answers/spec.md)，v5见[0008 spec](changes/0008-document-lifecycle/spec.md)。
 - 拒绝带旧 `rag.db` / `authority.db` 的目录、危险符号链接和不匹配的数据库格式；不就地复用其他实现数据库。
 - `documents` 保存合成源身份及可编辑展示元数据，`document_acl` 保存 `reader/editor/owner`，`folders`、`document_tags` 和 `management_audit` 保存整理状态。
 - 所有列表、总数和分页 SQL 先约束组织与 ACL；目录可见性来自目录所有者或其中有权访问的资料，目录计数只计算当前用户可见资料。

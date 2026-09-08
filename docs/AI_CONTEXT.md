@@ -1,5 +1,7 @@
 # AI Context：从这里理解仓库
 
+最新入口为[0008文档生命周期](changes/0008-document-lifecycle/intent.md)：先读intent/spec/plan/REVIEW与[验证](changes/0008-document-lifecycle/verification.md)。新增DocumentRemovalController→DocumentLifecycleService→DocumentLifecycleRepository与v5 document_tombstones；当前查询排除墓碑、历史trace/publication和物理配额保留。`RAG_DOCUMENT_REMOVAL_ENABLED`默认false，开启仅新增document_removal能力，其他三个文本开关/阶段不变。A步只有deleting/pending撤下回执，B步物理清理与重建、多模态/生产仍未完成。下面0007入口叙述及历史报告不认证新代码。
+
 当前工作入口已切换为[0007文本问答](changes/0007-text-answers/intent.md)：完整目标在blocked后重新启用，恢复本切IMPLEMENTATION。先读0007 intent/spec/plan/REVIEW/interfaces和[最新验证](changes/0007-text-answers/verification.md)。下面0005/0006属于已交付基线，其指纹与测试不认证新增问答源码；前端详情页、旧服务和生产gate保持原边界。
 
 保留的行为基线[0006 摄取后台授权复验](changes/0006-ingestion-authorization/intent.md)已通过当时本地验收：297项Java、73项Node、150个Java文件格式检查通过，原283项用例逐项保留；历史快照见[0006验证](changes/0006-ingestion-authorization/verification.md)与[source-manifest](changes/0006-ingestion-authorization/source-manifest.json)。新增0007后不能沿用该源码认证。

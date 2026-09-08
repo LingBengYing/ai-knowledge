@@ -36,6 +36,7 @@ public final class EvidenceRepository {
       JOIN indexing_jobs j ON j.id=p.job_id AND j.state='indexed'
         AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id
       WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+        AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         AND c.parsed_revision_id=r.id AND r.parsed_at IS NOT NULL
         AND d.source_sha256=p.source_sha256 AND r.source_sha256=p.source_sha256
         AND r.parser_revision=p.parser_revision AND r.segment_count=p.segment_count
@@ -51,6 +52,7 @@ public final class EvidenceRepository {
       JOIN corpus_segments s ON s.id=e.source_segment_id AND s.revision_id=p.revision_id
       JOIN corpus_pages pg ON pg.revision_id=s.revision_id AND pg.page_number=s.page_number
       WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+        AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
       """;
   private final SqliteAuthorityStore store;
 

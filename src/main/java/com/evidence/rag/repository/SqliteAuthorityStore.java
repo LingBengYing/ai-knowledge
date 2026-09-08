@@ -84,6 +84,12 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         }
         schema.migrateVersionFour();
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 4) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 4, 5);
+        }
+        schema.migrateVersionFive();
+      }
     } catch (IOException | SQLException | RuntimeException error) {
       close();
       throw new IllegalStateException("Cannot open isolated Java library");

@@ -21,7 +21,7 @@ public final class IndexingRepository {
   public Optional<RevisionEntity> parsedRevision(String documentId) {
     return store
         .rows(
-            "SELECT r.* FROM corpus_documents c JOIN corpus_revisions r ON r.id=c.parsed_revision_id AND r.document_id=c.document_id JOIN ingestion_jobs p ON p.document_id=c.document_id AND p.revision_id=r.id WHERE c.document_id=? AND r.parsed_at IS NOT NULL AND r.segment_count BETWEEN 1 AND 4096 AND p.state='parsed'",
+            "SELECT r.* FROM corpus_documents c JOIN corpus_revisions r ON r.id=c.parsed_revision_id AND r.document_id=c.document_id JOIN ingestion_jobs p ON p.document_id=c.document_id AND p.revision_id=r.id WHERE c.document_id=? AND r.parsed_at IS NOT NULL AND r.segment_count BETWEEN 1 AND 4096 AND p.state='parsed' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=c.document_id)",
             documentId)
         .stream()
         .findFirst()
@@ -68,13 +68,15 @@ public final class IndexingRepository {
   }
 
   public boolean hasProcessing() {
-    return store.count("SELECT COUNT(*) FROM indexing_jobs WHERE state='processing'") != 0;
+    return store.count(
+            "SELECT COUNT(*) FROM indexing_jobs j WHERE state='processing' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=j.document_id)")
+        != 0;
   }
 
   public List<String> queuedIds(String workspaceId) {
     return store
         .rows(
-            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' ORDER BY j.created_at,j.id",
+            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id",
             workspaceId)
         .stream()
         .map(row -> AuthorityRows.text(row, "id"))
@@ -94,7 +96,7 @@ public final class IndexingRepository {
   public Optional<TaskEntity> findAuthorizedTask(Actor actor, String jobId, boolean edit) {
     return store
         .rows(
-            "SELECT j.*,d.filename,acl.role AS current_role FROM indexing_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=?"
+            "SELECT j.*,d.filename,acl.role AS current_role FROM indexing_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
                 + (edit ? " AND acl.role IN ('owner','editor')" : ""),
             jobId,
             actor.workspaceId(),
@@ -106,7 +108,7 @@ public final class IndexingRepository {
 
   public boolean sourceCurrent(TaskEntity job) {
     return store.count(
-            "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND r.segment_count BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id)",
+            "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND r.segment_count BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             job.documentId(),
             job.revisionId(),
             job.sourceSha256(),

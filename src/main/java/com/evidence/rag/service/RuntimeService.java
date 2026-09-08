@@ -14,6 +14,16 @@ public final class RuntimeService {
 
   public RuntimeService(
       String authMode, String workspaceId, boolean ingestion, boolean indexing, boolean answers) {
+    this(authMode, workspaceId, ingestion, indexing, answers, false);
+  }
+
+  public RuntimeService(
+      String authMode,
+      String workspaceId,
+      boolean ingestion,
+      boolean indexing,
+      boolean answers,
+      boolean documentRemoval) {
     var enabled =
         new ArrayList<>(List.of("management", "folders", "metadata", "batch_move", "batch_tag"));
     var unavailable = new ArrayList<>(List.of("answers", "sources", "reindex", "document_delete"));
@@ -30,6 +40,9 @@ public final class RuntimeService {
     if (answers) {
       enabled.addAll(List.of("answers", "sources"));
       unavailable.removeAll(List.of("answers", "sources"));
+    }
+    if (documentRemoval) {
+      enabled.add("document_removal");
     }
     capabilities =
         new RuntimeCapabilities(

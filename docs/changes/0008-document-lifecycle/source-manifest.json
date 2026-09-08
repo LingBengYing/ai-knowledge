@@ -1,0 +1,1409 @@
+{
+  "schemaVersion": 1,
+  "purpose": "0008 A-step local document withdrawal verification; not physical cleanup or production acceptance",
+  "baselineCommit": "10dff37ef04798c52a6a527522f4d23bb92adf4a",
+  "verifiedBuildCompletedAt": "2026-09-08T13:09:46+08:00",
+  "command": "mvn -o -B -ntp -s .mvn/settings.xml -gs .mvn/settings.xml -Dmaven.repo.local=<isolated-cache> clean verify",
+  "artifactOrigin": "Paths are relative to the isolated final build, not the workspace target directory. Raw reports and runtime logs are retained locally, not published.",
+  "runtime": {
+    "java.version": "21.0.12.1",
+    "java.runtime.version": "21.0.12.1+1-LTS",
+    "java.vendor": "Eclipse Adoptium",
+    "java.vendor.version": "Temurin-21.0.12.1+1",
+    "os.name": "Mac OS X",
+    "os.arch": "aarch64"
+  },
+  "tests": {
+    "tests": 857,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": 82
+  },
+  "retainedBaselineTests": 773,
+  "missingOriginalTests": 0,
+  "node": {
+    "tests": 73,
+    "failures": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "elapsedMilliseconds": 4005.73925
+  },
+  "spotlessJavaFiles": 240,
+  "coverage": {
+    "path": "target/site/jacoco/jacoco.xml",
+    "sha256": "7bd2a35581474ca70aa42fcd55b9b5dca7ee663b2f4c3591e4482a204f235e6a",
+    "counterScope": "Top-level report counters only",
+    "requiredMinimumRatio": 0.8,
+    "branch": {
+      "missed": 512,
+      "covered": 3073,
+      "total": 3585,
+      "ratio": 0.8571827057182706
+    },
+    "line": {
+      "missed": 332,
+      "covered": 6133,
+      "total": 6465,
+      "ratio": 0.9486465583913379
+    }
+  },
+  "jar": {
+    "path": "target/rag-java-0.1.0-SNAPSHOT.jar",
+    "sha256": "83c9860ffedce0f384e4dcaa15b1ef3ac9574222c61b922f5f1de2c82564f7be"
+  },
+  "sourceBuildCopyComparison": {
+    "count": 253,
+    "allEqual": true,
+    "aggregateSha256": "3459123dd0bc509b6a34db98cb0435e32cbdebf6200f3b5ce3d5c4b0b917d422",
+    "entries": [
+      {
+        "path": ".mvn/settings.xml",
+        "sha256": "ad42eef43ca9d86c82a15cb120f7f0e8fd974cdbbf7ae85fcf041add8bc68875"
+      },
+      {
+        "path": "pom.xml",
+        "sha256": "f0e033d44fe293fceb744e9c7670ff67f39b95fcd51578624749eec5b62789f1"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/RagApplication.java",
+        "sha256": "47d2f95cc07abcacc2aa25b4a177137cc58d0762fd75780c73acf930586989c2"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/bootstrap/DemoFixtures.java",
+        "sha256": "b2e44d059b7816fce860947bf624d706916945a8f4d11fde956afca431fc8f89"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleModels.java",
+        "sha256": "7f682f1adefceb33fa6cf63e5c4793224a1890fe08e609094f85c9d0b34ee9c6"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/client/model/TextModels.java",
+        "sha256": "85bc7c290527216322af17ef39f166cbb243a165ca27c39bc67ca0efe6911b0c"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/client/vector/MilvusRestProjection.java",
+        "sha256": "98ff1bc58db7c52b2cfb5675dca247718caf08e0d96ee8e00ffb990cf7f5e08b"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/client/vector/MilvusSchema.java",
+        "sha256": "8bdd2b57b02e9d221cf08c36a138dada0bddf0c9d79ddd12944ad4518ae9a100"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/client/vector/RetrievalProjection.java",
+        "sha256": "de16f38bebff7f319c4ffd0c8e395dabc17e86b7fd2e69d304a74dfbed333740"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/AnswersConfiguration.java",
+        "sha256": "b9dd8a85f7fe5afc705c5e841b8c8663988a62a158a11827fd6c430601f8b305"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/AnswersSettings.java",
+        "sha256": "bc403dd1ae2efab589709d86fb8a3774acda0822fef6bb379664371f162158ed"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/DocumentRemovalConfiguration.java",
+        "sha256": "32ae984bd53dd66c573a27a73966b093865db4b9f18a37a50f7726d2bb71c3a0"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/DocumentRemovalSettings.java",
+        "sha256": "5c928635f194a858e60e4ddd6cd60897103eb455326fef366b4e2605dcf030f8"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/IndexingConfiguration.java",
+        "sha256": "e8717a75acbf499e2d47207feb3a5c9672325798b3e4399940636d465fd8fdc0"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/IndexingSettings.java",
+        "sha256": "7489addeea98e4fcad21b331474b00b5821957ef2d02d7bb6bcd94c535871281"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/IngestionConfiguration.java",
+        "sha256": "6069060acf875498a9ba57298da07014b5a6a39800e204615793eacf6ad108da"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/IngestionSettings.java",
+        "sha256": "4ebac7a81268d63b625f89861aaf3046e53c5ad9b110a7e494f1c4eb36e8e9dd"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/PersistenceConfiguration.java",
+        "sha256": "12c4a191e1ad33b0ef80e2c62f3f36cee5eae7ffb5dbfc405c3862a29acfb62f"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/RagProperties.java",
+        "sha256": "26b8cf1656353e903bbcd5dd1cbe4df48ea630c62c18dc77531817f834916f79"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/RuntimeConfiguration.java",
+        "sha256": "d26ec3d0f50cdf13ab51fe26c9f96414329562a94f7c46c5e242263bf4d7fb0e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/RuntimeGuard.java",
+        "sha256": "379c27f69c915cae0413855b262b7ee5fd49034e50a788e30f575a7370a3149a"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/SecurityConfiguration.java",
+        "sha256": "0d40744b1248ad7a1b677ecee93390004f13782a7b78dc2d0be9ac306097ce51"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/TextAdapterSettings.java",
+        "sha256": "28b039efc1cffd1feacd7742f14d9bd8555b3996519c550b50b149aa3101d9ee"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/config/TextAdaptersConfiguration.java",
+        "sha256": "3ce5473571ffa28f231a2251da5a6ba95fa7c8988615e673e0c1ba6827213912"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/AnswerController.java",
+        "sha256": "b46b6a314d77abbf0b08e51f5981bc36c30e12e8534a1892758c72f3003db14c"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/DocumentRemovalController.java",
+        "sha256": "cbac57d8242f4668f963380f5bc81c9b3ebed704e2270ce74eba29216e4bda87"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/IndexingController.java",
+        "sha256": "d9f07e2bdfc3a2fd3d4b77e23192df8a1aee3f841ab13ea8aa9636927b9dfd9c"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/IngestionController.java",
+        "sha256": "2f12702915a56f5f5de021a803d4cb9fd1dd1dba7bdd5fb3726856b85cb6c9ed"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/ManagementController.java",
+        "sha256": "1b27dfa04a9b7ae1dd644e54e38e700d33351cea390fd03989d365af4d146f2e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/RuntimeController.java",
+        "sha256": "f65583dcc6931364a51fdd55b7bd96d3f4f0e4956628f4e89ffdcfec1d944fd8"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/controller/SessionController.java",
+        "sha256": "3b86e51e4c77a3e36bb8f90b49f58a42910f208353702f10c45b1a8ac26bb36d"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/exception/ApplicationException.java",
+        "sha256": "14a55ca60bab10ba7e2276996219501aecbd688ec45f8789e64330dc7f8c89ca"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/exception/FailureKind.java",
+        "sha256": "34204d1239711b4a594bceca42ea69ef2b13958592edcd26855cff0caab12463"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/exception/ProjectionException.java",
+        "sha256": "109b8e595b995d7bf60ba7de3c40cb5cfdaa3186fa5101fe31c75ddb35a3957b"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/job/IndexingJob.java",
+        "sha256": "db4de2e3ce4693d8439f8a6cad4afd503d2f28842474e0b91182d432927a7924"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/job/IngestionJob.java",
+        "sha256": "816e2f963767e57fc86bc6bc1959d24bdcd7e4f25c6b3d865ceaac49fa77d638"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/Actor.java",
+        "sha256": "12179ba262ee345babcab7a9753b3968801e8ced7efa342057516e4b5aa258eb"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/AnswerEligibility.java",
+        "sha256": "f9916ade914d0e5eb283a7311feed90bcd9cc21cf06bfe2001c0ad15f27950fb"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/AuthenticationOptions.java",
+        "sha256": "bcb193db11d2a6a9b36e550007ce306beb82d92369f0e6760e58f76b2345ba0e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/DocumentSelection.java",
+        "sha256": "1dcb8a66f424bc6495cf2bf52100ce272b2841d987a765b6deb5c0b4b223a430"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/EvidenceScope.java",
+        "sha256": "61b062d479342f4d9957458632a955c8c4c4e783617bd4d2ce93e63db588caed"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/GroundedQuote.java",
+        "sha256": "e93d0f37a2053146576b11b2f5ce52cab3f8caacb14851a8fe467dd90dfd3f9e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/GroundingQuote.java",
+        "sha256": "4c05fffe408b686392461fa9b490bc6fdfd12a63e1f3c3fe47840b8b1208abd4"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/GroundingResult.java",
+        "sha256": "1be97cdb2bc6bd3b29de79a34f7ed9742dfff65b91c5a2a53f546686153c7f8f"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/IndexClaim.java",
+        "sha256": "cfdee8b9067a3a6e74754b1100da8d69516fd46206d1005caefe7ce578a36323"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/IndexSegment.java",
+        "sha256": "17275393c31249fe1a39cc4630dec0527a84ca7908de9904023d9c5003502395"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/IndexTarget.java",
+        "sha256": "50fe72134a8d175f6aa8b513dbd0af675ae61de3a1652400acfbbf1830764037"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/IndexingResult.java",
+        "sha256": "c613168d91e2bc7fdb2ef93a9f42393bff454543b0dd981c191b8dc4d4c98260"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/IngestionClaim.java",
+        "sha256": "3903498c7adca05b8bc68bf23dc2f39fd14ecde1fc804a48af2ce86abaa2cb2a"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/ModelValues.java",
+        "sha256": "bf78caeb8d8fb4cf3eccd446f7a5c5f2fb1d2f14a328459d69c087802ae8df48"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/ParsedText.java",
+        "sha256": "8375b9da66d76c42c184b43427d83af489cc3cdffa5d86b2fd438bcdc7f0333c"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/PublicationVersion.java",
+        "sha256": "deb45a0a3b1125d9447f8dccd6219c52fd083298568ccaa450d525f8102529db"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/PublishedEvidence.java",
+        "sha256": "4586bd4383fbf880e12cdc0ac6dbbe29778c344ca0abdf9a75874fd935d330bd"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/SourceEvidence.java",
+        "sha256": "575ec5a51e83fdaa293d3d1fb601c49365548e9ef9ca51e758b587c9ff08b9ad"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/SyntheticDocument.java",
+        "sha256": "e1bbee4fd5d5ce44e36ec5f6d7185e215480a12d372ab42f77f38d51267bbc35"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/TextPage.java",
+        "sha256": "e6414f33a9f9116142bff14c521465c401875e6a46ae5ee1b4ae9006a0c1af89"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/TextSegment.java",
+        "sha256": "994f12e2c4912b2e037768b1aee835be8c48785064a75de5c03207d9478b3b8b"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/TraceDraft.java",
+        "sha256": "ebe83951a3d35f6a1038fd5010eb4adb17445304719b606f68cc137741326a9e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/TraceEvidence.java",
+        "sha256": "4156496ef6fcc2fd3f00510fd7fa026454cb720c57c609c8b575656c8e054496"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/domain/VerifiedRevision.java",
+        "sha256": "4267cff43918bfdb2e4c1fbe94d8dde2111b3e6a1265f67db2d022d9ad65df94"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/AnswerCommand.java",
+        "sha256": "c267424597989f02eecebdfe36fa0a89c41915b5f2ebbadcafa747ab8666a0ab"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/AnswerResult.java",
+        "sha256": "a4889a1444a224f8532d76be7691a962b850a85cbadd3f5b6f935725d2d94700"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/AuditEventResult.java",
+        "sha256": "0b748b9f0afa56e32609240fc0ef80db572ef80221d7d7cda91933d97255d6bb"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/CitationResult.java",
+        "sha256": "7a4082478b612f6947b35664944791f730b899bf14fb6932c433f69341b05fef"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/DocumentActionCommand.java",
+        "sha256": "822baf76e922d74d216630d404b322afebb793848900420465c58d3795380261"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/DocumentActionResult.java",
+        "sha256": "e8de02189fcd4a60f529f4c16339a268e8b52bc532718be826bdce9a70b2742a"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/DocumentPageResult.java",
+        "sha256": "cdd84d0f8bfdd10768d3897c9c1ff8f0cd4fa4f7a6f48a67b8ae0361c57f447e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/DocumentPatchCommand.java",
+        "sha256": "5ecd8b5327e42076c063f26b1ccf7343b7a6646c0dd14f3786b848b1ba62540d"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/DocumentRemovalResult.java",
+        "sha256": "23fbb2713877984b91f4de1c6b066842451da1ac461605ee266c953f10dfc171"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/DocumentResult.java",
+        "sha256": "c9d77ba36fdb931213ed2cb946e375241849d19e8aeb2f804263f100f689c887"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/FolderListResult.java",
+        "sha256": "e651e13a879d44a65a43cf21a14665423106fc6807fa335c01527be7cbd3504e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/FolderRemovalResult.java",
+        "sha256": "d3d58d29b3a3f4ad7f5ef8b027c12f80c5fbfc6565e79c13f9744d13274e006f"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/FolderResult.java",
+        "sha256": "007f361ba8429c297d1dcaa3ebdb5f171702f16befd4761d62e01f33c652d94f"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/RuntimeCapabilities.java",
+        "sha256": "f86b8da9e9f3daa3ccbc125a2f5722440a6f33f53952542a951567d2ac4f6d17"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/SourceResult.java",
+        "sha256": "756a75ad2621c57a623fce6c64656086a1258975a4ced68566e149dd196e56ab"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/TaskResult.java",
+        "sha256": "510bafaf221bf1cb77f08d466ead75b1b0a85ab3d8e194466612d4b7f058df02"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/dto/TraceReceipt.java",
+        "sha256": "428251c03dfb87d374ab8698368c95f2cf63460fa8f94278502de70656937cbf"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/AuditEventEntity.java",
+        "sha256": "9bef4f7b40354ba5e87ee02fba62149603e6c4de01c5b2e4d8d7342583ab56f2"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/DocumentEntity.java",
+        "sha256": "6579c3e72c43750a68339929add9107e83b2313450a7b6f6f7dc47153854e7f6"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/DocumentEvidenceEntity.java",
+        "sha256": "ffa5d40cfd8708089ab92a9c26a4c9e2c24372b03cdd25564b11301f8cb856b1"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/DocumentRemovalEntity.java",
+        "sha256": "09eec41e3aba3da17044ac5f94f942448371068c04ae6761717fa0da4310425b"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/FolderEntity.java",
+        "sha256": "19e47ea8c383bc8c3360d92f52ee27b4e4670d752531340deba16dc3bf669611"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/IndexPublicationEntity.java",
+        "sha256": "8904cfe64c123403a6d767369c4674dc2da4b9ce566e46715aa48acd6e4593ca"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/RevisionEntity.java",
+        "sha256": "2be5ee55b91e0c73e9dc3c1f1e16ea7a0bd36fb66f1aa63eec57d050b5778b09"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/TaskEntity.java",
+        "sha256": "65b49a71e8095e3995d08691edf273d6bc700d29219e61ee66d2d32826ce8708"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/entity/TraceCitationEntity.java",
+        "sha256": "56c5c6a5f702fa45ee2baf06f1b4a83b600e1acf5c32f316ef1373d0240bcf32"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/query/DocumentQuery.java",
+        "sha256": "a708c5345dc71e5e847fe79f5c7983a66124e493174f6065156510bb6a721a3c"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/DocumentActionReceipt.java",
+        "sha256": "d93f2cac0f44b1dfb13233c8bae3a22a614510db62547f8100a6e30f4fbb11c4"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/DocumentActionResponse.java",
+        "sha256": "edb775f8a0b431ec842037a8ccb6157e519bc7ca889e6b8b6cda10185839a83d"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/DocumentActionsResponse.java",
+        "sha256": "aabb4eb0db549f075b62e6773f3361cf1edf85982a56797fa71331b3a17f5885"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/DocumentPageResponse.java",
+        "sha256": "d36e620461dec09cff8ebac07ac0f25c4f329cdbd4a0486b67e662728cf73ed9"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/DocumentResponse.java",
+        "sha256": "ec957746649f625cf0a96114d5e8b5fb9651bf95d626f4db32874566b99f2f70"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/HealthResponse.java",
+        "sha256": "01062c43bf1fd128b939e1c4c60722f7d39c718ce237fb2025910f80a45ff87d"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/MediaInfoResponse.java",
+        "sha256": "36ba2a8f0a0b65fa5299ff50b72040ed3991730b22ee000f2855448c7c243ec5"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/ProblemResponse.java",
+        "sha256": "69726fe0042df052432929b1d38c67e3dfa66be56f19b88bf8560bab60851544"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/RuntimeResponse.java",
+        "sha256": "c95c371135365e57d757364f829cb92cb5d53262ec54a776b6f47eabce1b7ba7"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/SessionResponse.java",
+        "sha256": "a806444f0913eb2e724e27adf351faf1b83e4c625eadb8f123b4f297f2b49104"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/TagListResponse.java",
+        "sha256": "8320e1a927dbd2bdf32cd493053f9fa59932c6e50076d3b27d5dc8b9217559bd"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/model/vo/TaskResponse.java",
+        "sha256": "6c8c68787a97eaa28ae5f7f4238e72cb3fbf66374e01bb5903f4cd6ba5dfbf92"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/AuthorityRows.java",
+        "sha256": "f7ee774ced6e9a30e693b15175b14478ab1747fac3ec66f7731e3c07b524b642"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/AuthoritySchema.java",
+        "sha256": "30ade9ae5a989e79938726fafd44df9f892aac3e1771034f0a70b33f9e7e7747"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/DocumentLifecycleRepository.java",
+        "sha256": "a44db35af6355f7c67ee0068947f3eff75f12cabd02660d729ac39bed42f0525"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/EvidenceRepository.java",
+        "sha256": "e1cd14742a7166f5aa0e9b5de33431200589ea75935b29d79060c80053a801ea"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/IndexingRepository.java",
+        "sha256": "60700d407aa13b5f54afc097231e3682628304a8724a22b9f2b9580027507443"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/IngestionRepository.java",
+        "sha256": "53cee24a15ccfdb26403b9e567a1f898dfa2a108f02ac87fa04b866efaf47dd9"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/ManagementRepository.java",
+        "sha256": "c39d3ecd003b2e5badfc6ea49eedceeeedba1d355bbae568ab5ee9ecdeac09c7"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/repository/SqliteAuthorityStore.java",
+        "sha256": "6c84ad98d2389418d5d690510b2dfad0acb3bddfddda314372ae3057d0b56767"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/security/authentication/JwtAuthenticator.java",
+        "sha256": "a3a762981e434d2d3288abfcc8e48a4a52394485f9a1b761f293bc346d9694fc"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/security/authorization/DocumentPermissionPolicy.java",
+        "sha256": "8866e983f6a3b2319092ead50667c0fd7c62e517fd4c7631ed386ec6e8d67f76"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/security/web/AuthenticatedActor.java",
+        "sha256": "354661e05a52d7e34ceff01c8be3b21ee1bdefe18854da119e213ff3a9a6a3c9"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/security/web/AuthenticationFilter.java",
+        "sha256": "bdf6c3923b6305dfb8928e8f482c01d32c6fdaabd4c487311824e8c04fec2ee4"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/security/web/RequestAuthenticator.java",
+        "sha256": "a2a1f0db8107066cbef725222a3095da4d19e045214ba84a1f6ad469544b651e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/AnswerService.java",
+        "sha256": "89bcdce05dbc4e597c531cbc43e6fd57b2d23b8004890b0d23e308e0884fda56"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/DocumentLifecycleService.java",
+        "sha256": "79c43bf52f1ec2902c3ff6e4e316f9d68f6c9e2986e1f3c2267c6869c5c98d0e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/EvidenceService.java",
+        "sha256": "7d9f46bd1aada7c217d493aed27d3f07649a74efa7bffae2da40d66b2417ed22"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/IndexingService.java",
+        "sha256": "83d0cfc29aca25d530a0beacb638add36f46250e0201a83ced5b747bd5121fe3"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/IndexingTaskProcessor.java",
+        "sha256": "bf430f06c82a62760269df880b0c9b3fb9a32e37b0e56a3e53ec46add382f704"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/IngestionService.java",
+        "sha256": "2726465dfcdfb06b6327ec7d1b46c57474223c5b6e6726fa4c76becf1ad6c763"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/IngestionTaskProcessor.java",
+        "sha256": "81e3fb50f14ac7be80d07edbb7bf5004b3c9ddbc2307b5ce6b58d7e16ea43f7b"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/ManagementService.java",
+        "sha256": "21189b0a70e272deccfb26106c82345769d9e6405329dcb37d8ebc0f78f718ef"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/RuntimeService.java",
+        "sha256": "8f35617e99d2d9530c814c26e53fa8bb6ae0cfbca96a83ec6169c3c608fc63f3"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/service/TaskResults.java",
+        "sha256": "ee52849f26500b496c0b0bbc11babc77a4b4f7289b4da7c9b8bb8076ee48e5f6"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/EvidenceConflicts.java",
+        "sha256": "417d51d1936748a982fc12d3c0d1aa0402065b1a0e34b4d72ede1210a6ddd6a1"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/ProcedureEvidence.java",
+        "sha256": "8ecacb229ca6039a861ceafc2d750cfa3259d8fede0d87a3dbb7cf74f9a72ed6"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/QuestionFacts.java",
+        "sha256": "57cae36488786bb13adf43cfa6ddf205b6bdaf156c7b3de637e052eb8f52b934"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/SourceFields.java",
+        "sha256": "8a50dab70b30393c85652fd7be999b2b257414401cf5257d5ca60215251187f4"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/SourceInstructions.java",
+        "sha256": "80498614190c5b3a940bfb816e51603acb10d1ac118725fbf3ff5b6777d5faac"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/TextGrounding.java",
+        "sha256": "8c84a41b5d9799fbf612eb73a8a82505d5b579d45d9abd9439a4b9f7fb254c7e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/answer/TruthContext.java",
+        "sha256": "5312bf430c4328a6bef795a8bab2ea780acd1dfb97506790908d0a7315095e68"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/tool/parser/TextParser.java",
+        "sha256": "0fa299d64c06931a454636c6380ace2781edd14cf49b2478ac3d5586a384149f"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/HttpProblemMapper.java",
+        "sha256": "91513b77403113f7274dd3bfa66899eff55de1616b16059d74e8a1f5a56d3a97"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/ProblemHandler.java",
+        "sha256": "9d1f80d9b58849594ca0a248dfe73c86c47749fd4326ffbb4ab0d3f9b9403ff9"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/RequestContextFilter.java",
+        "sha256": "2da977baeff05d56a3721d4ecc5a7cf427c0758f2aa91785bb3df17ecda17c81"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/UploadServlet.java",
+        "sha256": "c794f5450e56f56b07c7048458f9604c2a646d802000bb5490c38bf9e4b74c12"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/converter/AnswerRequestMapper.java",
+        "sha256": "0618f57d3630af1650d54058260f4a2a9221f39d4592f111d70548b975da526e"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/converter/ManagementRequestMapper.java",
+        "sha256": "d6d411113c84ea2eeeb1b7cc178b1104495eb3eeec7fcbc067b7e68668427032"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/converter/ManagementResponseMapper.java",
+        "sha256": "325e6a6b2ca6a54a2e4e368405668a71fd8a6d2999be707b0c33aefa79365cdc"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/web/converter/TaskResponseMapper.java",
+        "sha256": "7df525a6eb2a6258994fa946575016997540d5364fb34f4e2196ee7c7cfafc19"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/indexing/IndexProtocol.java",
+        "sha256": "d2225ebecf3bbbfa2f1fb8b0e2985dcfeefc992725d912ea0dd2f0347f90f204"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/indexing/IndexWorker.java",
+        "sha256": "c68e9ae9a7c294b09295d4280659e337dd57cdf2fb78f06398ab42fc0f6e3bdf"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/indexing/IndexWorkerLifetime.java",
+        "sha256": "2e08a2176f1676fa69a918698042d8399747785f6502bc1f9fa53fd02185cd25"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/indexing/ProcessTextIndexer.java",
+        "sha256": "89ae673d5109783883499db964c3e44d50af178a23b2ace40d47b43301efe6ac"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/parser/ParserProtocol.java",
+        "sha256": "57c4b0a77518bbffa64bc5dae48053d823897c83908b5953f9b257ed2053bb7c"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/parser/ParserWorker.java",
+        "sha256": "03f498f78ca964be07cd680258275ebbf9793c9b6e5f1785e1ad43dad66d12fd"
+      },
+      {
+        "path": "src/main/java/com/evidence/rag/worker/parser/ProcessTextParser.java",
+        "sha256": "827335569d2ea3de95a79178f4f75c2ee6d6978f36dd42c736faf4554d3e8a80"
+      },
+      {
+        "path": "src/main/resources/application.properties",
+        "sha256": "cf24aa484f2436da019c3d792d0ed74fed7e987d93e0535fa6234648a96d10ab"
+      },
+      {
+        "path": "src/main/resources/static/api.mjs",
+        "sha256": "0ac55f0895cb9416f4dae137eb2480e1320a2dcb5b3c95d3ecf6b1e50b4bcbad"
+      },
+      {
+        "path": "src/main/resources/static/app.js",
+        "sha256": "58ebed966402bd7ab67d76422a18d2b5f57791466581534fc82568db57c502b7"
+      },
+      {
+        "path": "src/main/resources/static/index.html",
+        "sha256": "368bcc7f7b45f61613b34ad0a5a6acd690a459b84906c85dc12468faac818bf8"
+      },
+      {
+        "path": "src/main/resources/static/notices.mjs",
+        "sha256": "8e43264e4f7e52bca45f8893bd797f66e0ec2ad7ae5a5fcffe142b070da61a80"
+      },
+      {
+        "path": "src/main/resources/static/styles.css",
+        "sha256": "66e9b29f7815841579af33e0f10e9e2d979b8f6280d2cf8e81af0867d6285829"
+      },
+      {
+        "path": "src/main/resources/static/workbench-state.mjs",
+        "sha256": "932f776f1d7caf5c4aa29e9e9dbb589235e345e886521edfe370cd0589d52bfd"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/architecture/ArchitectureRules.java",
+        "sha256": "256af331375879309972a90febf0fd1c4af608180be1ad6e49243ee9884b8d2e"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/architecture/ArchitectureRulesTest.java",
+        "sha256": "232b55574b81fee1eb0e4c587cd605382ab2d4427c1999d63dcd5c9d29b66262"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/bootstrap/DemoFixturesTest.java",
+        "sha256": "8f4038839b30ddea1115308a24fb34ac3152a728beed6cd04c6fda234703632a"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleModelsTest.java",
+        "sha256": "53aa683f629e5fe0752f3c5cae2ac9dcecead3c11ea51a5276abbce4155144b2"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/model/SiliconFlowGenerationLiveIT.java",
+        "sha256": "d0b9d014141536eda891c7873e11015cc125c646016c403b82438feeba073c63"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/model/SiliconFlowLiveIT.java",
+        "sha256": "a60088bb8d62c2549f590f74a8952ab253d10208b33e3e0a2948826ecb3ba04c"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/vector/DeterministicProjection.java",
+        "sha256": "41eb2113d66bd5dd7e7a84555ba348f328c59ad3005e407f937e55141c15ab2f"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/vector/MilvusAuthenticationLiveIT.java",
+        "sha256": "7859606217a48061c78585bae01d91a3c32247314be1aa4dde2e5579acbbb24a"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/vector/MilvusLiveIT.java",
+        "sha256": "800339486a4639efc677a70a469d101f60dcd6c01eb2724dc480341490af01e3"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/vector/MilvusRestProjectionTest.java",
+        "sha256": "3195c4865166f0bd996801248d412f9e85070ecec173544202908c8bd7c5820e"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/vector/MilvusSearchPreparationTest.java",
+        "sha256": "4c8d80196c1af72281306383af86a1abbc6472503a3e3055b7337e917c0910c2"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/client/vector/RetrievalProjectionTest.java",
+        "sha256": "80fcdd448628e61f4d08fc7d9b07f07350c499f456962f3f931cb69809299876"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/AnswersSettingsTest.java",
+        "sha256": "61baf47ee2d16393212734dc175fd558a814c681efe12d9e1bb4608d2da1aa0d"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/DocumentRemovalConfigurationTest.java",
+        "sha256": "7481be9b905e0aad5310e77727798cad40871bbfc62b902f156d7be70c9e141e"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/IndexingConfigurationTest.java",
+        "sha256": "8a4dc1ef0efa9f84893ec10bbd7b0f55d289a4b413c0c17ab3c9709216cfe031"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/IndexingSettingsTest.java",
+        "sha256": "509303760cdf81f13057150ac76b58da29218ac02150bce4adb8b69075161181"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/IngestionSettingsTest.java",
+        "sha256": "ea9eb87c6a6d7578017cd857b0b988bdd3a60e3c21672c6b1e477ee5a4daec68"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/RagPropertiesTest.java",
+        "sha256": "30bd6487c8f6a07923729157c3c195c1b946cf407969218a490c3607fa0a90a9"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/RuntimeGuardTest.java",
+        "sha256": "21bec976067891db4d3dfacd812450d996d450ef6f52944e1e51644ae469132f"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/TextAdapterSettingsTest.java",
+        "sha256": "9c31a1d371dbecbff183e08f78f310df02aa83dfc48759c36940e0cdde3851b4"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/config/TextAdaptersConfigurationTest.java",
+        "sha256": "1cf10fa4f156780f6adb46f452ec64ab480731c3da5ed63d5ef748fe8fed065e"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/model/domain/GroundingDomainTest.java",
+        "sha256": "750a4cd7a14b110e0d9a333cf8399f17f6c88dfefda24e19d11ee4c4d34ef93c"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/repository/DocumentLifecycleMigrationTest.java",
+        "sha256": "031784e825d27e26d0ab675ff2c65654576bd0a6e31611922f7852d4d8eec98d"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/repository/EvidenceMigrationTest.java",
+        "sha256": "043d51c83cfcea4a8df0028c2511bd53413817620eaac8b42eb437c9baef352a"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/repository/IndexingMigrationTest.java",
+        "sha256": "d56c26ace737394cc52ae69ab30cbd3c27d9d1086a8d0093ef41d11b393696b1"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/repository/IngestionMigrationTest.java",
+        "sha256": "5f1c283fce090f3b66b686a48b076e24cee7981a572e5c56078debbd00e5e784"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/repository/SqliteAuthorityStoreTest.java",
+        "sha256": "9de02e74e49cded0b1d2f0750e1a3fc8ff2a921f3c0304c72a1653c123cb9c4d"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/security/AuthenticationFilterTest.java",
+        "sha256": "9f55196232008293b869203dac6917af77eccea42b2e69fb9a1deaece1e0dcec"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/security/JwtHttpTest.java",
+        "sha256": "5bcf7111c0e2d6eadc6d4742251fe80bc0e5171e6d747abf58f5ff70e2918fd8"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/security/RequestAuthenticatorTest.java",
+        "sha256": "f918fc022b24828f9766dccafc066753203a435fe7a687e9a413fabe368b0db8"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/security/SessionControllerTest.java",
+        "sha256": "61b3e74d6272e7dca3286413d4bea97dbf94629641058c1a761008a3c518d269"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerCancellationTest.java",
+        "sha256": "505fcfa71cff63feca11b2025ace4581c8d63f60c7ac8d7f252453f3fe7fed85"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerCommitRaceTest.java",
+        "sha256": "9195a0a4c4b572d7118ebcbbef7788059a8a5ea2986d98117bd58ee6178d7e26"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerGoldenTest.java",
+        "sha256": "8cceb8a5dcbbe56c6383d2143dd6ed7d2f0f1397ac106bb83dc6b9749983d4b1"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerLifecycleTest.java",
+        "sha256": "2d2867956f8fb36d9924567d92f3cd4a86576f920b2eb3c636147995b1026165"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerPageConflictTest.java",
+        "sha256": "bf11c035334d6b14c2ec2fe0c4e27fe2c2d6652fb8bc9b76f4e702437a7318d2"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerRemovalTest.java",
+        "sha256": "a472ce498c7366badea647a09e0ca4b05abf2b700277f558604c0861f2cb68de"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerSemanticContextTest.java",
+        "sha256": "e7ce0001792efa8b06406a2f3b2dca3e1357ad22736d1f4f4cb148c9cfa13b8b"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerSemanticScopeTest.java",
+        "sha256": "23254769240359fe20ebe8fcf2a9c96ae6c00881c201ec4f6866d601311929dc"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerServiceBoundaryTest.java",
+        "sha256": "fa74c31204063a223f387710f95419b6960b57e3f97557c3fe84c0e5df31bd8d"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/AnswerServiceTest.java",
+        "sha256": "e74721f062b36d7fe096adf45dec987be195f84d62cba55c81364183868970f5"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/DocumentLifecycleServiceTest.java",
+        "sha256": "d96a849c913f593ba7623339e81c2c4808927d7a0505703ec329c7b44b66017e"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/DocumentRemovalProcessTest.java",
+        "sha256": "e89d1b9477649a51d7c7e1327a114c05597d930c22654c242011f99a0fe610f0"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/EvidenceCapacityTest.java",
+        "sha256": "a9cbfb7a15a4bf623f892f506cec6e85ce3885fe63c56f55af83c6a6ef2e60ce"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/EvidenceDomainTest.java",
+        "sha256": "251f8259c3bfb5efea01d41e9666bbdafc2e4070584376c41bbaa6c950992093"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/EvidenceServiceTest.java",
+        "sha256": "12c19f301735b4832904486ecf5d239dc0d1af8efc888b41edcda30322a6b32e"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/EvidenceTraceSealTest.java",
+        "sha256": "0b961d5ae25e106a00be4a7ebcd096e62901c6fb5ff5401210035ff2705e296f"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/IndexingServiceTest.java",
+        "sha256": "6ef1a5a70c5c76ddbb3af73e92c64d75e1d2eed9994d535969022d9f1321df36"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/IndexingTaskProcessorTest.java",
+        "sha256": "9f1ee6a0008941cb62d7e25abafa1155f8b9c64f2426c207f2d8adbb64beeeb7"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/IngestionAuthorizationProcessTest.java",
+        "sha256": "8918324033566debbf338bf97cd6a4ba2c8e188da9ded37994061304c06ee060"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/IngestionAuthorizationTest.java",
+        "sha256": "a4fa402ea593baced5de901d078dea622fd6ee5de6de9ce5eb2aa999caf9f14c"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/IngestionServiceTest.java",
+        "sha256": "c126e740039d787cfd60eee37a870447a3cac5852f1998b36d021fac5faf146f"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/IngestionTaskProcessorTest.java",
+        "sha256": "921c610094ccfa62cecdbd285f6e8c98c0704ab9dc26dc8371dcdf2a49ad2f1f"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/ManagementServiceTest.java",
+        "sha256": "0531c6f1d85da0f59bcd45820f542ff85d50e4233ba8549dd076c1d456deca02"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/service/TextAnswersLiveIT.java",
+        "sha256": "f766983ee19ad5629bc59c4672f12e651a2d67848b8cd12ff7e107f5383a99dd"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/support/AnswerProtocolServer.java",
+        "sha256": "7fe66c661e1ffcd9b9acd430ac444a45228236ab8d52b026a0eaedf1b9b90170"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/support/AnswerTestContext.java",
+        "sha256": "618b2ce2d89e604ab3ffa30bd5e1d0d2e4490e30e05542183b9dec4d4b0c9075"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/support/AuthorityTestContext.java",
+        "sha256": "fdf91ebcd3c2f39bef6158276a8c3bf8497e9c30a397e075578d08b06502e8d6"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/support/PublishedCorpusFixture.java",
+        "sha256": "6eb7780f07452b9d828a8b06f07ffd042ac3e44ca5b9f25318b4cef492e5e114"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingBooleanTest.java",
+        "sha256": "efedf83888d5e56ced0fabc26fdb2bd473e13c948cccda4df04dcbb812633ec7"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingBoundaryTest.java",
+        "sha256": "342717f41c1181434cd14a1d48bb80e6094a1f9e15c13f43bf932474aeecda5c"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingConflictTest.java",
+        "sha256": "f40e7cb6c039d83fdab7d137e9b193dd100a483a5338209387bbd1b0ecc8caae"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingContextTest.java",
+        "sha256": "b2483d1ecad4d777418a48ceef4eeec90d3419405517f4b3638259809db2d0e1"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingExampleTest.java",
+        "sha256": "cbf8b854331ae19149271b6a1676d4969852920a6aa3d2cd771d314425f404e1"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingInstructionTest.java",
+        "sha256": "294ab26c971b19ab7a3b1e9aefe97534caf41079bfd981972f74a1d646dcd5aa"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingPageConflictTest.java",
+        "sha256": "2a1820b1f7977190dbb75ee8fee0151a6a5481f20853b817e67f222a92b9554a"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingPolicyTest.java",
+        "sha256": "279e13ef8392c63cbf9073dc8c4fabb2d564d0baa3f9328f3b1b06800a00c70a"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingProcedureResourceTest.java",
+        "sha256": "99eee4034e6102d806fb61cc7096340f21f6fb89d6a924a98a83ee0ae4b3d137"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingProcedureTest.java",
+        "sha256": "aff1a8ec222fca41e1c7bac291e99c925cc41f32dbfb942e10f99b6bd98db21d"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingQuoteTest.java",
+        "sha256": "c3d523da4ab3726c061b2ef851166fc3b9c585a17629c73cd29afafe75c7aa2b"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingResourceTest.java",
+        "sha256": "2afe9a91a398eff590c5e31dd57ea5be0ba1777b78764f608557545f8c8e3506"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingScopeTest.java",
+        "sha256": "ce845e03e8e0282fe83e3b6d2d8954dccdf07c3d7174f1e38cf475b4438fa4b4"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingTest.java",
+        "sha256": "da0415bd66a420a4c75600fb919c7e6de5ac0d2bebdaa40872a6846c846bf026"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingWholeFieldTest.java",
+        "sha256": "e6895bb7312998b656431f048279e48ec0e54e67bf1a7190e2073d1458f05ee0"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/tool/parser/TextParserTest.java",
+        "sha256": "4b47c6d0db80128bfc4ba1369bbf5d6997b6a38ad76a686bea22c1e069067b8c"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/AnswersHttpTest.java",
+        "sha256": "e008b58c48433f2d93d42bd5968989889c86d161318552847a9eb24173188dac"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/AnswersRuntimeTest.java",
+        "sha256": "0131c45018623bfff7c61bc3000779619dd6726ccb3e5680edee39b7792031ef"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/DocumentRemovalHttpTest.java",
+        "sha256": "9ff96f940afbf4812570dbf36c1a8ea22c2f4fda7b7aa0dc499fe22900b79631"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/IndexingHttpTest.java",
+        "sha256": "6972d6186642aa06487472c30671d17e38b613fd45beff30c0bd81f4f83d3514"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/IndexingJwtHttpTest.java",
+        "sha256": "10a00c3c0e7d21a40b8821b9ea58fbddb6e509449cbefe534f21cfdae896e4f6"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/IngestionHttpTest.java",
+        "sha256": "8005f4ab3da7267f902831b5fa82f4b06b66c2842dd874961d24c836624c675c"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/ManagementHttpTest.java",
+        "sha256": "6b8522cbb549725b5166111301aa4b44129470f8abd252d87da8b092a9013aff"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/ProblemHandlerTest.java",
+        "sha256": "c2485bc2e07fe44bc2ef3a97f8f5501af8616ef1b6ce8f47ea64bad0c3c1fd3d"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/RuntimeControllerTest.java",
+        "sha256": "e5b8c25199188aef1f4b0aa3074a3479f21b2bcca1e11dca9f2a7ef2f8fd07db"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/converter/AnswerRequestMapperTest.java",
+        "sha256": "e2a938417c00b83dda5e3e5836987d6eb9116bf208622cb6f2f8c3717814755b"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/converter/ResponseSnapshotTest.java",
+        "sha256": "59288c83e4f9afebbaa27b33af07fdc22ba0bba8799ab3d7768e5a3482e10c19"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/web/converter/TaskResponseMapperTest.java",
+        "sha256": "ffeb408e8e705d4f5cc5f5143926c74dd6840853407f9f2a0199e86ca2aa11ce"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/ControlledIndexerFixture.java",
+        "sha256": "8c4a62004280756de1de0d2bc29db1bf7333e9615b3ecfacfbc952ad70ef8761"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/IndexWorkerLifetimeTest.java",
+        "sha256": "6106f57e22c2def25fd918f622419ab83aba953db5614dff7ea5bc2450c28d06"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/IndexWorkerParentDeathTest.java",
+        "sha256": "6825fb6ce30d40bb857c89822324d5aa1da6b7498fa9fca216b83e0186cd36c8"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/IndexWorkerTest.java",
+        "sha256": "d9d821ef2e6d2b3b2e62550e645b851a2293405b13d5f9dcb909da18795c0ba9"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/IndexingTestServer.java",
+        "sha256": "a87b48d3039ef79940afae907d3929430510ef557873ddd274aac3e60786c3bb"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/LiveIndexWorker.java",
+        "sha256": "a4e376bb37c2ca45f482bfa34291b97698e627b8225843b5036315a7cbc824b4"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/indexing/ProcessTextIndexerTest.java",
+        "sha256": "f52ea4df5bd374c2051d78df5b3ab2db55489aa15f03a6b2aad0760ccc4c8225"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/parser/ParserWorkerTest.java",
+        "sha256": "baa9278bb5be13e7e5966b5056fcf58c660d2b395d190ffdd0307839d1167210"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/parser/ProcessTextParserTest.java",
+        "sha256": "470d3c1680aa084f54cccd1062b710d0ce33959d416e636025eb8a0c8d53c62f"
+      },
+      {
+        "path": "src/test/java/com/evidence/rag/worker/parser/SlowParserFixture.java",
+        "sha256": "f7e12f0acc2e5571ab833a1a7fb771f86f42e269e085392f91aa9b67410038f9"
+      },
+      {
+        "path": "src/test/resources/corpus/Atlas路由器运维手册.pdf",
+        "sha256": "7fa65681117ae933d2009a455ad190acb40d34eaf3ac500e97973689688df15a"
+      },
+      {
+        "path": "src/test/resources/corpus/不可信指令样例.pdf",
+        "sha256": "9bdc66d8756f1c67d1feae67f067992794164259892385ef378aecf390b5b462"
+      },
+      {
+        "path": "src/test/resources/corpus/另一组织薪酬资料.pdf",
+        "sha256": "08b8a548a153aa8e7753884daae3e0a4f46bd55f9115bf4e02cc1dc9363ddec5"
+      },
+      {
+        "path": "src/test/resources/corpus/星河制造差旅政策.pdf",
+        "sha256": "7baf4e2206a9779b59a6252217c86e610897d8e6980e06b1f05a512732f46752"
+      }
+    ]
+  },
+  "junitReports": {
+    "count": 82,
+    "aggregateSha256": "71ab8599eddf2e097f18ac6abde99fe3d2329ef7747139aec520e32165acd385",
+    "entries": [
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.architecture.ArchitectureRulesTest.xml",
+        "sha256": "6457add1390cac55cd98fbc54a763d068a786c1c31c08f2c5720a72b08fadad6"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.bootstrap.DemoFixturesTest.xml",
+        "sha256": "91f65f9ccd911fed9e8218831379d01d39c5df74c442e1e021d771a20f1eaaba"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.client.model.OpenAiCompatibleModelsTest.xml",
+        "sha256": "eeaa9cbc1e2c48c31f7a8da37a7c0c5718b036895277db3ace33e30de75b92fd"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.client.vector.MilvusRestProjectionTest.xml",
+        "sha256": "33f4411af52e6f4de13debfd9a75abdaeafe2fa564b6d6c79b9578ddc2970f4a"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.client.vector.MilvusSearchPreparationTest.xml",
+        "sha256": "b2d5a93e59e549ff32c515ea078d8704c78010b6d723c6a2b9959dbf5a012417"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.client.vector.RetrievalProjectionTest.xml",
+        "sha256": "7cea4a0319128f809aacc4a9b331566853791a6b1ec0f3032507ed40f9a3a7d6"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.AnswersSettingsTest.xml",
+        "sha256": "4943fd3cfa3bdd265ab7d40b4b4aeb2bb6e6139b759df3e12405649a228b4d84"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.DocumentRemovalConfigurationTest.xml",
+        "sha256": "b1ca409f81a1e3a6da4035cb132f4f0b0200ddc6f66969b9e5c5c023e6450c53"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.IndexingConfigurationTest.xml",
+        "sha256": "62b8dc7439a99525f393256fd839cc6a09cef67b2de4c83a732a7bd2fc649587"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.IndexingSettingsTest.xml",
+        "sha256": "c2fa70475b68b4a3b7b43a4d2941e200046cb3a577c8f2d7d2c9478f8b85fb5e"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.IngestionSettingsTest.xml",
+        "sha256": "16b01db36a525cc241e7ad41f1bf4a1c5c5eadb128695c2e309c5240bd6d90b0"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.RagPropertiesTest.xml",
+        "sha256": "b71c47ce264c0083f38c6b1ce6ff5ff205e525aeafd72f36abd89a00c800df37"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.RuntimeGuardTest.xml",
+        "sha256": "8f5a4e7435205100a009f272d120bd00c446a499d2e34e141563c4b4ae5b6cb3"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.TextAdapterSettingsTest.xml",
+        "sha256": "95b43a8bd5f5da57ce470a5fab5f7d66709bbb591b23a947fb89c23ba99d2234"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.config.TextAdaptersConfigurationTest.xml",
+        "sha256": "7acb267ea83a22494ed769da7202780435a7babe0cb1ffb31fb4650c5e596c7e"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.model.domain.GroundingDomainTest.xml",
+        "sha256": "fce20a3e080270388d1a93f496ba1db48fcec570ce5e88250fbef6063d2446c9"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.repository.DocumentLifecycleMigrationTest.xml",
+        "sha256": "f8522e0170d97f4004b68386fbc64a992314f0b31a74e15b296387fe819e6d1b"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.repository.EvidenceMigrationTest.xml",
+        "sha256": "5b0636c8fc65e1e8f4733c72471e900d447ab8224219d5eb190d10a8f8b37547"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.repository.IndexingMigrationTest.xml",
+        "sha256": "e8a3bb1ec665928d6cf4986cb45dd42442a9d18f115a589d36419ff94085deab"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.repository.IngestionMigrationTest.xml",
+        "sha256": "e6dba8018ee6d390423cae684b06b96aca3cfba0050630b62cf40877c738aa24"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.repository.SqliteAuthorityStoreTest.xml",
+        "sha256": "f5725fe03cafb5f17f9f0299d4db76a272a72b5cd7f3f90bb56369a7447d72fb"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.security.AuthenticationFilterTest.xml",
+        "sha256": "f0e1a9e79fa3125fa6f7082a8435172f56c9a25ebbf9af80f977e031ccf85ed3"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.security.JwtHttpTest.xml",
+        "sha256": "714b9d294860dd235e2533bf6c7d6c6194652b352e51ab4bc01aa53a168c7850"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.security.RequestAuthenticatorTest.xml",
+        "sha256": "41904538bb2dae0f0ffc62caa337e68352b6eaee8b2eb2e4033035e38f5626ef"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.security.SessionControllerTest.xml",
+        "sha256": "9a4f9fdc2e1df876da720f306a82b3636bd8d0bd5276441ddf1f5d70e87cfe29"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerCancellationTest.xml",
+        "sha256": "44014d358413ed37a30f88af97eab5f8d146a771330871e6f643eb29726b2e8f"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerCommitRaceTest.xml",
+        "sha256": "e196a2c2a45d0228a4f7ca05b3fb3fead720fef81f102e51bf3845a8d1ef7919"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerGoldenTest.xml",
+        "sha256": "d9e8abd73ddc039b539a8c3f180120e9fcee989c6c06b664aaeda6d37e349cd4"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerLifecycleTest.xml",
+        "sha256": "106c8fdd4f554d8ba2d972d7fa78e45feac0170bd22937109090633bbeb8e9d3"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerPageConflictTest.xml",
+        "sha256": "09fb5f06e267029385582f6e7654070187087ead6e9a4e3b47e65292f3cd9005"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerRemovalTest.xml",
+        "sha256": "73393db528024229929512c3782faf621fd92b64dbaec38b5a7f9186168a13f2"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerSemanticContextTest.xml",
+        "sha256": "0e77b7519e4cc2cca550d7e683600762349b2cf80b7030948730f2cb9a46531f"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerSemanticScopeTest.xml",
+        "sha256": "f6de5a1d7d2f1a1f7b59ff727c5805ee693a558600d9e28d25f9e00861a5bfdb"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerServiceBoundaryTest.xml",
+        "sha256": "ffac81387b216fe0746145410cb384cc68f67d6d8e606bb57d258bb3792b2e45"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.AnswerServiceTest.xml",
+        "sha256": "b86ba8cf30ba9ddc5afb16fc16ae3eb260c90c731de5c18029e88821885d36f6"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.DocumentLifecycleServiceTest.xml",
+        "sha256": "cff31ee8588f97cacb8052f85ff036a7df19a2279fe39a7b4bb6582287487831"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.DocumentRemovalProcessTest.xml",
+        "sha256": "c9bb2577cb317bfa2d7e1d4031651ef1dec9cfdeae34fa04de4fdccf048d25e5"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.EvidenceCapacityTest.xml",
+        "sha256": "5ef50121c196f814a34044e9db85a5909780924a1fea9d122a3b483b9fdf98f9"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.EvidenceDomainTest.xml",
+        "sha256": "8f3fffc24f6e474ba557239ed93053ada0fd047b1b7a62cac0ed6b8684d54cdb"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.EvidenceServiceTest.xml",
+        "sha256": "6d14bf1bee062f577014e1529eb2fef69546d6bf6f352aa3f5300be4d74580ba"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.EvidenceTraceSealTest.xml",
+        "sha256": "80d65dd86f0772d706b7d2e679cb88b51c84a847c32c27afbaeb50be4cc77d4e"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.IndexingServiceTest.xml",
+        "sha256": "86a7baf53fe40343629e5dec7ed4280e104ef0f3958918da827ef27c4636f52f"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.IndexingTaskProcessorTest.xml",
+        "sha256": "a63caf3989bbc1bf6209e4e9346cc2a6febd09e64243cf16b2b6a8c94c515116"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.IngestionAuthorizationProcessTest.xml",
+        "sha256": "b62e520b2217cfc4754d2f65f3b07c5dafb937317dbc85a49ceffc95fe81c7cc"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.IngestionAuthorizationTest.xml",
+        "sha256": "029cc9628861b6dfc07980dc37bfa52951c2ccb260d3193a863d8cd29eae12d5"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.IngestionServiceTest.xml",
+        "sha256": "63d1acce066bd4a8e502c15bc606d137dcd7bcc43991b436b1d6f52eba14ca5d"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.IngestionTaskProcessorTest.xml",
+        "sha256": "f76450b9c870144d9e92979b675689dc2118cda34b92a48c1940f12ef038d11d"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.service.ManagementServiceTest.xml",
+        "sha256": "7cbe340425cc5e2d3022a0b3483711c00593ffc74795a0754ed2b79a6e8201c1"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingBooleanTest.xml",
+        "sha256": "c7bf6ecc585b6e8e19f312ba44f407fac11b1249a2c9570f6e583d8325fcc226"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingBoundaryTest.xml",
+        "sha256": "aac3de7d4b44164f4844ef6dd2f5aa956262c8c130c6471f3fd88100284899cf"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingConflictTest.xml",
+        "sha256": "7218e31b57a2b24e90ca7d6bb1595a6a3b49fe5abfb2af9a3613d8ae3e58a0c7"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingContextTest.xml",
+        "sha256": "612031aba08e5061806c5e8921221c7e700f48a2ec6e86738573bcd2f6d68551"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingExampleTest.xml",
+        "sha256": "c5763fceb9d509c22e59f3e91d6053777b2e62a21a8d7cdbfe6c04df7cd9ba3b"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingInstructionTest.xml",
+        "sha256": "ebb1da4b53f14676261b3c00795efba66307178419d1d27672b870c43efe3948"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingPageConflictTest.xml",
+        "sha256": "c7104a64898346488d67a2d1732e65959abdce673922201416bebbb9d4d15dc6"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingPolicyTest.xml",
+        "sha256": "451fcd4a0100fac55ec7f46293ebaef9afc12cbb6d2b4892a6f8daf5dd94bbfc"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingProcedureResourceTest.xml",
+        "sha256": "af942c2b9c1503e6c84b0ba039e45addb8d8389da65ae38f8d0f1c211ea6a075"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingProcedureTest.xml",
+        "sha256": "5c6f9a485ca019f70c175a82426b0fd16671ee6a7b3fa902cc55c8f0b42ccf73"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingQuoteTest.xml",
+        "sha256": "e14768d677b1a406640c64e883ca315e35a504e8a6ae2ae727f053d6257630f7"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingResourceTest.xml",
+        "sha256": "ca892df307e731bd3fca574f936a78496e061f02d30860f6f9f3354c7e5236d0"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingScopeTest.xml",
+        "sha256": "a075a9f6a0176ee0fb2f2aa00252ae1da562220e606fe400351419e9f792b376"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingTest.xml",
+        "sha256": "bbd54717011b8af14e71d976ec642271d4bfba64de500811a3b493c79feb28f8"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.answer.TextGroundingWholeFieldTest.xml",
+        "sha256": "429871ebe156c7bf40f578d3257f320853618fca53509297fa4112fb8c35b1e1"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.tool.parser.TextParserTest.xml",
+        "sha256": "fc29863e1a0901871eafd4c6d1d3939f83cd07c5a0976adc43d2fc95e7c49501"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.AnswersHttpTest.xml",
+        "sha256": "233862003ceac20acb92193eda218565d6f7e628187f7d1b5572b629f00fc61e"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.AnswersRuntimeTest.xml",
+        "sha256": "8fdeafa7a877eca917af1662788a74cf9fb2ccb8e48c0c0cd54e21265c9d5aab"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.DocumentRemovalHttpTest.xml",
+        "sha256": "43b50af65633a2e9fd19275fcc214b415e1b87f5ce30f89ee798ea5a6ec8a3d3"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.IndexingHttpTest.xml",
+        "sha256": "840b5b57bab735e301a21d191fbbe0e97786be64beb00448eebbd1b04027a3c7"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.IndexingJwtHttpTest.xml",
+        "sha256": "38d0d95025d43b264af4c83282c7944d54860524c76ee471dbd71a0178af22c8"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.IngestionHttpTest.xml",
+        "sha256": "ad8d71d99d55232ff402cc24efdd52572ceaec76993eae9ac60e6a4637c1ef07"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.ManagementHttpTest.xml",
+        "sha256": "6c43908ab7b3df854f2450e87ede2c099f157a2ccf906b6ff4446f886495b155"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.ProblemHandlerTest.xml",
+        "sha256": "896554ec27712d6c50dac49dd31ff2defa7295b33f76bfa781790555a8a61159"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.RuntimeControllerTest.xml",
+        "sha256": "13c834e3dc8198f53409ca62b0f2bfd8a41ba52388284eef4fb2426e462ebe4c"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.converter.AnswerRequestMapperTest.xml",
+        "sha256": "735ace6c3b8de076886c9f6cdb248c180048babd749c30734ae2365048e41ebf"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.converter.ResponseSnapshotTest.xml",
+        "sha256": "d467df743510f85ec681a0c7065480f647b10fb98f8b47a616455e576e0f7eca"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.web.converter.TaskResponseMapperTest.xml",
+        "sha256": "390719f73825bbf4dc2d5e96e1cb1c2770896931e0cdd70a80978df967b55dff"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.worker.indexing.IndexWorkerLifetimeTest.xml",
+        "sha256": "fe72e0d0afdd095d130a25020de2ef73df2117b13fff2288e540c8381c3d5fc5"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.worker.indexing.IndexWorkerParentDeathTest.xml",
+        "sha256": "8456954f19a44778359cd73913274edadbcda169e069e0777b363709c2aa14c3"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.worker.indexing.IndexWorkerTest.xml",
+        "sha256": "b6bcce213376de035087dd653fa1ba0ed8a6b341cdee2b69d16853b5f7049b48"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.worker.indexing.ProcessTextIndexerTest.xml",
+        "sha256": "3f9669a192af0fc1815b831791d523d46fb52b4c6a448874bfa0c99d2be296bf"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.worker.parser.ParserWorkerTest.xml",
+        "sha256": "9822015dddcc62c63e4969dccd88d434a59fd9fd19b2f1012404f376a55dd5f1"
+      },
+      {
+        "path": "target/surefire-reports/TEST-com.evidence.rag.worker.parser.ProcessTextParserTest.xml",
+        "sha256": "53107a1d543359732944a82b41a28e38150af159252dc0b85ab5963351185f6c"
+      }
+    ]
+  },
+  "verificationBoundary": "Synthetic SQLite, controlled child JVMs and loopback HTTP only; no real model requests. Six fixed golden cases and all original test identities retained. No frontend changes, physical cleanup, reindex migration, full multimodal acceptance, staging or production deployment."
+}

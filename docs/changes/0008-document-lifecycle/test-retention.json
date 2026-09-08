@@ -1,0 +1,24 @@
+{
+  "baseline": {
+    "tests": 773,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": 76
+  },
+  "current": {
+    "tests": 857,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": 82
+  },
+  "missingOriginalTests": 0,
+  "originalTestFiles": 95,
+  "changedMigrationFixtures": [
+    "src/test/java/com/evidence/rag/repository/EvidenceMigrationTest.java",
+    "src/test/java/com/evidence/rag/repository/IndexingMigrationTest.java",
+    "src/test/java/com/evidence/rag/repository/IngestionMigrationTest.java"
+  ],
+  "unexpectedChanges": []
+}

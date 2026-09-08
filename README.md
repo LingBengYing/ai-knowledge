@@ -1,5 +1,7 @@
 # AI Knowledge · Java Edition
 
+当前增量：[0008文档生命周期](docs/changes/0008-document-lifecycle/intent.md)，实现独立开关控制的撤下请求、在途任务取消及旧引用失效。2026-09-08 13:09:46实际JDK21完整857项Java、73项Node、240文件格式及行/分支双80%门禁通过。`DELETE /v1/documents/{id}`返回`deleting/pending`，不表示物理清理完成；没有恢复接口，文件与历史证据仍保留并占配额。当前验证与剩余门禁见[0008验证](docs/changes/0008-document-lifecycle/verification.md)。本次仅同步源码与说明，不部署；下方0007及更早日期均为历史基线，不认证新增源码。
+
 2026-09-08 12:08:55 本次代码同步快照：修复明确示例语境、多句操作步骤/必要前提遗漏及程序组重复全页扫描，policy 为 `java-text-grounding-v4-procedure-context`。最后修改后773项Java、73项Node、227文件格式与双80%覆盖率门禁通过，原675项测试及91个测试/语料文件完整保留；本批限定Standards/Spec审查均无未关闭问题。完整真实生成链路、网页接线、多模态和生产仍未验收。本次只同步Java代码与说明，不部署或改前端；当前范围与源码绑定见[0007验证](docs/changes/0007-text-answers/verification.md)和[REVIEW](docs/changes/0007-text-answers/REVIEW.md)，下方日期及“未推送”均为历史状态。
 
 当前开发：[0007授权文本问答](docs/changes/0007-text-answers/intent.md)，仍为IMPLEMENTATION。2026-09-07 15:59:54 +08:00实际Temurin21.0.12.1+1干净构建通过635项Java、73项Node、212个Java文件格式检查和双80%覆盖率门禁。本批修复具名条件跨分块漏判及Model输出不变量，限定两轴审查通过。默认关闭的问答HTTP已接通，但不是完整语义、网页、真实provider/Milvus、多模态或生产验收。当前证据见[0007验证](docs/changes/0007-text-answers/verification.md)。
@@ -32,6 +34,7 @@
 | 摄取后台当前授权与撤权取消 | 0006 本地验收通过 | 领取/执行前/提交复验原创建者当前写权限；取消审计原子提交；重试需恢复创建者权限 |
 | 显式索引任务与active发布 | 0004实现中 | 默认关闭；每attempt独立generation、完整物理manifest与映射台账；父存活/跨JVM lease和晚写隔离仍按当前验证记录验收 |
 | 有证问答与来源 | 0007开发实现，默认关闭 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；范围/配置复验和trace同事务，网页未接线，完整语义与真实provider待验收 |
+| 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，默认关闭 | DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending，物理清理与批量硬删仍未实现 |
 | 图片、音频、视频、联合事实与文件摘要 | 规划中 | 不等同于仅生成文件摘要 |
 | 生产部署、迁移与真实性能对比 | 未验收 | 不声称 Java 版本已比 Python 更快 |
 
@@ -85,6 +88,8 @@ RAG_DATA_DIRECTORY=./text-demo-data RAG_PORT=18086 bash run-dev.sh
 每次索引claim使用新的物理generation，重试保留source revision；即使旧上游HTTP迟到完成，也写旧namespace。protocol v2检测父PID/startInstant，worker使用同OS用户的跨JVM collection lease；不把kill当上游撤回或OS沙箱。lease小文件保留，父崩溃的私有job临时目录还需后续回收。早期缺generation/台账的未发布WIP v3拒绝复用；这些机制仍需当前源码的真实进程/远程验收，未解除生产gate。
 
 ## 配置与密钥
+
+文档撤下须显式设`RAG_DOCUMENT_REMOVAL_ENABLED=true`，只允许development/test及字面loopback，不依赖模型配置，也不会开启其他任务。能力名为`document_removal`；物理删除`document_delete`仍不可用，前端未加删除按钮。关闭开关只关闭新请求，不会使已撤下资料重新可见。已有Java库会一致性备份后迁移v5；旧备份不包含后续删除请求，切勿当作保留删除状态的生产恢复方案。
 
 文本问答需另设`RAG_ANSWERS_ENABLED=true`，并提供[模型与Milvus配置](docs/TEXT_ADAPTERS.md)。仅development/test及字面loopback；默认总处理预算60000毫秒、并发2，分别通过`RAG_ANSWERS_TIMEOUT_MS`（10–600000）和`RAG_ANSWERS_MAX_CONCURRENT`（1–8）调整。接口、显式空选择、错误和来源语义见[API](docs/API.md)。索引/摄取/问答三个开关独立，不自动创建索引或调用真实模型重试。
 

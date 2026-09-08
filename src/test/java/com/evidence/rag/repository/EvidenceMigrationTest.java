@@ -27,8 +27,8 @@ class EvidenceMigrationTest {
   void v3UpgradeBacksUpRealPublicationAndPreservesSourceAndActiveConstraints() throws Exception {
     versionThree();
     try (var fixture = new PublishedCorpusFixture(directory)) {
-      assertEquals(4, scalar("PRAGMA user_version"));
-      assertEquals(4, scalar("SELECT version FROM format_info"));
+      assertEquals(5, scalar("PRAGMA user_version"));
+      assertEquals(5, scalar("SELECT version FROM format_info"));
       assertEquals(
           1,
           fixture
@@ -100,9 +100,8 @@ class EvidenceMigrationTest {
 
   @Test
   void partialV4AndMissingInheritedGenerationLedgerAreRejectedBeforeUse() throws Exception {
-    try (var ignored = new SqliteAuthorityStore(directory)) {
-      assertEquals(4, scalar("PRAGMA user_version"));
-    }
+    versionFour();
+    assertEquals(4, scalar("PRAGMA user_version"));
     sql("DROP TABLE query_trace_evidence");
     assertThrows(IllegalStateException.class, () -> new SqliteAuthorityStore(directory));
     assertEquals(4, scalar("PRAGMA user_version"));
@@ -110,9 +109,8 @@ class EvidenceMigrationTest {
 
   @Test
   void v4StillRejectsCorruptV3GenerationShape() throws Exception {
-    try (var ignored = new SqliteAuthorityStore(directory)) {
-      assertEquals(4, scalar("PRAGMA user_version"));
-    }
+    versionFour();
+    assertEquals(4, scalar("PRAGMA user_version"));
     sql("DROP TABLE indexing_attempts");
     assertThrows(IllegalStateException.class, () -> new SqliteAuthorityStore(directory));
     assertEquals(4, scalar("PRAGMA user_version"));
@@ -122,12 +120,26 @@ class EvidenceMigrationTest {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       fixture.publish(owner, "Published fixture.");
     }
+    stripVersionFive();
     for (String table : List.of("query_trace_evidence", "query_trace_documents", "query_traces")) {
       sql("DROP TABLE IF EXISTS " + table);
     }
     sql("UPDATE format_info SET version=3");
     sql("PRAGMA user_version=3");
     assertEquals(3, scalar("PRAGMA user_version"));
+  }
+
+  private void versionFour() throws Exception {
+    try (var ignored = new SqliteAuthorityStore(directory)) {
+      // Produce the current format through its public lifecycle before restoring the v4 fixture.
+    }
+    stripVersionFive();
+  }
+
+  private void stripVersionFive() throws SQLException {
+    sql("DROP TABLE IF EXISTS document_tombstones");
+    sql("UPDATE format_info SET version=4");
+    sql("PRAGMA user_version=4");
   }
 
   private List<Path> backups() throws Exception {

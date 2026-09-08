@@ -4,6 +4,8 @@
 
 本文只记录当前代码已映射的端点。基础URL使用本地配置，默认端口18084；响应通常为JSON，上传body为原文件字节，任务操作无body。源码依据：[ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[ManagementService](../src/main/java/com/evidence/rag/service/ManagementService.java)、[IndexingController](../src/main/java/com/evidence/rag/controller/IndexingController.java)、[AnswerController](../src/main/java/com/evidence/rag/controller/AnswerController.java)、[RuntimeController](../src/main/java/com/evidence/rag/controller/RuntimeController.java)、[SessionController](../src/main/java/com/evidence/rag/controller/SessionController.java)。
 
+0008新增独立默认关闭的文档撤下入口，见下方“文档撤下请求”；这是立即失效与取消，不是物理清理完成。原三个文本开关及HTTP认证行为保持。
+
 ## 认证与公共约定
 
 除 `GET /v1/config` 和会话端点的专门处理外，`/v1/` 路径需要身份。JWT 是默认模式：
@@ -49,6 +51,8 @@ X-Principal-Id: owner
 ```
 
 capabilities/unavailable是能力名称数组，不是布尔字段。管理五项能力始终保留；摄取启用时加入`text_upload/ingestions`并移除`upload/ingestions`不可用项；索引启用时加入`text_index/indexings`并移除对应不可用项。问答关闭时，原stage优先级保持`text_indexing`、`text_ingestion`、`management_slice`；问答启用时另加入`answers/sources`、移除对应不可用项，stage为`text_answers`，不隐式开启摄取或索引。`reindex/document_delete`继续不可用，readiness始终503。能力开关不代表网页已经接线或任何具体资料可直接回答。
+
+`RAG_DOCUMENT_REMOVAL_ENABLED=true`只额外声明`document_removal`，不改变stage，不移除`document_delete/reindex`，不自动开启上述三个开关或要求模型配置。关闭时保持原能力数组。
 
 `POST /v1/session` 请求只能含一个字段 `token`，为非空字符串，最大 16,384 字符：
 
@@ -132,6 +136,27 @@ GET /v1/management/documents?q=差旅&type=document&sort=name_asc&page=1&page_si
 HTTP任务revision_id与列表active_revision_id始终表示source revision。每次claim的内部projection generation、物理segment ID及完整source→physical→digest台账由authority管理，不是客户端设置字段；Milvus列revision_id使用generation，不能直接以HTTP source revision构造未来检索scope。
 
 `can_index`表示真实parsed、当前owner/editor、尚无索引任务/active的行资格，还必须与全局text_index/indexings能力同时成立才能发请求；服务端再次验证。所有行`can_answer=false`、`can_reindex=false`仍保持原契约：0007后端问答没有接入该网页能力，不能把indexed或active非空当成资料具备回答任何问题的资格；问答API独立复验当前授权和证据。没有独立`GET /v1/management/documents/{id}`详情端点；网页详情使用列表行。
+
+## 文档撤下请求（0008，物理清理未完成）
+
+仅development/test且绑定字面`127.0.0.1`或`::1`时，可显式开启`RAG_DOCUMENT_REMOVAL_ENABLED=true`。通过[DocumentRemovalController](../src/main/java/com/evidence/rag/controller/DocumentRemovalController.java)调用`DELETE /v1/documents/{documentId}`，必须无query/body，文档ID按现有identifier规则校验。当前owner/editor可请求；通过认证后的未知资料或无写权限返回404。异组织身份在原认证层先被拒绝；不会因文档撤下绕过JWT/Origin校验。
+
+成功为202，只有以下四个字段（值为合成示例）：
+
+```json
+{
+  "document_id": "example-document",
+  "status": "deleting",
+  "cleanup_status": "pending",
+  "requested_at": "2026-01-01T00:00:00Z"
+}
+```
+
+202表示撤下事务已提交，不表示文件/BLOB、向量或备份已清理，也没有后台清理任务正在执行的保证。重复请求仍复验当前写权限，返回相同时间与原回执、不重复写审计；降权/撤权后不能重放回执。没有撤销/恢复接口。
+
+事务同时取消queued/processing摄取及索引任务、清空其claim、解除可编辑目录关联并写摘要审计；任何失败全部回滚。当前列表/计数/目录/标签、任务读取/重试、解析证据、检索和旧引用来源均失效。显式所选资料中任一被撤下，不能退回剩余资料或全库；回答中途撤下也使完整范围失效。历史publication/trace和原文件保留，物理占用仍计配额；同内容重传产生新身份。
+
+关闭新开关后仍不会重新暴露已经撤下的资料：v5墓碑及当前查询过滤始终有效。`can_delete/can_reindex`仍false，管理批量delete/reindex仍501，网页没有新增删除按钮；完整硬删除与批量清理属于后续B步。规格与验证入口见[0008](changes/0008-document-lifecycle/spec.md)。
 
 ## 可选文本摄取与索引路由
 
@@ -344,6 +369,6 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 ## 明确不存在的业务端点
 
-当前没有streaming、独立候选检索、任意来源页预览/原文件下载、文档删除/已发布版本重索引、摘要、自动标签、独立嵌入/重排/Milvus管理或多模态API。摄取、索引和0007文本问答/引用读取仅在各自开关启用时提供上文路由；关闭或未映射路径在通过身份后通常404。引用读取只支持服务器已校验引用，不是通用来源浏览器。
+当前没有streaming、独立候选检索、任意来源页预览/原文件下载、物理删除完成/已发布版本重索引、摘要、自动标签、独立嵌入/重排/Milvus管理或多模态API。摄取、索引、0007文本问答/引用以及0008撤下请求仅在各自开关启用时提供上文路由；关闭或未映射路径在通过身份后通常404。引用读取只支持服务器已校验引用，不是通用来源浏览器。
 
 `TextParser.parse(...)`、`TextModels.rerank/extract`和`RetrievalProjection.search`仍是Java库Interface，没有独立HTTP端点；问答由上述受授权用例编排调用。未来端点应先在版本化变更工件中明确范围和验收，再更新本文及HTTP测试。完整问答、selected-set、来源、多模态和生产目标见[ROADMAP](ROADMAP.md)，局部HTTP通过不缩减或完成这些目标。

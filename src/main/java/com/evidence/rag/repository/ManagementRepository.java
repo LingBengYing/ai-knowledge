@@ -46,7 +46,7 @@ public final class ManagementRepository {
   public String currentRole(Actor actor, String documentId) {
     var rows =
         store.rows(
-            "SELECT acl.role FROM documents d JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=?",
+            "SELECT acl.role FROM documents d JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             documentId,
             actor.workspaceId(),
             actor.principalId());
@@ -56,7 +56,7 @@ public final class ManagementRepository {
   public Optional<DocumentEntity> findAuthorizedDocument(Actor actor, String id, boolean edit) {
     var rows =
         store.rows(
-            "SELECT d.*,acl.role AS current_role,f.name AS folder_name FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN folders f ON f.id=d.folder_id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=?"
+            "SELECT d.*,acl.role AS current_role,f.name AS folder_name FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN folders f ON f.id=d.folder_id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
                 + (edit ? " AND acl.role IN ('owner','editor')" : ""),
             id,
             actor.workspaceId(),
@@ -104,7 +104,9 @@ public final class ManagementRepository {
 
   private Filter filter(Actor actor, DocumentQuery query) {
     var args = new ArrayList<Object>(List.of(actor.workspaceId(), actor.principalId()));
-    var predicate = new StringBuilder(" WHERE d.workspace_id=? AND acl.principal_id=?");
+    var predicate =
+        new StringBuilder(
+            " WHERE d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)");
     if (!query.q().isEmpty()) {
       predicate.append(
           " AND (instr(lower(d.filename),lower(?))>0 OR instr(lower(d.display_name),lower(?))>0)");
@@ -136,7 +138,7 @@ public final class ManagementRepository {
   public Optional<DocumentEvidenceEntity> evidence(String id) {
     return store
         .rows(
-            "SELECT a.revision_id AS active_revision_id,a.publication_id,j.id,j.state,COALESCE(r.segment_count,0) AS segment_count FROM corpus_documents c JOIN ingestion_jobs j ON j.document_id=c.document_id LEFT JOIN corpus_revisions r ON r.id=c.parsed_revision_id LEFT JOIN active_corpus_publications a ON a.document_id=c.document_id WHERE c.document_id=?",
+            "SELECT a.revision_id AS active_revision_id,a.publication_id,j.id,j.state,COALESCE(r.segment_count,0) AS segment_count FROM corpus_documents c JOIN ingestion_jobs j ON j.document_id=c.document_id LEFT JOIN corpus_revisions r ON r.id=c.parsed_revision_id LEFT JOIN active_corpus_publications a ON a.document_id=c.document_id WHERE c.document_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=c.document_id)",
             id)
         .stream()
         .findFirst()
@@ -152,7 +154,9 @@ public final class ManagementRepository {
 
   public List<String> documentTags(String id) {
     return store
-        .rows("SELECT tag FROM document_tags WHERE document_id=? ORDER BY ordinal,tag", id)
+        .rows(
+            "SELECT tag FROM document_tags dt WHERE document_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=dt.document_id) ORDER BY ordinal,tag",
+            id)
         .stream()
         .map(row -> AuthorityRows.text(row, "tag"))
         .toList();
@@ -161,7 +165,7 @@ public final class ManagementRepository {
   public void updateMetadata(
       Actor actor, String id, String displayName, String folderId, String now) {
     store.execute(
-        "UPDATE documents SET display_name=?,folder_id=?,updated_at=? WHERE id=? AND workspace_id=?",
+        "UPDATE documents SET display_name=?,folder_id=?,updated_at=? WHERE id=? AND workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=documents.id)",
         displayName,
         folderId,
         now,
@@ -182,6 +186,7 @@ public final class ManagementRepository {
             """
         SELECT f.id,f.workspace_id,f.name,f.owner_id,COUNT(acl.document_id) AS document_count
         FROM folders f LEFT JOIN documents d ON d.folder_id=f.id AND d.workspace_id=f.workspace_id
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         LEFT JOIN document_acl acl ON acl.document_id=d.id AND acl.principal_id=?
         WHERE f.workspace_id=? GROUP BY f.id HAVING f.owner_id=? OR COUNT(acl.document_id)>0
         ORDER BY f.name COLLATE NOCASE,f.id
@@ -200,7 +205,8 @@ public final class ManagementRepository {
             """
         SELECT f.* FROM folders f WHERE f.id=? AND f.workspace_id=? AND (f.owner_id=? OR
         (?=0 AND EXISTS(SELECT 1 FROM documents d JOIN document_acl acl ON acl.document_id=d.id
-        WHERE d.folder_id=f.id AND d.workspace_id=f.workspace_id AND acl.principal_id=?)))
+        WHERE d.folder_id=f.id AND d.workspace_id=f.workspace_id AND acl.principal_id=?
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))))
         """,
             id,
             actor.workspaceId(),
@@ -252,7 +258,9 @@ public final class ManagementRepository {
             """
         SELECT DISTINCT t.tag FROM document_tags t JOIN documents d ON d.id=t.document_id
         JOIN document_acl acl ON acl.document_id=d.id
-        WHERE d.workspace_id=? AND acl.principal_id=? ORDER BY t.tag
+        WHERE d.workspace_id=? AND acl.principal_id=?
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones removed WHERE removed.document_id=d.id)
+        ORDER BY t.tag
         """,
             actor.workspaceId(),
             actor.principalId())
