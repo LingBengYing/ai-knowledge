@@ -2,6 +2,8 @@
 
 状态：`partial`。2026-09-08 09:08:40 +08:00 的单次真实测试完成：embedding、rerank 的限定断言通过，extraction 在原60秒预算内未完成，以 `model_timeout` 失败。整个 `SiliconFlowLiveIT` 是 **1项失败，0错误、0跳过**，不能写成生成、提示注入防护或整体RAG验收通过。机器可读结果与摘要见 [provider-integration.json](provider-integration.json)。
 
+后续已授权的两次生成专项诊断也均超时，次数已耗尽。独立HTTP请求完成TLS后未收到首字节，尚不能区分代理与provider原因；详见[生成诊断](generation-diagnostics.md)。以下保持原三阶段测试的历史证据与边界，不以新的默认CI通过覆盖其失败。
+
 ## 范围与固定输入
 
 本批按 [plan](plan.md) 的有界外部验证执行。主线程 root 运行模型目录查询、Maven与扫描；文档作者只读核对日志、XML、测试顺序和文件SHA，未调用模型，也不把自己编写测试当成独立代码审查。

@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "diagnosisStatus": "incomplete",
+  "date": "2026-09-08",
+  "scope": "Two separately authorized generation-only diagnostics using the original three synthetic evidence items; neither produced an accepted extraction",
+  "executor": "root",
+  "evidenceVerification": {
+    "verifier": "authority_layering",
+    "method": "Read-only logs, JUnit XML, curl metrics, production and test source, temporary payload and scripts; SHA256 recomputed",
+    "ranMavenNetworkOrModels": false,
+    "credentialValueRead": false,
+    "independentProductionCodeReviewClaimed": false
+  },
+  "authorization": {
+    "additionalGenerationRequestsAuthorized": 2,
+    "actualApplicationRequests": 2,
+    "remainingRequests": 0,
+    "javaRequests": 1,
+    "curlRequests": 1,
+    "automaticRetries": 0,
+    "newEmbeddingOrRerankRequests": 0,
+    "previousThreeOperationRunIncluded": false,
+    "previousEvidence": "docs/changes/0007-text-answers/provider-integration.json",
+    "countEvidence": "root execution record, sequential Java IT and guarded single-POST curl script; not provider-side request logs"
+  },
+  "inputComparison": {
+    "baseUrl": "https://api.siliconflow.cn/v1",
+    "method": "POST",
+    "path": "/chat/completions",
+    "generationModel": "Qwen/Qwen2.5-7B-Instruct",
+    "generationModelEvidence": "curl payload and root execution record; Java environment model value is not recorded in the JUnit XML",
+    "providerWeightsPinned": false,
+    "syntheticEvidenceItems": 3,
+    "systemPromptMatchesProductionSource": true,
+    "questionMatchesJavaFixture": true,
+    "evidenceMatchesJavaFixture": true,
+    "responseFormat": "json_object",
+    "stream": false,
+    "n": 1,
+    "maxTokens": 2048,
+    "perRequestDeadlineSeconds": 60,
+    "maxResponseBytes": 1048576,
+    "semanticJsonInputEquivalent": true,
+    "byteIdentityVerified": false,
+    "javaOutboundBytesCaptured": false,
+    "comparisonLimits": ["JSON key ordering", "Different clients", "Different proxy mechanisms", "Different execution times"],
+    "systemPromptUtf8Sha256": "4d7d88bd549e3382314a3bf01f40488b5c056df25a74c3653021a73f9db2e7b5",
+    "questionUtf8Sha256": "a3c4d5bf81c4dc6f0c11d50fc02d25c30ad5bceddded8230419faa229012a1c6",
+    "evidenceJsonSha256": "95e344e312075604d1c3f8377d5994691bb44f8e08eda3dac08f98b36520758c",
+    "evidenceJsonHashEncoding": "UTF-8 JSON.stringify of the ordered three-item array, each object ordered evidence_id then text"
+  },
+  "runs": [
+    {
+      "kind": "java_generation_only",
+      "status": "failed",
+      "applicationRequests": 1,
+      "completedAt": "2026-09-08T09:38:32+08:00",
+      "completionTimeEvidence": "Maven Finished at line",
+      "testClass": "com.evidence.rag.client.model.SiliconFlowGenerationLiveIT",
+      "testMethod": "oneRealExtractionIncludesTheOriginalSyntheticReimbursementAmount",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "suiteSeconds": 60.409,
+      "testCaseSeconds": 60.396,
+      "mavenDurationAsLogged": "01:01 min",
+      "safeFailureCode": "model_timeout",
+      "extractionResultAssertionsReached": false,
+      "httpStatus": null,
+      "responseBytes": null,
+      "unavailableMetricsReason": "The safe Java failure report does not expose HTTP timing, status or partial response data",
+      "javaVendor": "Eclipse Adoptium",
+      "javaRuntimeVersion": "21.0.12.1+1-LTS",
+      "proxyConfigurationEvidence": "JUnit XML records loopback https.proxyHost and https.proxyPort",
+      "log": "0007-generation-live.log",
+      "junitXml": "0007-generation-live.xml"
+    },
+    {
+      "kind": "curl_generation_only",
+      "status": "failed",
+      "applicationRequests": 1,
+      "completedAt": null,
+      "completionTimeEvidence": "unknown: retained log and metrics contain no wall-clock timestamp",
+      "curlExit": 28,
+      "configPipeExit": 0,
+      "validatorExit": 65,
+      "httpCodeAsReported": "000",
+      "httpVersionAsReported": "0",
+      "timeConnectSeconds": 0.000284,
+      "timeAppConnectSeconds": 1.250228,
+      "timeStartTransferSeconds": 0.0,
+      "timeTotalSeconds": 60.003526,
+      "downloadBytes": 0,
+      "timingMeaning": "curl cumulative completion times since transfer start; time_appconnect is not isolated TLS duration",
+      "firstHttpResponseByteRecorded": false,
+      "proxySelectionEvidence": "unknown from retained script and metrics; ambient proxy configuration is not captured there",
+      "resultValidator": {
+        "responseBytes": 0,
+        "withinByteLimit": true,
+        "utf8Valid": true,
+        "jsonParseValid": false,
+        "http200": false,
+        "quoteCount": 0,
+        "diagnosticPass": false,
+        "interpretation": "Empty input caused JSON parsing to fail; no returned model JSON or extraction quality was assessed"
+      },
+      "log": "0007-generation-curl-final.log",
+      "metrics": "curl-metrics.txt"
+    }
+  ],
+  "localGuardFailure": {
+    "classification": "diagnostic_tool_issue_not_product_or_provider_failure",
+    "actualApplicationRequests": 0,
+    "requestStarted": false,
+    "guardRegex": "{1,4096}",
+    "localExitAsRecordedByExecutor": 2,
+    "exitEvidence": "root execution record; retained guard log only records configurationValid=false and requestStarted=false",
+    "repair": "Separate explicit length check from the POSIX graphical-character regex",
+    "preRepairScriptSha256": "ea54deb254c02b07f341139f31e99a279f91626fbbe7840823323159eb062d89",
+    "preRepairScriptEvidence": "Historical tool record reported by spring_authority_explore; the original file was subsequently patched and this digest was not recomputed in the current verification",
+    "finalScriptDigestIsPostRepair": true,
+    "realCurlRequestsAfterRepair": 1,
+    "repeatProtection": "Atomic creation of attempt-1 directory before the sole POST; existing marker blocks rerun",
+    "log": "0007-generation-curl-config-guard.log"
+  },
+  "sourceInputs": [
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/SiliconFlowGenerationLiveIT.java",
+      "sha256": "d0b9d014141536eda891c7873e11015cc125c646016c403b82438feeba073c63"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleModels.java",
+      "sha256": "7f682f1adefceb33fa6cf63e5c4793224a1890fe08e609094f85c9d0b34ee9c6",
+      "matchesOriginalProviderIntegrationSha256": true
+    }
+  ],
+  "retainedExternalArtifacts": [
+    {"name": "0007-generation-live.log", "sha256": "111d00fed0853911c953db50de77419b6c4634e1156a9b5bb4dc2fc6863d27f8"},
+    {"name": "0007-generation-live.xml", "sha256": "563181b74d5812a6672f848863e184e6d0cb6df510b6cafbf3ef04ed1bb54a3a"},
+    {"name": "0007-generation-curl-final.log", "sha256": "17d9766f33bbe29ed124a29718b80434e02587599840fc7eff1cb6cb59afe0d9"},
+    {"name": "curl-metrics.txt", "sha256": "469f8c014b2ef4c30c1a93a15be20c2bb66a6fefe29976d77bfc4e25b94fa286"},
+    {"name": "diagnose-once.sh", "sha256": "2b4e4ccd34cbd954bfa0361360d2a1cc52e483e69cd7d856c3232f11a8f6554b"},
+    {"name": "payload.json", "sha256": "96c4ab5f90c23f465dee35e90cc257096de8167147605d71d82d66f268133b8e"},
+    {"name": "response-validator.cjs", "sha256": "b5f772f03eae7c1a4d96ae4e4a0a17d0c792d5ed32b646a443fc853153b873a6"},
+    {"name": "0007-generation-curl-config-guard.log", "sha256": "b582496e8e7852c511ded016355427071095241115b012b5e107ad8707e97432"},
+    {"name": "0007-generation-diagnostics-credential-scan.json", "sha256": "fb775ae31eaba50e701953837308a3c2f736f8abe889165d6ace84ae21f2ea0e"}
+  ],
+  "credentialHandling": {
+    "basis": "root execution record and read-only diagnostic script inspection; credential values were not read by this author",
+    "input": "No-echo stdin followed by short-lived environment; curl authorization header delivered through a pipe",
+    "credentialInCommandArguments": false,
+    "credentialValueStoredInRepository": false,
+    "rawResponseStoredInRepository": false,
+    "externalArtifactsCopiedToRepository": false,
+    "reportedExactValueScan": {
+      "checkedFiles": 450,
+      "credentialMatches": 0,
+      "snapshotBeforeFinalCurlRequestAndTheseDocuments": true,
+      "completePathScopeInSummary": false,
+      "coversWholeMachineHistoryOrChatClaimed": false
+    }
+  },
+  "interpretation": {
+    "supported": [
+      "The production Java extraction operation did not complete within its unchanged budget",
+      "The independent curl request recorded connect and TLS completion but no first HTTP response byte or downloaded body before its 60-second timeout"
+    ],
+    "unresolved": [
+      "Proxy versus provider contribution to the wait",
+      "Provider internal queueing, inference execution or routing state",
+      "Whether another separately authorized run would succeed",
+      "Any extraction JSON, exact quote, numeric support or injection-safety result"
+    ],
+    "javaPerformanceConclusion": "not_established",
+    "fixedRootCauseEstablished": false
+  },
+  "boundaries": {
+    "productionJavaChanged": false,
+    "productionDeadlineChanged": false,
+    "oldThreeCallEvidenceChanged": false,
+    "testAssertionsRemovedOrRelaxed": false,
+    "defaultRegressionResultClaimedHere": false,
+    "realPdfProviderMilvusAnswerSourceEndToEndPassed": false,
+    "productionReadinessAccepted": false,
+    "nextExternalCallRequiresNewAuthorization": true
+  },
+  "subsequentDirectReachabilityProbe": {
+    "executor": "root",
+    "includedInPriorIndependentDocumentVerification": false,
+    "kind": "direct_tls_only",
+    "status": "timeout",
+    "safeCode": "TLS_DEADLINE",
+    "timeoutCallbackElapsedMs": 10034,
+    "elapsedFieldIsTotalProcessLifetime": false,
+    "processSubsequentlyConfirmedExited": true,
+    "httpRequestsSent": 0,
+    "modelRequestsSent": 0,
+    "credentialUsed": false,
+    "proxyUsed": false,
+    "systemProxyChanged": false,
+    "dnsAndTcpStagesIndividuallyRecorded": false,
+    "permanentReachabilityConclusionClaimed": false,
+    "report": "0007-generation-direct-tls-only.json",
+    "sha256": "8c28d34d2412e90cafc58f068958295c9f5a7b0c488353459d1f61cad61a9b48"
+  }
+}

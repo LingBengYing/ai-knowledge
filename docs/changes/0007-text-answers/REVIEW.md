@@ -4,6 +4,26 @@
 
 比较基准为0006已验证的173文件及297项JUnit冻结快照。审查必须分别核对Standards与Spec，尤其是完整selected set、source与generation区分、只读Milvus准入、逐事实/否定条件与冲突、最终授权/trace原子性和预算取消。不能用摘录子串、六golden或接口存在证明完整目标已实现。
 
+## 2026-09-08 零模型Milvus鉴权入口：限定复核
+
+相对d43504f新增 `MilvusAuthenticationLiveIT`，adapter_layering实现，root统一格式与执行；生产代码不变。Standards由authority_layering复核：真实生产配置加载、无模型client、15秒总等待、接收期间64KiB上限、安全错误与owned精确清理符合本项规范，0未关闭finding。Spec由spring_authority_explore复核：初审P2指出只有不存在用户名不能排除忽略密码的实现；补充保留有效用户名和密码长度、仅改变末字符的负例，仍要求HTTP401/code1800及生产安全异常后关闭，0未关闭finding。
+
+最终文件SHA256 `7859606217a48061c78585bae01d91a3c32247314be1aa4dde2e5579acbbb24a`；缺凭据、未知用户、同用户错误密码三个负例全部保留。root真实运行1项通过及空库回读见[鉴权记录](milvus-authentication.md)。这是本项限定两轴复核，不认证整个0007、生产RBAC/TLS或真实模型链路。审查者未运行Maven、网络或模型。
+
+## 2026-09-08 真实PDF入口：新增WIP限定复核
+
+本项前像是已推送 `d43504fc2341d9bae83352b773e79a1897dfccc7`（非上述0006旧基线），审查两个新文件的完整WIP diff；HEAD与前像相同、commit list为空，不能只看三点空diff。authority_layering实现入口，root统一格式并修复接收上限；无生产或原测试变更。
+
+### Standards
+
+adapter_layering最初报告1项G07/P2：管理HTTP使用ofByteArray先收全再验64KiB。root保留实际红测后改成向delegate交付前累计检查、超限取消并异常完成；真实post使用同一subscriber，保留15秒deadline、中断、泛化错误和清理。独立复核核对红绿XML、最终SHA，并逆向扣除修复后恢复最初审查SHA，确认其余原逻辑未改。该finding已关闭，最终本项0未关闭finding，不扩大为整切规范认证。
+
+### Spec
+
+spring_authority_explore限定PASS，0代码finding：真实生产配置加载、固定PDF、实际parser/IndexWorker.main、publication/AnswerService/source/trace、N≤batch及4次应用请求上限、空库与owned清理均符合本项plan。修复没有更改付费计数、worker或清理资格。诊断文档的原guard历史摘要遗漏作为P3指出后补齐，注明历史工具记录而非当前重算。
+
+最终IT/worker摘要及实际执行结果见[verification](verification.md)。审查者未运行Maven、网络或模型；root的离线回归和配置保护通过也不证明完整真实链路。Spec其他未验收范围、生产gate及外部授权限制保持。
+
 ## 2026-09-07 已定位缺陷的限定复核
 
 2026-09-08补充：authority_layering以首轮冻结归档（SHA256 `f256a5641622e12d0beced4d75b2827da70f5b9977eceb012f24ecc5a0e7378b`）作精确diff，独立审查新增4096+1及卸载/显式重载IT。Standards/Spec各0 finding，原测试及断言未改，owned清理和有界轮询保持。独立核对当前/构建副本SHA、三个方法XML与38项日志一致；未重跑Maven或连接实例。结果只覆盖[新增集成边界](milvus-integration.md)，不是一般容量、flush、重启或生产验收。

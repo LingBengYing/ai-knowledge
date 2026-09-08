@@ -2,6 +2,45 @@
 
 状态：IMPLEMENTATION。当前保留0007开发实现，已完成下述既有缺陷修复和完整本地门禁，不宣称完整语义、网页、实际provider/Milvus、多模态或生产验收。下方隔离/恢复和失败记录均为历史，不能覆盖最新结果。
 
+## 本次增量推送验证：2026-09-08 10:34:01 +08:00
+
+相对已推送d43504f，只新增三个测试/support文件及验证文档，没有修改生产Java、原测试、pom/.mvn、四PDF或golden。真实Milvus鉴权IT通过，缺失/未知用户/同用户名错密码均精确拒绝；正确凭据完成写入、完整性验证和dense/BM25检索，清理后两个专用库为空，见[鉴权记录](milvus-authentication.md)。该1项外部IT与默认测试分别报告，模型请求为零。
+
+最后源码冻结后，干净副本实际Temurin21.0.12.1+1完整 `clean verify` 82秒通过：635项Java、0失败/错误/跳过、218文件Spotless与行/分支双80%门禁。Node73项通过（3.763秒）。默认不运行LiveIT，已单独冻结其报告；完整真实PDF模型链路仍未执行，两次生成诊断超时仍保留为失败。
+
+231项src/.mvn/pom输入与构建副本逐SHA一致；315个现存未忽略发布候选文件（含新增文件）复制校验并扫描，规则无发现；54份Markdown相对链接存在。当前工作树/index与可达历史另行扫描无发现，不代表能识别所有秘密形态。运行配置、密码、原始日志、数据库和临时脚本不纳入提交；仅Java仓库普通推送，不含前端或生产部署。
+
+| 本次构建工件 | SHA256 |
+| --- | --- |
+| 完整默认验证日志 | `65e67d0ae91b7e858d7bbb122a18a0ea83d3150855802e80d214cc44b660ff72` |
+| Node验证日志 | `6636471c36e70d1e74258f8b254804335772c3e91cd443c6fea357d4cf65d579` |
+| JAR | `f8bb6c939e56a92c54dc51b6943d955c78e4ce192abba686d74a8dd6e7e70c94` |
+| JaCoCo XML | `b4b9126cb9e214a895ddda3da7eeda15ed6a56980f854969d8fa622217a08bbf` |
+
+此前d43504f的远端CI不能认证本次新增文件；新提交的CI结果须按该提交独立查询，不能提前写成通过。限定两轴复核见[REVIEW](REVIEW.md)。
+
+## 新真实PDF入口的本地验证：2026-09-08 10:02:53 +08:00
+
+新增仅 `TextAnswersLiveIT` 与测试专用 `LiveIndexWorker`，详见[执行说明与边界](text-answers-live.md)。完整默认 `clean verify` 在干净副本和实际Temurin21.0.12.1+1运行84秒通过：635项Java、0失败/错误/跳过、217文件Spotless与原行/分支双80%门禁；Node73项通过，4.029秒。默认构建不运行任何LiveIT；这是编译与原行为回归，不是新的真实PDF/provider/Milvus链路已通过。
+
+相对d43504f，生产Java、原测试、构建配置、4PDF与golden均未改；230项当前src/.mvn/pom输入在工作树和实际构建副本逐SHA一致。新IT SHA256 `f766983ee19ad5629bc59c4672f12e651a2d67848b8cd12ff7e107f5383a99dd`，worker SHA256 `a4e376bb37c2ca45f482bfa34291b97698e627b8225843b5036315a7cbc824b4`。
+
+本地配置保护：10:01:23/26/28分别缺ENABLED、MAX_MODEL_REQUESTS、MILVUS_TOKEN，精确到预期缺配置断言，均1 failure/0 error/0 skip；安全无凭据环境下未到首个外部操作。最初env清空导致JUnit临时目录不可写，单独保留为执行环境错误，不算产品红测；指定可写临时目录后才核对三项保护。
+
+Standards审查发现测试管理HTTP后验长度检查，新增同一实际subscriber的离线负例：09:58:21未及时取消为1 failure，09:59:53修复后1 pass（精确64KiB通过、超过1字节取消、迟到complete不能恢复）。生产代码和15秒总等待未变；红绿XML分别为 `10311a9518be716c062c530b53572d4d12bf59360ed0ddcdab8be8aaf9b8cb56` / `0d4d52d573336ebcbd8271f9196f828d204e03e883c294e4b5ffdcbe0e49cb18`。此新增离线case是显式选择运行，不包含在默认635项中。
+
+本次JAR SHA256 `d6f9a8c6938618ee803f275e7978a6e7e6a021c411b45403d854f28848afeb94`，JaCoCo XML `fa49894f4cb39e7ae48309748e98845099fd0adf634bd516de15878705712b4e`；src/配置/默认Surefire/JaCoCo/JAR冻结归档 `local-default.tgz` 的SHA256为 `d0a13a10c59c19589a68f057763722b0e48c0e4c8614859818fec33d4a424225`，原失败报告另行保留，不依赖被clean清理的target。
+
+附检：312个现存未忽略文件（包括未跟踪的新测试与文档）逐SHA复制到新临时候选，秘密规则扫描无发现；既有工作树/index与可达Git历史另行扫描无发现，真实index未改。52份Markdown的415个相对链接存在，JSON可解析、启动脚本语法与diff空白检查通过。规则扫描不保证所有凭据形态均能识别，也不等于聊天或全机凭据清除。
+
+限定独立两轴复核见[REVIEW](REVIEW.md)。两次获准生成诊断均失败且次数用完，详见[安全诊断记录](generation-diagnostics.md)；本次没有新的付费调用。截至10:02:53当时，新的4次端到端调用还未获授权，也未准备有鉴权专用Milvus实例；后续实例验证见[鉴权记录](milvus-authentication.md)，不解除模型授权、网页、多模态及生产gate。当时新增改动未推送或部署。
+
+## 推送与远端CI确认：2026-09-08
+
+已正常推送提交 `d43504fc2341d9bae83352b773e79a1897dfccc7` 到origin/main，非force，远端分支逐SHA回读一致。[GitHub Actions 34177027271](https://github.com/LingBengYing/ai-knowledge/actions/runs/34177027271) 的head_sha相同、status=completed、conclusion=success，最后更新为2026-09-08T01:36:26Z。日志核对：Ubuntu24、Temurin21.0.12-1/x64、73项Node、635项Java且0失败/错误/跳过、215文件Spotless和行/分支双80%门禁通过。保留日志 `0007-push-ci.log` SHA256为 `6400f16ed92058bd78e3818e3bb34aed866b46cb5c09b561c26b3814c2ac2901`。
+
+这是远端Linux/Java21 CI，不是最终生产容器镜像或受控生产发布。推送后新增的真实PDF端到端IT及诊断文档不属于该提交或CI认证；默认测试未调用外部provider，不能覆盖已记录的生成超时。
+
 ## 推送候选检查：2026-09-08 09:29:31 +08:00
 
 负责人明确要求推送当前Java代码；目标为既有origin/main，检查时远程基准与本地HEAD同为 `bc82a7af91e76376bf1a91415908100be07b1852`。干净副本最终 `clean verify` 通过635项、215个Java文件格式及原双80%覆盖率门禁（84秒），Node73项通过（3.642秒），0失败/错误/跳过。默认构建不选三个显式外部IT；新 `SiliconFlowGenerationLiveIT` 只经编译和缺配置保护验证，追加两次诊断实际尚未调用。
