@@ -4,6 +4,28 @@
 
 比较基准为0006已验证的173文件及297项JUnit冻结快照。审查必须分别核对Standards与Spec，尤其是完整selected set、source与generation区分、只读Milvus准入、逐事实/否定条件与冲突、最终授权/trace原子性和预算取消。不能用摘录子串、六golden或接口存在证明完整目标已实现。
 
+## 2026-09-08 推送后整体Tool审查：发现与处理范围
+
+审查起点 `5a30ea9`，六个 `tool/answer` 新文件完整diff相对bc82a7a；不包括parser迁移，不把它当完整0006基线。当前修复的精确前像为5a30ea9及本轮冻结归档，见plan。以下finding未全部关闭，不能把限定修复写成整个0007通过。
+
+### Standards
+
+authority_layering指出G07/L05资源问题：`SourceFields.splitAssignments` 对每个连接词复制并扫描不断增长的前缀，无赋值时cursor不前进，导致平方级工作；缺少分句循环协作中断。root在合法400011 code point合成页上通过公开verify复现8秒未退出，子JVM被强杀且确认终止；另预中断负例未抛取消。修复由adapter_layering负责，最终执行与复核另记。重复candidate/quote整页解析属于额外性能建议，不能据此宣称完整CPU/内存验收。
+
+### Spec
+
+spring_authority_explore指出三处错误支持风险：同页未检索chunk内的直接冲突被跳过；`Example:`/`例子：`可能被当作中性标签支持事实；多句操作步骤可能只引用首句就满足程序问题。第一项已由root用中英、前后两种顺序的Tool和真实parser/authority/AnswerService复现，共20项8个错误支持；只删除错误chunk范围后20项通过。完整页只能参与冲突拒答，不扩展模型支持或引用范围。后两项尚未在本轮执行反例或修复，继续作为明确待复现/处理项，不能以当前固定golden通过关闭。
+
+adapter_layering另只读审查finish/source，未发现当前可达ACL/source泄露：源读取限制原Actor/组织，完整scope当前ACL/active与locator/hash仍在同一authority事务复验。建议新增等Store锁期间撤销未引用文档的针对性竞态覆盖，属于未验证项而非已证实漏洞。本轮不借此作整体安全认证。
+
+### 本批修复后的限定复核
+
+Standards：authority_layering独立复核四份最终生产差异和四份新增测试，0新增finding。页级去重/纯Fact空过滤前移及policy显式升级符合职责；取消只在propose内转安全拒答，finish/trace存储失败仍外抛，真实执行finally才释放准入。SourceFields原patterns未变，以单调匹配器、region和零拷贝前缀两端检查消除增长前后缀复制/重扫；协作检查不清中断、不返部分字段。结合真实红绿，可关闭具体连接词平方级扫描与分句取消缺口，不关闭整页重复解析建议或全部G07容量验收。
+
+Spec：spring_authority_explore独立复核0新增finding，同页冲突finding关闭；完整页只否决，支持仍须落在原候选quote范围。保留wholeSentence、主体、条件/历史过滤及数字精确含义；SourceFields替换保持原边界，6项旧行为对照先绿。22项Tool/8项实际parser组合及取消路径的范围符合本批spec。示例标签与多句程序两项继续开放，未扩大成整切PASS。
+
+审查者独立重算SourceFields及ResourceTest最终SHA，root在最后修改后完成278项定向及675项完整验证；源码/运行绑定见[verification](verification.md)。两个审查者均未运行Maven/网络。总结：本批限定Standards 0未关闭硬finding（一般资源建议仍待验收）；Spec关闭1项、仍有2项待实证/修复，主要风险仍为错误支持答案。
+
 ## 2026-09-08 零模型Milvus鉴权入口：限定复核
 
 相对d43504f新增 `MilvusAuthenticationLiveIT`，adapter_layering实现，root统一格式与执行；生产代码不变。Standards由authority_layering复核：真实生产配置加载、无模型client、15秒总等待、接收期间64KiB上限、安全错误与owned精确清理符合本项规范，0未关闭finding。Spec由spring_authority_explore复核：初审P2指出只有不存在用户名不能排除忽略密码的实现；补充保留有效用户名和密码长度、仅改变末字符的负例，仍要求HTTP401/code1800及生产安全异常后关闭，0未关闭finding。

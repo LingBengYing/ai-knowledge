@@ -13,7 +13,7 @@ import java.util.List;
 
 /** Pure full-question proof and source-fragment validation; callers own current authorization. */
 public final class TextGrounding {
-  public static final String VERSION = "java-text-grounding-v2-scoped-conditions";
+  public static final String VERSION = "java-text-grounding-v3-page-conflicts";
   private static final int MAX_QUESTION_BYTES = 4096;
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;

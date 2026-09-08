@@ -1,5 +1,7 @@
 # AI Knowledge · Java Edition
 
+2026-09-08 本次代码同步快照：新增同页冲突检查、连接词扫描资源修复和取消审计，policy 为 `java-text-grounding-v3-page-conflicts`。当前源码与已通过675项Java、73项Node及格式/双80%门禁的本地验证快照逐文件一致。示例标签与多句操作步骤仍有两项待实证/修复风险；真实生成链路尚未通过，仍非生产版。当前范围、证据及未完成项以[0007验证](docs/changes/0007-text-answers/verification.md)和[REVIEW](docs/changes/0007-text-answers/REVIEW.md)为准；下方带日期的旧测试数量是历史记录。
+
 当前开发：[0007授权文本问答](docs/changes/0007-text-answers/intent.md)，仍为IMPLEMENTATION。2026-09-07 15:59:54 +08:00实际Temurin21.0.12.1+1干净构建通过635项Java、73项Node、212个Java文件格式检查和双80%覆盖率门禁。本批修复具名条件跨分块漏判及Model输出不变量，限定两轴审查通过。默认关闭的问答HTTP已接通，但不是完整语义、网页、真实provider/Milvus、多模态或生产验收。当前证据见[0007验证](docs/changes/0007-text-answers/verification.md)。
 
 [真实Milvus集成](docs/changes/0007-text-answers/milvus-integration.md)于2026-09-08补测通过：固定2.6.22/ARM64、float32精确摘要、dense/BM25授权范围、4096+1完整性边界，以及卸载后只读不加载/显式重载恢复。[SiliconFlow联调](docs/changes/0007-text-answers/provider-integration.md)中真实嵌入与重排通过，证据摘录60秒超时，整体未通过；无自动重试。这不是完整容量、总体模型质量、多模态或生产验收。

@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -164,7 +165,7 @@ public final class AnswerService implements AutoCloseable {
       proposed = propose(scope, command.question(), processing);
     } catch (RejectedEvidence failure) {
       proposed = abstention(command.question(), failure.reason);
-    } catch (TextModels.Failure | ProjectionException failure) {
+    } catch (TextModels.Failure | ProjectionException | CancellationException failure) {
       proposed =
           abstention(
               command.question(),

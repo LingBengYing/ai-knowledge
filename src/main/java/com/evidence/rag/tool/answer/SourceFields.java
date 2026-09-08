@@ -1,7 +1,9 @@
 package com.evidence.rag.tool.answer;
 
+import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.regex.Pattern;
 
 /** Exact source ranges are retained separately from any question-matching normalization. */
@@ -33,10 +35,12 @@ final class SourceFields {
   }
 
   private static List<Field> ranges(String text, boolean clauses) {
+    checkInterrupted();
     var fields = new ArrayList<Field>();
     int start = 0;
     var boundaries = (clauses ? BOUNDARY : SENTENCE_BOUNDARY).matcher(text);
     while (boundaries.find()) {
+      checkInterrupted();
       if (clauses) {
         splitAssignments(fields, text, start, boundaries.start());
       } else {
@@ -49,6 +53,7 @@ final class SourceFields {
     } else {
       add(fields, text, start, text.length());
     }
+    checkInterrupted();
     return List.copyOf(fields);
   }
 
@@ -58,6 +63,7 @@ final class SourceFields {
   }
 
   static String statement(String field) {
+    checkInterrupted();
     int colon = field.indexOf('：');
     if (colon < 0) {
       colon = field.indexOf(':');
@@ -76,28 +82,66 @@ final class SourceFields {
   }
 
   private static void splitAssignments(List<Field> fields, String text, int start, int end) {
-    String clause = text.substring(start, end);
-    var connectors = CONNECTOR.matcher(clause);
-    int cursor = 0;
+    checkInterrupted();
+    var connectors = CONNECTOR.matcher(text).region(start, end);
+    var assignments = ASSIGNMENT.matcher(text).region(start, end);
+    var nextAssignment = NEXT_ASSIGNMENT.matcher(text);
+    boolean assignmentAvailable = assignments.find();
+    int cursor = start;
     while (connectors.find()) {
-      if (ASSIGNMENT.matcher(clause.substring(cursor, connectors.start())).find()
-          && NEXT_ASSIGNMENT.matcher(clause.substring(connectors.end())).find()) {
-        add(fields, text, start + cursor, start + connectors.start());
+      checkInterrupted();
+      // An assignment already found in this clause never needs to be rescanned from the start.
+      while (assignmentAvailable && assignments.start() < cursor) {
+        checkInterrupted();
+        assignmentAvailable = assignments.find();
+      }
+      boolean prefixHasAssignment =
+          (assignmentAvailable && assignments.end() <= connectors.start())
+              || hasBoundaryAssignment(text, cursor, connectors.start());
+      if (prefixHasAssignment && nextAssignment.region(connectors.end(), end).find()) {
+        add(fields, text, cursor, connectors.start());
         cursor = connectors.end();
       }
     }
-    add(fields, text, start + cursor, end);
+    add(fields, text, cursor, end);
+  }
+
+  private static boolean hasBoundaryAssignment(String text, int start, int end) {
+    // The old prefix substring made its edges word boundaries. A zero-copy view preserves those
+    // edges, including their lookaround context, while inspecting only the longest token's span.
+    var prefix = CharBuffer.wrap(text, start, end);
+    var assignments = ASSIGNMENT.matcher(prefix);
+    if (assignments.lookingAt()) {
+      return true;
+    }
+    if (assignments.find(Math.max(0, prefix.length() - 3))) {
+      do {
+        if (assignments.end() == prefix.length()) {
+          return true;
+        }
+      } while (assignments.find());
+    }
+    return false;
   }
 
   private static void add(List<Field> output, String source, int start, int end) {
+    checkInterrupted();
     while (start < end && Character.isWhitespace(source.charAt(start))) {
+      checkInterrupted();
       start++;
     }
     while (end > start && Character.isWhitespace(source.charAt(end - 1))) {
+      checkInterrupted();
       end--;
     }
     if (start < end) {
       output.add(new Field(start, end, source.substring(start, end)));
+    }
+  }
+
+  private static void checkInterrupted() {
+    if (Thread.currentThread().isInterrupted()) {
+      throw new CancellationException("Text grounding interrupted");
     }
   }
 

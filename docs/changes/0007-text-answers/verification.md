@@ -2,6 +2,50 @@
 
 状态：IMPLEMENTATION。当前保留0007开发实现，已完成下述既有缺陷修复和完整本地门禁，不宣称完整语义、网页、实际provider/Milvus、多模态或生产验收。下方隔离/恢复和失败记录均为历史，不能覆盖最新结果。
 
+## 当前代码同步范围
+
+按负责人本次推送请求，仅交付下面11:02:21修复快照与补充说明。提交准备时319个候选文件逐SHA与最终冻结清单一致，235个src/.mvn/pom输入与实际验证副本一致，归档和完整构建日志摘要均与下表相同；本轮不重复运行Java全量，也不复用旧提交CI冒充新CI。远端main与本地提交前基准5a30ea9一致；普通推送结果和新提交CI须另行回读。本次不是生产发布，文中“本批未推送”是此前验证完成时的历史状态；示例标签、多句程序两项继续开放。
+
+本轮重新运行Node为73项通过、0失败/跳过（3.321秒）；候选和当前可达历史密钥规则扫描无发现，diff空白和启动脚本语法检查通过。源码未再修改，仅补README/工作约定/plan/本记录以澄清交付状态；有限规则扫描不构成所有秘密形态的识别保证。
+
+## 同页冲突、连接词资源与取消审计：2026-09-08 11:02:21 +08:00
+
+相对5a30ea9，本批只改四份生产Java：EvidenceConflicts、TextGrounding、SourceFields、AnswerService；新增四份测试，无旧测试、schema、构建配置、前端或现役数据变更。policy从v2升级为 `java-text-grounding-v3-page-conflicts`，不改历史trace。完整授权页只用于否决冲突答案，模型未见的分块外正文仍不能成为新支持/引用。
+
+最终实际Temurin21.0.12.1+1（macOS arm64）干净副本 `clean verify` 83秒通过：675项Java/72 suites，0失败/错误/跳过；222文件Spotless与原双80%门禁通过（行5814/6135，分支2892/3387）。Node73项通过，3.267秒。对冻结前像逐项核对：原635项class/name多重集完整保留，新增40项；87个原src/test文件（含语料）SHA未变，4PDF与golden相对5a30ea9无差异。235个src/.mvn/pom输入在仓库与实际构建副本逐SHA一致。
+
+最后修改后已先跑完整 `TextGrounding*Test`、原6golden、原16实际parser条件组合、生命周期与本批组合/取消，共278项通过；并非只跑新增用例。原四PDF六golden使用确定性模型/投影替身，不代表真实模型质量。默认全量未执行任何LiveIT；本轮模型调用为零。
+
+### 可复现红绿
+
+- 同页冲突：10:44:46新Tool12项和真实parser/authority/AnswerService8项共20项8fail，均应拒答却支持/answered；只移除错误chunk范围限制后10:45:47同一20项全绿，排除了数值归一或跨主体误匹配作为这组失败根因。最终新增22项Tool覆盖中英双向、不同主体、明确示例/草案、千位格式和符号/小数/单位；8项真实组合确保冲突不在唯一模型候选内、但在其权威页内，拒答无引用/答案摘要，合法对照仍可回读来源。
+- 连接词密集页：400011 code point的合法合成页、候选/quote仅末尾精确事实，经公开TextGrounding.verify在8秒工作预算内未退出。父测试留2秒清理，强杀子JVM并确认退出，10:48:46按预期1fail，不遗留占CPU测试线程。10:51:01预中断负例另1fail（原先未抛取消）。修复后11:00:16资源8项共0.633秒通过，包括真实子JVM、预中断及6个先在旧实现上通过的英文词边界/数字冒号对照；这是本机小型资源回归，不是一般容量或Java/Python性能比较。
+- 取消审计：10:48:46两个取消分支原样抛出CancellationException且未留trace（2 errors）。新增安全catch后10:51:01两项通过：处理中断记processing_timeout，未中断上游取消记upstream_unavailable；均无引用/答案摘要、保留1条安全trace。finish仍在上游catch之外，不能把存储失败转成成功。红报告不是通过修改预期或跳过用例消除。
+
+| 冻结执行工件 | SHA256 |
+| --- | --- |
+| Tool同页冲突红XML | `2f037c31367788000fe76e2a6e5a412a0859dc600984c1772a91491231916ed7` |
+| 实际parser/Service冲突红XML | `992a87b5657ecd1c30cdfd9222452b0f3887427375a505689e0427216aeb7fd5` |
+| 资源红XML | `adf1ad4e2128dcb6a05c77612a11a7f8b531b9acfdeae2a4a89a2f3d9efdf51f` |
+| 预中断红XML | `1883d991eadfbdee8ff6f0648d89ef59d981e5834b3e572c66293a00845a50f3` |
+| 取消审计红XML | `35bc6a274d846bf54d4815b985bbb1fd59088e017fe21b53e2c813f15516f528` |
+| 最终完整构建日志 | `8ecb4f827c4bd8d50c96f8d05032a847657e2fbc00e507b4e44b5c43e452c5f9` |
+| 最终JAR | `723f99ea0f69180dae450b41a076d9cf223bb96204e48a224c08cb8431760e75` |
+| 最终JaCoCo XML | `dea59293ab792e1997987fa728a9a95791dced531db3315a87e403d246575878` |
+| 最终src/配置/报告/JAR归档 | `7a2c3016a09738d18ac1195e0d20d8fee6f70ab5e14ca981c128ed6715f33db4` |
+
+最终生产源码SHA256：AnswerService `89bcdce05dbc4e597c531cbc43e6fd57b2d23b8004890b0d23e308e0884fda56`；EvidenceConflicts `5b96fcf70af3a0891bfac0c4b33f5b00807c077004834664b7f4d1190073b4c2`；TextGrounding `7eff493a8538e8591fe3725499d9e7603770d6d42b1c0dd33ecd486ee48d5328`；SourceFields `8a50dab70b30393c85652fd7be999b2b257414401cf5257d5ca60215251187f4`。原始执行工件保存在受控本地，不提交日志、凭据或数据。
+
+安全附检：319个现存未忽略发布候选文件（含未跟踪测试）逐SHA复制扫描，规则无发现；当前index/工作树及可达历史另行扫描无发现。文档相对链接、diff空白检查通过；这是有限扫描，不是全机秘密清除声明。最终文档调整未改变上述可执行输入。
+
+限定Standards/Spec复核见[REVIEW](REVIEW.md)。本批关闭同页直接冲突、平方级连接词扫描、分句协作取消及其审计映射；不认证整个语义引擎资源能力。示例标签可能误判、多句程序可能只答首步仍待实证/修复，完整外部PDF模型链路尚未获新调用授权，网页、多模态与生产仍缺证据。本批未推送或部署，production/readiness gate不变。
+
+## 5a30ea9远端CI确认
+
+上一轮增量已正常推送，origin/main回读为 `5a30ea9f4eb518a321a75588b8016c1356c42c68`。其[GitHub CI 34180621543](https://github.com/LingBengYing/ai-knowledge/actions/runs/34180621543)已completed/success，headSha相同，更新时间2026-09-08T02:39:19Z。实际日志确认Java21、635项Java且0失败/错误/跳过、218文件格式、双80%覆盖率及73项Node通过；独立日志SHA256 `6fa4e73c603de31e91800bf76d36cedc71e956d46d1e9e61e548cce43dde1077`。
+
+此CI只绑定5a30ea9，不能认证随后同页冲突/性能修复；默认CI不执行外部LiveIT或模型请求，也不代表生产发布。
+
 ## 本次增量推送验证：2026-09-08 10:34:01 +08:00
 
 相对已推送d43504f，只新增三个测试/support文件及验证文档，没有修改生产Java、原测试、pom/.mvn、四PDF或golden。真实Milvus鉴权IT通过，缺失/未知用户/同用户名错密码均精确拒绝；正确凭据完成写入、完整性验证和dense/BM25检索，清理后两个专用库为空，见[鉴权记录](milvus-authentication.md)。该1项外部IT与默认测试分别报告，模型请求为零。
