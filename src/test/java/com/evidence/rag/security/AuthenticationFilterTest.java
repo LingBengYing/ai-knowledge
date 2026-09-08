@@ -1,9 +1,16 @@
 package com.evidence.rag.security;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import com.evidence.rag.shared.Actor;
-import com.evidence.rag.shared.Problem;
+import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.security.web.AuthenticatedActor;
+import com.evidence.rag.security.web.AuthenticationFilter;
+import com.evidence.rag.security.web.RequestAuthenticator;
+import com.evidence.rag.web.HttpProblemMapper;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
@@ -18,17 +25,17 @@ class AuthenticationFilterTest {
   @TempDir Path directory;
 
   private AuthenticationFilter filter() {
-    AuthenticationModule module =
-        new AuthenticationModule(
-            AuthenticationModuleTest.properties(directory, "development_headers"),
-            AuthenticationModuleTest.CLOCK);
+    RequestAuthenticator module =
+        RequestAuthenticatorTest.authenticator(
+            RequestAuthenticatorTest.properties(directory, "development_headers"),
+            RequestAuthenticatorTest.CLOCK);
     return new AuthenticationFilter(
         module,
         (request, response, handler, exception) -> {
-          assertInstanceOf(Problem.class, exception);
-          Problem problem = (Problem) exception;
-          response.setStatus(problem.status());
-          response.setHeader("X-Test-Problem-Code", problem.code());
+          assertInstanceOf(ApplicationException.class, exception);
+          ApplicationException problem = (ApplicationException) exception;
+          response.setStatus(HttpProblemMapper.status(problem));
+          response.setHeader("X-Test-ApplicationException-Code", problem.code());
           return new ModelAndView();
         });
   }
@@ -52,7 +59,8 @@ class AuthenticationFilterTest {
             (req, res) -> {
               called.set(true);
               assertEquals(
-                  new Actor("org-main", "editor"), req.getAttribute(Actor.REQUEST_ATTRIBUTE));
+                  new Actor("org-main", "editor"),
+                  AuthenticatedActor.require((jakarta.servlet.http.HttpServletRequest) req));
             });
     assertTrue(called.get());
   }
@@ -167,9 +175,9 @@ class AuthenticationFilterTest {
 
   @Test
   void resolverFailureStillLeavesDeniedStatusAndBearerChallenge() throws Exception {
-    AuthenticationModule module =
-        new AuthenticationModule(
-            AuthenticationModuleTest.properties(directory, "jwt"), AuthenticationModuleTest.CLOCK);
+    RequestAuthenticator module =
+        RequestAuthenticatorTest.authenticator(
+            RequestAuthenticatorTest.properties(directory, "jwt"), RequestAuthenticatorTest.CLOCK);
     AuthenticationFilter filter =
         new AuthenticationFilter(module, (request, response, handler, exception) -> null);
     MockHttpServletResponse response = new MockHttpServletResponse();

@@ -1,6 +1,10 @@
 package com.evidence.rag.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
 import java.io.BufferedReader;
@@ -52,15 +56,18 @@ class IngestionHttpTest {
 
   @AfterAll
   void stop() {
-    if (context != null) context.close();
+    if (context != null) {
+      context.close();
+    }
   }
 
   private HttpResponse<String> request(
       String method, String path, String principal, byte[] content, Map<String, String> extra)
       throws Exception {
     var builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(10));
-    if (principal != null)
+    if (principal != null) {
       builder.header("X-Workspace-Id", "org-main").header("X-Principal-Id", principal);
+    }
     extra.forEach(builder::header);
     return client.send(
         builder
@@ -94,7 +101,9 @@ class IngestionHttpTest {
     long until = System.nanoTime() + Duration.ofSeconds(10).toNanos();
     do {
       task = body(request("GET", "/v1/ingestions/" + taskId, "uploader", null, Map.of()));
-      if (task.path("state").asString().equals("parsed")) break;
+      if (task.path("state").asString().equals("parsed")) {
+        break;
+      }
       Thread.sleep(30);
     } while (System.nanoTime() < until);
     assertEquals("parsed", task.path("state").asString(), task.toString());
@@ -175,6 +184,20 @@ class IngestionHttpTest {
         body(request("GET", "/v1/management/documents", "invalid", null, Map.of()))
             .path("total")
             .asInt());
+  }
+
+  @Test
+  void invalidFileContentPreservesTheEstablishedProblemDetail() throws Exception {
+    var result =
+        request(
+            "POST",
+            "/v1/documents?filename=invalid.pdf",
+            "invalid-content-owner",
+            "not a PDF".getBytes(StandardCharsets.UTF_8),
+            Map.of("Content-Type", "application/octet-stream"));
+    assertEquals(422, result.statusCode());
+    assertEquals("unsupported_document", body(result).path("error_code").asString());
+    assertEquals("仅支持符合文件格式的 PDF、TXT 和 Markdown。", body(result).path("detail").asString());
   }
 
   private Socket partialUpload(String principal) throws Exception {
@@ -274,8 +297,9 @@ class IngestionHttpTest {
     JsonNode task;
     do {
       task = body(request("GET", "/v1/ingestions/" + taskId, principal, null, Map.of()));
-      if (!java.util.Set.of("queued", "processing").contains(task.path("state").asString()))
+      if (!java.util.Set.of("queued", "processing").contains(task.path("state").asString())) {
         return task;
+      }
       Thread.sleep(30);
     } while (System.nanoTime() < until);
     fail("Task did not reach a terminal state");

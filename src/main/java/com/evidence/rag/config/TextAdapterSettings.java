@@ -1,7 +1,7 @@
 package com.evidence.rag.config;
 
-import com.evidence.rag.models.OpenAiCompatibleModels;
-import com.evidence.rag.retrieval.MilvusRestProjection;
+import com.evidence.rag.client.model.OpenAiCompatibleModels;
+import com.evidence.rag.client.vector.MilvusRestProjection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -42,15 +42,21 @@ public record TextAdapterSettings(
   public TextAdapterSettings {
     if (models == null
         || projection == null
-        || models.embeddingDimensions() != projection.dimension()) throw new Invalid();
+        || models.embeddingDimensions() != projection.dimension()) {
+      throw new Invalid();
+    }
   }
 
   public static TextAdapterSettings load(Map<String, String> environment) {
     try {
-      if (environment == null) throw new Invalid();
+      if (environment == null) {
+        throw new Invalid();
+      }
       for (var name : environment.keySet()) {
-        if (name == null || (PREFIXES.stream().anyMatch(name::startsWith) && !NAMES.contains(name)))
+        if (name == null
+            || (PREFIXES.stream().anyMatch(name::startsWith) && !NAMES.contains(name))) {
           throw new Invalid();
+        }
       }
       var embedding = endpoint(environment, "EMBEDDING");
       var rerank = endpoint(environment, "RERANK");
@@ -64,8 +70,9 @@ public record TextAdapterSettings(
       boolean loopback = flag(environment.getOrDefault("RAG_TEXT_ALLOW_LOOPBACK_HTTP", "false"));
       String revision = required(environment, "RAG_EMBEDDING_REVISION");
       if (!revision.matches("[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,159}")
-          || Set.of("latest", "default", "unknown").contains(revision.toLowerCase(Locale.ROOT)))
+          || Set.of("latest", "default", "unknown").contains(revision.toLowerCase(Locale.ROOT))) {
         throw new Invalid();
+      }
       var models =
           new OpenAiCompatibleModels.Configuration(
               embedding, rerank, generation, dimensions, timeout, bytes, loopback);
@@ -102,28 +109,39 @@ public record TextAdapterSettings(
         || value.isBlank()
         || value.length() > 4096
         || !value.equals(value.strip())
-        || value.codePoints().anyMatch(c -> c < 32 || c == 127)) throw new Invalid();
+        || value.codePoints().anyMatch(c -> c < 32 || c == 127)) {
+      throw new Invalid();
+    }
     return value;
   }
 
   private static String secret(Map<String, String> env, String key) {
     var value = required(env, key);
     var lower = value.toLowerCase(Locale.ROOT);
-    if (List.of("replace-", "your-", "example-", "changeme").stream().anyMatch(lower::startsWith))
+    if (List.of("replace-", "your-", "example-", "changeme").stream().anyMatch(lower::startsWith)) {
       throw new Invalid();
+    }
     return value;
   }
 
   private static int number(String value, int minimum, int maximum) {
-    if (value == null || !value.matches("[0-9]{1,8}")) throw new Invalid();
+    if (value == null || !value.matches("[0-9]{1,8}")) {
+      throw new Invalid();
+    }
     int number = Integer.parseInt(value);
-    if (number < minimum || number > maximum) throw new Invalid();
+    if (number < minimum || number > maximum) {
+      throw new Invalid();
+    }
     return number;
   }
 
   private static boolean flag(String value) {
-    if ("true".equals(value)) return true;
-    if ("false".equals(value)) return false;
+    if ("true".equals(value)) {
+      return true;
+    }
+    if ("false".equals(value)) {
+      return false;
+    }
     throw new Invalid();
   }
 

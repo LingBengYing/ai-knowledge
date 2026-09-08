@@ -12,6 +12,7 @@ const MAX_BYTES = 32 * 1024 * 1024;
 const publicTestValues = new Map([
   ['src/test/java/com/evidence/rag/security/JwtHttpTest.java#SECRET', '0123456789abcdef0123456789abcdef'],
   ['src/test/java/com/evidence/rag/security/AuthenticationModuleTest.java#SECRET', 'isolated-test-only-signing-secret-at-least-64-characters-abcdefghijk'],
+  ['src/test/java/com/evidence/rag/security/RequestAuthenticatorTest.java#SECRET', 'isolated-test-only-signing-secret-at-least-64-characters-abcdefghijk'],
   ['ui-tests/api.test.mjs#token', 'test-token'],
 ]);
 

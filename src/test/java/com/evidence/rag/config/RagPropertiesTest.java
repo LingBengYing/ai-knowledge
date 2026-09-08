@@ -1,9 +1,11 @@
 package com.evidence.rag.config;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.evidence.rag.shared.Actor;
-import com.evidence.rag.shared.Problem;
+import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.model.domain.Actor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -51,8 +53,8 @@ class RagPropertiesTest {
       assertThrows(
           IllegalArgumentException.class,
           () -> config("test", invalid, "development_headers", null, null, null, directory));
-      assertThrows(Problem.class, () -> new Actor(invalid, "principal"));
-      assertThrows(Problem.class, () -> new Actor("workspace", invalid));
+      assertThrows(ApplicationException.class, () -> new Actor(invalid, "principal"));
+      assertThrows(ApplicationException.class, () -> new Actor("workspace", invalid));
     }
     assertEquals(
         200, new Actor("😀".repeat(200), "principal").workspaceId().codePointCount(0, 400));

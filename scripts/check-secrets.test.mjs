@@ -140,6 +140,21 @@ test('only exact reviewed synthetic path and value are allowed, not arbitrary te
   assert.ok(!result.output.includes(credential));
 });
 
+test('renamed authentication test retains only its exact public synthetic credential exception', t => {
+  const directory = repository(t);
+  const reviewed = 'src/test/java/com/evidence/rag/security/RequestAuthenticatorTest.java';
+  const publicValue = ['isolated-test-only-signing-', 'secret-at-least-64-characters-abcdefghijk'].join('');
+  file(directory, reviewed, javaAssignment(publicValue));
+  assert.equal(scan(directory).status, 0);
+  file(directory, 'src/test/java/com/evidence/rag/security/UnreviewedTest.java', javaAssignment(publicValue));
+  let result = scan(directory);
+  assert.equal(result.status, 1);
+  assert.ok(result.findings.some(finding => finding.path.endsWith('/UnreviewedTest.java')));
+  file(directory, reviewed, javaAssignment(publicValue + '-changed'));
+  result = scan(directory);
+  assert.ok(result.findings.some(finding => finding.path === reviewed));
+});
+
 test('checker and its own fixture generators do not contain material requiring broad exemptions', t => {
   const directory = repository(t);
   file(directory, 'scripts/check-secrets.mjs', readFileSync(checker));

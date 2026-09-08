@@ -11,8 +11,11 @@
 ## Engineering
 
 - [Architecture](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/ARCHITECTURE.md): modules, authority and planned retrieval.
+- [Java standards](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/JAVA_DEVELOPMENT_STANDARDS.md): approved layer-first Spring responsibilities, Model and Security boundaries, Alibaba-inspired project rules and Occam's razor.
 - [API](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/API.md): actual HTTP endpoints only.
-- [Text adapters](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/TEXT_ADAPTERS.md): independent model and Milvus modules, explicit configuration; not a wired RAG service.
+- [Text adapters](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/TEXT_ADAPTERS.md): full model/Milvus configuration; embedding and projection writes are wired to indexing, queries and answers are not.
+- [Text ingestion](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/TEXT_INGESTION.md): opt-in uploads and persistent parsed evidence.
+- [Text indexing](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/TEXT_INDEXING.md): opt-in separate JVM, bounded tasks, full-revision verification, v3 migration and publication authority.
 - [Roadmap](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/ROADMAP.md): incomplete migration work and acceptance gates.
 - [Verification](https://github.com/LingBengYing/ai-knowledge/blob/main/docs/VERIFICATION.md): measured checks, scope and exclusions.
 - [Security](https://github.com/LingBengYing/ai-knowledge/blob/main/SECURITY.md): secrets, threat scope and reporting.
@@ -20,6 +23,8 @@
 
 ## Important limitations
 
-Text ingestion is opt-in on literal loopback only: authenticated PDF/TXT/Markdown upload, persistent tasks, a separate bounded Java parser process, and persisted page/segment evidence. Parsed is NOT indexed or answerable. Vector search, answer generation, citation serving and multimodal endpoints remain unwired. Metadata samples and parser regressions do not demonstrate RAG retrieval quality. Process separation is not an OS sandbox; production readiness intentionally returns 503. Search engine or AI indexing is not guaranteed by this navigation file.
-# Current work: docs/changes/0003-text-ingestion/ (LOCAL_VERIFIED); full Java migration remains IMPLEMENTATION.
-# Read docs/TEXT_INGESTION.md and current docs/VERIFICATION.md before making capability claims.
+Text ingestion and indexing have independent explicit opt-ins and require literal loopback in development/test. Indexing requires three model endpoints and an isolated Java Milvus collection, but only calls embedding. Each claim receives a fresh physical generation and canonical physical segment IDs; immutable attempt and publication-entry ledgers map source to physical ID and digest. This isolates late upstream writes while HTTP active_revision_id remains the source revision. Future AuthorizedScope must use the generation from active publication and map candidates back to source evidence. Protocol v2 parent PID/start-time checks and a local cross-JVM collection lease control worker lifetime; killing a process does not withdraw upstream requests. Lease files persist and crash-orphan job directories need later cleanup. Early unreleased v3 without generation ledgers is refused. These mechanisms remain IMPLEMENTATION subject to current tests and independent review. Parsed/indexed are distinct; can_answer is false. Queries, rerank, answers, sources and multimodal endpoints remain unwired. Process separation is not an OS sandbox; readiness remains 503. No real-provider/Milvus or production acceptance is implied. Search-engine or AI indexing is not guaranteed.
+# Current local verification: docs/changes/0006-ingestion-authorization/ (297 Java / 73 Node); full Java migration remains IMPLEMENTATION, not pushed or deployed.
+# 0005 completed layer-first refactoring; 0006 separately verified current creator permission checks and revocation cancellation for ingestion. Neither implies complete Spring Security or RAG acceptance.
+# Published 0003 baseline bc82a7a (190 Java / 42 Node) is historical; its manifest does not certify new source.
+# Read docs/TEXT_INDEXING.md and current docs/VERIFICATION.md before making capability claims.

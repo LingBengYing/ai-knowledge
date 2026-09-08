@@ -31,7 +31,7 @@
       <div class="section-heading"><h2 id="folders-heading">资料目录</h2><button id="new-folder" type="button" disabled>新建</button></div>
       <nav id="folder-list" aria-label="按目录筛选"></nav>
       <p id="folder-error" class="notice error" role="alert" hidden></p>
-      <div class="migration-list"><h3>能力边界</h3><p>文本上传由服务端显式开启。已解析不等于已索引，问答、来源查看、重建和删除仍未迁移。</p><p>整理不会调用嵌入、重排或生成模型。</p></div>
+      <div class="migration-list"><h3>能力边界</h3><p>文本上传与索引分别由服务端显式开启。已解析不等于已索引，问答、来源查看、重建和删除仍未迁移。</p><p>整理不会调用模型。建立或重试索引需确认向配置的嵌入模型和Milvus发送文本。</p></div>
     </aside>
     <section class="workspace" aria-labelledby="documents-heading">
       <div class="section-heading page-heading"><div><p class="eyebrow">KNOWLEDGE / MANAGEMENT</p><h1 id="documents-heading" tabindex="-1">资料管理</h1></div><div class="header-actions"><button id="refresh" type="button" disabled>刷新</button><button id="upload" type="button" class="primary" disabled title="服务未启用文本上传">上传文本</button><button type="button" disabled title="尚未接通有证问答">问答 · 迁移中</button></div></div>
@@ -45,7 +45,7 @@
       <form id="filters" class="filters" aria-label="资料筛选">
         <label class="search-field" for="search">搜索资料<input id="search" name="q" type="search" maxlength="200" placeholder="按显示名称或原文件名搜索"></label>
         <label for="type">类型<select id="type" name="type"><option value="">全部类型</option><option value="document">文档</option><option value="image">图片</option><option value="audio">音频</option><option value="video">视频</option></select></label>
-        <label for="status">状态<select id="status" name="status"><option value="">全部状态</option><option value="ready">演示就绪</option><option value="queued">等待解析</option><option value="processing">正在解析</option><option value="parsed">已解析 · 未索引</option><option value="failed">解析失败</option><option value="cancelled">已取消</option></select></label>
+        <label for="status">解析状态<select id="status" name="status"><option value="">全部状态</option><option value="ready">演示就绪</option><option value="queued">等待解析</option><option value="processing">正在解析</option><option value="parsed">已解析</option><option value="failed">解析失败</option><option value="cancelled">已取消</option></select></label>
         <label for="tag">标签<select id="tag" name="tag"><option value="">全部标签</option></select></label>
         <label for="sort">排序<select id="sort" name="sort"><option value="updated_desc">最近更新</option><option value="updated_asc">最早更新</option><option value="name_asc">名称正序</option><option value="name_desc">名称倒序</option></select></label>
         <button id="clear-filters" type="button">重置</button>

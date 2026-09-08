@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "status": "passed_scoped_live_integration",
+  "completedAt": "2026-09-08T09:04:14+08:00",
+  "scope": "Real Milvus adapter protocol, synthetic float32 integrity and authorized search on a new isolated instance; not model quality or production acceptance",
+  "productionInputs": {
+    "baselineManifest": "source-manifest.json",
+    "baselineManifestSha256": "77113337ba83e3ef6ac0925a0a8a6daf1bc69cbda5ee1aca58f25b72a9a87bfb",
+    "unchangedBaselineFiles": 235,
+    "baselineAggregateSha256": "3423b1d0a3cecdac1007c90d581799cc2c6108cfb5d946dded530650c21dc731",
+    "preIntegrationArchiveSha256": "d60a6e3de98e16b002cfb44554b87e1fb449acdef506f46849a797495bcdc7ff",
+    "newTest": "src/test/java/com/evidence/rag/client/vector/MilvusLiveIT.java",
+    "newTestSha256": "b443a2444aa88c12e296e78995549ff893ec187da8bca20fcdd7fa5022302a03",
+    "productionSourceChanged": false
+  },
+  "extendedTestInputs": {
+    "preExtensionArchiveSha256": "f256a5641622e12d0beced4d75b2827da70f5b9977eceb012f24ecc5a0e7378b",
+    "testSha256": "800339486a4639efc677a70a469d101f60dcd6c01eb2724dc480341490af01e3",
+    "originalMethodAndAssertionsUnchanged": true,
+    "productionSourceChanged": false
+  },
+  "runtime": {
+    "milvusVersionFromStartup": "2.6.22",
+    "milvusGitCommitFromStartup": "830fdd6806",
+    "image": "milvusdb/milvus@sha256:defbbd212727ff06507acc8b4a21531d269be85d467ea304fb1c1eff514d00e9",
+    "imagePlatform": "linux/arm64",
+    "manifestListFileSha256": "37ec8db2ae9fcdfc7a16860174799f4004d63a2321768aa277f7b1803b9627ca",
+    "mode": "standalone, embedded etcd, local storage, synthetic data only",
+    "dockerVersion": "29.5.2",
+    "javaClientRuntime": "Temurin 21.0.12.1+1 on macOS arm64",
+    "sameLinuxProductionImageVerified": false,
+    "newNamedVolumeOnly": true,
+    "hostDirectoryMounts": false,
+    "publishedInterfaces": ["127.0.0.1"],
+    "containerMemoryLimitGiB": 7
+  },
+  "runs": [
+    {
+      "kind": "first_live",
+      "completedAt": "2026-09-07T16:45:37+08:00",
+      "tests": 1, "failures": 0, "errors": 0, "skipped": 0,
+      "testSeconds": 4.848,
+      "junitXmlSha256": "c8a123cfabd852e652f9a0605eb5c2c5f187c2db8afed3aafaf5ff1cee40f892"
+    },
+    {
+      "kind": "temporary_build_only_workspace_filter_mutation",
+      "completedAt": "2026-09-07T16:46:37+08:00",
+      "tests": 1, "failures": 0, "errors": 1, "skipped": 0,
+      "expectedFailureObserved": true,
+      "failureLocation": "MilvusRestProjection.searchRoute scope response validation",
+      "junitXmlSha256": "a341a181302f299301b89e1368a299a83477afc96e564eac7034219ac92cc3c4"
+    },
+    {
+      "kind": "restored_final_live",
+      "completedAt": "2026-09-07T16:47:38+08:00",
+      "tests": 1, "failures": 0, "errors": 0, "skipped": 0,
+      "testSeconds": 4.180,
+      "junitXmlSha256": "7e2e8e223a53b9838dc657a6b10be189d290dfa7b9ac4a87e3c2023ee3f8435d",
+      "existingRelatedTestsPassedInSameRun": 35
+    },
+    {
+      "kind": "extended_manifest_boundary_and_explicit_reload",
+      "completedAt": "2026-09-08T09:04:14+08:00",
+      "tests": 3, "failures": 0, "errors": 0, "skipped": 0,
+      "testSeconds": 63.719,
+      "junitXmlSha256": "0dbcb1605b7bc117e49614c427222bb37f0006a261d2ab7f884fb09c615cff28",
+      "existingRelatedTestsPassedInSameRun": 35,
+      "boundary": "4096 short mixed-language texts and four-dimensional float32 vectors verify exactly; an unexpected 4097th entry is rejected",
+      "readOnlyState": "Unloaded before and after prepareSearch and rejected search; explicit writer initialize restores loaded state, manifest receipt and both routes"
+    }
+  ],
+  "cleanup": {
+    "eachRunDropsOnlyItsSuccessfullyInitializedRandomCollection": true,
+    "dedicatedDatabaseCollectionListAfterRuns": [],
+    "checkedAt": "2026-09-08",
+    "newTestRuntimeRetainedForFurtherIntegration": true
+  },
+  "unverified": [
+    "Real embedding, reranking and extraction provider quality",
+    "Fixed PDF to real provider to Milvus to answer end-to-end acceptance",
+    "Maximum-length text or maximum-dimension manifest capacity",
+    "Flush, process restart, storage recovery and general capacity",
+    "Server-side audit of all read-only requests",
+    "Browser integration, multimodal implementation and production deployment"
+  ]
+}

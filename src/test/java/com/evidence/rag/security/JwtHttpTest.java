@@ -1,10 +1,14 @@
 package com.evidence.rag.security;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.management.ManagementModule;
-import com.evidence.rag.shared.Actor;
+import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.SyntheticDocument;
+import com.evidence.rag.service.ManagementService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -63,10 +67,10 @@ class JwtHttpTest {
         directory, context.getBean(com.evidence.rag.config.RagProperties.class).dataDirectory());
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
     context
-        .getBean(ManagementModule.class)
+        .getBean(ManagementService.class)
         .registerSyntheticDocument(
             new Actor("org-main", "owner"),
-            new ManagementModule.SyntheticDocument(
+            new SyntheticDocument(
                 "jwt-fixture",
                 "Jwt-visible.pdf",
                 "document",
@@ -79,7 +83,9 @@ class JwtHttpTest {
 
   @AfterAll
   void stop() {
-    if (context != null) context.close();
+    if (context != null) {
+      context.close();
+    }
   }
 
   private String token(String principal, String issuer, String workspace) throws Exception {
@@ -102,7 +108,9 @@ class JwtHttpTest {
       String method, String path, Map<String, String> headers, String body) throws Exception {
     var builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5));
     headers.forEach(builder::header);
-    if (body != null) builder.header("Content-Type", "application/json");
+    if (body != null) {
+      builder.header("Content-Type", "application/json");
+    }
     return client.send(
         builder
             .method(

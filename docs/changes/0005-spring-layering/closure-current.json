@@ -1,0 +1,30 @@
+{
+  "completedAt": "2026-09-07T13:54:52+08:00",
+  "javaTests": 297,
+  "suites": 40,
+  "oldTestNamesIdentical": true,
+  "sourceFilesVerified": 173,
+  "sourceAggregateSha256": "93190b9c814714893d65d0f351677890f57c95f8343b910ab69e075be782cfa3",
+  "coverage": {
+    "BRANCH": {
+      "covered": 2056,
+      "total": 2366,
+      "percent": "86.90"
+    },
+    "LINE": {
+      "covered": 4476,
+      "total": 4726,
+      "percent": "94.71"
+    }
+  },
+  "jarSha256": "8096f42385344fa28a95a50762d35280e875de86f3eba67b0f8e6fafd4af6152",
+  "jacocoReportSha256": "4052f7440b695624ba61e6b45da9e20e38cf8c71bb9d4e1c8ba9f2206ecc64ba",
+  "javaFailures": 0,
+  "javaErrors": 0,
+  "javaSkipped": 0,
+  "spotlessFiles": 150,
+  "nodeTests": 73,
+  "nodeFailures": 0,
+  "scope": "Java refactor only; 0007 draft excluded and recoverably archived, not accepted",
+  "productionDeployed": false
+}

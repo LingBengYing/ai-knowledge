@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "status": "partial",
+  "completedAt": "2026-09-08T09:08:40+08:00",
+  "scope": "Single bounded SiliconFlow live protocol smoke test using three synthetic Chinese texts; embedding and reranking assertions passed, extraction timed out",
+  "executor": "root",
+  "evidenceVerification": {
+    "verifier": "spring_authority_explore",
+    "method": "Read-only log, JUnit XML, sequential test source and SHA256 comparison",
+    "ranMavenOrProviderRequests": false,
+    "independentCodeReviewClaimed": false
+  },
+  "sourceInputs": [
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/SiliconFlowLiveIT.java",
+      "sha256": "a60088bb8d62c2549f590f74a8952ab253d10208b33e3e0a2948826ecb3ba04c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleModels.java",
+      "sha256": "7f682f1adefceb33fa6cf63e5c4793224a1890fe08e609094f85c9d0b34ee9c6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/TextModels.java",
+      "sha256": "85bc7c290527216322af17ef39f166cbb243a165ca27c39bc67ca0efe6911b0c"
+    }
+  ],
+  "configuration": {
+    "baseUrl": "https://api.siliconflow.cn/v1",
+    "embeddingModel": "BAAI/bge-m3",
+    "rerankModel": "BAAI/bge-reranker-v2-m3",
+    "generationModel": "Qwen/Qwen2.5-7B-Instruct",
+    "embeddingDimensions": 1024,
+    "perOperationDeadlineSeconds": 60,
+    "maxResponseBytes": 1048576,
+    "generationMaxTokens": 2048,
+    "modelWeightsPinned": false,
+    "allowLoopbackHttp": false,
+    "requiredEnvironmentVariableNames": [
+      "RAG_SILICONFLOW_IT_API_KEY",
+      "RAG_SILICONFLOW_IT_EMBEDDING_MODEL",
+      "RAG_SILICONFLOW_IT_RERANK_MODEL",
+      "RAG_SILICONFLOW_IT_GENERATION_MODEL",
+      "RAG_SILICONFLOW_IT_DIMENSIONS"
+    ]
+  },
+  "runtimeFromLiveXml": {
+    "javaVendor": "Eclipse Adoptium",
+    "javaRuntimeVersion": "21.0.12.1+1-LTS",
+    "osArch": "aarch64",
+    "sameLinuxProductionImageVerified": false
+  },
+  "catalogCheck": {
+    "method": "GET",
+    "path": "/v1/models",
+    "applicationAttempts": 1,
+    "status": "passed",
+    "evidenceBasis": "root execution record; not independently repeated by documentation author",
+    "confirmedModelAliases": [
+      "BAAI/bge-m3",
+      "BAAI/bge-reranker-v2-m3",
+      "Qwen/Qwen2.5-7B-Instruct"
+    ]
+  },
+  "liveOperations": [
+    {
+      "operation": "embed",
+      "applicationAttempts": 1,
+      "status": "passed_scoped_assertions",
+      "inputCount": 3,
+      "assertions": ["Three vectors", "1024 dimensions each", "Finite coordinates", "No all-zero vector"]
+    },
+    {
+      "operation": "rerank",
+      "applicationAttempts": 1,
+      "status": "passed_scoped_assertions",
+      "inputCount": 3,
+      "assertions": ["Complete unique indices 0, 1, 2", "Finite scores without probability threshold", "Relevant policy ranks first"]
+    },
+    {
+      "operation": "extract",
+      "applicationAttempts": 1,
+      "status": "failed",
+      "safeFailureCode": "model_timeout",
+      "resultAssertionsExecuted": false
+    }
+  ],
+  "operationCountEvidence": "root execution record and the sequential IT source; not a provider-side HTTP access log",
+  "retries": 0,
+  "budgetExpandedAfterFailure": false,
+  "modelReplacedAfterFailure": false,
+  "testAssertionsRemovedOrRelaxed": false,
+  "syntheticDataOnly": true,
+  "inputKinds": ["Relevant reimbursement policy", "Unrelated weather", "Document instruction injection fixture"],
+  "runs": [
+    {
+      "kind": "missing_configuration_guard",
+      "completedAt": "2026-09-08T09:06:25+08:00",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "suiteSeconds": 0.038,
+      "mavenSeconds": 4.079,
+      "expectedGuardFailure": true,
+      "failureReason": "Explicit API key environment setting required before external operations",
+      "junitXmlSha256": "8a343fa5af0f86ffb544f8df3d45279ce4aa84199a73be029c03a1e9611cdb49"
+    },
+    {
+      "kind": "single_live_attempt",
+      "completedAt": "2026-09-08T09:08:40+08:00",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "suiteSeconds": 65.036,
+      "testCaseSeconds": 65.02,
+      "mavenDurationAsLogged": "01:06 min",
+      "failureReason": "SiliconFlow extraction failed: model_timeout",
+      "junitXmlSha256": "4390352ff14e9258f3774a8e48abad065beca1a3752e58d95e6b8619368a807b"
+    }
+  ],
+  "retainedReports": [
+    {"name": "0007-siliconflow-missing-config.log", "sha256": "ff10b42e675604d2a44ba2f204da6e3e9e6b83ecb1f81c6c6d8f1474e108be4a"},
+    {"name": "0007-siliconflow-missing-config.xml", "sha256": "8a343fa5af0f86ffb544f8df3d45279ce4aa84199a73be029c03a1e9611cdb49"},
+    {"name": "0007-siliconflow-live.log", "sha256": "83c56af1a4a4e0d9a10a5d89dee3bebe7758534accbc2cb265a5fa0e5a07b9fe"},
+    {"name": "0007-siliconflow-live.xml", "sha256": "4390352ff14e9258f3774a8e48abad065beca1a3752e58d95e6b8619368a807b"},
+    {"name": "0007-siliconflow-credential-scan.json", "sha256": "dc98a5bb849aa77b9cc51a262821140212fd9e29876c5f65c6cf212638ad7649"}
+  ],
+  "credentialHandling": {
+    "basis": "root execution record; credential value neither supplied to nor read by documentation author",
+    "explicitlyReauthorizedThisTurn": true,
+    "inputMethod": "stdin with terminal echo disabled, then short-lived process environment",
+    "credentialValueRecorded": false,
+    "credentialInCommandArguments": false,
+    "processExited": true,
+    "rotationClaimed": false,
+    "exactValueScan": {
+      "checkedFiles": 445,
+      "credentialMatches": 0,
+      "scope": ["Repository files excluding .git, node_modules and target", "Clean build Surefire reports", "This batch's model logs"],
+      "snapshotBeforeTheseDocumentationFiles": true,
+      "coversGitHistoryWholeMachineOrChat": false
+    }
+  },
+  "defaultRegression": {
+    "integrationTestSelectedByDefault": false,
+    "baselineDefaultTestCount": 635,
+    "thisBatchResult": "tracked_separately_in_verification",
+    "passingResultClaimedHere": false
+  },
+  "unverified": [
+    "Extraction JSON response, non-refusal and exact policy quotation",
+    "Prompt-injection behavior of this real generation model",
+    "Cause or permanence of the single extraction timeout",
+    "Fixed PDF to real provider to Milvus to authorized answer and source end-to-end acceptance",
+    "General retrieval or model quality, pinned provider weights, capacity, multimodal and browser acceptance",
+    "Production deployment and readiness gates"
+  ],
+  "nextBoundedWork": [
+    "Separately define and authorize bounded generation verification without silently retrying this failed suite",
+    "Separately verify the fixed-PDF, real-provider, Milvus and authoritative-answer chain"
+  ],
+  "officialReferencesVerifiedByRoot": [
+    "https://docs.siliconflow.cn/docs/api/models-get",
+    "https://docs.siliconflow.cn/docs/api/embeddings-post",
+    "https://docs.siliconflow.cn/docs/api/rerank-post",
+    "https://docs.siliconflow.cn/docs/api/chat-completions-post",
+    "https://huggingface.co/BAAI/bge-m3"
+  ]
+}

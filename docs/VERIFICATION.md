@@ -1,6 +1,46 @@
 # 验证记录：Java 开发纵切
 
-## 当前：0003 文本摄取 · 本地验收通过（2026-09-06）
+## 当前：0007 授权文本问答 · IMPLEMENTATION
+
+2026-09-07 15:59:54 +08:00实际Temurin21.0.12.1+1干净副本完整clean verify通过：635项JUnit、212个Java文件格式检查、行94.83%/分支85.46%且双80%门禁不变；Node73通过。具名条件跨分块/前后顺序、独立主体和标签前提漏判及Grounding输出不变量已修复；详细红绿、旧测试保留、源码/JAR绑定、限定两轴审查和未验证项见[0007验证](changes/0007-text-answers/verification.md)。本机JDK21通过仍不是完整语义、同生产镜像、网页、实际provider/Milvus、多模态或生产验收；下面结果均为历史基线。
+
+## 历史交付复核：仅Java重构（2026-09-07 13:54）
+
+按负责人最新限定收尾0005分层及已验收0006安全基线，不扩展功能或改前端详情页。0007未完成草稿已可恢复地移出编译路径。13:54:52 +08:00重新完成clean verify：297项Java、150文件Spotless、73项Node通过，原297项逐项保留；本次行/分支覆盖率94.71% / 86.90%。173个构建输入与0006完全一致，新JAR指纹及全部限制见[交付复核](changes/0005-spring-layering/closure.md)。未推送或部署。
+
+## 历史：0006 摄取后台授权复验 · 本地验收通过（2026-09-07）
+
+独立[0006工件](changes/0006-ingestion-authorization/intent.md)关闭0005登记的摄取后台创建者当前ACL复验差距。14项新增负例先红后绿，最后源码修改后于11:33:24 +08:00完成clean verify：297项Java测试，0失败/错误/跳过；150个Java文件格式检查、11项架构检查、行/分支双80%门禁通过。73项Node通过。两路独立Standards/Spec审查scoped PASS。
+
+修改前171个文件与0005 manifest一致；原283项测试逐项保留且44个旧Java测试源文件无修改。当前源码/JAR/覆盖率见[source-manifest](changes/0006-ingestion-authorization/source-manifest.json)，用例核对见[test-retention](changes/0006-ingestion-authorization/test-retention.json)，红绿/真实子进程/审计回滚/限制见[完整验证](changes/0006-ingestion-authorization/verification.md)。前端详情页、schema及解析算法未改；未推送或部署。Java整体仍为IMPLEMENTATION，旧指纹不认证本次源码，当前仍无最终RAG golden、真实provider/Milvus、多模态或生产证明。
+
+## 历史基线：0005 Spring 分层重构 · 本地验收通过（2026-09-07）
+
+Java 整体仍为 IMPLEMENTATION，未推送或部署。旧万能类和重复实现已移除，Controller / Service / Repository / Model / Security 等职责实际拆开，没有生产兼容壳。最后一次 Java 源码修改后于 10:52:26 +08:00 完成 clean verify：283 JUnit，0失败/错误/跳过，148 Spotless 文件，原双 80% 覆盖率门禁及 11 项架构检查通过；73 Node 测试通过。重构前 256 项 Java 用例逐项保留。
+
+准确源码/JAR/覆盖率绑定见 [0005 source-manifest](changes/0005-spring-layering/source-manifest.json)，旧测试迁移见 [test-retention](changes/0005-spring-layering/test-retention.json)。[完整验收记录](changes/0005-spring-layering/verification.md)包含红绿、独立 Standards / Spec 审查、本地真实进程及浏览器流程：上传解析、元数据整理、索引取消、失败重试与成功发布。模型和 Milvus 使用本机 HTTP fixture，不是实服务验收。
+
+原有摄取后台 ACL 复验差距仍登记；前端解析后索引按钮需要列表重载的状态同步问题另列，负责人明确本轮只改 Java。当前仍不能问答，readiness 503 不变，没有完整 RAG、多模态、真实 provider/Milvus 或生产证据。下面全部是历史过程记录，不认证本次源码；根 source-manifest 仍为 0003 历史证据，不覆盖 0005。
+
+## 历史过程：0004 文本索引发布 · 重构前（2026-09-07）
+
+当前工作树增加显式索引任务、独立索引JVM、完整Milvus读回验证、v3 publication/active sidecar和索引界面。正在执行最终组合回归与独立审查；本节下方0003的190项测试、71文件manifest/JAR及浏览器证据只认证提交bc82a7a，不认证0004新增源码。当前根source-manifest仍是0003历史内容，完成全量冻结后才更新，不把定向测试当完整覆盖证明。
+
+已执行定向证据：索引首尾schema/index一致性修复先1项红后35项完整retrieval测试绿；合成active语义先1项红后40项管理/摄取/迁移/索引测试绿；HTTP能力声明先红后配置/运行时/HTTP组合17项绿。真实子进程取消、立即重试不重叠、撤权中断、总timeout、部分写入不发布与关闭恢复已覆盖。新runtime测试最初6个错误是测试夹具误用id而非document_id，修正夹具后完整7项通过，不作为产品缺陷或红测证据。
+
+### 进程崩溃与generation定向证据（最终全量冻结之前）
+
+- 09:13:52 +08:00完成14个相关测试类组合，共108 JUnit、0失败/错误/跳过：管理/摄取/迁移/索引authority 43，完整projection 37，worker/lifetime/真实父死/process 17，runtime 7，两种鉴权HTTP 4。此次是`mvn ... -Dtest=IndexingHttpTest,IndexingJwtHttpTest,IngestionAuthorityTest,IngestionMigrationTest,IndexingMigrationTest,IndexingAuthorityTest,ManagementModuleTest,MilvusRestProjectionTest,RetrievalProjectionTest,IndexWorkerLifetimeTest,IndexWorkerTest,IndexWorkerParentDeathTest,ProcessTextIndexerTest,IndexingRuntimeTest test`，不是clean verify或当前完整覆盖率。它早于下述P2新增红测，不认证P2待修源码。
+- P1真实父死红测：仅kill实际父JVM，旧embedding返回后仍能追加upsert，预期1次实际2次。修复采用每次claim新UUID projection generation、共享physical ID摘要、不可变attempt和source→physical→digest entries；source revision/segments保留。新真实进程测试分别覆盖父死时尚未发送upsert、已接受旧upsert在新generation receipt之后才提交且不破坏新generation完整verify。后者使用HTTP替身receipt作为验证时点，不冒充实际authority重启整链或真实Milvus测试。
+- protocol v2绑定父PID/startInstant；main watchdog终止worker，普通run不halt宿主；本机同用户collection lease与generation隔离各自承担不同职责。独立源码复核确认原P1覆盖风险关闭，不能据此宣称已接受HTTP可被撤回。
+- physical ID helper新增2项红测后完整Interface 9项绿，覆盖确定性摘要、两个generation的8192个不冲突ID、分隔歧义、非法ID与中断。authority新增旧generation/伪造claim/不可变映射及早期WIP v3拒绝打开回归，在上述43项中通过。
+- JWT真实HTTP使用每次生成的测试secret，验证Bearer优先、Cookie交换、错误组织/缺身份/跨Origin/开发身份头拒绝，以及取消后显式重试至第二attempt发布。静态TempDir与配置路径一致性断言保留。首轮JWT配置空值覆盖为夹具错误，改用实际环境属性名后通过，不算产品红测。
+- 新P2锁回归在09:23:40和09:24:08 +08:00连续两次真实失败：同JVM等待者超时close后，仍处持有期的A无法阻止另一JVM C取得同一lease；两次均预期`indexing_timeout`、实际`acquired`。持有者自身deadline未到且控制探针正常，非fixture故障。修为固定64条带本地准入先于channel打开、幂等close且确认关闭才释放后，09:28:05完整Lifetime 4项通过，0失败/错误/跳过、无unused try编译告警。另一JVM证明B超时后仍挡住C，A释放后C才能取得；重复旧close不会释放新holder。独立源码复核关闭P2，须最终全量门禁，不把条带碰撞描述为不同collection独立并行。
+- 前端两项原P2已由独立只读复核关闭：accepted poll刷新详情终态、取消/重试后保留未保存输入；web相关41项与Java镜像详情12项通过。新发现editor降级reader后旧保存按钮/闭包仍可发出被服务端拒绝的PATCH，受控DOM追加两项回归真实失败，正在修复。没有ACL突破，不能把受控DOM记为真实浏览器通过。
+
+原四PDF和六golden保留；仍无最终问答/来源链路、Java完整RAG golden、图片/音频/视频、真实provider/Milvus、OS沙箱、性能对照或生产部署证据。0004定向本机替身不解除ready503/production gate。完整逐项结果、最终源码指纹及外部验收必须在实际执行后追加。
+
+## 历史：0003 文本摄取 · 本地验收通过（2026-09-06）
 
 范围：真实文本上传 → 持久任务 → 独立Java解析进程 → 权威页/segment。Java整体仍在IMPLEMENTATION，不是索引、问答、多模态或生产完成。以下结果绑定当前 [source-manifest](source-manifest.json) 的71个构建/源码/测试文件，聚合SHA-256为 `a2fb82286938a6bd428733642f0c21ff2ffc4432615792fcebdc4f3d868d54fd`。最终JAR SHA-256为 `96227b53f03cb38217833d620f5d63344b9674c883dcf1720b929d0c1c4a5ef4`；开发启动复制的不变JAR与之相同。文档由Git提交另外绑定，不属于源码manifest。
 

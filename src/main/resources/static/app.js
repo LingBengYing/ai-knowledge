@@ -1,5 +1,5 @@
 import { createApi, ApiError, validateUpload } from './api.mjs';
-import { WorkbenchState, batchFeedback, parseTags, checkedTask, taskPending, taskLabel } from './workbench-state.mjs';
+import { WorkbenchState, batchFeedback, parseTags, checkedTask, checkedIndexTask, taskPending, taskLabel, indexTaskLabel, canStartIndexing, documentStatusLabel } from './workbench-state.mjs';
 import { showNotice } from './notices.mjs';
 
 const $ = id => document.getElementById(id);
@@ -19,8 +19,15 @@ let searchTimer;
 let dialogIntent = null;
 let taskTimer;
 let taskPollPaused = false;
+let taskKind = 'ingestion';
 
 function ingestionEnabled() { return config?.capabilities?.includes('text_upload') && config.capabilities.includes('ingestions'); }
+function indexingEnabled() { return config?.capabilities?.includes('text_index') && config.capabilities.includes('indexings'); }
+function currentTask() { return taskKind === 'indexing' ? state.indexTask : state.task; }
+function taskEnabled() { return taskKind === 'indexing' ? indexingEnabled() : ingestionEnabled(); }
+function checkedCurrentTask(value) { return taskKind === 'indexing' ? checkedIndexTask(value) : checkedTask(value); }
+function commitCurrentTask(ticket, value) { return taskKind === 'indexing' ? state.commitIndexTask(ticket, value) : state.commitTask(ticket, value); }
+function taskPath(id) { return `/v1/${taskKind === 'indexing' ? 'indexings' : 'ingestions'}/${encodeURIComponent(id)}`; }
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -55,6 +62,7 @@ function resetContext({ identity = false } = {}) {
   clearTimeout(searchTimer);
   stopTaskPolling();
   state.invalidate();
+  taskKind = 'ingestion';
   renderTask();
   for (const controller of controllers.values()) controller.abort();
   controllers.clear();
@@ -86,7 +94,7 @@ function authenticationFailed(error) {
   return true;
 }
 
-async function read(kind, path, success, errorId) {
+async function read(kind, path, success, errorId, { preserveDetail = false } = {}) {
   controllers.get(kind)?.abort();
   const controller = new AbortController();
   controllers.set(kind, controller);
@@ -104,7 +112,8 @@ async function read(kind, path, success, errorId) {
       if (kind === 'documents') {
         loading = false;
         renderRows();
-        renderDetails();
+        if (preserveDetail && state.detail && $('detail-task-controls')) renderDetailEvidence();
+        else renderDetails();
         renderControls();
         renderTask();
         scheduleTask();
@@ -121,7 +130,7 @@ function documentQuery() {
   return query;
 }
 
-function loadDocuments() {
+function loadDocuments({ preserveDetail = false } = {}) {
   if (!connected) return Promise.resolve();
   loading = true;
   notice('list-error');
@@ -138,7 +147,7 @@ function loadDocuments() {
       return;
     }
     state.commitPage(ticket, result.items);
-  }, 'list-error');
+  }, 'list-error', { preserveDetail });
 }
 
 function loadFolders() {
@@ -168,9 +177,9 @@ function loadTags() {
   }, 'global-error');
 }
 
-function loadData() {
+function loadData({ preserveDetail = false } = {}) {
   if (!connected) return Promise.resolve();
-  return Promise.all([loadDocuments(), loadFolders(), loadTags()]);
+  return Promise.all([loadDocuments({ preserveDetail }), loadFolders(), loadTags()]);
 }
 
 function changeFilter({ delayed = false } = {}) {
@@ -183,13 +192,15 @@ function changeFilter({ delayed = false } = {}) {
 function renderControls() {
   const busy = state.mutating;
   const unavailable = !connected || busy;
+  const detail = state.items.find(row => row.document_id === state.detail?.document_id);
+  const canEditDetail = detail?.can_edit === true;
   $('refresh').disabled = unavailable || loading;
   $('new-folder').disabled = unavailable;
   $('upload').disabled = unavailable || !ingestionEnabled();
   $('upload').title = ingestionEnabled() ? 'PDF / TXT / Markdown，1字节至20MiB' : '服务未启用文本上传';
   for (const id of ['task-refresh', 'task-dismiss']) $(id).disabled = unavailable;
-  $('task-cancel').disabled = unavailable || !state.task?.can_cancel;
-  $('task-retry').disabled = unavailable || !state.task?.can_retry;
+  $('task-cancel').disabled = unavailable || !currentTask()?.can_cancel;
+  $('task-retry').disabled = unavailable || !currentTask()?.can_retry;
   $('select-page').disabled = unavailable || loading || state.items.length === 0;
   $('select-page').checked = state.items.length > 0 && state.selected.size === state.items.length;
   $('select-page').indeterminate = state.selected.size > 0 && state.selected.size < state.items.length;
@@ -204,7 +215,12 @@ function renderControls() {
   for (const node of $('filters').elements) node.disabled = unavailable;
   $('page-size').disabled = unavailable || loading;
   for (const node of document.querySelectorAll('[data-mutation-control]')) node.disabled = unavailable || loading;
-  for (const node of document.querySelectorAll('[data-detail-control]')) node.disabled = unavailable || loading || !state.detail?.can_edit;
+  for (const node of document.querySelectorAll('[data-detail-control]')) node.disabled = unavailable || loading || !canEditDetail;
+  if ($('detail-permission')) $('detail-permission').hidden = canEditDetail;
+  for (const node of document.querySelectorAll('[data-index-document]')) {
+    const item = state.items.find(row => row.document_id === node.dataset.indexDocument);
+    node.disabled = unavailable || loading || !canStartIndexing(config, item);
+  }
   for (const node of $('jwt-identity').querySelectorAll('button')) node.disabled = state.identityPending;
   $('dialog-submit').disabled = busy;
   $('dialog-cancel').disabled = busy;
@@ -250,8 +266,25 @@ function dateLabel(value) {
 }
 
 const types = { document: '文档', image: '图片', audio: '音频', video: '视频' };
-const statuses = { ready: '演示就绪', queued: '等待解析', processing: '正在解析', parsed: '已解析 · 未索引', failed: '解析失败', cancelled: '已取消' };
 const roles = { owner: '所有者', editor: '可编辑', reader: '只读' };
+
+function appendIndexControl(container, item, className) {
+  if (!indexingEnabled()) return;
+  if (item.latest_index_job) {
+    container.append(button('索引任务', () => openTask(item, 'indexing'), className));
+  } else if (canStartIndexing(config, item)) {
+    const control = button('建立索引', () => indexDialog(item.document_id), className);
+    control.dataset.indexDocument = item.document_id;
+    control.disabled = !connected || state.mutating || loading;
+    container.append(control);
+  }
+}
+
+function indexDialog(id) {
+  const item = state.items.find(row => row.document_id === id);
+  if (loading || !canStartIndexing(config, item)) return;
+  showDialog('建立文本索引', `将把“${item.display_name}”的解析文本发送到服务器配置的嵌入模型和Milvus，可能产生调用费用。服务器验证完整索引后才发布版本；本次不会接通问答。`, [], { kind: 'index-create', documentId: id }, '确认建立索引');
+}
 
 function openDetail(id) {
   if (loading || state.mutating) return;
@@ -301,11 +334,12 @@ function renderRows() {
     const tags = element('div', undefined, 'tag-list');
     for (const tag of item.tags ?? []) tags.append(element('span', tag, 'tag'));
     classification.append(tags);
-    const status = element('td'); status.append(element('span', statuses[item.status] ?? item.status, 'status-badge'));
+    const status = element('td'); status.append(element('span', documentStatusLabel(item), 'status-badge'));
     const updated = element('td', undefined, 'optional');
     updated.append(element('div', dateLabel(item.updated_at)), element('div', roles[item.current_role] ?? '未知权限', 'filename'));
     const action = element('td'); action.append(button('详情', () => openDetail(item.document_id), 'row-detail'));
-    if (ingestionEnabled() && item.latest_job) action.append(button('任务', () => openTask(item), 'row-detail'));
+    if (ingestionEnabled() && item.latest_job) action.append(button('解析任务', () => openTask(item), 'row-detail'));
+    appendIndexControl(action, item, 'row-detail');
     row.append(checkCell, name, type, classification, status, updated, action);
     rows.append(row);
   }
@@ -346,8 +380,9 @@ function renderDetails() {
     return;
   }
   container.append(element('h3', item.display_name, 'detail-title'), element('span', item.synthetic_fixture ? 'synthetic_fixture · 合成验证资料' : '资料元数据', 'fixture-badge'));
-  if (ingestionEnabled() && item.latest_job) container.append(button('查看解析任务', () => openTask(item), 'detail-task'));
-  const form = element('form', undefined, 'detail-form');
+  const taskControls = element('div'); taskControls.id = 'detail-task-controls'; container.append(taskControls);
+  const form = element('form', undefined, 'detail-form'); form.id = 'detail-form';
+  const detailEpoch = state.epoch;
   const name = element('input'); name.id = 'detail-name'; name.value = item.display_name; name.maxLength = 255; name.required = true;
   const folder = folderSelect('detail-folder', item.folder_id);
   const tags = element('textarea'); tags.id = 'detail-tags'; tags.value = (item.tags ?? []).join('，'); tags.maxLength = 1000;
@@ -355,24 +390,26 @@ function renderDetails() {
   form.append(field('显示名称', name), element('p', '仅修改显示名称，不改原文件名、版本或内容哈希。', 'help-text'), field('所在目录', folder), field('设置标签', tags), element('p', '用逗号或换行分隔。保存会替换本资料全部标签；留空清除。', 'help-text'));
   const error = element('p', undefined, 'notice error'); error.id = 'detail-error'; error.hidden = true;
   form.append(error);
-  if (item.can_edit) {
-    const save = element('button', '保存整理信息', 'primary'); save.type = 'submit'; save.dataset.mutationControl = ''; form.append(save);
-  } else form.append(element('p', '当前身份为只读，不能修改这份资料。', 'help-text'));
+  const save = element('button', '保存整理信息', 'primary'); save.type = 'submit'; save.dataset.detailControl = '';
+  const permission = element('p', '当前身份为只读，不能修改这份资料。', 'help-text'); permission.id = 'detail-permission';
+  form.append(save, permission);
   form.addEventListener('submit', event => {
     event.preventDefault();
-    if (!item.can_edit || state.detail?.document_id !== item.document_id) return;
+    const current = state.items.find(row => row.document_id === item.document_id);
+    if (!connected || loading || state.mutating || state.epoch !== detailEpoch || $('detail-form') !== form
+      || state.detail?.document_id !== item.document_id || current?.can_edit !== true) return;
     let payload;
     try { payload = { display_name: name.value.trim(), folder_id: folder.value || null, tags: checkedTags(tags.value) }; }
     catch (failure) { notice('detail-error', messageFor(failure)); return; }
-    mutate(() => api(`/v1/management/documents/${encodeURIComponent(item.document_id)}`, { method: 'PATCH', body: payload }), () => {
-      feedback('资料整理已保存', [{ document_id: item.document_id, ok: true, detail: `${item.display_name}：显示名称、目录及标签已保存。` }]);
+    mutate(() => api(`/v1/management/documents/${encodeURIComponent(current.document_id)}`, { method: 'PATCH', body: payload }), () => {
+      feedback('资料整理已保存', [{ document_id: current.document_id, ok: true, detail: `${current.display_name}：显示名称、目录及标签已保存。` }]);
       return loadData();
     }, 'detail-error');
   });
   container.append(form);
-  const metadata = element('dl', undefined, 'metadata');
-  for (const [label, value] of [['原文件名', item.filename], ['类型 / 大小', `${item.media_info?.mime_type ?? '不可得'} / ${sizeLabel(item.media_info?.size_bytes)}`], ['当前权限', roles[item.current_role] ?? item.current_role], ['更新于', dateLabel(item.updated_at)], ['资料 ID', item.document_id], ['版本 ID', item.active_revision_id], ['内容 SHA-256', item.media_info?.sha256 ?? '不可得']]) metadata.append(element('dt', label), element('dd', value));
+  const metadata = element('dl', undefined, 'metadata'); metadata.id = 'detail-metadata';
   container.append(metadata);
+  renderDetailEvidence();
   const unavailable = element('div', undefined, 'detail-unavailable');
   unavailable.append(element('p', '正文、摘要、来源预览和生命周期操作尚未迁移。'));
   const actions = element('div');
@@ -381,6 +418,18 @@ function renderDetails() {
   }
   unavailable.append(actions); container.append(unavailable);
   renderControls();
+}
+
+function renderDetailEvidence() {
+  const item = state.items.find(row => row.document_id === state.detail?.document_id);
+  const controls = $('detail-task-controls');
+  const metadata = $('detail-metadata');
+  if (!item || !controls || !metadata) return;
+  controls.replaceChildren();
+  if (ingestionEnabled() && item.latest_job) controls.append(button('查看解析任务', () => openTask(item), 'detail-task'));
+  appendIndexControl(controls, item, 'detail-task');
+  metadata.replaceChildren();
+  for (const [label, value] of [['原文件名', item.filename], ['类型 / 大小', `${item.media_info?.mime_type ?? '不可得'} / ${sizeLabel(item.media_info?.size_bytes)}`], ['当前权限', roles[item.current_role] ?? item.current_role], ['处理状态', documentStatusLabel(item)], ['更新于', dateLabel(item.updated_at)], ['资料 ID', item.document_id], ['已发布版本', item.active_revision_id ?? '尚未发布'], ['索引发布编号', item.index_publication_id ?? '尚未发布'], ['内容 SHA-256', item.media_info?.sha256 ?? '不可得']]) metadata.append(element('dt', label), element('dd', value));
 }
 
 function feedback(title, items) {
@@ -392,13 +441,15 @@ function feedback(title, items) {
 
 function stopTaskPolling() {
   clearTimeout(taskTimer);
-  controllers.get('ingestion')?.abort();
-  controllers.delete('ingestion');
-  state.reads.delete('ingestion');
+  for (const kind of ['ingestion', 'indexing']) {
+    controllers.get(kind)?.abort();
+    controllers.delete(kind);
+    state.reads.delete(kind);
+  }
 }
 
 function renderTask() {
-  const task = state.task;
+  const task = currentTask();
   $('task-panel').hidden = !task;
   $('task-metadata').replaceChildren();
   if (!task) {
@@ -406,14 +457,24 @@ function renderTask() {
     notice('task-error');
     return;
   }
-  $('task-status').textContent = `${taskLabel(task.state)} · 第${task.attempt}/3次尝试${taskPending(task) && !taskPollPaused ? ' · 自动刷新中' : ''}`;
+  const index = taskKind === 'indexing';
+  const item = state.items.find(row => row.document_id === task.document_id);
+  const label = index ? indexTaskLabel(task.state) : task.state === 'parsed' && !item ? '已解析 · 索引状态待核对' : taskLabel(task.state, item);
+  $('task-heading').textContent = index ? '文本索引任务' : '文本解析任务';
+  $('task-status').textContent = `${label} · 第${task.attempt}/3次尝试${taskPending(task) && !taskPollPaused ? ' · 自动刷新中' : ''}`;
   for (const [label, value] of [['任务编号', task.task_id], ['资料编号', task.document_id], ['解析版本', task.revision_id], ...(task.error_code ? [['失败代码', task.error_code]] : [])]) {
     $('task-metadata').append(element('dt', label), element('dd', value));
   }
   $('task-cancel').hidden = !task.can_cancel;
   $('task-retry').hidden = !task.can_retry;
-  $('task-boundary').textContent = task.state === 'parsed'
-    ? '原文件已解析并保存版本化结果，但尚未索引、发布可检索版本或接通问答。'
+  $('task-cancel').textContent = index ? '取消索引' : '取消解析';
+  $('task-retry').textContent = index ? '重试索引' : '重试解析';
+  $('task-boundary').textContent = index
+    ? task.state === 'indexed' ? '索引任务已完成。已发布版本由服务器资料列表核对；有证问答和来源功能尚未接通。'
+      : task.state === 'failed' || task.state === 'cancelled' ? '未发布索引，原解析证据保留。不会自动重试；重试会再次调用配置的嵌入模型和Milvus，最多3次尝试。'
+        : '正在向配置的嵌入模型和Milvus建立文本索引。完成完整性验证后才由服务器发布；收起面板不会取消任务。'
+    : task.state === 'parsed'
+    ? '原文件已解析并保存版本化结果。索引与发布状态以当前资料列表为准；有证问答和来源功能尚未接通。'
     : task.state === 'failed' || task.state === 'cancelled'
       ? '不会自动重试。只有服务器允许时才能显式重试；最多3次尝试。'
       : '任务已接收不代表解析完成。关闭或收起此页面不会取消服务器任务，请使用“取消解析”。';
@@ -421,12 +482,14 @@ function renderTask() {
 
 function scheduleTask() {
   clearTimeout(taskTimer);
-  if (connected && ingestionEnabled() && taskPending(state.task) && !taskPollPaused) taskTimer = setTimeout(loadTask, 1500);
+  if (connected && taskEnabled() && taskPending(currentTask()) && !taskPollPaused) taskTimer = setTimeout(loadTask, 1500);
 }
 
-function watchTask(value) {
+function watchTask(value, kind = taskKind) {
   stopTaskPolling();
-  state.watchTask(value);
+  taskKind = kind;
+  if (kind === 'indexing') state.watchIndexTask(value);
+  else state.watchTask(value);
   taskPollPaused = false;
   notice('task-error');
   renderTask();
@@ -434,31 +497,34 @@ function watchTask(value) {
   scheduleTask();
 }
 
-function openTask(item) {
-  if (!connected || state.mutating || loading || !ingestionEnabled()) return;
+function openTask(item, kind = 'ingestion') {
+  if (!connected || state.mutating || loading || !(kind === 'indexing' ? indexingEnabled() : ingestionEnabled())) return;
   try {
-    const task = state.taskForDocument(item.document_id);
-    watchTask(task);
+    const task = kind === 'indexing' ? state.indexTaskForDocument(item.document_id) : state.taskForDocument(item.document_id);
+    watchTask(task, kind);
     $('task-heading').focus();
     loadTask();
   } catch { notice('global-error', '任务信息暂时不可用，请刷新资料列表后重试。'); }
 }
 
 async function loadTask() {
-  const task = state.task;
-  if (!task || !connected || !ingestionEnabled()) return;
+  const task = currentTask();
+  if (!task || !connected || !taskEnabled()) return;
   if (state.mutating) { scheduleTask(); return; }
   stopTaskPolling();
   const controller = new AbortController();
-  controllers.set('ingestion', controller);
-  const ticket = state.beginRead('ingestion');
+  const kind = taskKind;
+  controllers.set(kind, controller);
+  const ticket = state.beginRead(kind);
   try {
-    const result = await api(`/v1/ingestions/${encodeURIComponent(task.task_id)}`, { signal: controller.signal });
-    if (!state.commitTask(ticket, result)) return;
+    const result = await api(taskPath(task.task_id), { signal: controller.signal });
+    if (kind !== taskKind || !commitCurrentTask(ticket, result)) return;
     notice('task-error');
     renderTask();
     renderRows();
+    if (state.detail?.document_id === task.document_id) renderDetailEvidence();
     renderControls();
+    if (kind === 'indexing' && currentTask().state === 'indexed') await loadDocuments({ preserveDetail: true });
   } catch (error) {
     if (error.name === 'AbortError' || !state.isCurrent(ticket)) return;
     if (authenticationFailed(error)) return;
@@ -472,21 +538,31 @@ async function loadTask() {
     notice('task-error', `${messageFor(error)} 自动刷新已暂停，请手动刷新任务核对结果。`);
     renderTask();
   } finally {
-    if (state.isCurrent(ticket)) { controllers.delete('ingestion'); scheduleTask(); }
+    if (state.isCurrent(ticket)) { controllers.delete(kind); scheduleTask(); }
   }
 }
 
 function taskAction(action) {
-  const before = state.task;
-  if (!before || state.mutating || !ingestionEnabled() || (action === 'cancel' ? !before.can_cancel : !before.can_retry)) return;
+  const before = currentTask();
+  if (!['cancel', 'retry'].includes(action) || !before || state.mutating || !taskEnabled() || (action === 'cancel' ? !before.can_cancel : !before.can_retry)) return;
+  if (taskKind === 'indexing' && action === 'retry') {
+    showDialog('重试文本索引', '将再次把本资料的解析文本发送到服务器配置的嵌入模型和Milvus，可能产生调用费用。最多3次尝试；索引完成后问答仍不可用。', [], { kind: 'index-retry', task: before }, '确认重试索引');
+    return;
+  }
+  submitTaskAction(action, before);
+}
+
+function submitTaskAction(action, before, errorId = 'task-error') {
   stopTaskPolling();
-  mutate(() => api(`/v1/ingestions/${encodeURIComponent(before.task_id)}/${action}`, { method: 'POST' }), result => {
-    const task = checkedTask(result);
+  mutate(() => api(`${taskPath(before.task_id)}/${action}`, { method: 'POST' }), result => {
+    const task = checkedCurrentTask(result);
     if (task.task_id !== before.task_id || task.document_id !== before.document_id || task.revision_id !== before.revision_id
       || task.attempt !== before.attempt + (action === 'retry' ? 1 : 0)) throw new Error('invalid task action result');
+    if (!commitCurrentTask(state.beginRead(taskKind), task)) throw new Error('outdated task action result');
+    closeDialog();
     watchTask(task);
-    return loadData();
-  }, 'task-error');
+    return loadData({ preserveDetail: true });
+  }, errorId);
 }
 
 async function mutate(request, success, errorId) {
@@ -565,11 +641,29 @@ $('dialog-form').addEventListener('submit', event => {
       $('filters').reset();
       folderId = ''; page = 1;
       resetContext();
-      watchTask(task);
+      watchTask(task, 'ingestion');
       feedback('上传任务已创建', [{ ok: true, detail: '原文件已接收，正在等待解析；这不是索引或问答完成。' }]);
       $('task-heading').focus();
       return loadData();
     }, 'dialog-error');
+  } else if (intent.kind === 'index-create') {
+    const item = state.items.find(row => row.document_id === intent.documentId);
+    if (!canStartIndexing(config, item)) { notice('dialog-error', '资料状态已变化，请刷新列表后核对当前索引任务。'); return; }
+    mutate(() => api(`/v1/documents/${encodeURIComponent(item.document_id)}/index`, { method: 'POST' }), result => {
+      const task = checkedIndexTask(result);
+      if (task.document_id !== item.document_id || task.revision_id !== item.latest_job?.revision_id || task.attempt !== 1) throw new Error('invalid index creation result');
+      closeDialog();
+      watchTask(task, 'indexing');
+      state.commitIndexTask(state.beginRead('indexing'), task);
+      $('task-heading').focus();
+      return loadDocuments({ preserveDetail: true });
+    }, 'dialog-error');
+  } else if (intent.kind === 'index-retry') {
+    const current = currentTask();
+    if (taskKind !== 'indexing' || !indexingEnabled() || !current?.can_retry || current.task_id !== intent.task.task_id || current.attempt !== intent.task.attempt) {
+      notice('dialog-error', '任务状态已变化，请刷新任务后核对。'); return;
+    }
+    submitTaskAction('retry', current, 'dialog-error');
   } else if (intent.kind === 'batch') {
     let body;
     try { body = { document_ids: intent.ids, action: intent.action, ...(intent.action === 'move' ? { folder_id: $('dialog-folder').value || null } : { tags: checkedTags($('dialog-tags').value, true) }) }; }
@@ -682,8 +776,8 @@ async function start() {
     config = await api('/v1/config');
     if (!['development_headers', 'jwt'].includes(config?.auth_mode) || !config.capabilities?.includes('management')) throw new Error('unsupported config');
     api = createApi(config, () => principal);
-    $('scope-title').textContent = ingestionEnabled() ? '当前可用：资料整理 + 文本解析' : '当前可用：资料整理';
-    $('scope-description').textContent = ingestionEnabled() ? '支持PDF/TXT/Markdown真实上传。已解析仍未索引，问答不可用；synthetic_fixture合成资料单独标识。' : '服务尚未启用文本上传。合成资料会单独标识，不代表已完成解析、索引或问答。';
+    $('scope-title').textContent = indexingEnabled() ? '当前可用：资料整理 + 文本索引' : ingestionEnabled() ? '当前可用：资料整理 + 文本解析' : '当前可用：资料整理';
+    $('scope-description').textContent = indexingEnabled() ? '已解析的授权资料可显式建立索引。完整验证后由服务器发布；有证问答与来源尚未接通，合成资料不参与索引。' : ingestionEnabled() ? '支持PDF/TXT/Markdown真实上传。已解析不等于已索引，问答不可用；synthetic_fixture合成资料单独标识。' : '服务尚未启用文本上传。合成资料会单独标识，不代表已完成解析、索引或问答。';
     $('dev-identity').hidden = config.auth_mode !== 'development_headers';
     $('jwt-identity').hidden = config.auth_mode !== 'jwt';
     connected = true;

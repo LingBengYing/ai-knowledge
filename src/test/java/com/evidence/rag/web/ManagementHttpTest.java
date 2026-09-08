@@ -1,10 +1,14 @@
 package com.evidence.rag.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.management.ManagementModule;
-import com.evidence.rag.shared.Actor;
+import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.SyntheticDocument;
+import com.evidence.rag.service.ManagementService;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -46,10 +50,10 @@ class ManagementHttpTest {
     assertEquals(
         directory, context.getBean(com.evidence.rag.config.RagProperties.class).dataDirectory());
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
-    var module = context.getBean(ManagementModule.class);
+    var module = context.getBean(ManagementService.class);
     module.registerSyntheticDocument(
         new Actor("org-main", "owner"),
-        new ManagementModule.SyntheticDocument(
+        new SyntheticDocument(
             "fixture",
             "Original.pdf",
             "document",
@@ -62,15 +66,20 @@ class ManagementHttpTest {
 
   @AfterAll
   void stop() {
-    if (context != null) context.close();
+    if (context != null) {
+      context.close();
+    }
   }
 
   private HttpResponse<String> request(String method, String path, String principal, String body)
       throws Exception {
     var builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5));
-    if (principal != null)
+    if (principal != null) {
       builder.header("X-Workspace-Id", "org-main").header("X-Principal-Id", principal);
-    if (body != null) builder.header("Content-Type", "application/json");
+    }
+    if (body != null) {
+      builder.header("Content-Type", "application/json");
+    }
     return client.send(
         builder
             .method(
@@ -166,7 +175,8 @@ class ManagementHttpTest {
                 Map.of("display_name", "HTTP标题", "folder_id", folderId, "tags", List.of("归档"))));
     assertEquals(200, updated.statusCode());
     assertEquals("Original.pdf", body(updated).path("filename").asString());
-    assertEquals("revision-1", body(updated).path("active_revision_id").asString());
+    assertEquals("revision-1", body(updated).path("registered_revision_id").asString());
+    assertTrue(body(updated).path("active_revision_id").isNull());
     assertEquals(
         409, request("DELETE", "/v1/management/folders/" + folderId, "owner", null).statusCode());
     var batch =

@@ -1,0 +1,1424 @@
+{
+  "schemaVersion": 1,
+  "purpose": "pre-layering baseline, not certification of refactored source",
+  "verifiedAt": "2026-09-07T10:10:14+08:00",
+  "runtime": "JDK 22.0.2, --release 21",
+  "command": "mvn -o -B -ntp -s .mvn/settings.xml -gs .mvn/settings.xml -Dmaven.repo.local=<isolated-cache> clean verify",
+  "tests": {
+    "run": 256,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "head": "bc82a7af91e76376bf1a91415908100be07b1852",
+  "jarSha256": "7655ce079ea88d0402aefdcd0107751a24e229db09280fb0ddd9cd9ab0494498",
+  "aggregateSha256": "62448d18bd4ab34e04062bf8a6c9e4b061f320872d224d8089c36eed9752c31b",
+  "files": [
+    {
+      "path": ".mvn/settings.xml",
+      "sha256": "ad42eef43ca9d86c82a15cb120f7f0e8fd974cdbbf7ae85fcf041add8bc68875"
+    },
+    {
+      "path": "pom.xml",
+      "sha256": "fe543bd86062036640e7b4cb87fc69697b216171898d62bd0aecc27d9a6028e8"
+    },
+    {
+      "path": "run-dev.sh",
+      "sha256": "ccb927e2a7dd8a4e6efd769646072da2f53721ab4c606d124533b88002f87ffc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/RagApplication.java",
+      "sha256": "adb0954f4a5225ab0e2038ac594cb45cfa2a5bf2de8c98870bbd7facf5029aa5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/DemoFixtures.java",
+      "sha256": "96e329611f9d7abd8a6983248ff8044e887d3e7af494741f6ff3edac4016cb30"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RagProperties.java",
+      "sha256": "26b8cf1656353e903bbcd5dd1cbe4df48ea630c62c18dc77531817f834916f79"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RuntimeGuard.java",
+      "sha256": "379c27f69c915cae0413855b262b7ee5fd49034e50a788e30f575a7370a3149a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/TextAdapterSettings.java",
+      "sha256": "509e15150c6e4d462193fbf4a36e3021c4266c5c76e5b92d91039c3a92327788"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/corpus/ParserWorker.java",
+      "sha256": "0fd53d756555d25679ef62dcdc2e1bcb68f220828bc740f3a1c3ef11d9119a77"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/corpus/ProcessTextParser.java",
+      "sha256": "9e37607d9d53b547cd8b9e66778977e415da0c1692464f6b6acfa5d660d57b6a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/corpus/TextParser.java",
+      "sha256": "232b223db459cdc73c762e558116666557c85c8e0f42e6e57b3b3447f8860083"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexProtocol.java",
+      "sha256": "b4d91ecef0db7b1014f40c605d78b8e619a50b5a445ac2b6a703267642e533ad"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexWorker.java",
+      "sha256": "47f91a8140c6e24fd4dcbee3d1824402cf1dfce0a347126ce335e61e1844b5fa"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexWorkerLifetime.java",
+      "sha256": "f75601a1f67c4685263500cc26719247b326e1888359c346104de281133d2a80"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexingConfiguration.java",
+      "sha256": "a8abf3d3af6d853dab66d1afe01409c8a2ac7bb841868f7660632c5dd1d99421"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexingController.java",
+      "sha256": "e5188d4f8141b34a2fadbb06c8adce74de81e995308ece693e8cec9b5856bd9b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexingResult.java",
+      "sha256": "c9efc519f314966ac2c8d7b7d00f79f060d38e7d2233548b15cfc8f447cf4cd2"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexingRuntime.java",
+      "sha256": "e35180caf6308f309b6fcb57ff737b7244be0d9cab3d49cc0669b44aabf2a5a6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/IndexingSettings.java",
+      "sha256": "c0724b402cf7b572f64a32dd2f1d8e13049814e55d4fb31991cf8d399435a729"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/indexing/ProcessTextIndexer.java",
+      "sha256": "6943b8a73c10f447105982f21dc21337c50d0618a5ea35983ee3da4155dff682"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/ingestion/IngestionConfiguration.java",
+      "sha256": "5c153970e14610122f7da1bd89a9e34c4e7c5b771ddebbc57ecd57662776ba9a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/ingestion/IngestionController.java",
+      "sha256": "30bed538f6eb1bd9d0c90800e4943730f068916d84bccbf7337007621196d77a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/ingestion/IngestionRuntime.java",
+      "sha256": "d35d38374890fb0c88363e815e258f9b270968c05243525bf2fc736778b8328e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/ingestion/IngestionSettings.java",
+      "sha256": "be354c19e3b9a1719369d93b606b57592f43f87aca669eb2f9095b8726c09026"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/ingestion/UploadServlet.java",
+      "sha256": "da2783090f31d3793330ff9742444a9b6322ec17aafb925de0d8ed6307395182"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/management/ManagementController.java",
+      "sha256": "84264aff4c123c58e62da1a959ba370703948f1772aa8207b1bd3dad88941079"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/management/ManagementModule.java",
+      "sha256": "8eb433cd1b66ef1f3108dd1f277c1f8384799e4bbd104464964aadedfb60e078"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/models/OpenAiCompatibleModels.java",
+      "sha256": "f0acbe49fcecc57c56d2a0317f8e245c352b9379b9ede08df65706b371ec7dcb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/models/TextModels.java",
+      "sha256": "971b463deb25cb891d75f2d4f71d63c1f29c6f336cf7b32df59ed3fb8165041f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/retrieval/MilvusRestProjection.java",
+      "sha256": "cc2acae8df1a021f2b177ab3125c206179d7f112c23d4d0facf8118b3fa8cc51"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/retrieval/RetrievalProjection.java",
+      "sha256": "e174d1cc92cad90ecc4da49ace08541bc772ee92bde86d24a63fa3410e5cc10a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/AuthenticationConfiguration.java",
+      "sha256": "cd71728135d6ba8a1f7fe60450c5331096c754c862a248d1cf408f17069dac30"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/AuthenticationFilter.java",
+      "sha256": "85e0ddc6b40fa2b954ca7961be7d38e573f9ca8a941bd14d0ac56ba47b41303b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/AuthenticationModule.java",
+      "sha256": "7f154953cb6a48c8cbe5b6544eced4aaa0da8c648d5517e3c1a1fdfa6a7fe222"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/SessionController.java",
+      "sha256": "6059acb001576d773454740230b4d722eb308518bb3d0af9818c08387907715a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/shared/Actor.java",
+      "sha256": "8f36333c8faceae0e08a76095c3a4a0a889b47b02a780c9bde7dd67c79bc8b3a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/shared/Problem.java",
+      "sha256": "7ed4c3f1e6e2511751da34cc06f047a97698e30ee854b0e61e6777b0f09e8599"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/ProblemHandler.java",
+      "sha256": "410277d03df31f4a59ed951b2c02b6ee056bd72c754ebfb8ba79ea4efc909799"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/RequestContextFilter.java",
+      "sha256": "2da977baeff05d56a3721d4ecc5a7cf427c0758f2aa91785bb3df17ecda17c81"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/RuntimeController.java",
+      "sha256": "5ab3799aa86e43741d8b0322b1936e67e072b2e4eb071e1b9dd2ddda06c34fb1"
+    },
+    {
+      "path": "src/main/resources/application.properties",
+      "sha256": "60b30b0c0de5f3fca2d2e49ce12869157c069ec6baa29b5a1ad8c4011c6d8a64"
+    },
+    {
+      "path": "src/main/resources/static/api.mjs",
+      "sha256": "0ac55f0895cb9416f4dae137eb2480e1320a2dcb5b3c95d3ecf6b1e50b4bcbad"
+    },
+    {
+      "path": "src/main/resources/static/app.js",
+      "sha256": "58ebed966402bd7ab67d76422a18d2b5f57791466581534fc82568db57c502b7"
+    },
+    {
+      "path": "src/main/resources/static/index.html",
+      "sha256": "368bcc7f7b45f61613b34ad0a5a6acd690a459b84906c85dc12468faac818bf8"
+    },
+    {
+      "path": "src/main/resources/static/notices.mjs",
+      "sha256": "8e43264e4f7e52bca45f8893bd797f66e0ec2ad7ae5a5fcffe142b070da61a80"
+    },
+    {
+      "path": "src/main/resources/static/styles.css",
+      "sha256": "66e9b29f7815841579af33e0f10e9e2d979b8f6280d2cf8e81af0867d6285829"
+    },
+    {
+      "path": "src/main/resources/static/workbench-state.mjs",
+      "sha256": "932f776f1d7caf5c4aa29e9e9dbb589235e345e886521edfe370cd0589d52bfd"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/DemoFixturesTest.java",
+      "sha256": "91b3a1a179a39e4fa38bb1329fb28b4c5d2b72310c4fa822777c710b3d4946b4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/RagPropertiesTest.java",
+      "sha256": "58ba23eea6583773cd9d87921268d3af71764fdd4a12ab0272380db21d54d203"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/RuntimeGuardTest.java",
+      "sha256": "5d014fa91f64ef79dab28e9ab563fb387ea675b272c4999c2413e5b1d7fb9f24"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/TextAdapterSettingsTest.java",
+      "sha256": "c0c7c12b8252906497c7bcf1a2a58a4aca756ad4f7e2f6cc1184ec61c8f21f7e"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/corpus/ParserWorkerTest.java",
+      "sha256": "63bc3e0c4c968381146b1d73c82f11ad64008cd803438e512557c5e605ebbd10"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/corpus/ProcessTextParserTest.java",
+      "sha256": "2bdff701f5d04de0155c4bc073f228a6e03ba29748353cf1f9ada55e88c90534"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/corpus/SlowParserFixture.java",
+      "sha256": "0f11f9cc29a1de23a5b46d792280565039f603e83977c2e7c6c1f2e68c68a2f3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/corpus/TextParserTest.java",
+      "sha256": "5c02467041287f02c4ced6de5ffea6807f081d6cca1481c0e90afb90eb232c08"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexWorkerLifetimeTest.java",
+      "sha256": "565a48a6109822f5e6d7abe931e80772a38681c2203611026764fb192a1ca300"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexWorkerParentDeathTest.java",
+      "sha256": "f34b3b8d1219ccdecf905fdc87adb4b831f60be698d81ae9f97bd69034b9c736"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexWorkerTest.java",
+      "sha256": "16524a866a6655f81fbcb8e5c9b69b5a255e8106e31aaff8e1fafa0fe40240ff"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexingConfigurationTest.java",
+      "sha256": "a084db01a892063f9566280d090852dc1c4e04caadb200e7d9218675c0940971"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexingRuntimeTest.java",
+      "sha256": "231569ea814f8d95aadde1b061e1bf79bb57770b01ad7da89fcc767119f60ad2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexingSettingsTest.java",
+      "sha256": "73d4c3a6a02993cfe4d5c181fb5c7a0b758ab0c478a02c29c1da5eb4c32879fa"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/IndexingTestServer.java",
+      "sha256": "7f89e1329b5942fab1d31b3fcf5f3998f90953ea3f61f2e8b779a61e58690695"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/indexing/ProcessTextIndexerTest.java",
+      "sha256": "699e8d3b60674a187bc08521c643ee5a31230bda908ddaad60282c6ac730c94e"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/ingestion/IngestionRuntimeTest.java",
+      "sha256": "8d5217c1f4e3684e239a74c9bba318a8a1a6ef41c65556a43a7ebc9fbe338d7b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/ingestion/IngestionSettingsTest.java",
+      "sha256": "b13b3aee40d1e08a59c4449177d5e45e96853bfca5339167a67fbaa8379abf70"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/management/IndexingAuthorityTest.java",
+      "sha256": "ea2905003149ad89dedf66875ff7644a6d621f1a06821f55bf588141ac212b60"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/management/IndexingMigrationTest.java",
+      "sha256": "491cc67725642ea2a1de105fac20104352121544a645f747cffe59a621fbcd8b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/management/IngestionAuthorityTest.java",
+      "sha256": "c99e9f589d07c6b8213d5dde131f143c17e5fc458d89d3af0b61beb44db25380"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/management/IngestionMigrationTest.java",
+      "sha256": "ce0df4f32283e502cf75f19c687087bbc3901f800a3837b998b2b748e1a73857"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/management/ManagementModuleTest.java",
+      "sha256": "895130f86da7ce132973fb187828bde00ee4da1254a1c2f229a62d4f8d606e2b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/models/OpenAiCompatibleModelsTest.java",
+      "sha256": "673540ee4c1a00d3180619603861a30dbd0b957d1e2f54cadcfb4bb1265fa9a4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/retrieval/DeterministicProjection.java",
+      "sha256": "4d02b2a06f7d94ba48b1d329b9e87598418cc6efa400eef37c4c30515d869919"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/retrieval/MilvusRestProjectionTest.java",
+      "sha256": "1e5e73e39e923b68414ce075b67340cdc6b832773f489bbfbc63a94bbce2e03b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/retrieval/RetrievalProjectionTest.java",
+      "sha256": "6225915536858ff20ad90c4ed1449a25655557fa10ad4e7f7cce5206d51ae293"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/AuthenticationFilterTest.java",
+      "sha256": "c9386e465ad59d995c0b51d94e1ba962673262f8388e0453775058b224252f0c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/AuthenticationModuleTest.java",
+      "sha256": "283e0d752183a7f379fe211fe14cef28471fc206122a9db468b7ceb6692707d7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/JwtHttpTest.java",
+      "sha256": "e443c677df2b671ac4742370cb420f0503236f5b795604b6cbe46b0a79aadd8a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/SessionControllerTest.java",
+      "sha256": "ac24d1a6a5dca2dbd7d6d19517d995248a89901391f0bc0396e825456015e99b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/IndexingHttpTest.java",
+      "sha256": "f97b408f4912ed532dea2a263e416ca0205580933a31f3b89db757473208e2be"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/IndexingJwtHttpTest.java",
+      "sha256": "e103bdbf641ad978cee6bf18f973c833409b46dda339d6abb3d1ab7cddeb38e6"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/IngestionHttpTest.java",
+      "sha256": "265fd9729f3f6632474d7b1b8285403f7f9056b2ac4cfdb0e21bbdb4d860edac"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ManagementHttpTest.java",
+      "sha256": "2f31ed13bacb5941ee6d6625d33dccb526554b69b45fc5696c0dc65e1afc7277"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ProblemHandlerTest.java",
+      "sha256": "75e3e80c6eb4602406af29f2e41ae56715cc6366e7d5e4115b338b99178eaada"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/RuntimeControllerTest.java",
+      "sha256": "3be42dc7aa16e4b7f0b7dc69f70c3965b051802504dfce7a95af44807dd0f333"
+    },
+    {
+      "path": "src/test/resources/corpus/Atlas路由器运维手册.pdf",
+      "sha256": "7fa65681117ae933d2009a455ad190acb40d34eaf3ac500e97973689688df15a"
+    },
+    {
+      "path": "src/test/resources/corpus/不可信指令样例.pdf",
+      "sha256": "9bdc66d8756f1c67d1feae67f067992794164259892385ef378aecf390b5b462"
+    },
+    {
+      "path": "src/test/resources/corpus/另一组织薪酬资料.pdf",
+      "sha256": "08b8a548a153aa8e7753884daae3e0a4f46bd55f9115bf4e02cc1dc9363ddec5"
+    },
+    {
+      "path": "src/test/resources/corpus/星河制造差旅政策.pdf",
+      "sha256": "7baf4e2206a9779b59a6252217c86e610897d8e6980e06b1f05a512732f46752"
+    },
+    {
+      "path": "ui-tests/api.test.mjs",
+      "sha256": "9fb658eb7237c557d6e1efe34cc56ceb3f4578193dbcc2697251293ce629fca5"
+    },
+    {
+      "path": "ui-tests/indexing.test.mjs",
+      "sha256": "9cfc8b7b23e920a551691e0bc53f08eaf7019038b82f8d992889f00b195d4dd5"
+    },
+    {
+      "path": "ui-tests/ingestion.test.mjs",
+      "sha256": "69026c571f7f1e8a354bd0b15f206975a70567f8ed500bc6869cb78c298eb193"
+    },
+    {
+      "path": "ui-tests/markup.test.mjs",
+      "sha256": "92e9e4f0738fc79cba0c9d6f93d0cc662beea0cf9c71d113b2c8ea040cfa4100"
+    },
+    {
+      "path": "ui-tests/notices.test.mjs",
+      "sha256": "3f75481f62bdc677bd3408fad18c42d700ee1d616480dd71ead59a2bc0766604"
+    },
+    {
+      "path": "ui-tests/task-detail.test.mjs",
+      "sha256": "dbd4b5a0d793f7eacd739d9649d85d737e12f6fa87b4e148057221f9f984fa22"
+    },
+    {
+      "path": "ui-tests/workbench-state.test.mjs",
+      "sha256": "a00130f0d8b3391754c1caf50add2e41ee968429fc67f97596fe8f93e865f2f8"
+    }
+  ],
+  "testCases": [
+    {
+      "className": "com.evidence.rag.config.DemoFixturesTest",
+      "name": "seedingIsExplicitSyntheticAndNeverOverwritesData"
+    },
+    {
+      "className": "com.evidence.rag.config.RagPropertiesTest",
+      "name": "modesAndSecretsFailClosed"
+    },
+    {
+      "className": "com.evidence.rag.config.RagPropertiesTest",
+      "name": "boundsAndLegacyDatabaseAreProtected"
+    },
+    {
+      "className": "com.evidence.rag.config.RuntimeGuardTest",
+      "name": "configurationNeverPrintsSigningSecrets"
+    },
+    {
+      "className": "com.evidence.rag.config.RuntimeGuardTest",
+      "name": "developmentHeadersCannotBindPublicly"
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "explicitlyLoadsIndependentEndpointsAndSecretsWithoutContactingThem"
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "validatesNumbersFlagsEndpointsAndKeysWithoutLeakingInputOrCauses"
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "pinsEmbeddingIdentityToEndpointModelRevisionAndDimensionButNotCredentials"
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "requiresEveryConnectionAndPinnedModelValueRatherThanFallingBack"
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "explicitLoopbackTestOptionAndBoundsAreSharedAcrossBothAdapters"
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "rejectsTyposButIgnoresUnrelatedProcessEnvironment"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ParserWorkerTest",
+      "name": "malformedProtocolOrUnsupportedContentHasTheSameFixedNonSensitiveFailureFrame"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ParserWorkerTest",
+      "name": "oneRequestEmitsOnlyTheCompleteBinaryResultForTextAndFrozenPdfs"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ParserWorkerTest",
+      "name": "brokenOutputDoesNotLeakLibraryErrorsOrThrowToTheWorkerEntrypoint"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "whitespaceHeavyOverlapsRemainValidAcrossTheRealProcessProtocol"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "onlyOneChildAcrossInstancesAndCloseCancelsAndWaits"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "outputCapAndNonzeroExitFailWithoutAcceptingPartialResults"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "parserFailureDoesNotPoisonLaterRequestsAndCloseIsPermanent"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "interruptCancelsAndPreservesTheCallingThreadFlag"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "parsesUnicodeTextAndFrozenPdfsThroughTheSameSmallInterface"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "childHasNoInheritedEnvironmentAndFixedResourcesAndPrivateTemporaryDirectory"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "environmentFixtureOnlyPermitsTheKnownBoundedMacLocaleAndNoAdditionalKeys"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "malformedChildOutputsAreRejectedAsWholeResults"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "simultaneousCloseIsIdempotentAndDoesNotPoisonGlobalCapacity"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "configurationAndEnvelopeFailuresNeverStartTheFixture"
+    },
+    {
+      "className": "com.evidence.rag.corpus.ProcessTextParserTest",
+      "name": "deadlineIncludesBlockedStdinAndWaitsForKilledChild"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "preservesCodePointLocatorsAndNormalizesOnlyLineEndings"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "longChineseAndEmojiTextKeepsOverlapsAndCoverage"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "extractsOriginalFrozenPdfCorpusWithoutRewritingGroundTruth"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "maintainsPageNumbersAndRejectsEncryptedOrEmptyPdfs"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "whitespaceOverlapHasMonotonicLocatorsAndPreservesEveryNonSpaceCodePoint"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "rejectsUnsafeUnsupportedSpoofedOrInvalidTextInputs"
+    },
+    {
+      "className": "com.evidence.rag.corpus.TextParserTest",
+      "name": "boundsExtractedTextAndImmutableResults"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerLifetimeTest",
+      "name": "leaseAdmissionWaitIsBoundedAndClosingReleasesOnlyItsOwnLock"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerLifetimeTest",
+      "name": "timedOutSameJvmWaiterCannotReleaseHolderLockToAnotherJvm"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerLifetimeTest",
+      "name": "repeatedCloseCannotReleaseThePermitHeldByTheNextLifetime"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerLifetimeTest",
+      "name": "reusedPidWithDifferentStartInstantNeverGetsAWriterLease"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerParentDeathTest",
+      "name": "serverAcceptedOldUpsertMayCommitAfterRetryButCannotChangePublishedGeneration"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerParentDeathTest",
+      "name": "forciblyKilledParentCannotLeaveAWriterThatUpsertsAfterRetryPublication"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "largeDimensionsReduceTheActualBatchToStayInsideTheResponseBudget"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "realChildEmbedsEverySegmentInSmallBatchesThenVerifiesWholeRevision"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "binaryWorkerInterfaceValidatesTheEntireRequestAndDoesNotMutateJvmOutput"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "cancellationDuringARealEmbeddingRequestStopsBeforeUpsertAndAllowsRetry"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "wholeTaskDeadlineIncludesMultipleIndividuallyFastHttpCalls"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "invalidVectorsPartialWritesAndIncompleteVerificationNeverReturnAReceipt"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexWorkerTest",
+      "name": "workerRejectsInsufficientResponseBudgetBeforeAnyModelCalls"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingConfigurationTest",
+      "name": "disabledOrAbsentFlagDoesNotConstructRemoteAdaptersOrRequireSecrets"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingConfigurationTest",
+      "name": "explicitSettingsUseResolvedPrecedenceFixedWorkspaceAndRedactedTarget"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingConfigurationTest",
+      "name": "nonliteralBindingAndEveryUnknownModelPrefixFailWithoutPrivateErrorDetails"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "partialRemoteWriteFailsSafelyAndExplicitSameTargetRetryPublishes"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "unexpectedFactoryFailureIsSanitizedAndDoesNotStopScheduling"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "shutdownTerminatesActualChildAndPersistsRetryableFailureWithoutReplayingQueue"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "immediateRetryWaitsForCancelledChildAndCannotPublishItsOldAttempt"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "revokedWriterInterruptsRunningChildAndCannotPublish"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "mismatchedFrozenTargetFailsBeforeAnyWorkerOrRemoteCall"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingRuntimeTest",
+      "name": "timeoutKillsChildAndTheNextQueuedDocumentStillIndexes"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingSettingsTest",
+      "name": "totalJobDeadlineIsBoundedEvenWhenCapabilityIsDisabled"
+    },
+    {
+      "className": "com.evidence.rag.indexing.IndexingSettingsTest",
+      "name": "explicitBoundariesDoNotImplicitlyEnableIndexing"
+    },
+    {
+      "className": "com.evidence.rag.indexing.ProcessTextIndexerTest",
+      "name": "invalidSettingsTargetsAndSnapshotsAreRejectedBeforeTheFixtureStarts"
+    },
+    {
+      "className": "com.evidence.rag.indexing.ProcessTextIndexerTest",
+      "name": "everyMalformedResponseFailsAsAWholeAndNeverReturnsAPartialManifest"
+    },
+    {
+      "className": "com.evidence.rag.indexing.ProcessTextIndexerTest",
+      "name": "onlyOneChildAcrossInstancesAndConcurrentCloseNeverLeaksThePermit"
+    },
+    {
+      "className": "com.evidence.rag.indexing.ProcessTextIndexerTest",
+      "name": "wholeDeadlineIncludesBlockedStdinAndConfirmsChildExit"
+    },
+    {
+      "className": "com.evidence.rag.indexing.ProcessTextIndexerTest",
+      "name": "interruptionPreservesCallerFlagAndWaitsBeforeAnotherChildStarts"
+    },
+    {
+      "className": "com.evidence.rag.indexing.ProcessTextIndexerTest",
+      "name": "childHasFixedResourcesClearedEnvironmentPrivateDirectoryAndNoAuthorityToken"
+    },
+    {
+      "className": "com.evidence.rag.ingestion.IngestionRuntimeTest",
+      "name": "gracefulShutdownTerminatesProcessingChildAndPersistsRetryableFailure"
+    },
+    {
+      "className": "com.evidence.rag.ingestion.IngestionRuntimeTest",
+      "name": "cancellingProcessingKillsActualChildAndRetryCannotReceiveItsLateResult"
+    },
+    {
+      "className": "com.evidence.rag.ingestion.IngestionSettingsTest",
+      "name": "optInCannotExposeNonSandboxedParserOnPublicBinding"
+    },
+    {
+      "className": "com.evidence.rag.ingestion.IngestionSettingsTest",
+      "name": "limitsAreBoundedEvenWhenDisabled"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "unparsedSyntheticUnknownAndReaderCannotCreateAndAclIsRechecked"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "syntheticRegistrationNeverAppearsAsPublishedActiveRevision"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "invalidInternalInputsStaySafeAndDoNotCreateTasks"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "partialExtraForgedManifestAndTargetNeverPublishAndAuditFailureRollsBack"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "everyClaimIdentitySnapshotAndAttemptAreValidatedAndDefensivelyCopied"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "onlyFullVerifiedRevisionPublishesAndMetadataKeepsEvidenceIdentity"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "cancelRetryAndRecoveryFenceAllOldAttemptsAndRequireSameTarget"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "retryGenerationIsolatesLateWritesAndReceiptsWhileKeepingSourceIdentity"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "revokedCreatorCanBeFailedButCannotRetryThroughAnotherEditor"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingAuthorityTest",
+      "name": "abandonedAttemptRetainsImmutableGenerationAndRetryClaimsFreshNamespace"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingMigrationTest",
+      "name": "v3DdlFailureRollsBackAndKeepsCompletedV2Backup"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingMigrationTest",
+      "name": "failedBackupRefusesMigrationAndNeverLabelsPartialOutputAsComplete"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingMigrationTest",
+      "name": "preGenerationWorkInProgressV3IsRefusedWithoutMigrationOrRecovery"
+    },
+    {
+      "className": "com.evidence.rag.management.IndexingMigrationTest",
+      "name": "v2UpgradeBacksUpConsistentParsedEvidenceAndPreservesAllOldConstraints"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "whitespaceRichEvidenceFromRealChildCommitsWithoutWeakeningLocatorValidation"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "everyClaimIdentityAndTokenAreValidatedBeforeMutation"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "recoveryFailsAbandonedProcessingButPreservesQueuedAndEvidence"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "unicodeSpaceOnlySegmentsAreRejectedAtTheAuthorityBoundary"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "invalidUploadsDoNotCreateRowsAndSafeMimeIsPinned"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "readsAndActionsRequireCurrentAclAndWorkspaceInTheTransaction"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "storedOriginalQuotaCountsCancelledFilesAndDoesNotAcceptPartialUpload"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "cancelledAndFailedAttemptsFenceOldWorkersAndNeverReplaceSource"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "realUploadQueuesImmutableBytesAndParsingPublishesNoActiveIndex"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "transactionalAuditFailureRollsBackUploadAndAllParsedEvidence"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "pendingQuotaIsAtomicPerWorkspaceAndRetryCannotOverfillIt"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "invalidLocatorsNeverPartiallyPersistAndUnicodeOffsetsAreCodepoints"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionAuthorityTest",
+      "name": "managementEditsAndRawSqlCannotReplaceRegisteredOrParsedEvidence"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionMigrationTest",
+      "name": "migrationFailureRollsBackAllDdlAndLeavesVersionOneAndCompletedBackup"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionMigrationTest",
+      "name": "unknownOrInconsistentVersionIsRefusedBeforeBackupOrMigration"
+    },
+    {
+      "className": "com.evidence.rag.management.IngestionMigrationTest",
+      "name": "v1UpgradePreservesSyntheticAclMetadataAndKeepsRestorablePreUpgradeBackup"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "authorizationPrecedesPaginationCountsTagsAndFolderVisibility"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "foldersDoNotGrantPermissionAndBulkMoveMayUnfile"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "folderConflictsOwnershipAndNonEmptyProtection"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "databaseRejectsForeignFormatAndConcurrentWriter"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "canonicalParentAliasUsesSameDatabaseAndLifetimeLock"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "persistsMetadataWithoutChangingImmutableIdentity"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "batchHasPartialResultsAppendsTagsAndRejectsUnsafeCommands"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "refusesLegacyDatabaseAndSymlink"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "fixtureValidationNoOverwriteAndClosedModule"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "failedAuditInsertRollsBackMetadataAndDoesNotLeakInternalErrors"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "queryFiltersSortingAndInvalidInput"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "patchOmissionNullAndBoundsAreStrictAndAtomic"
+    },
+    {
+      "className": "com.evidence.rag.management.ManagementModuleTest",
+      "name": "rejectsMalformedCollectionsFieldsAndFolderCommands"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsIncompleteCompletionsAndToolOutputs"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "acceptsExplicitIpv6TestEndpointAndChangesIdentityForModelRevision"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "reranksEveryCandidateAndUsesDeterministicTieBreak"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsUnexpectedContentTypeAndMalformedUtf8"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "acceptsOnlyExplicitEmptyRefusal"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "boundsSerializedRequestAndExtractionOutputIndependently"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "neverFollowsRedirectOrLeaksProviderErrors"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsInventedQuotesUnknownIdsMixedRefusalAndExtraFields"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "embedsInOriginalOrderWithDedicatedModelAndCredential"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "preservesInterruptStatusAndCancelsRequest"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "safelyFailsAfterCloseAndConnectionRefusal"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "keepsConfigurationAndRevisionSecretSafeWithoutNetwork"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "boundsJsonNestingEvenInsideUnusedProviderMetadata"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "extractsOnlyOriginalQuotesWithDataSeparatedFromSystemInstructions"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsInvalidInputsBeforeAnyRequest"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "preexistingInterruptionDoesNotSendNetwork"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsCredentialUrlsUnsafeHttpAndUnboundedConfiguration"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsIncompleteDuplicateOutOfRangeAndCoercedRerankResults"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "boundsResponseHeadersAndBodyBytes"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "rejectsMalformedEmbeddingIndicesDimensionsAndNumbers"
+    },
+    {
+      "className": "com.evidence.rag.models.OpenAiCompatibleModelsTest",
+      "name": "boundsCompleteResponseBodyNotOnlyHeaders"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "authenticationRemainsInHeaderAndRedirectsAreNeverFollowed"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyShrinksDenseReadbackBatchesToConfiguredResponseBudget"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "entireInvalidBatchFailsBeforeAnyWriteAndEmptyBatchDoesNothing"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "ambiguousOrIncompleteUpsertAcknowledgmentFailsWithoutRetry"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyRejectsMissingExtraDuplicateOrWrongScopeInFullMetadata"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "explicitInitializationCreatesOnlyIsolatedCompatibleCollectionAndIndexes"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyRejectsChangedTextOrExactFloatBitsAndMalformedContent"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "hostileSearchRowsCannotCrossAuthorizedScopeOrForgeIdentityAndScore"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyRejectsInsufficientResponseBudgetOrWrongWorkspaceWithoutPublishing"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyDeadlineIsSharedAcrossBatchesAndCancellationInterruptsLockWait"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyRejectsDuplicateOrIncompleteExactIdContentEvenWhenMetadataWasComplete"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyReadsCompleteRevisionTwiceAndExactContentBatchesThenReturnsBoundReceipt"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyRejectsCollectionOrFullSetChangesAfterContentReadback"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "scopedDenseAndBm25SearchFuseStableIdentityOnlyCandidates"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "preexistingCancellationTakesPriorityOverTransportAndNeverDispatchesWrites"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "incompatibleExistingSchemaAndIndexesNeverTriggerRepairOrLoad"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "completeMaximumScopeAppearsInBothRequestsWithoutTruncation"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "emptyAuthorizedScopeNeverInitializesOrCallsRemote"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "responseBodyIsBoundedBeforeAllocationAndDeadlineIncludesDelayedBody"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "malformedAndOverComplexJsonOrRemoteErrorsExposeNoResponseOrCause"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "preexistingCancellationOnLiveTransportKeepsFlagAndSendsZeroRequests"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "exact16KiBUtf8TextBoundarySurvivesUpsertAndFullReadback"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "interruptedCallCancelsResponseAndPreservesThreadInterruptStatus"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "collectionCannotBeReusedByChangingConfiguredWorkspace"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "identityIsStableWithoutNetworkAndBindsTargetButNotCredentialsOrBudgets"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "verifyRejectsIndexMetricTypeOrStateChangesAfterInitializationAndReadback"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "connectionFailureIsSanitizedAndDoesNotMarkInitialized"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.MilvusRestProjectionTest",
+      "name": "largestManifestUsesAnExact4097MetadataLimitAndNeverAnnSampling"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "manifestAndReceiptRejectInvalidOrUnboundedEvidenceAndRedactCopiedValues"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "deterministicTestAdapterObeysScopeAndInitializationButIsNotQualityEvidence"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "queryAndProjectionRecordsRejectInvalidTextVectorsAndLimits"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "digestsBindEveryScopeFieldStrictTextAndExactFloat32WithCanonicalSignedZero"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "invalidPhysicalIdentityNeverLeaksInputAndHonorsCancellation"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "scopesAndVectorsAreImmutableAndSecretsOrTextDoNotAppearInRepresentations"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "physicalIdsAreStableWithinGenerationDisjointAcrossRetriesAndUnambiguous"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "invalidAndOversizedScopesNeverSilentlyTruncateOrPermitFilterInjection"
+    },
+    {
+      "className": "com.evidence.rag.retrieval.RetrievalProjectionTest",
+      "name": "settingsRejectUnsafeOrIncompleteConfigurationWithoutExposingValues"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "postToConfigIsNotPublic"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "resolverFailureStillLeavesDeniedStatusAndBearerChallenge"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[5]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[6]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[7]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "duplicateOriginIsRejectedAndCrossOriginReadsStillNeedAuthentication"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "encodedAndContextRelativeApiPathsCannotBypassAuthentication"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "storesOnlyValidatedIdentityBeforeCallingController"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sameOriginMutationAndNoOriginCliRemainAvailable"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionExchangesDoNotNeedAnExistingIdentity"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "authenticationFailureDoesNotEnterController"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "acceptsExplicitDevelopmentIdentityOnlyWithinOrganization"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsMissingCredentialsAndDuplicateCredentials"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsUnknownCookiesAndWhitespaceCookie"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "authenticatesValidBearerAndDoesNotUseDevelopmentHeaders"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "acceptsCookieOnlyWhenNoAuthorizationHeaderExists"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentAcceptsLoopbackHost(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentAcceptsLoopbackHost(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentAcceptsLoopbackHost(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentAcceptsLoopbackHost(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentAcceptsLoopbackHost(String)[5]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentAcceptsLoopbackHost(String)[6]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsExpiryBoundaryAndFutureNotBefore"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsWrongSignatureAndAlgorithm"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsIssuerAudienceAndOrganizationMismatch"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsNoncanonicalSegmentsAndOversizedToken"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsMissingAndOversizedSubject"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[5]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "developmentRequiresBothHeadersAndValidIdentity"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "duplicateNullCookieCannotHideDuplicateCredential"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "signedMalformedClaimsAndCriticalHeadersAreRejected"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "rejectsDuplicateDevelopmentHeadersAndDevelopmentTokenExchange"
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationModuleTest",
+      "name": "acceptsAudienceListAndOptionalNotBefore"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "sameOriginSignOutExpiresHttpOnlyStrictCookie"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "sameOriginExchangeSetsHttpOnlyStrictCookieAndCookieAuthorizesManagement"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "wrongIssuerAndOrganizationFailForBothBearerAndSessionExchange"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "crossOriginSessionCreationAndSignOutAreRejectedBeforeChangingCookies"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidBearerCannotFallBackToValidCookieAndResponsesDoNotEchoCredentials"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "validStrangerSessionDoesNotInheritOwnerOrDevelopmentHeaderAccess"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[1]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[2]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[3]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[4]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[5]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[6]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[7]"
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[8]"
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "secureTransportAndNonLoopbackAlwaysUseSecureCookie"
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "explicitDevelopmentModeDoesNotAcceptTokenSessions"
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "invalidBodiesAndInvalidTokensNeverCreateSession"
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "signOutExpiresTheSameCookieWithoutNeedingIdentity"
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "exchangeSetsSafeCookieAndOnlyReturnsValidatedIdentity"
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingHttpTest",
+      "name": "authorizedIndexingRunsRealChildAndPublishesOnlyCompleteEvidence"
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingHttpTest",
+      "name": "runtimeAdvertisesOnlyExplicitIndexingWithoutPretendingAnswerReadiness"
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingHttpTest",
+      "name": "indexActionsRejectBodyQueryAndUnauthorizedRequestsBeforeSideEffects"
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingJwtHttpTest",
+      "name": "bearerCookieAndCurrentAclProtectCreateCancelRetryAndPublication"
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "incompleteUploadExpiresWithoutPersistingAnyDocumentAndCapacityRecovers"
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "realUploadBecomesDurableParsedEvidenceButNotQueryable"
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "envelopeAuthenticationAndOriginFailBeforeCreatingDocuments"
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "taskActionsRejectUnexpectedBodyQueryAndMethods"
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "unfinishedConcurrentUploadsHaveAnAdmissionLimit"
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "invalidUtf8FailsSafelyAndExplicitRetriesStopAtThreeAttempts"
+    },
+    {
+      "className": "com.evidence.rag.web.ManagementHttpTest",
+      "name": "aclAndValidationAreEnforcedOverRealHttp"
+    },
+    {
+      "className": "com.evidence.rag.web.ManagementHttpTest",
+      "name": "foldersMetadataAndPartialBatchWorkAsAnIntegratedFlow"
+    },
+    {
+      "className": "com.evidence.rag.web.ManagementHttpTest",
+      "name": "runtimeIsAliveButNotProductionReady"
+    },
+    {
+      "className": "com.evidence.rag.web.ProblemHandlerTest",
+      "name": "problemContractHasNoSensitiveExceptionDetails"
+    },
+    {
+      "className": "com.evidence.rag.web.RuntimeControllerTest",
+      "name": "eachCapabilityIsExplicitAndNeverEnablesAnswersOrProduction"
+    }
+  ]
+}
