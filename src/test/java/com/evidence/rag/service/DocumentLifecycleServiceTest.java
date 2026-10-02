@@ -689,10 +689,10 @@ class DocumentLifecycleServiceTest {
 
   private static Map<String, String> digests(IndexClaim claim) {
     var result = new TreeMap<String, String>();
-    for (var segment : claim.segments()) {
+    for (var segment : claim.items()) {
       result.put(
           RetrievalProjection.physicalSegmentId(
-              claim.projectionGenerationId(), segment.segmentId()),
+              claim.projectionGenerationId(), segment.evidenceId()),
           "a".repeat(64));
     }
     return result;

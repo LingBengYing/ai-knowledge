@@ -48,7 +48,13 @@ class IngestionSettingsTest {
                     authority.ingestion(),
                     properties,
                     new IngestionSettings(true, 30000, 30000),
-                    new MockEnvironment().withProperty("server.address", bind)));
+                    new MockEnvironment().withProperty("server.address", bind),
+                    new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                        .getBeanProvider(com.evidence.rag.client.model.VisionModels.class),
+                    new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                        .getBeanProvider(com.evidence.rag.service.AudioCompilationService.class),
+                    new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                        .getBeanProvider(com.evidence.rag.service.VideoCompilationService.class)));
       }
     }
   }

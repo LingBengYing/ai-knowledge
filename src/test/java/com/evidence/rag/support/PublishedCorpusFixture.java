@@ -71,11 +71,11 @@ public final class PublishedCorpusFixture implements AutoCloseable {
   }
 
   public static List<String> physicalIds(IndexClaim claim) {
-    return claim.segments().stream()
+    return claim.items().stream()
         .map(
             segment ->
                 RetrievalProjection.physicalSegmentId(
-                    claim.projectionGenerationId(), segment.segmentId()))
+                    claim.projectionGenerationId(), segment.evidenceId()))
         .toList();
   }
 

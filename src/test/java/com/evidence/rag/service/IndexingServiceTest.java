@@ -15,6 +15,7 @@ import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.IngestionClaim;
 import com.evidence.rag.model.domain.ParsedText;
+import com.evidence.rag.model.domain.ProjectionItem;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.domain.TextPage;
 import com.evidence.rag.model.domain.TextSegment;
@@ -55,7 +56,7 @@ class IndexingServiceTest {
       assertEquals("queued", job.get("state"));
       var claim = authority.claimIndexing(owner.workspaceId()).orElseThrow();
       assertEquals(parsed.revisionId(), claim.revisionId());
-      assertEquals(2, claim.segments().size());
+      assertEquals(2, claim.items().size());
       assertTrue(authority.isIndexingClaimCurrent(claim));
       assertTrue(authority.claimIndexing(owner.workspaceId()).isEmpty());
       assertNull(first(authority.listDocuments(owner, Map.of())).get("active_revision_id"));
@@ -89,7 +90,7 @@ class IndexingServiceTest {
       assertFalse(audit.contains("secret-policy"));
       assertFalse(audit.contains(claim.token()));
       assertFalse(claim.toString().contains(claim.token()));
-      assertFalse(claim.segments().toString().contains("secret-policy"));
+      assertFalse(claim.items().toString().contains("secret-policy"));
       assertFalse(job.toString().contains(target.embeddingIdentity()));
     }
     try (var reopened = new AuthorityTestContext(directory)) {
@@ -183,7 +184,7 @@ class IndexingServiceTest {
       var partial = new LinkedHashMap<>(digests);
       partial.remove(
           RetrievalProjection.physicalSegmentId(
-              claim.projectionGenerationId(), claim.segments().getFirst().segmentId()));
+              claim.projectionGenerationId(), claim.items().getFirst().evidenceId()));
       fails(422, () -> authority.completeIndexing(claim, partial, receipt(claim, partial)));
       var extra = new LinkedHashMap<>(digests);
       extra.put("unexpected", "d".repeat(64));
@@ -290,7 +291,7 @@ class IndexingServiceTest {
       var parsed = parsed(authority);
       authority.createIndexing(owner, parsed.documentId(), target);
       var claim = authority.claimIndexing("org").orElseThrow();
-      var original = new ArrayList<>(claim.segments());
+      var original = new ArrayList<>(claim.items());
       var copied =
           new IndexClaim(
               claim.jobId(),
@@ -305,8 +306,8 @@ class IndexingServiceTest {
               original,
               claim.projectionGenerationId());
       original.clear();
-      assertEquals(2, copied.segments().size());
-      assertThrows(UnsupportedOperationException.class, () -> copied.segments().clear());
+      assertEquals(2, copied.items().size());
+      assertThrows(UnsupportedOperationException.class, () -> copied.items().clear());
       assertTrue(authority.isIndexingClaimCurrent(copied));
       for (String field :
           List.of(
@@ -344,7 +345,7 @@ class IndexingServiceTest {
                         target.modelRevision(),
                         target.dimensions())
                     : target,
-                field.equals("segments") ? List.of(claim.segments().getFirst()) : claim.segments(),
+                field.equals("segments") ? List.of(claim.items().getFirst()) : claim.items(),
                 field.equals("generation") ? "another-generation" : claim.projectionGenerationId());
         assertFalse(authority.isIndexingClaimCurrent(forged), field);
         assertFalse(authority.failIndexing(forged, "indexing_failed"), field);
@@ -359,7 +360,7 @@ class IndexingServiceTest {
       var wrongDigest = digests(claim);
       wrongDigest.put(
           RetrievalProjection.physicalSegmentId(
-              claim.projectionGenerationId(), claim.segments().getFirst().segmentId()),
+              claim.projectionGenerationId(), claim.items().getFirst().evidenceId()),
           "private raw secret");
       fails(
           422,
@@ -424,7 +425,7 @@ class IndexingServiceTest {
                   claim.sourceSha256(),
                   claim.parserRevision(),
                   target,
-                  null,
+                  (List<ProjectionItem>) null,
                   claim.projectionGenerationId()));
       fails(
           422,
@@ -439,7 +440,7 @@ class IndexingServiceTest {
                   claim.sourceSha256(),
                   claim.parserRevision(),
                   target,
-                  List.of(),
+                  List.<ProjectionItem>of(),
                   claim.projectionGenerationId()));
       fails(
           422,
@@ -454,7 +455,7 @@ class IndexingServiceTest {
                   claim.sourceSha256(),
                   claim.parserRevision(),
                   null,
-                  claim.segments(),
+                  claim.items(),
                   claim.projectionGenerationId()));
       assertTrue(authority.failIndexing(claim, "index_configuration_changed"));
       assertEquals(
@@ -498,7 +499,7 @@ class IndexingServiceTest {
       assertNotEquals(firstAttempt.projectionGenerationId(), nextAttempt.projectionGenerationId());
       assertEquals(firstAttempt.revisionId(), nextAttempt.revisionId());
       assertEquals(firstAttempt.sourceSha256(), nextAttempt.sourceSha256());
-      assertEquals(firstAttempt.segments(), nextAttempt.segments());
+      assertEquals(firstAttempt.items(), nextAttempt.items());
       assertEquals(originalEvidence, authority.parsedEvidence(owner, parsed.documentId()));
       var oldDigests = digests(firstAttempt);
       var newDigests = digests(nextAttempt);
@@ -526,7 +527,7 @@ class IndexingServiceTest {
               nextAttempt.sourceSha256(),
               nextAttempt.parserRevision(),
               target,
-              nextAttempt.segments(),
+              nextAttempt.items(),
               firstAttempt.projectionGenerationId());
       assertFalse(authority.isIndexingClaimCurrent(forgedGeneration));
       assertFalse(
@@ -547,15 +548,15 @@ class IndexingServiceTest {
                   + nextAttempt.revisionId()
                   + "'"));
       assertEquals(2, scalar("SELECT COUNT(*) FROM index_publication_entries"));
-      for (var segment : nextAttempt.segments()) {
+      for (var segment : nextAttempt.items()) {
         String physical =
             RetrievalProjection.physicalSegmentId(
-                nextAttempt.projectionGenerationId(), segment.segmentId());
+                nextAttempt.projectionGenerationId(), segment.evidenceId());
         assertEquals(
             1,
             scalar(
                 "SELECT COUNT(*) FROM index_publication_entries WHERE source_segment_id='"
-                    + segment.segmentId()
+                    + segment.evidenceId()
                     + "' AND physical_segment_id='"
                     + physical
                     + "' AND entry_sha256='"
@@ -608,7 +609,7 @@ class IndexingServiceTest {
       authority.retryIndexing(owner, old.jobId(), target);
       var next = authority.claimIndexing("org").orElseThrow();
       assertNotEquals(old.projectionGenerationId(), next.projectionGenerationId());
-      assertEquals(old.segments(), next.segments());
+      assertEquals(old.items(), next.items());
       assertEquals(old.revisionId(), next.revisionId());
       assertEquals(2, scalar("SELECT COUNT(*) FROM indexing_attempts"));
       assertEquals(
@@ -666,12 +667,12 @@ class IndexingServiceTest {
   private static Map<String, String> digests(IndexClaim claim) {
     var result = new LinkedHashMap<String, String>();
     claim
-        .segments()
+        .items()
         .forEach(
             segment ->
                 result.put(
                     RetrievalProjection.physicalSegmentId(
-                        claim.projectionGenerationId(), segment.segmentId()),
+                        claim.projectionGenerationId(), segment.evidenceId()),
                     "a".repeat(64)));
     return result;
   }

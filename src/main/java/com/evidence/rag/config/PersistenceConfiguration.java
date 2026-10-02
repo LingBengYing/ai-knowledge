@@ -1,16 +1,22 @@
 package com.evidence.rag.config;
 
 import com.evidence.rag.bootstrap.DemoFixtures;
+import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
+import com.evidence.rag.repository.SynopsisRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.ManagementService;
+import com.evidence.rag.service.SynopsisLibraryService;
+import com.evidence.rag.service.VideoCompilationService;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -45,6 +51,14 @@ public class PersistenceConfiguration {
     return new ManagementRepository(store);
   }
 
+  /** Recovery needs only authority storage, even when the paid synopsis feature is disabled. */
+  @Bean
+  SynopsisRepository synopsisRepository(SqliteAuthorityStore store, RagProperties properties) {
+    var repository = new SynopsisRepository(store);
+    SynopsisLibraryService.recoverProcessing(store, repository, properties.workspaceId());
+    return repository;
+  }
+
   @Bean
   IngestionRepository ingestionRepository(SqliteAuthorityStore store) {
     return new IngestionRepository(store);
@@ -75,8 +89,24 @@ public class PersistenceConfiguration {
       SqliteAuthorityStore store,
       IngestionRepository ingestion,
       ManagementRepository management,
-      DocumentPermissionPolicy permissions) {
-    var service = new IngestionService(store, ingestion, management, permissions);
+      DocumentPermissionPolicy permissions,
+      Environment environment,
+      ObjectProvider<VisualIngestionOptions> visual,
+      ObjectProvider<AudioCompilationService> audio,
+      ObjectProvider<VideoCompilationService> video) {
+    var compiler = audio.getIfAvailable();
+    var videoCompiler = video.getIfAvailable();
+    var service =
+        new IngestionService(
+            store,
+            ingestion,
+            management,
+            permissions,
+            ImageOcrConfiguration.options(environment),
+            visual.getIfAvailable(),
+            compiler == null ? null : compiler.revision(),
+            videoCompiler == null ? null : videoCompiler.revision(),
+            videoCompiler != null && videoCompiler.ocrEnabled());
     service.recoverIngestions();
     return service;
   }

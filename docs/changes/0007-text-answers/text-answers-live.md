@@ -1,4 +1,6 @@
-# 固定PDF真实链路入口：本地检查通过，外部尚未执行
+# 固定PDF真实链路入口：本批真实外部执行通过
+
+2026-09-08追加30次请求授权后，14:32:59 +08:00实际运行通过：真实嵌入与Milvus检索、BAAI/bge-reranker-v2-m3重排、DeepSeek-V3摘录及来源/trace校验完成，本次4次模型请求。结果与摘要见[本批主线记录](mainline-live.md)。以下未授权/尚未执行叙述是此前记录，不覆盖本次结果；此入口仍是Service层验收，不是HTTP/网页或生产验收。
 
 本入口将原合成差旅PDF经真实解析子JVM、索引子JVM、embedding/Milvus完整校验和权威publication，接到AnswerService、来源回读与trace校验。它不是HTTP或网页验收，也没有替换原四PDF/六golden回归。实现见[TextAnswersLiveIT](../../../src/test/java/com/evidence/rag/service/TextAnswersLiveIT.java)和仅传非秘密代理参数的[LiveIndexWorker](../../../src/test/java/com/evidence/rag/worker/indexing/LiveIndexWorker.java)。
 

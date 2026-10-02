@@ -1,0 +1,4720 @@
+{
+  "schemaVersion": 1,
+  "identity": "Exact className and Surefire name; parameter indexes are not normalized.",
+  "run": 942,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "cases": [
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "classAndLayerCyclesAreRejectedEvenWhenIndividualServiceEdgesAreAllowed",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "entityAndInternalClaimCannotBeHttpResponseTypes",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "fullQualifiedStaticCallsCannotHideForbiddenLayerDependencies",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "legitimateLayeredFixtureUsesTheSameRulesAndPasses",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "productionBytecodeObeysApprovedLayers",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "repositoryRejectsJdbcInGenericReturnParameterFieldAndThrowsClause",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "retiredPackagesAndFacadeAreNotHiddenByEmptyLayerRules",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "reverseDependenciesAndSecurityLayerLeaksAreRejected",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "serviceRejectsRawAndNestedUntypedResultsWithoutBanningLocalMaps",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "servletHttpJdbcAndFrameworkDependenciesCannotEnterInnerLayers",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.architecture.ArchitectureRulesTest",
+      "name": "stereotypesBeanFactoriesAndFieldInjectionHaveRealBytecodeChecks",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.bootstrap.DemoFixturesTest",
+      "name": "seedingIsExplicitSyntheticAndNeverOverwritesData",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "acceptsExplicitIpv6TestEndpointAndChangesIdentityForModelRevision",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "acceptsOnlyExplicitEmptyRefusal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "boundsCompleteResponseBodyNotOnlyHeaders",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "boundsJsonNestingEvenInsideUnusedProviderMetadata",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "boundsResponseHeadersAndBodyBytes",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "boundsSerializedRequestAndExtractionOutputIndependently",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "embedsInOriginalOrderWithDedicatedModelAndCredential",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "extractsOnlyOriginalQuotesWithDataSeparatedFromSystemInstructions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "keepsConfigurationAndRevisionSecretSafeWithoutNetwork",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "neverFollowsRedirectOrLeaksProviderErrors",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "preexistingInterruptionDoesNotSendNetwork",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "preservesInterruptStatusAndCancelsRequest",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsCredentialUrlsUnsafeHttpAndUnboundedConfiguration",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsIncompleteCompletionsAndToolOutputs",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsIncompleteDuplicateOutOfRangeAndCoercedRerankResults",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsInvalidInputsBeforeAnyRequest",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsInventedQuotesUnknownIdsMixedRefusalAndExtraFields",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsMalformedEmbeddingIndicesDimensionsAndNumbers",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "rejectsUnexpectedContentTypeAndMalformedUtf8",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "reranksEveryCandidateAndUsesDeterministicTieBreak",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleModelsTest",
+      "name": "safelyFailsAfterCloseAndConnectionRefusal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest",
+      "name": "bindsRevisionToExplicitModelNotCredentialsAndRejectsLongerDeadlines",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest",
+      "name": "describesOriginalJpegButVerifiesEveryClaimIndependentlyInRequestOrder",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest",
+      "name": "draftsOrderedFactsFromTheOriginalPngAndCompleteQuestionWithoutCaption",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest",
+      "name": "rejectsInvalidOriginalAndExcessClaimsBeforeAnyProviderRequest",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest",
+      "name": "rejectsMalformedDraftAndLengthTruncationInsteadOfReturningPartialFacts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest",
+      "name": "rejectsMissingDuplicateNegativeAndNonBooleanSupportWithoutRetry",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "ambiguousOrIncompleteUpsertAcknowledgmentFailsWithoutRetry",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "authenticationRemainsInHeaderAndRedirectsAreNeverFollowed",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "collectionCannotBeReusedByChangingConfiguredWorkspace",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "completeMaximumScopeAppearsInBothRequestsWithoutTruncation",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "connectionFailureIsSanitizedAndDoesNotMarkInitialized",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "emptyAuthorizedScopeNeverInitializesOrCallsRemote",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "entireInvalidBatchFailsBeforeAnyWriteAndEmptyBatchDoesNothing",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "exact16KiBUtf8TextBoundarySurvivesUpsertAndFullReadback",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "explicitInitializationCreatesOnlyIsolatedCompatibleCollectionAndIndexes",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "hostileSearchRowsCannotCrossAuthorizedScopeOrForgeIdentityAndScore",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "identityIsStableWithoutNetworkAndBindsTargetButNotCredentialsOrBudgets",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "incompatibleExistingSchemaAndIndexesNeverTriggerRepairOrLoad",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "interruptedCallCancelsResponseAndPreservesThreadInterruptStatus",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "largestManifestUsesAnExact4097MetadataLimitAndNeverAnnSampling",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "malformedAndOverComplexJsonOrRemoteErrorsExposeNoResponseOrCause",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "preexistingCancellationOnLiveTransportKeepsFlagAndSendsZeroRequests",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "preexistingCancellationTakesPriorityOverTransportAndNeverDispatchesWrites",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "responseBodyIsBoundedBeforeAllocationAndDeadlineIncludesDelayedBody",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "scopedDenseAndBm25SearchFuseStableIdentityOnlyCandidates",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyDeadlineIsSharedAcrossBatchesAndCancellationInterruptsLockWait",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyReadsCompleteRevisionTwiceAndExactContentBatchesThenReturnsBoundReceipt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyRejectsChangedTextOrExactFloatBitsAndMalformedContent",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyRejectsCollectionOrFullSetChangesAfterContentReadback",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyRejectsDuplicateOrIncompleteExactIdContentEvenWhenMetadataWasComplete",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyRejectsIndexMetricTypeOrStateChangesAfterInitializationAndReadback",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyRejectsInsufficientResponseBudgetOrWrongWorkspaceWithoutPublishing",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyRejectsMissingExtraDuplicateOrWrongScopeInFullMetadata",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusRestProjectionTest",
+      "name": "verifyShrinksDenseReadbackBatchesToConfiguredResponseBudget",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "absentCollectionFailsClosedInsteadOfLazilyCreatingIt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "actualConnectionFailureIsNotRelabeledAsATimeout",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "everySchemaAndIndexMismatchRevokesPreviouslyPreparedQueryReadiness",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "existingProjectionCanBeSearchedWithoutCreatingLoadingOrWritingAnything",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "interruptionCancelsAnActualPendingReadAndKeepsTheInterruptFlag",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "preparationDoesNotPretendToLoadAnUnloadedCollection",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.MilvusSearchPreparationTest",
+      "name": "preparationHasOneBudgetAcrossItsReadsAndDoesNotLeaveSearchReady",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "deterministicTestAdapterObeysScopeAndInitializationButIsNotQualityEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "digestsBindEveryScopeFieldStrictTextAndExactFloat32WithCanonicalSignedZero",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "invalidAndOversizedScopesNeverSilentlyTruncateOrPermitFilterInjection",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "invalidPhysicalIdentityNeverLeaksInputAndHonorsCancellation",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "manifestAndReceiptRejectInvalidOrUnboundedEvidenceAndRedactCopiedValues",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "physicalIdsAreStableWithinGenerationDisjointAcrossRetriesAndUnambiguous",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "queryAndProjectionRecordsRejectInvalidTextVectorsAndLimits",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "scopesAndVectorsAreImmutableAndSecretsOrTextDoNotAppearInRepresentations",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.client.vector.RetrievalProjectionTest",
+      "name": "settingsRejectUnsafeOrIncompleteConfigurationWithoutExposingValues",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.AnswersSettingsTest",
+      "name": "acceptsOnlyBoundedProcessingBudgetsAndScarceResourceConcurrency",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "enabledRemovalRejectsNonliteralOrMissingLoopbackEvenWithJwtIdentity(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "enabledRemovalRejectsNonliteralOrMissingLoopbackEvenWithJwtIdentity(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "enabledRemovalRejectsNonliteralOrMissingLoopbackEvenWithJwtIdentity(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "enabledRemovalRejectsNonliteralOrMissingLoopbackEvenWithJwtIdentity(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "enabledRemovalRejectsNonliteralOrMissingLoopbackEvenWithJwtIdentity(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "explicitLiteralLoopbackSupportsRemovalWithoutAnyModelSettings(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "explicitLiteralLoopbackSupportsRemovalWithoutAnyModelSettings(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.DocumentRemovalConfigurationTest",
+      "name": "settingsDefaultToOffWithoutCreatingTheRemovalUseCase",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.ImageOcrConfigurationTest",
+      "name": "defaultsOffAndLoadsOnlyExplicitLocalRuntime",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.ImageOcrConfigurationTest",
+      "name": "enabledSettingsRejectMissingOrPublicRuntime",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IndexingConfigurationTest",
+      "name": "disabledOrAbsentFlagDoesNotConstructRemoteAdaptersOrRequireSecrets",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IndexingConfigurationTest",
+      "name": "explicitSettingsUseResolvedPrecedenceFixedWorkspaceAndRedactedTarget",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IndexingConfigurationTest",
+      "name": "nonliteralBindingAndEveryUnknownModelPrefixFailWithoutPrivateErrorDetails",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IndexingSettingsTest",
+      "name": "explicitBoundariesDoNotImplicitlyEnableIndexing",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IndexingSettingsTest",
+      "name": "totalJobDeadlineIsBoundedEvenWhenCapabilityIsDisabled",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IngestionSettingsTest",
+      "name": "limitsAreBoundedEvenWhenDisabled",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.IngestionSettingsTest",
+      "name": "optInCannotExposeNonSandboxedParserOnPublicBinding",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.RagPropertiesTest",
+      "name": "boundsAndLegacyDatabaseAreProtected",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.RagPropertiesTest",
+      "name": "modesAndSecretsFailClosed",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.RuntimeGuardTest",
+      "name": "configurationNeverPrintsSigningSecrets",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.RuntimeGuardTest",
+      "name": "developmentHeadersCannotBindPublicly",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdaptersConfigurationTest",
+      "name": "answersOnlyRejectsMissingConfigurationAndNonliteralLoopbackWithoutSecretDetails",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdaptersConfigurationTest",
+      "name": "disabledOrMissingFlagsDoNotRequireModelConfiguration",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdaptersConfigurationTest",
+      "name": "independentFlagsLoadExactlyOneSettingsBeanWithoutAnyStartupNetwork",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "explicitLoopbackTestOptionAndBoundsAreSharedAcrossBothAdapters",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "explicitlyLoadsIndependentEndpointsAndSecretsWithoutContactingThem",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "pinsEmbeddingIdentityToEndpointModelRevisionAndDimensionButNotCredentials",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "rejectsTyposButIgnoresUnrelatedProcessEnvironment",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "requiresEveryConnectionAndPinnedModelValueRatherThanFallingBack",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.TextAdapterSettingsTest",
+      "name": "validatesNumbersFlagsEndpointsAndKeysWithoutLeakingInputOrCauses",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.VisualConfigurationTest",
+      "name": "invalidOptInFailsWithOnlySanitizedConfigurationError",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.VisualConfigurationTest",
+      "name": "localOptInConstructsModelWithoutCallingItAndFreezesPreparationRevision",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.config.VisualConfigurationTest",
+      "name": "visualUploadIsAdvertisedWithoutAdvertisingNewOcrUploads",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "refusalReasonIsOneOfTheExistingSafeCodesAndCannotContainSourceText",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "supportedAndRefusedResultsCannotContradictTheirReasonOrEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "untrustedInputPreservesMalformedValuesForWholeRequestVerificationAndRedactsThem",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "verifiedCollectionsAreSnapshotsAndAutomaticStringsContainNoSourceOrFactText",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "verifiedQuoteCarriesOnlyOneToEightWellFormedFactHashes",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "verifiedQuoteRequiresAnExactNonemptyUnicodeCodePointRange",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.GroundingDomainTest",
+      "name": "verifiedQuoteRequiresBoundedNonemptyPhysicalIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.ImageOcrOptionsTest",
+      "name": "rejectsImplicitPathsAndUnsafeLanguageOrRevisionConfiguration",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.VisualAssessmentTest",
+      "name": "acceptedFactsAreCopiedWithoutChangingMultilineOrUnicodeText",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.VisualAssessmentTest",
+      "name": "incompleteDuplicateOrOverBudgetFactsAndInvalidIdentityAreRejected",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.VisualAssessmentTest",
+      "name": "refusalUsesFiniteSafeReasonsAndCannotCarryPartialFacts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.VisualDtoTest",
+      "name": "diagnosticsAreRedactedWhileWireContractRemainsExplicit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.VisualImageTest",
+      "name": "onlyOriginalPngAndJpegEnvelopesWithinTheByteBudgetAreRepresentable",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.model.domain.VisualImageTest",
+      "name": "ownsOriginalBytesAndDerivesStableDigestWithoutLoggingContent",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[13]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[14]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[15]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[16]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[17]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "damagedV5OrInheritedSchemaIsRejectedBeforeUse(String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "inconsistentV5FormatMarkersAreRejectedWithoutMigration(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "inconsistentV5FormatMarkersAreRejectedWithoutMigration(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "inconsistentV5FormatMarkersAreRejectedWithoutMigration(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "inconsistentV5FormatMarkersAreRejectedWithoutMigration(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "inconsistentV5FormatMarkersAreRejectedWithoutMigration(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "newAuthorityUsesVersionFiveLifecycleFormat",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "newV5RemovalSurvivesReopenAndRestrictsPhysicalDocumentDeletion",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "persistedRemovalCannotBeUpdatedDeletedOrReplaced(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "persistedRemovalCannotBeUpdatedDeletedOrReplaced(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "persistedRemovalCannotBeUpdatedDeletedOrReplaced(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "removalIdentityMustMatchAnExistingDocument(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "removalIdentityMustMatchAnExistingDocument(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "v4UpgradePreservesPublicationAndProvidesAStableRestorableBackup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.DocumentLifecycleMigrationTest",
+      "name": "v5DdlConflictRollsBackTheNewTableAndKeepsItsReadableV4Backup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.EvidenceMigrationTest",
+      "name": "failedV4BackupRefusesMigrationWithoutCompletedOutput",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.EvidenceMigrationTest",
+      "name": "partialV4AndMissingInheritedGenerationLedgerAreRejectedBeforeUse",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.EvidenceMigrationTest",
+      "name": "v3UpgradeBacksUpRealPublicationAndPreservesSourceAndActiveConstraints",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.EvidenceMigrationTest",
+      "name": "v4DdlFailureRollsBackAndKeepsConsistentV3Backup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.EvidenceMigrationTest",
+      "name": "v4StillRejectsCorruptV3GenerationShape",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "damagedV6OrInheritedV5IsRejectedBeforeUse(String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "newAuthorityUsesVersionSixWithAnImageRegionSidecar",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "parsedRevisionRejectsLateRegionAppend",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "storedRegionsCannotBeUpdatedDeletedOrReplacedEvenBeforeParsed(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "storedRegionsCannotBeUpdatedDeletedOrReplacedEvenBeforeParsed(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "storedRegionsCannotBeUpdatedDeletedOrReplacedEvenBeforeParsed(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "v5UpgradeKeepsPublicationAndAnIndependentlyReadableBackupAcrossReopen",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.ImageRegionMigrationTest",
+      "name": "v6DdlConflictRollsBackNewTableAndRetainsV5Backup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IndexingMigrationTest",
+      "name": "failedBackupRefusesMigrationAndNeverLabelsPartialOutputAsComplete",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IndexingMigrationTest",
+      "name": "preGenerationWorkInProgressV3IsRefusedWithoutMigrationOrRecovery",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IndexingMigrationTest",
+      "name": "v2UpgradeBacksUpConsistentParsedEvidenceAndPreservesAllOldConstraints",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IndexingMigrationTest",
+      "name": "v3DdlFailureRollsBackAndKeepsCompletedV2Backup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IngestionMigrationTest",
+      "name": "migrationFailureRollsBackAllDdlAndLeavesVersionOneAndCompletedBackup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IngestionMigrationTest",
+      "name": "unknownOrInconsistentVersionIsRefusedBeforeBackupOrMigration",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.IngestionMigrationTest",
+      "name": "v1UpgradePreservesSyntheticAclMetadataAndKeepsRestorablePreUpgradeBackup",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.SqliteAuthorityStoreTest",
+      "name": "differentServicesSerializeOnTheSameAuthorityWhileKeepingBothUseCases",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.SqliteAuthorityStoreTest",
+      "name": "oneRollbackRemovesChangesAcrossRepositoriesAndAuditAndSurvivesReopen",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.SqliteAuthorityStoreTest",
+      "name": "reopeningStorageDoesNotRunBusinessRecoveryUntilStartupInvokesService",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.SqliteAuthorityStoreTest",
+      "name": "repositoriesRejectAccessOutsideTheOwningThreadTransaction",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.repository.VisualLibraryMigrationTest",
+      "name": "newAuthorityUsesVersionSevenWithSeparateImageEvidenceAndCitationTables",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "authenticationFailureDoesNotEnterController",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "duplicateOriginIsRejectedAndCrossOriginReadsStillNeedAuthentication",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "encodedAndContextRelativeApiPathsCannotBypassAuthentication",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "postToConfigIsNotPublic",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "publicReadDoesNotRequireIdentity(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "resolverFailureStillLeavesDeniedStatusAndBearerChallenge",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sameOriginMutationAndNoOriginCliRemainAvailable",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionExchangesDoNotNeedAnExistingIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "sessionMutationRejectsCrossOriginIncludingSameHostDifferentPort(String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.AuthenticationFilterTest",
+      "name": "storesOnlyValidatedIdentityBeforeCallingController",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "crossOriginSessionCreationAndSignOutAreRejectedBeforeChangingCookies",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidBearerCannotFallBackToValidCookieAndResponsesDoNotEchoCredentials",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "invalidSessionJsonIsRejectedWithoutCookie(String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "sameOriginExchangeSetsHttpOnlyStrictCookieAndCookieAuthorizesManagement",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "sameOriginSignOutExpiresHttpOnlyStrictCookie",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "validStrangerSessionDoesNotInheritOwnerOrDevelopmentHeaderAccess",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.JwtHttpTest",
+      "name": "wrongIssuerAndOrganizationFailForBothBearerAndSessionExchange",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "acceptsAudienceListAndOptionalNotBefore",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "acceptsCookieOnlyWhenNoAuthorizationHeaderExists",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "acceptsExplicitDevelopmentIdentityOnlyWithinOrganization",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "authenticatesValidBearerAndDoesNotUseDevelopmentHeaders",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentAcceptsLoopbackHost(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentAcceptsLoopbackHost(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentAcceptsLoopbackHost(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentAcceptsLoopbackHost(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentAcceptsLoopbackHost(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentAcceptsLoopbackHost(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentRejectsNonLoopbackHostToPreventDnsRebinding(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "developmentRequiresBothHeadersAndValidIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "duplicateNullCookieCannotHideDuplicateCredential",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "invalidHeaderNeverFallsBackToValidCookie(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsDuplicateDevelopmentHeadersAndDevelopmentTokenExchange",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsExpiryBoundaryAndFutureNotBefore",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsInvalidSubjectWithoutEchoingIt(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsIssuerAudienceAndOrganizationMismatch",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsMissingAndOversizedSubject",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsMissingCredentialsAndDuplicateCredentials",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsNoncanonicalSegmentsAndOversizedToken",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsUnknownCookiesAndWhitespaceCookie",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "rejectsWrongSignatureAndAlgorithm",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.RequestAuthenticatorTest",
+      "name": "signedMalformedClaimsAndCriticalHeadersAreRejected",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "exchangeSetsSafeCookieAndOnlyReturnsValidatedIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "explicitDevelopmentModeDoesNotAcceptTokenSessions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "invalidBodiesAndInvalidTokensNeverCreateSession",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "secureTransportAndNonLoopbackAlwaysUseSecureCookie",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.security.SessionControllerTest",
+      "name": "signOutExpiresTheSameCookieWithoutNeedingIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerCancellationTest",
+      "name": "cancellationCannotSkipTheTraceOrReleaseAnAnswer(boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerCancellationTest",
+      "name": "cancellationCannotSkipTheTraceOrReleaseAnAnswer(boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerCommitRaceTest",
+      "name": "modelChangeDuringAuthorityWaitCannotCommitOldConfigurationAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerCommitRaceTest",
+      "name": "projectionChangeDuringAuthorityWaitCannotCommitOldConfigurationAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerGoldenTest",
+      "name": "answersFrozenPdfCases(String, JsonNode)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerGoldenTest",
+      "name": "answersFrozenPdfCases(String, JsonNode)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerGoldenTest",
+      "name": "answersFrozenPdfCases(String, JsonNode)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerGoldenTest",
+      "name": "answersFrozenPdfCases(String, JsonNode)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerGoldenTest",
+      "name": "answersFrozenPdfCases(String, JsonNode)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerGoldenTest",
+      "name": "answersFrozenPdfCases(String, JsonNode)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "callerInterruptionIsPreservedWhileActualWorkerKeepsItsPermit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "closingInterruptsWorkAndCannotReturnAnAnsweredTrace",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "closingReportsUndrainedWorkAndCanBeRetried(boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "closingReportsUndrainedWorkAndCanBeRetried(boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "totalDeadlineHoldsAdmissionUntilEachActualRemoteStageExits(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "totalDeadlineHoldsAdmissionUntilEachActualRemoteStageExits(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "totalDeadlineHoldsAdmissionUntilEachActualRemoteStageExits(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerLifecycleTest",
+      "name": "totalDeadlineHoldsAdmissionUntilEachActualRemoteStageExits(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerPageConflictTest",
+      "name": "aConflictingUnretrievedChunkCannotReleaseAnAnswerOrCitation(String, String, String, String, boolean, boolean)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "allDocumentsFiltersBeforeRetrievalAndStillAnswersFromRemainingEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "allRemovedDocumentsReturnEmptyScopeWithoutAnyExternalRequest",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletingANonCandidateSelectedDocumentInvalidatesEveryExternalPhase(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletingANonCandidateSelectedDocumentInvalidatesEveryExternalPhase(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletingANonCandidateSelectedDocumentInvalidatesEveryExternalPhase(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletingANonCandidateSelectedDocumentInvalidatesEveryExternalPhase(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletingANonCandidateSelectedDocumentInvalidatesEveryExternalPhase(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletingAnUnselectedDocumentDoesNotInvalidateTheExplicitlySelectedAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "deletionWhileWaitingForTheFinalStoreLockCannotCommitAnOldScope",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "oldSourceRequiresTheWholeOriginalScopeEvenWhenTheRemovedDocumentWasNotCited",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "removedSelectionNeverFallsBackToTheRemainingDocumentOrAll",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerRemovalTest",
+      "name": "removingPublishedEvidenceInvalidatesItsPreviouslySuccessfulAnswerSource",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "completeProcedureAndPartialExtractionHaveDifferentAuditedOutcomes(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "completeProcedureAndPartialExtractionHaveDifferentAuditedOutcomes(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "completeProcedureAndPartialExtractionHaveDifferentAuditedOutcomes(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "completeProcedureAndPartialExtractionHaveDifferentAuditedOutcomes(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "completeStepsMaySpanRealChunksButUnretrievedStepsNeverBecomeCitations(boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "completeStepsMaySpanRealChunksButUnretrievedStepsNeverBecomeCitations(boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "exampleContextCannotReleaseAnAnswerButOrdinaryTitlesRetainTheirSources(String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "exampleContextCannotReleaseAnAnswerButOrdinaryTitlesRetainTheirSources(String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "exampleContextCannotReleaseAnAnswerButOrdinaryTitlesRetainTheirSources(String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "exampleContextCannotReleaseAnAnswerButOrdinaryTitlesRetainTheirSources(String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "procedureQualifiersRemainVisibleInTheAnswerOrCauseAnAuditedRefusal(String, String, String, String, boolean, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "procedureQualifiersRemainVisibleInTheAnswerOrCauseAnAuditedRefusal(String, String, String, String, boolean, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "procedureQualifiersRemainVisibleInTheAnswerOrCauseAnAuditedRefusal(String, String, String, String, boolean, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "procedureQualifiersRemainVisibleInTheAnswerOrCauseAnAuditedRefusal(String, String, String, String, boolean, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "procedureQualifiersRemainVisibleInTheAnswerOrCauseAnAuditedRefusal(String, String, String, String, boolean, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticContextTest",
+      "name": "procedureQualifiersRemainVisibleInTheAnswerOrCauseAnAuditedRefusal(String, String, String, String, boolean, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerSemanticScopeTest",
+      "name": "retainsEarlierConditionsAcrossRealChunksWithoutMixingNamedSubjects(String, String, String, String, boolean)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "arbitraryFiniteRerankScoreIsNotTreatedAsAProbabilityThreshold",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "changedModelIdentityCannotReleaseAnAnswerFromTheOldConfiguration(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "changedModelIdentityCannotReleaseAnAnswerFromTheOldConfiguration(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "changedModelIdentityCannotReleaseAnAnswerFromTheOldConfiguration(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "closedServiceRejectsNewQueriesAndSourceReadsWithoutTouchingAdapters",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "emptyAuthorizedLibraryCreatesARefusalWithoutExternalCalls",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "extractionShapesCannotCreateAnUnprovedCitation(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "extractionShapesCannotCreateAnUnprovedCitation(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "extractionShapesCannotCreateAnUnprovedCitation(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "extractionShapesCannotCreateAnUnprovedCitation(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "extractionShapesCannotCreateAnUnprovedCitation(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "finalTraceFailureDoesNotReturnSuccessOrLeavePartialChildren",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "invalidEmbeddingDoesNotReachVectorSearch(String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "modelFailuresHaveNoAnswerTextAndAreStillAudited(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "modelFailuresHaveNoAnswerTextAndAreStillAudited(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "modelFailuresHaveNoAnswerTextAndAreStillAudited(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceBoundaryTest",
+      "name": "rankingMustCoverAllCandidatesExactlyOnceWithFiniteScores(String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "anotherPrincipalCannotReadTheOriginalAnswerSource",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "aRealPublishedSegmentProducesServerBoundedAnswerAndSource",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "explicitEmptyScopeAbstainsWithoutContactingAnyAdapter",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "explicitUnavailableDocumentNeverFallsBackToRemainingSelectionOrAll",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "inventedPhysicalCandidateNeverEntersModelContext",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "irrelevantExactQuotesAreNotAProofOfTheQuestion",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "malformedCompleteRankingDoesNotReachExtraction",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "nonCandidateSelectedRevocationDuringModelCallPreventsAllAnswerRelease",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.AnswerServiceTest",
+      "name": "timeoutDoesNotReleaseAdmissionUntilTheActualWorkExits",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "cancellationAndAuditFailuresRollBackTheWholeWithdrawalAndAllowAnExplicitRetry(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "cancellationAndAuditFailuresRollBackTheWholeWithdrawalAndAllowAnExplicitRetry(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "cancellationAndAuditFailuresRollBackTheWholeWithdrawalAndAllowAnExplicitRetry(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "cancellationAndAuditFailuresRollBackTheWholeWithdrawalAndAllowAnExplicitRetry(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "cancellationAndAuditFailuresRollBackTheWholeWithdrawalAndAllowAnExplicitRetry(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "cancellationAndAuditFailuresRollBackTheWholeWithdrawalAndAllowAnExplicitRetry(String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "reopeningRetainsWithdrawalReceiptAndDoesNotReviveCancelledClaims(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "reopeningRetainsWithdrawalReceiptAndDoesNotReviveCancelledClaims(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "repeatedWithdrawalRequiresCurrentWritePermissionAndKeepsItsOriginalAudit(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "repeatedWithdrawalRequiresCurrentWritePermissionAndKeepsItsOriginalAudit(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "sameContentUploadGetsNewIdentitiesAndOnlyPendingQuotaIsReleasedByWithdrawal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIndexesAndKeepsPublishedEvidenceImmutable(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIndexesAndKeepsPublishedEvidenceImmutable(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIndexesAndKeepsPublishedEvidenceImmutable(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIndexesAndKeepsPublishedEvidenceImmutable(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIndexesAndKeepsPublishedEvidenceImmutable(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIngestionsAndPreservesTerminalHistory(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIngestionsAndPreservesTerminalHistory(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIngestionsAndPreservesTerminalHistory(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIngestionsAndPreservesTerminalHistory(String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalCancelsOnlyActiveIngestionsAndPreservesTerminalHistory(String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawalHidesTheQueuedUploadBeforePaginationWithoutErasingItsOriginalOrIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentLifecycleServiceTest",
+      "name": "withdrawnDocumentsDoNotLeakFolderVisibilityOrTagsAndNoLongerBlockFolderRemoval",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentRemovalProcessTest",
+      "name": "removalStopsTheActualIndexerBeforeItsDeadlineAndNextWorkDoesNotOverlap",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentRemovalProcessTest",
+      "name": "removalStopsTheActualParserBeforeItsDeadlineAndNextWorkWaitsForItsExit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentRemovalProcessTest",
+      "name": "removedClaimCannotStartAnotherIndexWorker",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.DocumentRemovalProcessTest",
+      "name": "revokedClaimFailsWithoutAWorkerAndDoesNotBlockTheNextAuthorizedDocument",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceCapacityTest",
+      "name": "distinctAuthorityPagesOverEightMiBUtf8FailWholeHydration",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceCapacityTest",
+      "name": "severalCandidatesFromSamePageCountPageBytesOnlyOnce",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceDomainTest",
+      "name": "directSelectionRejectsIdsOutsideProjectionCompatibleGrammar",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceDomainTest",
+      "name": "selectionKeepsExplicitEmptyAndDefensivelyCopiesValidIds",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "allUsesOnlyCurrentAuthorizedPublicationsAndGenerationNotSourceRevision",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "answeredTraceRestoresExactQuoteAndOnlyOriginalActorMayReadIt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "authorizedAllOverCapacityFailsInsteadOfTruncating",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "deadlineIsCheckedAfterAcquiringStoreMonitorAndDropsAnswerEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "explicitEmptyNeverBecomesAllAndPersistsEmptyScopeRefusal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "finalConfigurationChangeClearsAlreadyValidatedAnswerEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "finalRejectsForgedEvidenceAndOutOfSegmentLocatorWithoutTrace",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "hydrateRejectsDuplicateUnknownAndOutOfScopePhysicalIds",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "hydrateReturnsAuthoritativeUnicodeSourceAndPreservesCandidateOrder",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "initialConfigurationRejectionCannotRecoverIntoAnsweredAtFinalCheck",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "noncandidateRevocationInvalidatesHydrationAndAtomicFinalAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "nullEligibilityAtEitherCheckRollsBackEntireTrace",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "renameAndNewPublicationDoNotAlterFrozenAllScope",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "selectedSetFailsWholeForMissingPrivateUnpublishedOrTargetMismatch",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "sourceRevalidatesWholeOriginalScopeIncludingNoncitedDocuments",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "traceAndChildrenAreAppendOnlyAndSealedAgainstLateAdditions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceServiceTest",
+      "name": "traceInsertFailureRollsBackScopeAndEvidenceAndNeverReturnsSuccess",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceTraceSealTest",
+      "name": "committedTraceRejectsNewNonduplicateScopeAndCitationChildren",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.EvidenceTraceSealTest",
+      "name": "insertOrReplaceCannotBypassImmutableTraceHeaderEvenWithoutRecursiveTriggers",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageIngestionServiceTest",
+      "name": "explicitImageAdmissionKeepsOriginalAndAcceptsOnePageMachineTranscript",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "completedImageSurvivesRestartAndSourceReturnsOnlyIntersectingWord",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "declaredDimensionsMustMatchOriginalAndTextCompletionCannotBypassRegions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ImageRegionServiceTest",
+      "name": "incompleteOrInvalidWordCoverageCannotCommitAnyPartialImage(List)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "abandonedAttemptRetainsImmutableGenerationAndRetryClaimsFreshNamespace",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "cancelRetryAndRecoveryFenceAllOldAttemptsAndRequireSameTarget",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "everyClaimIdentitySnapshotAndAttemptAreValidatedAndDefensivelyCopied",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "invalidInternalInputsStaySafeAndDoNotCreateTasks",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "onlyFullVerifiedRevisionPublishesAndMetadataKeepsEvidenceIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "partialExtraForgedManifestAndTargetNeverPublishAndAuditFailureRollsBack",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "retryGenerationIsolatesLateWritesAndReceiptsWhileKeepingSourceIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "revokedCreatorCanBeFailedButCannotRetryThroughAnotherEditor",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "syntheticRegistrationNeverAppearsAsPublishedActiveRevision",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingServiceTest",
+      "name": "unparsedSyntheticUnknownAndReaderCannotCreateAndAclIsRechecked",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "immediateRetryWaitsForCancelledChildAndCannotPublishItsOldAttempt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "mismatchedFrozenTargetFailsBeforeAnyWorkerOrRemoteCall",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "partialRemoteWriteFailsSafelyAndExplicitSameTargetRetryPublishes",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "revokedWriterInterruptsRunningChildAndCannotPublish",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "shutdownTerminatesActualChildAndPersistsRetryableFailureWithoutReplayingQueue",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "timeoutKillsChildAndTheNextQueuedDocumentStillIndexes",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IndexingTaskProcessorTest",
+      "name": "unexpectedFactoryFailureIsSanitizedAndDoesNotStopScheduling",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationProcessTest",
+      "name": "anOldClaimCannotStartAParserOrCommitIntoTheExplicitRetryAttempt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationProcessTest",
+      "name": "directlyProcessingARevokedClaimRechecksAuthorizationBeforeCreatingTheParser",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationProcessTest",
+      "name": "revocationStopsActualChildBeforeItsDeadlineAndRetryStartsOnlyAfterChildExit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationProcessTest",
+      "name": "revokedQueuedCreatorStartsNoParserAndTheJobStillProcessesLaterAuthorizedWork",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "aFullyRevokedQueueIsExhaustedWithinItsBoundAndReleasesAdmissionQuota",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "cancellationAndItsAuditRollBackTogetherWhenTheAuditInsertFails",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "currentClaimRevocationCommitsOneCancellationAndLateCallbacksCannotOverwriteIt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "directCompletionAfterRevocationCancelsBeforeAnyEvidenceIsPersisted",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "directFailureAfterRevocationCancelsInsteadOfRecordingAParserFailure",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "editorCanCancelButRetryAndBothCapabilityViewsRequireTheOriginalCreatorToRecover",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "forgedClaimIdentityCannotCancelTheCurrentTaskEvenWhenItsCreatorWasRevoked",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "invalidCompletionPayloadPreservesItsErrorBeforeRevocationCanCancelTheTask",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "queuedRevocationsAreSkippedBeforeAStillAuthorizedCreatorIsClaimed",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionAuthorizationTest",
+      "name": "restartRecoveryCancelsRevokedProcessingButPreservesAuthorizedFailureSemantics",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "cancelledAndFailedAttemptsFenceOldWorkersAndNeverReplaceSource",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "everyClaimIdentityAndTokenAreValidatedBeforeMutation",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "invalidLocatorsNeverPartiallyPersistAndUnicodeOffsetsAreCodepoints",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "invalidUploadsDoNotCreateRowsAndSafeMimeIsPinned",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "managementEditsAndRawSqlCannotReplaceRegisteredOrParsedEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "pendingQuotaIsAtomicPerWorkspaceAndRetryCannotOverfillIt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "readsAndActionsRequireCurrentAclAndWorkspaceInTheTransaction",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "realUploadQueuesImmutableBytesAndParsingPublishesNoActiveIndex",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "recoveryFailsAbandonedProcessingButPreservesQueuedAndEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "storedOriginalQuotaCountsCancelledFilesAndDoesNotAcceptPartialUpload",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "transactionalAuditFailureRollsBackUploadAndAllParsedEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "unicodeSpaceOnlySegmentsAreRejectedAtTheAuthorityBoundary",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "uploadMetadataAdmissionNeedsNoFakeContentAndDoesNotAdmitInvalidFiles",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionServiceTest",
+      "name": "whitespaceRichEvidenceFromRealChildCommitsWithoutWeakeningLocatorValidation",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionTaskProcessorTest",
+      "name": "cancellingProcessingKillsActualChildAndRetryCannotReceiveItsLateResult",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.IngestionTaskProcessorTest",
+      "name": "gracefulShutdownTerminatesProcessingChildAndPersistsRetryableFailure",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "authorizationPrecedesPaginationCountsTagsAndFolderVisibility",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "batchHasPartialResultsAppendsTagsAndRejectsUnsafeCommands",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "canonicalParentAliasUsesSameDatabaseAndLifetimeLock",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "databaseRejectsForeignFormatAndConcurrentWriter",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "failedAuditInsertRollsBackMetadataAndDoesNotLeakInternalErrors",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "fixtureValidationNoOverwriteAndClosedModule",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "folderConflictsOwnershipAndNonEmptyProtection",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "foldersDoNotGrantPermissionAndBulkMoveMayUnfile",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "patchOmissionNullAndBoundsAreStrictAndAtomic",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "persistsMetadataWithoutChangingImmutableIdentity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "queryFiltersSortingAndInvalidInput",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "refusesLegacyDatabaseAndSymlink",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.ManagementServiceTest",
+      "name": "rejectsMalformedCollectionsFieldsAndFolderCommands",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.SourceImageTest",
+      "name": "readerMayReadTheirOwnImageCitationButAnotherAuthorizedActorCannot",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.SourceImageTest",
+      "name": "savedImageCitationReturnsSameOriginalAndHeaderDimensions(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.SourceImageTest",
+      "name": "savedImageCitationReturnsSameOriginalAndHeaderDimensions(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.SourceImageTest",
+      "name": "textCitationRemainsATextExcerptWithoutAnImageOriginal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.SourceImageTest",
+      "name": "withdrawnImageCitationDoesNotReturnTheRetainedOriginal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.TextVisualCoexistenceTest",
+      "name": "answersTextFromMixedLibraryForAllAndSelectedScopes(boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.TextVisualCoexistenceTest",
+      "name": "answersTextFromMixedLibraryForAllAndSelectedScopes(boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.TextVisualCoexistenceTest",
+      "name": "nonCandidateImageRevocationDuringTextExtractionRefusesWithCompleteScopeTrace",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAnswerServiceTest",
+      "name": "answersFromOriginalAndNeverUsesRecallCaptionAsAQuote",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAnswerServiceTest",
+      "name": "explicitEmptySelectionRefusesWithDurableTraceAndNoExternalRequests",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAnswerServiceTest",
+      "name": "oneUnsupportedFactRefusesTheWholeImageAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAnswerServiceTest",
+      "name": "uncitedSelectedTextRevocationStopsSecondImageCallAndFinalAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "failedOrCancelledVerificationDoesNotExposeDraftFacts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "incompleteOrUnsupportedVerificationNeverReturnsPartialFacts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "interruptedCallerMakesNoModelRequestAndKeepsInterruptFlag",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "invalidImageMetadataOrQuestionIsRejectedBeforeAnyModelRequest",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "missingVerificationEntryCannotPassEvenWhenEveryReturnedEntryIsSupported",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "passesFullQuestionOriginalImageAndEveryClaimToIndependentVerification",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "refusalStopsBeforeVerificationAndDoesNotReturnFacts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "revisionChangeAfterDraftStopsBeforeVerification",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualAssessmentServiceTest",
+      "name": "revisionChangeDuringVerificationDiscardsEveryClaim",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualEvidenceDomainTest",
+      "name": "imageAnswerHasACompleteTraceWithoutManufacturedTextEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualEvidenceServiceTest",
+      "name": "imageCitationSurvivesRestartWithOriginalBytesAndSavedVisualVersions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualIndexingServiceTest",
+      "name": "zeroTextRevisionPublishesOnlyAfterTheWholeImageProjectionIsVerified",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualIngestionServiceTest",
+      "name": "completeVisualClaimPreservesFullDescriptionWithoutAnyTextPagesOrSegments",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualIngestionServiceTest",
+      "name": "visualOnlyProfileAdmitsImageAndFreezesPreparationIdentityWithoutOcr",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualLibraryHttpTest",
+      "name": "noTextImageTravelsThroughVisualRecallPublicationAnswerAndAuthorizedOriginalReadback",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualModelFlowHttpTest",
+      "name": "incompleteQuestionCoverageAbstainsEvenWhenEachReturnedFactIsSupported",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualModelFlowHttpTest",
+      "name": "negativeImageAssessmentCannotReleaseAnyProposedFacts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.service.VisualModelFlowHttpTest",
+      "name": "pngAndJpegAssessmentsUseOriginalBytesAndEveryFactWithoutCaptionAuthority",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "cannotDropNegationConditionSubjectOrLaterRevocation(String, String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBooleanTest",
+      "name": "preservesTheExactPositiveOrNegativeAssertion(String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "budgetCountsDistinctPublicationPagesButNotTwoCandidatesFromTheSamePage",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "codePointLocatorPreservesEmojiAndCombiningCharacterPrefixWithoutNormalization",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "identicalModelQuoteIsRejectedButDistinctOverlappingOriginalQuotesAreDeduplicated",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "malformedUnicodeOutsideTheQuotedSegmentCannotCorruptPageLocators(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "malformedUnicodeOutsideTheQuotedSegmentCannotCorruptPageLocators(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "malformedUnicodeOutsideTheQuotedSegmentCannotCorruptPageLocators(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "neitherHalfOfAnEmojiIsAValidOriginalQuoteEvenBesideAValidProof",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "questionByteLimitAppliesBeforeWhitespaceOrFactDeduplication",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "samePublicationPageIdentityCannotCarryTwoDifferentAuthorityBodies",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "sixtyFifthCandidateCannotBeSilentlyIgnoredEvenWhenFirstCandidateProvesTheQuestion",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "thirtyThirdOriginalQuoteCannotBeSilentlyIgnored",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingBoundaryTest",
+      "name": "uniqueAuthorityPageBudgetAcceptsEightMiBAndRefusesOneAdditionalByte",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "detectsSameFactConflictInEveryCandidateEvenWhenTheModelOnlyQuotesOne(String, String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "differentSubjectsAreNotMistakenForTheSameRequestedFact",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "directContradictionsWithinOneSourceCannotBeSelectedAway",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingConflictTest",
+      "name": "numericPresentationAndNegativePermissionSynonymsAreNotConflicts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[13]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[14]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[15]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[16]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[17]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[18]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[19]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[20]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[21]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[22]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[23]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[24]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[25]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[26]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[27]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[28]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[29]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "exactSubstringDoesNotEraseTruthChangingContext(String, String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[13]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[14]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[15]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[16]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingContextTest",
+      "name": "unrelatedNeighborDoesNotInvalidateACompleteFact(String, String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "anExplicitIllustrationCannotSupportAnUnconditionalBudget(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "anExplicitIllustrationCannotSupportAnUnconditionalBudget(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "anExplicitIllustrationCannotSupportAnUnconditionalBudget(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "anExplicitIllustrationCannotSupportAnUnconditionalBudget(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "anExplicitIllustrationCannotSupportAnUnconditionalBudget(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "aSeparateIllustrationDoesNotCreateAConflictWithAnAssertedBudget(String, String, String, boolean, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "ordinaryTitlesAndNamesContainingExampleDoNotInvalidateAnAssertedBudget(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "ordinaryTitlesAndNamesContainingExampleDoNotInvalidateAnAssertedBudget(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "ordinaryTitlesAndNamesContainingExampleDoNotInvalidateAnAssertedBudget(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "ordinaryTitlesAndNamesContainingExampleDoNotInvalidateAnAssertedBudget(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "quotingOnlyTheBodyCannotRemoveItsIllustrationContext(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "quotingOnlyTheBodyCannotRemoveItsIllustrationContext(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "quotingOnlyTheBodyCannotRemoveItsIllustrationContext(String, String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "quotingOnlyTheBodyCannotRemoveItsIllustrationContext(String, String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "quotingOnlyTheBodyCannotRemoveItsIllustrationContext(String, String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingExampleTest",
+      "name": "quotingOnlyTheBodyCannotRemoveItsIllustrationContext(String, String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "anInstructionOrExampleCannotBecomeAnOrdinaryFact(String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "securityVocabularyAndUnrelatedMaliciousCandidatesDoNotPoisonActualFacts(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "securityVocabularyAndUnrelatedMaliciousCandidatesDoNotPoisonActualFacts(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingInstructionTest",
+      "name": "securityVocabularyAndUnrelatedMaliciousCandidatesDoNotPoisonActualFacts(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[13]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[14]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[15]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[16]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[17]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[18]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[19]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[20]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[21]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[22]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPageConflictTest",
+      "name": "checksUnretrievedPageFieldsWithoutMixingSubjectsOrTreatingExamplesAsFacts(String, String, String, String, boolean, boolean)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "bindsRequestedFrequencyAndUnitsToTheSameCompletePolicyField(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "bindsRequestedFrequencyAndUnitsToTheSameCompletePolicyField(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "bindsRequestedFrequencyAndUnitsToTheSameCompletePolicyField(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "bindsRequestedFrequencyAndUnitsToTheSameCompletePolicyField(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "bindsRequestedFrequencyAndUnitsToTheSameCompletePolicyField(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "bindsRequestedFrequencyAndUnitsToTheSameCompletePolicyField(String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "cannotAnswerAQuantityUsingAnotherFrequencyUnitOrNeighboringField(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "cannotAnswerAQuantityUsingAnotherFrequencyUnitOrNeighboringField(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "cannotAnswerAQuantityUsingAnotherFrequencyUnitOrNeighboringField(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "cannotAnswerAQuantityUsingAnotherFrequencyUnitOrNeighboringField(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "cannotAnswerAQuantityUsingAnotherFrequencyUnitOrNeighboringField(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "otherOperationsOrReferenceOnlyInstructionsDoNotProveTheRequestedProcedure(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "otherOperationsOrReferenceOnlyInstructionsDoNotProveTheRequestedProcedure(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "otherOperationsOrReferenceOnlyInstructionsDoNotProveTheRequestedProcedure(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "otherOperationsOrReferenceOnlyInstructionsDoNotProveTheRequestedProcedure(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "returnsTheCompleteProcedureIncludingItsConditionsAndLastStep(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "returnsTheCompleteProcedureIncludingItsConditionsAndLastStep(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "returnsTheCompleteProcedureIncludingItsConditionsAndLastStep(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingPolicyTest",
+      "name": "returnsTheCompleteProcedureIncludingItsConditionsAndLastStep(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureResourceTest",
+      "name": "anUnquotedLongProcedureIsRefusedWithinTheIsolatedProcessBudget",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aNamedPrerequisiteForThisOperationMustBeQuotedAsPartOfTheCompleteProcedure(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aNamedPrerequisiteForThisOperationMustBeQuotedAsPartOfTheCompleteProcedure(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aNamedPrerequisiteForThisOperationMustBeQuotedAsPartOfTheCompleteProcedure(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aNamedPrerequisiteForThisOperationMustBeQuotedAsPartOfTheCompleteProcedure(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherNamedOperationOrIndependentFactDoesNotBecomeARequiredStep(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherNamedOperationOrIndependentFactDoesNotBecomeARequiredStep(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherNamedOperationOrIndependentFactDoesNotBecomeARequiredStep(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherNamedOperationOrIndependentFactDoesNotBecomeARequiredStep(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherNamedOperationOrIndependentFactDoesNotBecomeARequiredStep(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherPublicationCannotSupplyTheMissingStep(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anotherPublicationCannotSupplyTheMissingStep(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anUnrecognizedPrerequisiteCannotBeDiscardedAsAnIndependentFact(boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "anUnrecognizedPrerequisiteCannotBeDiscardedAsAnIndependentFact(boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aPrerequisiteExplicitlyBoundToAnotherOperationDoesNotPolluteThisProcedure(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aPrerequisiteExplicitlyBoundToAnotherOperationDoesNotPolluteThisProcedure(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aRefutedRequiredStepCannotSupportEitherACompleteOrPartialProcedure(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aRefutedRequiredStepCannotSupportEitherACompleteOrPartialProcedure(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aRefutedRequiredStepCannotSupportEitherACompleteOrPartialProcedure(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "aRefutedRequiredStepCannotSupportEitherACompleteOrPartialProcedure(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "bareNumberedAndCompletionStepsRemainRequiredAndExactlyQuoted(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "changingOnlyTheSentenceSeparatorToACommaPreservesTheEntireExistingProcedure(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "changingOnlyTheSentenceSeparatorToACommaPreservesTheEntireExistingProcedure(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "completeStepsAcrossTwoCandidatesCanProveOneProcedureWithoutUnquotedSupport(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "completeStepsAcrossTwoCandidatesCanProveOneProcedureWithoutUnquotedSupport(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "fencesAndExampleLabelsInsideTheProcedureCannotBeIgnoredOrSupplySteps(String, String, String, String, boolean)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "firstSentenceCannotProveAProcedureWithARequiredContinuation(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "firstSentenceCannotProveAProcedureWithARequiredContinuation(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "identicalFirstStepsDoNotHideConflictingRequiredFinalSteps",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "intermediateRefutationAndFinalQuestionsRemainUnsafeEvenWhenAllStepsAreQuoted(String, String, String, String, boolean)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "narrowingOnlyTheQuoteCannotHideTheContinuationInsideTheSameCandidate(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "narrowingOnlyTheQuoteCannotHideTheContinuationInsideTheSameCandidate(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "quotesTheCompleteProcedureInsteadOfSilentlyDroppingItsContinuation(String, String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "quotesTheCompleteProcedureInsteadOfSilentlyDroppingItsContinuation(String, String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "unsafeOrUnresolvedSuccessorsCannotBeSilentlyDropped(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "unsafeOrUnresolvedSuccessorsCannotBeSilentlyDropped(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "unsafeOrUnresolvedSuccessorsCannotBeSilentlyDropped(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingProcedureTest",
+      "name": "unsafeOrUnresolvedSuccessorsCannotBeSilentlyDropped(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingQuoteTest",
+      "name": "completeParagraphMayContainUnrelatedDataWithoutLeakingItIntoTheAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingQuoteTest",
+      "name": "neutralDocumentLabelDoesNotPreventAnExplicitSubjectAndPredicate",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingQuoteTest",
+      "name": "oneLongQuoteCanProveMultipleFactsButStillCannotOmitTheLastRequestedFact",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingQuoteTest",
+      "name": "oneValidQuoteDoesNotExcuseAnyForgedOrUnknownModelQuote",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingQuoteTest",
+      "name": "repeatedOccurrenceCannotBeMappedToAnArbitraryFirstSourceLocation",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingQuoteTest",
+      "name": "unrelatedExactQuoteIsNotReturnedAndCannotSupplyAMissingPredicate",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "connectorAssignmentRangesRetainWordBoundariesAndNumericColonRules(String, boolean)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "connectorAssignmentRangesRetainWordBoundariesAndNumericColonRules(String, boolean)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "connectorAssignmentRangesRetainWordBoundariesAndNumericColonRules(String, boolean)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "connectorAssignmentRangesRetainWordBoundariesAndNumericColonRules(String, boolean)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "connectorAssignmentRangesRetainWordBoundariesAndNumericColonRules(String, boolean)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "connectorAssignmentRangesRetainWordBoundariesAndNumericColonRules(String, boolean)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "interruptedGroundingPreservesTheFlagAndDoesNotReturnPartialProof",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingResourceTest",
+      "name": "manyUnassignedConnectorsBeforeAnExactFactFinishWithinTheProcessBudget",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aConditionExplicitlyAboutAnotherSubjectsBudgetDoesNotQualifyThisBudget(String, String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aLaterExplicitConditionOnTheSameSubjectCannotHideInAnotherChunk(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aLaterExplicitConditionOnTheSameSubjectCannotHideInAnotherChunk(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aLaterExplicitConditionOnTheSameSubjectCannotHideInAnotherChunk(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aLaterExplicitConditionOnTheSameSubjectCannotHideInAnotherChunk(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aLaterExplicitConditionOnTheSameSubjectCannotHideInAnotherChunk(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aLaterExplicitConditionOnTheSameSubjectCannotHideInAnotherChunk(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNamedSamePageConditionAlsoBindsAValueInALaterChunk(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNamedSamePageConditionAlsoBindsAValueInALaterChunk(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNamedSamePageConditionAlsoBindsAValueInALaterChunk(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNamedSamePageConditionAlsoBindsAValueInALaterChunk(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNamedSamePageConditionAlsoBindsAValueInALaterChunk(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNamedSamePageConditionAlsoBindsAValueInALaterChunk(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNeutralLabelCannotTurnAnActualCrossSubjectPremiseIntoAnIndependentStatement(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "aNeutralLabelCannotTurnAnActualCrossSubjectPremiseIntoAnIndependentStatement(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExactChunkCannotLoseAnAdjacentSamePageApplicabilityCondition(String, String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExplicitIfClauseMayConditionTheAnswerEvenWhenItsPremiseNamesAnotherSubject(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExplicitIfClauseMayConditionTheAnswerEvenWhenItsPremiseNamesAnotherSubject(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExplicitIfClauseMayConditionTheAnswerEvenWhenItsPremiseNamesAnotherSubject(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anExplicitIfClauseMayConditionTheAnswerEvenWhenItsPremiseNamesAnotherSubject(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anOriginalSubstringCannotEraseANamePrefixSuffixOrPredicateSuffix(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anOriginalSubstringCannotEraseANamePrefixSuffixOrPredicateSuffix(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anOriginalSubstringCannotEraseANamePrefixSuffixOrPredicateSuffix(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anOriginalSubstringCannotEraseANamePrefixSuffixOrPredicateSuffix(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anOriginalSubstringCannotEraseANamePrefixSuffixOrPredicateSuffix(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "anOriginalSubstringCannotEraseANamePrefixSuffixOrPredicateSuffix(String, String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "mentioningATrialInUnrelatedMetadataDoesNotInvalidateAnUnconditionalFact(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "mentioningATrialInUnrelatedMetadataDoesNotInvalidateAnUnconditionalFact(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "mentioningATrialInUnrelatedMetadataDoesNotInvalidateAnUnconditionalFact(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "mentioningATrialInUnrelatedMetadataDoesNotInvalidateAnUnconditionalFact(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "similarlyNamedSubjectsCanEachHaveTheirOwnDifferentVerifiedAnswer(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingScopeTest",
+      "name": "similarlyNamedSubjectsCanEachHaveTheirOwnDifferentVerifiedAnswer(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "doesNotSplitConnectorInsideAProperName",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "factLimitCannotTurnAWholeQuestionIntoAPartialAnswer",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "provesEveryRequestedFactAndRefusesMissingTail(String, String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "provesEveryRequestedFactAndRefusesMissingTail(String, String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "provesEveryRequestedFactAndRefusesMissingTail(String, String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "provesEveryRequestedFactAndRefusesMissingTail(String, String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "provesEveryRequestedFactAndRefusesMissingTail(String, String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingTest",
+      "name": "provesExactNamedFactAndReturnsAuthoritativePageCodePointLocator",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[10]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[11]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[12]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[7]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[8]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aCompleteOriginalFieldStillCannotProveARefutedOrConditionalAssertion(String, String)[9]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aNegativeStateOrAWordInsideAProperNameIsNotARefutation(String, String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aNegativeStateOrAWordInsideAProperNameIsNotARefutation(String, String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aNegativeStateOrAWordInsideAProperNameIsNotARefutation(String, String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aNegativeStateOrAWordInsideAProperNameIsNotARefutation(String, String)[4]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aNegativeStateOrAWordInsideAProperNameIsNotARefutation(String, String)[5]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.answer.TextGroundingWholeFieldTest",
+      "name": "aNegativeStateOrAWordInsideAProperNameIsNotARefutation(String, String)[6]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageInputTest",
+      "name": "animatedPngIsRejectedEvenWhenItsFirstFrameHasValidDimensions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageInputTest",
+      "name": "validPngAndJpegPreserveTheirRealTypeAndOriginalDimensions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageTsvParserTest",
+      "name": "preservesUnicodeRepeatedWordsAndLowConfidenceTailAcrossLines",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageTsvParserTest",
+      "name": "rejectsInitialWordBomRatherThanReturningShiftedCodePointRegions",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageTsvParserTest",
+      "name": "rejectsOutOfBoundsBoxTruncatedOutputAndRepeatedWordNumber(String)[1]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageTsvParserTest",
+      "name": "rejectsOutOfBoundsBoxTruncatedOutputAndRepeatedWordNumber(String)[2]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.ImageTsvParserTest",
+      "name": "rejectsOutOfBoundsBoxTruncatedOutputAndRepeatedWordNumber(String)[3]",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "boundsExtractedTextAndImmutableResults",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "domainTextSnapshotsAreDefensiveAndNeverExposeSourceInDiagnostics",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "extractsOriginalFrozenPdfCorpusWithoutRewritingGroundTruth",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "longChineseAndEmojiTextKeepsOverlapsAndCoverage",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "maintainsPageNumbersAndRejectsEncryptedOrEmptyPdfs",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "preservesCodePointLocatorsAndNormalizesOnlyLineEndings",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "rejectsUnsafeUnsupportedSpoofedOrInvalidTextInputs",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.tool.parser.TextParserTest",
+      "name": "whitespaceOverlapHasMonotonicLocatorsAndPreservesEveryNonSpaceCodePoint",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "absentDocumentIdsUsesOnlyTheCurrentAuthorizedPublishedLibrary",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "answersOnlyUsesIndependentDefaultsWithoutStartingJobsOrClaimingUiAndProduction",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "explicitEmptySelectionReturnsAnAuditedRefusalWithZeroRemoteCalls",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "jwtBearerAndCookieAuthorizeAnswersButHeadersNeverOverrideThem",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "malformedJsonUnknownFieldsAndAmbiguousScopeFailBeforeAnyProvider",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "realHttpAdaptersProduceAReReadableServerCitationWithoutTrustingProjectionText",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "sourceAddressAcceptsOnlyAnAnswerAndBoundedOrdinalWithoutBodyOrQuery",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "sourcesRecheckCurrentIdentityAndAclInsteadOfServingSavedAnswerText",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersHttpTest",
+      "name": "unavailableSelectedDocumentCannotBeDroppedOrBroadenedToTheLibrary",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.AnswersRuntimeTest",
+      "name": "answerCapabilityRequiresItsOwnFlagAndNeverMeansProductionReadiness",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.AnswerRequestMapperTest",
+      "name": "missingSelectionAndExplicitEmptyHaveDifferentMeaning",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.AnswerRequestMapperTest",
+      "name": "preservesEverySelectedIdAndRejectsAmbiguousOrOversizedSelection",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.AnswerRequestMapperTest",
+      "name": "rejectsUnknownAuthorityAndProviderFields",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.AnswerRequestMapperTest",
+      "name": "validatesQuestionUnicodeAndExactUtf8BudgetWithoutCoercion",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "collectionFieldsRequireExplicitListsRatherThanNullableSnapshots",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "directlyExposedFolderDtoHasADefensiveListEnvelope",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "documentActionReceiptsAreADefensiveSnapshot",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "documentCollectionsAreDefensiveSnapshots",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "documentPageIsADefensiveSnapshot",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "runtimeCapabilityListsAreDefensiveSnapshots",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.ResponseSnapshotTest",
+      "name": "tagListIsADefensiveSnapshot",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.TaskResponseMapperTest",
+      "name": "ingestionAndIndexingKeepExactPublicVariantsIncludingExplicitNullFields",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.converter.TaskResponseMapperTest",
+      "name": "missingLatestTaskStaysNullRatherThanCreatingAnEmptyTask",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.DocumentRemovalHttpTest",
+      "name": "defaultOffDoesNotExposeTheRouteOrClaimWithdrawalCapability",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.DocumentRemovalHttpTest",
+      "name": "developmentIdentityOriginAndInputAreCheckedBeforeWithdrawal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.DocumentRemovalHttpTest",
+      "name": "explicitRemovalAcceptsWithdrawalWithoutClaimingCleanupAndRepeatsItsOriginalReceipt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.DocumentRemovalHttpTest",
+      "name": "jwtBearerAndCookieKeepCurrentIdentityAuthoritativeForWithdrawal",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.DocumentRemovalHttpTest",
+      "name": "removalOnlyAdvertisesWithdrawalAndLeavesUnimplementedFeaturesDisabled",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.DocumentRemovalHttpTest",
+      "name": "reopeningWithRemovalDisabledDoesNotRestoreAnAlreadyWithdrawnDocument",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.ImageMainlineHttpTest",
+      "name": "imageTravelsThroughOcrIndexAnswerAndOriginalReadback",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingHttpTest",
+      "name": "authorizedIndexingRunsRealChildAndPublishesOnlyCompleteEvidence",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingHttpTest",
+      "name": "indexActionsRejectBodyQueryAndUnauthorizedRequestsBeforeSideEffects",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingHttpTest",
+      "name": "runtimeAdvertisesOnlyExplicitIndexingWithoutPretendingAnswerReadiness",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IndexingJwtHttpTest",
+      "name": "bearerCookieAndCurrentAclProtectCreateCancelRetryAndPublication",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "envelopeAuthenticationAndOriginFailBeforeCreatingDocuments",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "incompleteUploadExpiresWithoutPersistingAnyDocumentAndCapacityRecovers",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "invalidFileContentPreservesTheEstablishedProblemDetail",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "invalidUtf8FailsSafelyAndExplicitRetriesStopAtThreeAttempts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "realUploadBecomesDurableParsedEvidenceButNotQueryable",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "taskActionsRejectUnexpectedBodyQueryAndMethods",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.IngestionHttpTest",
+      "name": "unfinishedConcurrentUploadsHaveAnAdmissionLimit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.ManagementHttpTest",
+      "name": "aclAndValidationAreEnforcedOverRealHttp",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.ManagementHttpTest",
+      "name": "foldersMetadataAndPartialBatchWorkAsAnIntegratedFlow",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.ManagementHttpTest",
+      "name": "runtimeIsAliveButNotProductionReady",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.ProblemHandlerTest",
+      "name": "problemContractHasNoSensitiveExceptionDetails",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.RuntimeControllerTest",
+      "name": "eachCapabilityIsExplicitAndNeverEnablesAnswersOrProduction",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.web.TextMainlineHttpTest",
+      "name": "fixedPdfTravelsThroughUploadParseIndexAnswerAndSourceOverHttp",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerLifetimeTest",
+      "name": "leaseAdmissionWaitIsBoundedAndClosingReleasesOnlyItsOwnLock",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerLifetimeTest",
+      "name": "repeatedCloseCannotReleaseThePermitHeldByTheNextLifetime",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerLifetimeTest",
+      "name": "reusedPidWithDifferentStartInstantNeverGetsAWriterLease",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerLifetimeTest",
+      "name": "timedOutSameJvmWaiterCannotReleaseHolderLockToAnotherJvm",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerParentDeathTest",
+      "name": "forciblyKilledParentCannotLeaveAWriterThatUpsertsAfterRetryPublication",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerParentDeathTest",
+      "name": "serverAcceptedOldUpsertMayCommitAfterRetryButCannotChangePublishedGeneration",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "binaryWorkerInterfaceValidatesTheEntireRequestAndDoesNotMutateJvmOutput",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "cancellationDuringARealEmbeddingRequestStopsBeforeUpsertAndAllowsRetry",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "invalidVectorsPartialWritesAndIncompleteVerificationNeverReturnAReceipt",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "largeDimensionsReduceTheActualBatchToStayInsideTheResponseBudget",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "realChildEmbedsEverySegmentInSmallBatchesThenVerifiesWholeRevision",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "wholeTaskDeadlineIncludesMultipleIndividuallyFastHttpCalls",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.IndexWorkerTest",
+      "name": "workerRejectsInsufficientResponseBudgetBeforeAnyModelCalls",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.ProcessTextIndexerTest",
+      "name": "childHasFixedResourcesClearedEnvironmentPrivateDirectoryAndNoAuthorityToken",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.ProcessTextIndexerTest",
+      "name": "everyMalformedResponseFailsAsAWholeAndNeverReturnsAPartialManifest",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.ProcessTextIndexerTest",
+      "name": "interruptionPreservesCallerFlagAndWaitsBeforeAnotherChildStarts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.ProcessTextIndexerTest",
+      "name": "invalidSettingsTargetsAndSnapshotsAreRejectedBeforeTheFixtureStarts",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.ProcessTextIndexerTest",
+      "name": "onlyOneChildAcrossInstancesAndConcurrentCloseNeverLeaksThePermit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.ProcessTextIndexerTest",
+      "name": "wholeDeadlineIncludesBlockedStdinAndConfirmsChildExit",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.indexing.VisualIndexWorkerTest",
+      "name": "realChildProjectsTheWholeUnicodeImageRecallWithoutTextLocators",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ParserWorkerTest",
+      "name": "brokenOutputDoesNotLeakLibraryErrorsOrThrowToTheWorkerEntrypoint",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ParserWorkerTest",
+      "name": "malformedProtocolOrUnsupportedContentHasTheSameFixedNonSensitiveFailureFrame",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ParserWorkerTest",
+      "name": "oneRequestEmitsOnlyTheCompleteBinaryResultForTextAndFrozenPdfs",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessImageParserTest",
+      "name": "transfersOriginalBytesToRealChildAndNormalizesItsUnicodeTranscript",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "childHasNoInheritedEnvironmentAndFixedResourcesAndPrivateTemporaryDirectory",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "configurationAndEnvelopeFailuresNeverStartTheFixture",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "deadlineIncludesBlockedStdinAndWaitsForKilledChild",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "environmentFixtureOnlyPermitsTheKnownBoundedMacLocaleAndNoAdditionalKeys",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "interruptCancelsAndPreservesTheCallingThreadFlag",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "malformedChildOutputsAreRejectedAsWholeResults",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "onlyOneChildAcrossInstancesAndCloseCancelsAndWaits",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "outputCapAndNonzeroExitFailWithoutAcceptingPartialResults",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "parserFailureDoesNotPoisonLaterRequestsAndCloseIsPermanent",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "parsesUnicodeTextAndFrozenPdfsThroughTheSameSmallInterface",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "simultaneousCloseIsIdempotentAndDoesNotPoisonGlobalCapacity",
+      "passed": true
+    },
+    {
+      "className": "com.evidence.rag.worker.parser.ProcessTextParserTest",
+      "name": "whitespaceHeavyOverlapsRemainValidAcrossTheRealProcessProtocol",
+      "passed": true
+    }
+  ]
+}

@@ -35,10 +35,10 @@ class IndexWorkerTest {
       var claim = server.claim(35);
       var result = indexer.index(claim);
       var expected = new TreeMap<String, String>();
-      for (var segment : claim.segments()) {
+      for (var segment : claim.items()) {
         String physicalId =
             RetrievalProjection.physicalSegmentId(
-                claim.projectionGenerationId(), segment.segmentId());
+                claim.projectionGenerationId(), segment.evidenceId());
         expected.put(
             physicalId,
             RetrievalProjection.entryDigest(
@@ -47,7 +47,7 @@ class IndexWorkerTest {
                     claim.workspaceId(),
                     claim.documentId(),
                     claim.projectionGenerationId(),
-                    segment.text(),
+                    segment.recallText(),
                     List.of(0.1, 0.5))));
       }
       assertEquals(expected, result.entryDigests());

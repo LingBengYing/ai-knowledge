@@ -77,13 +77,11 @@ public final class IndexWorker {
       projection.initialize();
       lifetime.check();
       var digests = new TreeMap<String, String>();
-      for (int offset = 0; offset < request.segments().size(); offset += batchSize) {
+      for (int offset = 0; offset < request.items().size(); offset += batchSize) {
         lifetime.check();
         var batch =
-            request
-                .segments()
-                .subList(offset, Math.min(request.segments().size(), offset + batchSize));
-        var vectors = models.embed(batch.stream().map(segment -> segment.text()).toList());
+            request.items().subList(offset, Math.min(request.items().size(), offset + batchSize));
+        var vectors = models.embed(batch.stream().map(segment -> segment.recallText()).toList());
         lifetime.check();
         var entries = new ArrayList<RetrievalProjection.Entry>(batch.size());
         for (int i = 0; i < batch.size(); i++) {
@@ -91,11 +89,11 @@ public final class IndexWorker {
           entries.add(
               new RetrievalProjection.Entry(
                   RetrievalProjection.physicalSegmentId(
-                      request.projectionGenerationId(), segment.segmentId()),
+                      request.projectionGenerationId(), segment.evidenceId()),
                   request.workspaceId(),
                   request.documentId(),
                   request.projectionGenerationId(),
-                  segment.text(),
+                  segment.recallText(),
                   vectors.get(i)));
         }
         lifetime.check();

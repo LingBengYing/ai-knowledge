@@ -9,7 +9,8 @@ public record AnswerResult(
     String status,
     String answer,
     String reason,
-    List<CitationResult> citations) {
+    List<CitationResult> citations)
+    implements AnswerPayload {
   public AnswerResult {
     citations = List.copyOf(citations);
   }

@@ -70,16 +70,16 @@ public final class AnswerTestContext implements AutoCloseable {
             : new DeterministicProjection(actor.workspaceId(), 2);
     data.initialize();
     var entries =
-        claim.segments().stream()
+        claim.items().stream()
             .map(
                 segment ->
                     new RetrievalProjection.Entry(
                         RetrievalProjection.physicalSegmentId(
-                            claim.projectionGenerationId(), segment.segmentId()),
+                            claim.projectionGenerationId(), segment.evidenceId()),
                         actor.workspaceId(),
                         claim.documentId(),
                         claim.projectionGenerationId(),
-                        segment.text(),
+                        segment.recallText(),
                         List.of(1.0, 0.0)))
             .toList();
     var digests = new TreeMap<String, String>();

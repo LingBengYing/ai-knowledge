@@ -1,5 +1,37 @@
 # AI Knowledge · Java Edition
 
+2026-09-22 17:39最新诊断：累计6/20次；已通过原字节码定位到同字段指令检测`instruction_in_field`，原摘录/完整转录均被拒绝。编号规范化能找到731，找不到AU，具体错字不猜测。下一步检查ASR配置/候选，不放宽安全规则；视频尚未开始，见[完整台账](docs/changes/0019-audio-video-provider-eval/provider-run.md)。诊断完成不等于真实质量或上线通过，下方2/12为首次运行历史。
+
+2026-09-22真实评测结果：获批最多12次后，音频ASR和文字摘录各调用1次，随后原文证据校验`eval_audio_not_grounded`失败；视频尚未开始。实际2/12，剩余10次未使用，无重试，见[执行台账](docs/changes/0019-audio-video-provider-eval/provider-run.md)。这不是质量或上线通过，后续云诊断需另行授权。以下为9/21及更早交付快照，其中NOT_RUN不是当前状态。
+
+最新进展：[音视频模型评测入口](docs/AUDIO_VIDEO_PROVIDER_EVAL.md)已完成本机验证：固定合成语音/视频完整解码，实际PCM和原帧经生产模型协议，验证音频原文和同组音画双事实；请求前核算完整额度，失败停止、不自动重试。1685 Java、23项原生媒体测试、73 Node与格式/覆盖率及独立制品审计通过，见[0019验证](docs/changes/0019-audio-video-provider-eval/verification.md)。这次仅新增评测代码和资源，**真实云模型尚未运行，前端和生产未发布**。下一步需要新调用授权与轮换后私有密钥/模型配置。以下为历史交付快照，不重复已验收的后端装配。
+
+最新状态：[完整多模态后端配置](docs/MULTIMODAL_RUNTIME.md)已在同一真实Spring装配下通过本机验收：文本/图片/音频/视频上传与索引、图片/音频/视频附件辅助问答、音频和视频OCR/字幕来源、短文件摘要，以及重启后原媒体与时间引用回读。无测试Bean替换；真实SQLite/FFmpeg/Tesseract，模型和Milvus服务端使用本机协议替身。1680 Java、22项原生媒体测试、73 Node、格式与覆盖率门禁及独立审计通过，见[0018验证](docs/changes/0018-multimodal-composition/verification.md)。配置示例已补齐字幕和摘要，运行说明区分了配置共存与模型效果；**真实多模态模型/Milvus质量、前端和生产发布仍未完成**。下一步在新授权和轮换后私有密钥就绪时验证真实质量，不自动调用、推送或部署。下方“当前/下一步”均为历史交付快照。
+
+当前实施主线是[多模态查询附件](docs/QUERY_ATTACHMENTS.md)：已接完整scope后图片/音频/视频编译、辅助召回/原图匹配、原问题与库内证据证明、v16 hash-only trace和独立有界HTTP。真实合成PNG/WAV/MP4的入口与重启来源回读已通过，最终冻结见[附件答案验证](docs/changes/0017-query-attachments/answers-verification.md)。默认关闭，附件不入库、不作引用；**前端、真实模型/Milvus质量与生产发布仍未完成**。以下为历史阶段，不触发重复开发或诊断。
+
+当前多模态主线：[视频内嵌字幕](docs/VIDEO_SUBTITLES.md)。本机后端已接真实全轨字幕→v15完整持久化/索引→同轨文字证明→typed时间/原视频Range，以及包含尾部字幕的完整文件摘要和重启来源回读；验收与源码绑定见[后端验证](docs/changes/0016-subtitle-tracks/library-verification.md)。默认关闭，不把字幕当ASR，不以caption/摘要代替证据。模型/Milvus服务端为本机协议替身，**真实模型质量、查询附件、前端与生产仍未完成**。下方为历史交付快照。
+
+最新增量：[文件摘要后端](docs/FILE_SYNOPSIS.md)支持完整长文件分批/分层生成、逐条原始引用证明、全部原批次复查，再通过原持久任务/来源HTTP回读；长文字、长音频、9帧视频与重启零模型读取已本机通过。1485 Java、73 Node、512格式及双80%门禁，详见[本机验证](docs/changes/0015-file-synopsis/hierarchy-verification.md)。保留文档/图片/音频/视频七种原始来源与旧短文件结果，默认关闭，摘要失败不影响检索。模型为本机协议替身；**前端入口、真实模型质量及生产仍未完成**。以下为历史基线。
+
+当前增量：[视频选中原帧OCR](docs/VIDEO_OCR.md)已本机冻结。新增独立`mode=ocr`、原帧文字/词框/时间来源及v12附表，原`visual/transcript/joint`语义保持；1352 Java、73 Node、458文件格式/双80%及单列6项真实音视频流程通过，见[OCR验证记录](docs/changes/0014-video-library/ocr-verification.md)。视频OCR默认关闭，仅本机development/test；真实Tesseract合成英文链与模型/Milvus协议替身不等于全视频字幕、中文质量、网页或生产验收。以下1299是上一冻结基线，不单独认证新增源码。
+
+2026-09-20进展：[视频问答与来源API](docs/VIDEO_ANSWERS.md)已本机跑通。视频上传/索引后，可分别询问画面、音轨或联合事实；引用能回读真实时间区间、封存原帧与原视频Range。完整范围和同组逐事实证明保留，caption不作证明。1299 Java、73 Node、5项真实音视频流程及格式/覆盖率门禁通过，详见[验证记录](docs/changes/0014-video-library/answers-verification.md)。模型/Milvus为本机协议替身，不代表真实模型质量；网页和生产未改。下一步推进视频原帧OCR文字证据，字幕、摘要及其余质量/发布门禁仍未完成。以下为历史阶段记录，其中“当前/下一步”只描述当时版本。
+
+当前开发主线为[0014视频时间证据与音画联合](docs/changes/0014-video-library/intent.md)：已接通[显式视频上传→持久任务→完整原帧/转录/时间组→索引发布](docs/VIDEO_PUBLICATION.md)，2026-09-12本机后端[验收通过](docs/changes/0014-video-library/publication-verification.md)。下一步接原帧与转录的同组逐事实证明、typed时间/关键帧引用；当前没有视频问答API，caption仅用于召回。前端与生产未改，模型/Milvus服务端验收使用本机协议替身，不代表云模型质量。以下是保留的历史后端基线。
+
+当前开发主线为[0013音频时间证据](docs/changes/0013-audio-library/intent.md)。本机后端已接通上传→实际解码/标准ASR协议→完整索引→逐事实问答→typed时间引用→同版本原音频回读及单byte Range，配置和接口见[音频知识库](docs/AUDIO_COMPILATION.md)。音频时间为服务器真实分段，不是词级对齐；前端播放器、真实模型效果和生产仍待验收。以下0012是保留的图片基线。
+
+音频完整后端链已通过真实FFmpeg/Spring HTTP验收，ASR/问答模型/Milvus为本机协议替身，详见[0013问答与回放验证](docs/changes/0013-audio-library/answers-verification.md)。[此前上传/索引基线](docs/changes/0013-audio-library/publication-verification.md)保留不覆盖；未调用云模型或部署。
+
+最新实现入口为[0012原图知识库](docs/VISUAL_LIBRARY.md)：无文字图片上传→独立描述召回→Milvus→原图逐事实问答→typed整图引用。2026-09-10本地后端HTTP与942 Java/73 Node、格式/覆盖率和限定独立审查通过，见[验收记录](docs/changes/0012-visual-library/verification.md)。模型/Milvus服务端仍是本机协议替身；旧文字/OCR API保留，新增图片接口默认关闭，前端未改。以下0011及更早段落是历史基线，不认证0012，也不代表云视觉质量或生产完成。
+
+当前增量[0011图片视觉模型](docs/changes/0011-visual-models/intent.md)已通过本地Module验收：原图生成与逐事实评估，机器描述只供召回；923 Java/73 Node及限定独立审查通过，云请求0。尚未接纯视觉入库/检索/公开问答，接口边界见[VISION_MODELS](docs/VISION_MODELS.md)与[验收记录](docs/changes/0011-visual-models/verification.md)；下方0010为已验收OCR基线，不能代替真实视觉质量验收。
+
+2026-09-09当前增量：[图片OCR词级区域](docs/changes/0010-image-regions/intent.md)。图片文字问答的引用已能返回同版本词框；真实Tesseract合成英文PNG闭环与900 Java/73 Node通过，模型/Milvus仍为协议替身。见[验收记录](docs/changes/0010-image-regions/verification.md)，不是网页高亮、纯视觉、音视频或生产完成。
+
+最新开发主线已按负责人要求切换为[0009图片证据](docs/changes/0009-image-evidence/intent.md)：先PNG/JPEG文字识别、既有索引问答与同版本原图回读，再音频/视频。入口与明确边界见[IMAGE_EVIDENCE](docs/IMAGE_EVIDENCE.md)。0007固定PDF真实后端流程已通过，见[文本主线记录](docs/changes/0007-text-answers/mainline-live.md)；下方“当前0008”等为历史快照，不能作为新图片源码的验收。当前不推送或部署。
+
 当前增量：[0008文档生命周期](docs/changes/0008-document-lifecycle/intent.md)，实现独立开关控制的撤下请求、在途任务取消及旧引用失效。2026-09-08 13:09:46实际JDK21完整857项Java、73项Node、240文件格式及行/分支双80%门禁通过。`DELETE /v1/documents/{id}`返回`deleting/pending`，不表示物理清理完成；没有恢复接口，文件与历史证据仍保留并占配额。当前验证与剩余门禁见[0008验证](docs/changes/0008-document-lifecycle/verification.md)。本次仅同步源码与说明，不部署；下方0007及更早日期均为历史基线，不认证新增源码。
 
 2026-09-08 12:08:55 本次代码同步快照：修复明确示例语境、多句操作步骤/必要前提遗漏及程序组重复全页扫描，policy 为 `java-text-grounding-v4-procedure-context`。最后修改后773项Java、73项Node、227文件格式与双80%覆盖率门禁通过，原675项测试及91个测试/语料文件完整保留；本批限定Standards/Spec审查均无未关闭问题。完整真实生成链路、网页接线、多模态和生产仍未验收。本次只同步Java代码与说明，不部署或改前端；当前范围与源码绑定见[0007验证](docs/changes/0007-text-answers/verification.md)和[REVIEW](docs/changes/0007-text-answers/REVIEW.md)，下方日期及“未推送”均为历史状态。
@@ -12,7 +44,7 @@
 
 一个面向单组织的 **Java AI 知识库 / RAG（Retrieval-Augmented Generation）** 项目。
 
-当前可运行的是 **资料管理工作台与本机文本链路**：列表、授权分页、目录、标签、改名、批量整理和审计；独立开关控制文本上传/解析、索引发布及问答HTTP。0007连接授权混合检索、重排、受限事实验证、摘录答案与引用回读；网页提问尚未接线，图片、音频和视频知识处理仍待实现。
+当前可运行的是 **资料管理工作台与本机文本/图片/音频/视频后端链路**：列表、授权分页、目录、标签、改名、批量整理和审计；独立开关控制上传/解析、索引发布、问答及摘要HTTP。0010提供PNG/JPEG文字与词框，0012提供无文字原图问答及整图引用，0013提供音频转录/索引/问答及时间来源，0014提供视频原帧/转录及音画联合问答、选中原帧OCR与时间来源；0015提供短/长文件完整摘要与持久来源，0016提供独立字幕轨检索/问答及摘要来源。网页提问、图片预览、音视频播放器和摘要入口尚未接线。后端接口通过不等于网页或真实模型质量通过。
 
 > **非生产版。** `parsed`与`indexed`不自动开放问答；需显式启用0007并满足当前授权与publication约束。列表`can_answer=false`和网页未接线的边界保留，`/health/ready`仍为503。Java21历史CI、本机替身和已有浏览器截图均不认证当前真实provider/Milvus或生产可用性。
 
@@ -35,7 +67,15 @@
 | 显式索引任务与active发布 | 0004实现中 | 默认关闭；每attempt独立generation、完整物理manifest与映射台账；父存活/跨JVM lease和晚写隔离仍按当前验证记录验收 |
 | 有证问答与来源 | 0007开发实现，默认关闭 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；范围/配置复验和trace同事务，网页未接线，完整语义与真实provider待验收 |
 | 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，默认关闭 | DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending，物理清理与批量硬删仍未实现 |
-| 图片、音频、视频、联合事实与文件摘要 | 规划中 | 不等同于仅生成文件摘要 |
+| PNG/JPEG文字识别、索引问答、词框与原图引用回读 | 0010本机后端验收通过 | 实际Tesseract合成英文PNG；模型/Milvus为协议替身，非真实图片检索质量；见[图片入口](docs/IMAGE_EVIDENCE.md) |
+| 原图视觉模型通信、库内索引、逐事实问答与整图引用 | 0012本机后端验收通过 | 独立image证据，caption仅用于召回；模型/Milvus为协议替身，未验云质量/网页 |
+| 音频解码、ASR协议、索引、问答与原文件Range | 0013本机后端已接线 | [接口及验证边界](docs/AUDIO_COMPILATION.md)；时间为真实分段，不假报词级对齐或真实识别质量 |
+| 视频上传、原帧/完整音轨/时间组与完整索引 | 0014本机后端验收通过 | [显式视频MIME合同](docs/VIDEO_PUBLICATION.md)，真实FFmpeg/HTTP/SQLite/索引进程；描述仅供召回，模型/Milvus为协议替身 |
+| 视频三模式问答、typed时间/原帧/原视频Range | 0014本机后端验收通过 | [接口合同](docs/VIDEO_ANSWERS.md)；同组逐事实证明、完整scope与v11 trace，服务端为本机模型/向量协议替身 |
+| 视频选中原帧OCR、文字问答与像素词框 | 0014本机后端验收通过 | [独立OCR合同](docs/VIDEO_OCR.md)及[验证记录](docs/changes/0014-video-library/ocr-verification.md)，默认关闭；真实帧显示时间，非全视频字幕或中文识别质量结论 |
+| 独立视频字幕轨、完整索引、文字问答与时间来源 | 0016本机后端已接 | [配置与接口](docs/VIDEO_SUBTITLES.md)，默认关闭；完整同轨上下文，字幕不是ASR或画面OCR |
+| 短/长文件摘要、完整材料与持久原始来源 | 0015/0016本机后端已接 | [文件摘要](docs/FILE_SYNOPSIS.md)，包含字幕第八类原始材料；摘要不替代事实证据 |
+| 多模态查询附件 | 本机后端已验收 | PNG/WAV/MP4临时辅助检索，最终只用库内证据；前端/真实质量/生产另验 |
 | 生产部署、迁移与真实性能对比 | 未验收 | 不声称 Java 版本已比 Python 更快 |
 
 ## 技术栈

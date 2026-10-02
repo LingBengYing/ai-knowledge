@@ -90,6 +90,72 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         }
         schema.migrateVersionFive();
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 5) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 5, 6);
+        }
+        schema.migrateVersionSix();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 6) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 6, 7);
+        }
+        schema.migrateVersionSeven();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 7) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 7, 8);
+        }
+        schema.migrateVersionEight();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 8) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 8, 9);
+        }
+        schema.migrateVersionNine();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 9) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 9, 10);
+        }
+        schema.migrateVersionTen();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 10) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 10, 11);
+        }
+        schema.migrateVersionEleven();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 11) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 11, 12);
+        }
+        schema.migrateVersionTwelve();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 12) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 12, 13);
+        }
+        schema.migrateVersionThirteen();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 13) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 13, 14);
+        }
+        schema.migrateVersionFourteen();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 14) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 14, 15);
+        }
+        schema.migrateVersionFifteen();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 15) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 15, 16);
+        }
+        schema.migrateVersionSixteen();
+      }
     } catch (IOException | SQLException | RuntimeException error) {
       close();
       throw new IllegalStateException("Cannot open isolated Java library");

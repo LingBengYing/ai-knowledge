@@ -236,9 +236,9 @@ class TextAnswersLiveIT {
         IndexClaim claim = indexer.claim().orElseThrow();
         assertEquals(queued.taskId(), claim.jobId());
         assertEquals(1, claim.attempt());
-        assertEquals(parsed.segments().size(), claim.segments().size());
+        assertEquals(parsed.segments().size(), claim.items().size());
         assertTrue(
-            claim.segments().size() <= batchSize, "The paid child must retain the one-batch bound");
+            claim.items().size() <= batchSize, "The paid child must retain the one-batch bound");
         assertEquals(PDF_SHA, claim.sourceSha256());
         assertEquals(TextParser.REVISION, claim.parserRevision());
         indexer.process(claim);
@@ -265,15 +265,15 @@ class TextAnswersLiveIT {
         assertEquals(claim.projectionGenerationId(), publication.projectionGenerationId());
         assertNotEquals(publication.sourceRevisionId(), publication.projectionGenerationId());
         assertEquals(target, publication.target());
-        assertEquals(claim.segments().size(), publication.segmentCount());
+        assertEquals(claim.items().size(), publication.segmentCount());
         var physicalIds =
-            claim.segments().stream()
+            claim.items().stream()
                 .map(
                     segment ->
                         RetrievalProjection.physicalSegmentId(
-                            claim.projectionGenerationId(), segment.segmentId()))
+                            claim.projectionGenerationId(), segment.evidenceId()))
                 .toList();
-        assertEquals(claim.segments().size(), evidence.hydrate(scope, physicalIds).size());
+        assertEquals(claim.items().size(), evidence.hydrate(scope, physicalIds).size());
         var countedModels = new CountedModels(realModels);
         // A new instance has never called initialize; AnswerService must use read-only preparation.
         try (var reader = new MilvusRestProjection(settings.projection());

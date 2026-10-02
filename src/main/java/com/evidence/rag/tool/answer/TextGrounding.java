@@ -3,24 +3,90 @@ package com.evidence.rag.tool.answer;
 import com.evidence.rag.model.domain.GroundedQuote;
 import com.evidence.rag.model.domain.GroundingQuote;
 import com.evidence.rag.model.domain.GroundingResult;
+import com.evidence.rag.model.domain.GroundingText;
 import com.evidence.rag.model.domain.PublishedEvidence;
+import com.evidence.rag.model.domain.QuestionFact;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.function.Function;
 
 /** Pure full-question proof and source-fragment validation; callers own current authorization. */
 public final class TextGrounding {
-  public static final String VERSION = "java-text-grounding-v4-procedure-context";
+  public static final String VERSION = "java-text-grounding-v5-neutral-label-context";
   private static final int MAX_QUESTION_BYTES = 4096;
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;
-  private static final int MAX_PAGE_BYTES = 8 * 1024 * 1024;
+
+  public GroundingResult verifyFact(
+      String question,
+      QuestionFact fact,
+      List<GroundingText> candidates,
+      List<GroundingQuote> quotes) {
+    var plan = QuestionPlanning.plan(question);
+    if (fact == null
+        || plan.isEmpty()
+        || fact.ordinal() >= plan.get().facts().size()
+        || !plan.get().facts().get(fact.ordinal()).equals(fact)) {
+      return refused("unsupported_question");
+    }
+    var result = verifyMapped(question, candidates, quotes, Function.identity(), fact.ordinal());
+    if (!result.supported()) {
+      return result;
+    }
+    return new GroundingResult(
+        true,
+        "supported",
+        result.quotes().stream()
+            .map(
+                quote ->
+                    new GroundedQuote(
+                        quote.physicalId(),
+                        quote.start(),
+                        quote.end(),
+                        quote.quote(),
+                        List.of(fact.id())))
+            .toList());
+  }
+
+  public GroundingResult verifyText(
+      String question, List<GroundingText> candidates, List<GroundingQuote> quotes) {
+    return verifyMapped(question, candidates, quotes, Function.identity());
+  }
 
   public GroundingResult verify(
       String question, List<PublishedEvidence> candidates, List<GroundingQuote> quotes) {
+    return verifyMapped(
+        question,
+        candidates,
+        quotes,
+        source ->
+            new GroundingText(
+                source.physicalSegmentId(),
+                source.publication().publicationId() + "/page/" + source.page().number(),
+                source.page().text(),
+                source.pageSha256(),
+                source.segment().start(),
+                source.segment().end()));
+  }
+
+  private <T> GroundingResult verifyMapped(
+      String question,
+      List<T> candidates,
+      List<GroundingQuote> quotes,
+      Function<T, GroundingText> contextMapping) {
+    return verifyMapped(question, candidates, quotes, contextMapping, null);
+  }
+
+  private <T> GroundingResult verifyMapped(
+      String question,
+      List<T> candidates,
+      List<GroundingQuote> quotes,
+      Function<T, GroundingText> contextMapping,
+      Integer factOrdinal) {
     if (question == null
         || question.length() > MAX_QUESTION_BYTES
         || question.getBytes(StandardCharsets.UTF_8).length > MAX_QUESTION_BYTES
@@ -31,6 +97,7 @@ public final class TextGrounding {
     if (facts.isEmpty()) {
       return refused("unsupported_question");
     }
+    var requirements = factOrdinal == null ? facts : List.of(facts.get(factOrdinal));
     if (candidates == null
         || candidates.size() > MAX_CANDIDATES
         || quotes == null
@@ -38,31 +105,37 @@ public final class TextGrounding {
         || quotes.size() > MAX_QUOTES) {
       return refused("invalid_quote");
     }
-    var byId = new HashMap<String, PublishedEvidence>();
-    var pageHashes = new HashMap<PageIdentity, String>();
-    long pageBytes = 0;
-    for (var candidate : candidates) {
-      if (candidate == null || byId.putIfAbsent(candidate.physicalSegmentId(), candidate) != null) {
+    var byId = new HashMap<String, GroundingText>();
+    var contextHashes = new HashMap<String, String>();
+    var sources = new ArrayList<GroundingText>(candidates.size());
+    long contextBytes = 0;
+    for (var input : candidates) {
+      if (input == null) {
         return refused("invalid_quote");
       }
-      var pageIdentity =
-          new PageIdentity(candidate.publication().publicationId(), candidate.page().number());
-      String previousHash = pageHashes.putIfAbsent(pageIdentity, candidate.pageSha256());
-      if (previousHash != null && !previousHash.equals(candidate.pageSha256())) {
+      GroundingText candidate;
+      try {
+        candidate = contextMapping.apply(input);
+      } catch (RuntimeException invalidContext) {
+        return refused("invalid_quote");
+      }
+      if (byId.putIfAbsent(candidate.physicalId(), candidate) != null) {
+        return refused("invalid_quote");
+      }
+      String previousHash =
+          contextHashes.putIfAbsent(candidate.contextId(), candidate.contextSha256());
+      if (previousHash != null && !previousHash.equals(candidate.contextSha256())) {
         return refused("invalid_quote");
       }
       if (previousHash == null) {
-        String page = candidate.page().text();
-        if (page.length() > MAX_PAGE_BYTES || !validUnicode(page)) {
-          return refused("invalid_quote");
-        }
-        pageBytes += page.getBytes(StandardCharsets.UTF_8).length;
-        if (pageBytes > MAX_PAGE_BYTES) {
+        contextBytes += candidate.contextText().getBytes(StandardCharsets.UTF_8).length;
+        if (contextBytes > GroundingText.MAX_CONTEXT_BYTES) {
           return refused("invalid_quote");
         }
       }
+      sources.add(candidate);
     }
-    if (EvidenceConflicts.present(facts, candidates)) {
+    if (EvidenceConflicts.present(facts, sources)) {
       return refused("conflicting_evidence");
     }
     var verified = new LinkedHashSet<GroundedQuote>();
@@ -81,13 +154,13 @@ public final class TextGrounding {
       if (source == null) {
         return refused("invalid_quote");
       }
-      String chunk = source.segment().text();
+      String chunk = source.snippet();
       int occurrence = chunk.indexOf(quote.quote());
       if (occurrence < 0 || chunk.indexOf(quote.quote(), occurrence + 1) >= 0) {
         return refused("invalid_quote");
       }
-      String page = source.page().text();
-      int absoluteStart = page.offsetByCodePoints(0, source.segment().start()) + occurrence;
+      String page = source.contextText();
+      int absoluteStart = page.offsetByCodePoints(0, source.startCodePoint()) + occurrence;
       int absoluteEnd = absoluteStart + quote.quote().length();
       quotedRanges.add(new ProcedureEvidence.QuoteRange(source, absoluteStart, absoluteEnd));
       var fields = SourceFields.split(page);
@@ -96,7 +169,7 @@ public final class TextGrounding {
           continue;
         }
         var supporting =
-            facts.stream()
+            requirements.stream()
                 .filter(fact -> !fact.wholeSentence() && fact.matches(field.text()))
                 .toList();
         if (supporting.isEmpty()) {
@@ -104,6 +177,9 @@ public final class TextGrounding {
         }
         if (TruthContext.unsafe(page, field, fields)) {
           return refused("unsafe_evidence");
+        }
+        if (page.codePointCount(field.start(), field.end()) > 1200) {
+          return refused("invalid_quote");
         }
         verified.add(
             new GroundedQuote(
@@ -114,7 +190,7 @@ public final class TextGrounding {
                 supporting.stream().map(QuestionFacts.Fact::sha256).toList()));
       }
     }
-    for (var fact : facts) {
+    for (var fact : requirements) {
       if (fact instanceof QuestionFacts.ProcedureFact procedure) {
         var proof = ProcedureEvidence.prove(procedure, quotedRanges);
         if (proof.reason() != null) {
@@ -126,7 +202,7 @@ public final class TextGrounding {
     if (verified.size() > MAX_QUOTES) {
       return refused("invalid_quote");
     }
-    if (facts.stream()
+    if (requirements.stream()
         .anyMatch(
             fact ->
                 verified.stream().noneMatch(value -> value.factHashes().contains(fact.sha256())))) {
@@ -142,6 +218,4 @@ public final class TextGrounding {
   private static GroundingResult refused(String reason) {
     return new GroundingResult(false, reason, List.of());
   }
-
-  private record PageIdentity(String publicationId, int pageNumber) {}
 }

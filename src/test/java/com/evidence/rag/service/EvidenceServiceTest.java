@@ -153,7 +153,7 @@ class EvidenceServiceTest {
       fails(FailureKind.INVALID_INPUT, () -> fixture.evidence.hydrate(scope, physicalIds(second)));
       fails(
           FailureKind.INVALID_INPUT,
-          () -> fixture.evidence.hydrate(scope, List.of(first.segments().getFirst().segmentId())));
+          () -> fixture.evidence.hydrate(scope, List.of(first.items().getFirst().evidenceId())));
     }
   }
 

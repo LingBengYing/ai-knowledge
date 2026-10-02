@@ -1,0 +1,2230 @@
+{
+  "scope": "0015 bounded file synopsis generation Module: original multimodal evidence, independent per-item support, version/hash/server-time provenance. Local synthetic model HTTP only; no authority enumeration, persistence, public API, long-file hierarchy, cloud quality, UI or production acceptance.",
+  "verified_at": "2026-09-20T13:16:15+08:00",
+  "java_runtime": {
+    "version": "21.0.8",
+    "runtime": "21.0.8+9-b1038.68",
+    "vendor": "JetBrains s.r.o."
+  },
+  "java_tests": {
+    "run": 1400,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xml_files": 176
+  },
+  "red_evidence": {
+    "run": 48,
+    "failures": 33,
+    "errors": 3,
+    "skipped": 0,
+    "xml_files": 3
+  },
+  "node_tests": {
+    "run": 73,
+    "failed": 0,
+    "skipped": 0
+  },
+  "formatting": {
+    "java_files": 468,
+    "needs_changes": 0
+  },
+  "coverage": {
+    "line": {
+      "covered": 12387,
+      "total": 13256,
+      "ratio": 0.9344447797223898
+    },
+    "branch": {
+      "covered": 6670,
+      "total": 8276,
+      "ratio": 0.805944900918318
+    }
+  },
+  "baseline_manifest": "docs/changes/0014-video-library/ocr-source-manifest.json",
+  "baseline_manifest_sha256": "45e4d4b101c0b7baca3a501f1a9ba585cf52d2509bfcbadb882f88f94d64702d",
+  "baseline_cases_preserved": 1352,
+  "baseline_inputs_unchanged": 485,
+  "changed_existing_inputs": [],
+  "new_inputs": [
+    "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleSynopsisModels.java",
+    "src/main/java/com/evidence/rag/client/model/SynopsisModels.java",
+    "src/main/java/com/evidence/rag/model/domain/FileSynopsis.java",
+    "src/main/java/com/evidence/rag/model/domain/SynopsisDraft.java",
+    "src/main/java/com/evidence/rag/model/domain/SynopsisEvidence.java",
+    "src/main/java/com/evidence/rag/model/domain/SynopsisInput.java",
+    "src/main/java/com/evidence/rag/service/SynopsisService.java",
+    "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleSynopsisModelsTest.java",
+    "src/test/java/com/evidence/rag/model/domain/SynopsisDomainTest.java",
+    "src/test/java/com/evidence/rag/service/SynopsisServiceTest.java"
+  ],
+  "current_case_artifact_sha256": "2c0d2b7404def135da3e0121efb54b8ca1e3d15add6feb79912e12e8bc61b740",
+  "default_report_sha256": {
+    "TEST-com.evidence.rag.architecture.ArchitectureRulesTest.xml": "c0902698a6153c1c70c772eabfb4e48ec0f42f8ead7e486f1de28e90bf520d28",
+    "TEST-com.evidence.rag.bootstrap.DemoFixturesTest.xml": "f667ace1e28e0547d87d77e584d1d0369eb46d57ecfffee94c5f49e3ac727364",
+    "TEST-com.evidence.rag.client.model.OpenAiCompatibleAudioModelsTest.xml": "38989e671e8ee5cd6d41679c7e1f8a3cb9448403dc3b2822284a6924c0a626af",
+    "TEST-com.evidence.rag.client.model.OpenAiCompatibleFactModelsTest.xml": "7baf221e9e5a1b39a45dc0024ad666db94163ad823b07dd31e63f081c56c7f97",
+    "TEST-com.evidence.rag.client.model.OpenAiCompatibleModelsTest.xml": "4f7b170e6c71e468a52a4fe5cb6ac9a22d6ba105f3a4528b8cc607b7f94a523c",
+    "TEST-com.evidence.rag.client.model.OpenAiCompatibleSynopsisModelsTest.xml": "a71aaf43f83e07a0fc966de52d14240e7b06c557143c10621acf05be2fddd52f",
+    "TEST-com.evidence.rag.client.model.OpenAiCompatibleVisionModelsTest.xml": "f0fe79322ef6921039a57d9ec820f9f7c8d3b95aa1fd51f77a752e4d1c597136",
+    "TEST-com.evidence.rag.client.vector.MilvusRestProjectionTest.xml": "2dd7fd07f24010404079aac6b4f0072f1b3c347b4b512c1a4455601576cc2952",
+    "TEST-com.evidence.rag.client.vector.MilvusSearchPreparationTest.xml": "ee4b301da01c78a7e3abc98b1e1aab7dfa39bdfa71111205c39b0911106ca264",
+    "TEST-com.evidence.rag.client.vector.RetrievalProjectionTest.xml": "c6076366bda94405f7f5c9e9cd2222d25b499808366b626c1c98a10c675b6c9d",
+    "TEST-com.evidence.rag.config.AnswersSettingsTest.xml": "d7e2fef82724714a1b24d6904648b442730b424f218454a0797a3a300fea23be",
+    "TEST-com.evidence.rag.config.AudioConfigurationTest.xml": "44b78cc63dc1990d13f3128678fa0674dbc40c45ef2ab10c7e4c6b576a8337a6",
+    "TEST-com.evidence.rag.config.AudioRuntimeTest.xml": "171cc435be42d9ff428824ad8abf3c2fb293937441e215a60a1a88a152ea5966",
+    "TEST-com.evidence.rag.config.DocumentRemovalConfigurationTest.xml": "3bed06bcfdfd5f0ae94b9c3d05ad2c64e871445464dc8a5c8e44aa0b721e7114",
+    "TEST-com.evidence.rag.config.ImageOcrConfigurationTest.xml": "4c6e0ac6d8f44b87ed71839dc2fcea53ba420885bc3d42b894e4e6856b54bc2f",
+    "TEST-com.evidence.rag.config.IndexingConfigurationTest.xml": "4539a73e779d29a7e64c9142bf313dea21bceed03e79d2c32657cc31d88e4e2a",
+    "TEST-com.evidence.rag.config.IndexingSettingsTest.xml": "01aaf6dd6ef0c579792ac12e8709018d64ca7788d75450bb314d2989d12e2c73",
+    "TEST-com.evidence.rag.config.IngestionSettingsTest.xml": "872ec389f03444f2ff170152497a80af6d74071eac97a344a8f9b51ed80e4c83",
+    "TEST-com.evidence.rag.config.RagPropertiesTest.xml": "01c976f68c0910167735bad939834915ebe24c04adb78b317a7a2b49400a9163",
+    "TEST-com.evidence.rag.config.RuntimeGuardTest.xml": "68b46300b7e81ff851db07236455ee4cfa58f2872816c4b7b683d98696273821",
+    "TEST-com.evidence.rag.config.TextAdapterSettingsTest.xml": "2936817d3871632b8375ede339f3555ef9e7a7325120db2937cfd5d2ba4c6593",
+    "TEST-com.evidence.rag.config.TextAdaptersConfigurationTest.xml": "92e3dcbb8bdc6e8cfad31b36e6884168389df8f6e0b40c399af83b2185479894",
+    "TEST-com.evidence.rag.config.VideoAnswersConfigurationTest.xml": "cb3449e6e207f6563c9e689ad8d89382e0ea82eda7633fad0de4fb09729e3ec0",
+    "TEST-com.evidence.rag.config.VideoConfigurationTest.xml": "689b18bc476e09e1b660651c202eb1cbfd0bec56c4c5e15d8f0f4829227b4f49",
+    "TEST-com.evidence.rag.config.VideoOcrConfigurationTest.xml": "d7ba80156c4a226895a7c88229b4a187f1918c879e767007f89fb892cdcbb34e",
+    "TEST-com.evidence.rag.config.VisualConfigurationTest.xml": "a1da576b7579aeebfaf5453bfe6b871044f930f427e3fe8070728e9cb3c293bc",
+    "TEST-com.evidence.rag.model.domain.AudioDomainTest.xml": "c785478a1261ba365c39c4705acb81feac4ade9985cb58677eae7c155fba8d5f",
+    "TEST-com.evidence.rag.model.domain.AudioDtoTest.xml": "f044645e65cdd020c03e37e9a1ca4840e4d1b27197581bb603356f6485f3b223",
+    "TEST-com.evidence.rag.model.domain.AudioSourceEvidenceTest.xml": "b20947b1b13f4d5a84f955dbe2d99fd71c49527f554e317d72f2baf1238aea82",
+    "TEST-com.evidence.rag.model.domain.AudioTranscriptionTest.xml": "2ea8e024b5f0e639bd8b450a5c71ea393488de51adb28fdb3f9f599142246ecf",
+    "TEST-com.evidence.rag.model.domain.GroundingDomainTest.xml": "a3e757e328c3587010bb69df031f0f6b69b99976b4d75a43ff9ac38c98799a62",
+    "TEST-com.evidence.rag.model.domain.ImageOcrOptionsTest.xml": "d779ca2570eb8c4b310ff93713f5278d60f241c3e491a834f1004b863b26ea3d",
+    "TEST-com.evidence.rag.model.domain.PublishedVideoDomainTest.xml": "48abe247e1b9897daefb23b192a73a9d8f40fe0796891ae0085f3fdef3fda064",
+    "TEST-com.evidence.rag.model.domain.QuestionPlanTest.xml": "cfd13542ce3bb21c43e92fc636398bd8abf45fa13550c611eca71cfc54f75f97",
+    "TEST-com.evidence.rag.model.domain.SourceAudioTest.xml": "8ea6aa5b254ad2fd43e25ba299e5e6220228bf0b046b91104927aa06c1be20ce",
+    "TEST-com.evidence.rag.model.domain.SynopsisDomainTest.xml": "f38357afa862d644cfe99315d678adba7c07059c789354d56e8ee96502ffefe9",
+    "TEST-com.evidence.rag.model.domain.VideoAssessmentTest.xml": "e3587e180807eb15ede9a8582d2ba8e3e5e1938dbd2e61c9cb08f3d310f4efb5",
+    "TEST-com.evidence.rag.model.domain.VideoDomainTest.xml": "189fe5259056103763b86fd03e88adc3b844135ff5d0568cfa382a8dbe6367f7",
+    "TEST-com.evidence.rag.model.domain.VideoEvidenceTest.xml": "8cf71147868025509b83cd6a3362990131319f906291c60318bd709c5b50f2af",
+    "TEST-com.evidence.rag.model.domain.VideoOcrCompilationTest.xml": "6261f8ee74df92dec1344e53e0ea9732e4a4543255c0f77d8fbe3b89742d65b5",
+    "TEST-com.evidence.rag.model.domain.VideoProofInputTest.xml": "fa3044803c29f299d193403ad39c0eec4270c4c851b63f566eaf942448cc796b",
+    "TEST-com.evidence.rag.model.domain.VideoTraceDomainTest.xml": "62d9408a889bd23a731a531832228213d5ab2e35b6af10b1e51a9c4c1e2cd1ee",
+    "TEST-com.evidence.rag.model.domain.VisualAssessmentTest.xml": "a32fb6c93ab3bb5b6d7b7eb25c8be1bd5b38e74f8d402b796fa8ba304a9f6d39",
+    "TEST-com.evidence.rag.model.domain.VisualDtoTest.xml": "9ff2ff754e67e84bea6dec957a180c4875d758f174d6c3fde2295fe2a5da9043",
+    "TEST-com.evidence.rag.model.domain.VisualImageTest.xml": "57cce3c9ae3bf7d6436e10dda31da29c2176ef20c836afcc3dc5167bba5a3199",
+    "TEST-com.evidence.rag.model.entity.VideoTraceCitationEntityTest.xml": "92f211a5160c8481f0c2e3e1fbc16b0167a02d09261e08d37b2a4b34247266af",
+    "TEST-com.evidence.rag.repository.AudioLibraryMigrationTest.xml": "1764c615d083e8df17b7c66c9aad0cd6f075fd5945acdf5b75ed456ca10096b4",
+    "TEST-com.evidence.rag.repository.AudioTraceMigrationTest.xml": "7d5c285a804106265a91f0c9744ab331d682fb8f3871a1e41234060912934f3f",
+    "TEST-com.evidence.rag.repository.DocumentLifecycleMigrationTest.xml": "eb003abfffeb47fb384dd19331e5b4154ca6c80639c18fe6a18b643e39e9df2d",
+    "TEST-com.evidence.rag.repository.EvidenceMigrationTest.xml": "98bf3fc38d9b2ff2c61211c93862c229e7b2a102d51f3121f2b25dd1a70ac662",
+    "TEST-com.evidence.rag.repository.ImageRegionMigrationTest.xml": "e345890e65a313bb74cc75d98f08c678c73974b30797f564e6e6d77ddfac1b01",
+    "TEST-com.evidence.rag.repository.IndexingMigrationTest.xml": "3ad2f1052a8b0ae3aab4e989758dc79e522d13bdc8d4c26e8ed1dab82b889947",
+    "TEST-com.evidence.rag.repository.IngestionMigrationTest.xml": "557864732d5207bb642a6dbae82763bdbb8fff3b9f0d13cf8052b61255cee7b8",
+    "TEST-com.evidence.rag.repository.SqliteAuthorityStoreTest.xml": "8cec90ab09ff015169d15b66ecf0ac1be4c79244613310926d266b0a1f2d6d48",
+    "TEST-com.evidence.rag.repository.VideoLibraryMigrationTest.xml": "8b047992e23bcfe723be90fc7ccfdce3afb7b039bc5152ae160112b9bc4f2a4a",
+    "TEST-com.evidence.rag.repository.VideoOcrMigrationTest.xml": "594acacb70afdfa763b7a974b6897497b82dacf27b0c5346153b9ec703331f0d",
+    "TEST-com.evidence.rag.repository.VideoOcrRepositoryTest.xml": "a7e9690e5bb73d244b5d285cbbc1603ba96cf862f26a31a887c94a82860fb9f7",
+    "TEST-com.evidence.rag.repository.VideoTraceMigrationTest.xml": "4d7ef16ee478f9c7f57ee611a0cff7136de7e84d0a4402597bd261e06d2d6343",
+    "TEST-com.evidence.rag.repository.VideoTraceRepositoryTest.xml": "811d2866f54976f709c00e71f54a6b925c07d1fcc086e92aed66bc9ace3cb656",
+    "TEST-com.evidence.rag.repository.VisualLibraryMigrationTest.xml": "65a28c218c2bd53cef8558b72a4b398108ac960b4c877bcfc616b2773b86f4fb",
+    "TEST-com.evidence.rag.security.AuthenticationFilterTest.xml": "ba3642bdc22cb412ad8600ad7364619e54745af78fb6ce97d635c1e39d198114",
+    "TEST-com.evidence.rag.security.JwtHttpTest.xml": "a9d377e42216b246f741cd548748d12eedbe9872bc98c4d747e39facf68af962",
+    "TEST-com.evidence.rag.security.RequestAuthenticatorTest.xml": "47b61d04e601c704ce1c25c9b26e26a63022a2817f651361f33daaca7f0fa06a",
+    "TEST-com.evidence.rag.security.SessionControllerTest.xml": "fa0a689753cb80052651ffa994160d301d88e9bcc3757803525ce814b91fd483",
+    "TEST-com.evidence.rag.service.AnswerCancellationTest.xml": "dfe1b7a38a3a8ae3084ff4ffd4d729b2b189d4e98cab597423f24a088920cba9",
+    "TEST-com.evidence.rag.service.AnswerCommitRaceTest.xml": "1b006b4da8bde882ca5b8fab1bd5bc9bed13d3b7599cccae1946cbc756e6f22f",
+    "TEST-com.evidence.rag.service.AnswerGoldenTest.xml": "dd4f33ed7c77cd87bb24965d6ccf86fee6a840b7821c205e6a8f9ef4b8a93b76",
+    "TEST-com.evidence.rag.service.AnswerLifecycleTest.xml": "ed57d9ddb80b4b6f05382d26ab94e305b457da68712583aaacaf22c203432e5e",
+    "TEST-com.evidence.rag.service.AnswerPageConflictTest.xml": "2535c6b3f64785fc10d3be12b65fac79dd2aa8049e2b89d1c1ff0e5eb92a4794",
+    "TEST-com.evidence.rag.service.AnswerRemovalTest.xml": "0fef7e0179a94385200ea0ad7923b717e56976b08e834a88c7098583490b4b95",
+    "TEST-com.evidence.rag.service.AnswerSemanticContextTest.xml": "509067382879e575c3848a86cfd9a55c2c25d519a10b10f13e825fce7788f826",
+    "TEST-com.evidence.rag.service.AnswerSemanticScopeTest.xml": "d9663e084748fdbf944c734340f0f40110a97de478e61b8cbd2fbe19f0bf691e",
+    "TEST-com.evidence.rag.service.AnswerServiceBoundaryTest.xml": "4c25618350d3eca1e58fad3aef7e4fd71be32f69b4b5d90efa84900ee7a56ec9",
+    "TEST-com.evidence.rag.service.AnswerServiceTest.xml": "de7382a39ce8b2fa7b68645769bcff140e6dd61cd42360255789afd8d7b049e2",
+    "TEST-com.evidence.rag.service.AudioAnswerServiceTest.xml": "20b4f116ca5f0183593ff9b9a89ead03109e91df310aa2d2cb2097604526d462",
+    "TEST-com.evidence.rag.service.AudioCompilationServiceTest.xml": "64b89776d6f8886da35bacef896d7f8ab34fac992cd62fe73bee5e338590a676",
+    "TEST-com.evidence.rag.service.AudioEvidenceServiceTest.xml": "97cbfd4fbbd423a0b8e8133b34cfbc270ee57baee4a4a73791e806d3612d8bc8",
+    "TEST-com.evidence.rag.service.AudioIndexingServiceTest.xml": "f0ef8b8d515b5a6fd743bdd6bdc4d7d3af2375c464c97d4084c4ad378026db63",
+    "TEST-com.evidence.rag.service.AudioIngestionServiceTest.xml": "a2ed1d4b675e97e9ccbaa46cce440830f21317311858a8497c27d18897dde976",
+    "TEST-com.evidence.rag.service.AudioTranscriptionServiceTest.xml": "5a3b901d664c7f0033c244c34c7a9764a99382fb27c2f2cb2532133ad812fdde",
+    "TEST-com.evidence.rag.service.DocumentLifecycleServiceTest.xml": "a9b39cdf19d28748f0485f29d6c42e8d217e0eb71f0c6721da883d0922063d75",
+    "TEST-com.evidence.rag.service.DocumentRemovalProcessTest.xml": "d56bb6443dd7376e203ffc48b681f3fad7c579e6a615cc039997dc7f40a798c2",
+    "TEST-com.evidence.rag.service.EvidenceCapacityTest.xml": "f2942a735622af88b6b308a54cda3f3eedcdf2b3db440453410a05f1b74ce020",
+    "TEST-com.evidence.rag.service.EvidenceDomainTest.xml": "029362ea0901fadd38692ca73d6f574877921ae9bc33da01d9790284e7257c3e",
+    "TEST-com.evidence.rag.service.EvidenceServiceTest.xml": "14e3833fd7e3871d50221a21ef304c8b3a122b5b20efba88c4b0aff85adfa891",
+    "TEST-com.evidence.rag.service.EvidenceTraceSealTest.xml": "cb20112f779f04ea0aca7755ff6f3e228e0e61a9832345955426504f590ded37",
+    "TEST-com.evidence.rag.service.ImageIngestionServiceTest.xml": "189c8b0f376c3c62865e0c4e8017aa044f6f67d35ed072177c0e31de7423f26b",
+    "TEST-com.evidence.rag.service.ImageRegionServiceTest.xml": "3ba8ca7e9a583c85b22f6fe5018384648e51054c93f3d331f812b47c64d5b4e2",
+    "TEST-com.evidence.rag.service.IndexingServiceTest.xml": "939e108a0db94f8cae715c21393ba7fa50525304cf32e3530bfd3e703db97ee5",
+    "TEST-com.evidence.rag.service.IndexingTaskProcessorTest.xml": "1f88fb532987cfff73e0f3ad148856fd716ca867047819597c39a49aa7b35f2b",
+    "TEST-com.evidence.rag.service.IngestionAuthorizationProcessTest.xml": "710bb520e76b0303c27c3ca605d88c0de2f78608ddfd9de0422059f685850012",
+    "TEST-com.evidence.rag.service.IngestionAuthorizationTest.xml": "87492cc50b89f4a88a85b7ee81fd8077164fc3e51308d692d8634620537f04ee",
+    "TEST-com.evidence.rag.service.IngestionServiceTest.xml": "700fc149292e8f95a427745a75d99b39ed8926fae208f65922e4d41c1b3cd895",
+    "TEST-com.evidence.rag.service.IngestionTaskProcessorTest.xml": "d77fa7b73a365eb3b4803f231a8ec5e46f5e7d00002b265ebd0e58be94ca5448",
+    "TEST-com.evidence.rag.service.ManagementServiceTest.xml": "d6a014fdc6f8dfb1c2a2b55ef957907a19111b0fce155ff8d603296c7a3b07b2",
+    "TEST-com.evidence.rag.service.SourceImageTest.xml": "c1009760bd3d7582013064cd48a8bb6bc36cc0bd2b1648764ad417cd84a4c795",
+    "TEST-com.evidence.rag.service.SynopsisServiceTest.xml": "c16412ef4079001a165f5e08a318664ff6fde2b485b9ab9f4e169aa574441b9c",
+    "TEST-com.evidence.rag.service.TextVisualCoexistenceTest.xml": "bc32d0bef066185aa8e50eb7f5a50cc40c5b63b3660744861497bdfedf70473b",
+    "TEST-com.evidence.rag.service.VideoAnswerEntryTest.xml": "fc91643081b24529c1791c455eedf3b6300551bfbf55ba8b4c37f469aa8fc215",
+    "TEST-com.evidence.rag.service.VideoAnswerProposalServiceTest.xml": "452cfc2170e21f29e4255a7cba14c6cead1abfe00db43556bef0a972f5bb8d98",
+    "TEST-com.evidence.rag.service.VideoAnswersRuntimeTest.xml": "9c2f03ba506914b9ef542f49d10a64e100c8a90c564219590cd10d1a8ebaaf6a",
+    "TEST-com.evidence.rag.service.VideoAssessmentServiceTest.xml": "a774deb3e46805c2f27b553934cf090e5cd0e2994033c1cdf1f557f3ba0c4add",
+    "TEST-com.evidence.rag.service.VideoCompilationServiceTest.xml": "26b21a99abc9fe4464a26e192aec6e6bd09c15a3566272f95d00620e829242fc",
+    "TEST-com.evidence.rag.service.VideoIndexingServiceTest.xml": "83ad83151a9933c16e6e4eba042b2f00aa279c06c2b20bf72fd2a82c6e7852b1",
+    "TEST-com.evidence.rag.service.VideoIngestionServiceTest.xml": "e56f19adffde3f9fe25a9892b144498afeae50e29e5e0c98c65af9042453ddae",
+    "TEST-com.evidence.rag.service.VideoIngestionTaskProcessorTest.xml": "18b3a96ea1324ffde7ac8ea0a8c1a301dd23471c5826d6ec19d323c7a21ac3a7",
+    "TEST-com.evidence.rag.service.VideoOcrAnswerServiceTest.xml": "7f077198c32a162a6a03278e288463e6c74bc75333bb62830b8c7e4a270866cd",
+    "TEST-com.evidence.rag.service.VideoOcrCompilationServiceTest.xml": "92dac3925697bdff50efb9783d891dd98b05498a7f90178eed4cf2d7c4548e8f",
+    "TEST-com.evidence.rag.service.VideoOcrIngestionTaskProcessorTest.xml": "208563807fe3400c7589cab973ed03ddd200de822fc269f18a928ab22b5232fd",
+    "TEST-com.evidence.rag.service.VideoProofInputServiceTest.xml": "d21fc2592a8115932e6ce5d952d1a7ab3f17e1c3cbc87c72b748c2d7f7682a5b",
+    "TEST-com.evidence.rag.service.VideoProposalContractsTest.xml": "27b522b616bb54e472ee7badfd1a1ef9c53910209b32887897171c3e090b653c",
+    "TEST-com.evidence.rag.service.VisualAnswerServiceTest.xml": "09f920b830114fbbdc20b2016552b323b646244a2536be51679fe6f37a261e2c",
+    "TEST-com.evidence.rag.service.VisualAssessmentServiceTest.xml": "b16c7d38af5e8da7db28bea0d3155b0da418cdd2e5d27e664e5939e45dc0cbec",
+    "TEST-com.evidence.rag.service.VisualEvidenceDomainTest.xml": "cf7db30f863e0ffeecdd0e8a89547d836bac7b594e5f094e29999a0866a9f596",
+    "TEST-com.evidence.rag.service.VisualEvidenceServiceTest.xml": "f34b20b0ebf6d7ca6ab39c2e35a9fa233b10021f513c7e74c55ab29285743522",
+    "TEST-com.evidence.rag.service.VisualIndexingServiceTest.xml": "b6647344420e3c60b6aba411253d6d0d861684b33b61efa490140641fac103a5",
+    "TEST-com.evidence.rag.service.VisualIngestionServiceTest.xml": "b74ff7ce9b47ed5779281f8fa2a78150f29ff3b403b9d8acdb0e281f5d161409",
+    "TEST-com.evidence.rag.service.VisualLibraryHttpTest.xml": "03a9645c9c94b76f9418841bab33072439bd2ad0158a16048eb82618ad964cd6",
+    "TEST-com.evidence.rag.service.VisualModelFlowHttpTest.xml": "f1564d59ee1028b22d484837dda4c43ec5f084f19832774c45785b10a7022e06",
+    "TEST-com.evidence.rag.tool.answer.GroundingTextTest.xml": "42482660a7fb720b97e1c830197f191dcffbc5b22794f85065f73442d7e30d30",
+    "TEST-com.evidence.rag.tool.answer.QuestionPlanningTest.xml": "e1bf288e7eb5507d90c71e55aa5a9c463ec36ac94e546e9649819d7496bbb93b",
+    "TEST-com.evidence.rag.tool.answer.TextFactGroundingTest.xml": "ae4afd9401543799f52aeab6843fd34db45b2bceb6f14d448ac8768945f66d4a",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingBooleanTest.xml": "c03e53fa3304cdd95bb2d1e2fabe8abe24e2b04181f38ccbc4fc28c8c24b72cd",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingBoundaryTest.xml": "f469710bf87a8fdea554c88e5d9a9b5faf2fab6fa51434960525b8807984e33d",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingConflictTest.xml": "df1c066538de71dd6e85ed8df2c6e5322815e7e82eb02650af7832da2a43824e",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingContextTest.xml": "e1dd05d8b28e431d20e1bb77841deeafcdec2e8053cccbe78a0cc5e9eb963089",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingExampleTest.xml": "18094ab0a0f1c9b27243a07ed80535636774bb99b049c12c2d95f8476f0bdb7b",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingInstructionTest.xml": "50146748af01533916b994a8f5acbbe97fcba6c319a49534b00673cef1535570",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingPageConflictTest.xml": "e00e317616147c682ab733aadcc2641fa369334209636b253e7d76d867d41ccf",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingPolicyTest.xml": "638581a89b6255a556775e7589558dc11aad235e87ac2c8de6561b8ba29f9d83",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingProcedureResourceTest.xml": "cf46ae3baeb014a8f4a9a62d5b27e0172c2a772c6718934cde0148994ec1dd31",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingProcedureTest.xml": "1b921733cc15bac1604a236e0c04af2d3956addc596c14d8d62c47eb9c845dec",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingQuoteTest.xml": "466186d576d2304cce4525b49efb5b439a62b8cbf779d9fcb32755455dd2a434",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingResourceTest.xml": "84aa403bc18db54911021f5732a419101739dcb5a103948f35b66e4c84465b6d",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingScopeTest.xml": "bf9b489c3a575a0c57796b249fe06434969107ee2ba21d7a880e192642243272",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingTest.xml": "31fc7849016f97f702b710047cc1874c29170b7ef30bc0f863bbadc7925b2514",
+    "TEST-com.evidence.rag.tool.answer.TextGroundingWholeFieldTest.xml": "acaf58eaa25e11c1097544faa2d35b3b1454554c8001d13b32c2f3c722bdb85f",
+    "TEST-com.evidence.rag.tool.answer.TranscriptFactConflictTest.xml": "621e850ebd7b88941bc9fc35f8343efac03444c130cc7792901b0b38752d9855",
+    "TEST-com.evidence.rag.tool.parser.AudioInputTest.xml": "c6c1f568f596d01d6958212d606370da757b917d9d0f062803f52124c0c7b590",
+    "TEST-com.evidence.rag.tool.parser.ImageInputTest.xml": "57b0cee29385e6dde6c7a1d39e4169baee1719fe181f2d1e54015ffa2ab8178f",
+    "TEST-com.evidence.rag.tool.parser.ImageTsvOptionalTest.xml": "690a876a2f3f49316fe9482d0597855cd133b4ef97fd6d8014f21b80eb78ae88",
+    "TEST-com.evidence.rag.tool.parser.ImageTsvParserTest.xml": "4af78d60b0f613f766b9a68e2f861324620c73ba7e59dd3df47c4da9acdee76b",
+    "TEST-com.evidence.rag.tool.parser.TextParserTest.xml": "1e74c1760904a8346288ceae9c0597a4131ab06213aa6b2449cdd1042abcbf07",
+    "TEST-com.evidence.rag.tool.parser.VideoInputTest.xml": "30dec75a3d24b76f740301f43cbdae6aa3a944246b41079becde0f7d5edfe4dc",
+    "TEST-com.evidence.rag.web.AnswersHttpTest.xml": "3494e57e493806a4efb409e3f2dce8bda12261a0dd6560431af564a5c7c168f9",
+    "TEST-com.evidence.rag.web.AnswersRuntimeTest.xml": "5b89c5b52395d7a2a4a0bf0e71aaa7b57afd5674d9085c7b52f1669a44fa148b",
+    "TEST-com.evidence.rag.web.AudioAnswerControllerTest.xml": "d94d7b4b90e5c597374c39bd3a4c8f378d1462a2ae0fbd9dfe36b37d1ec7653f",
+    "TEST-com.evidence.rag.web.AudioContentResponseTest.xml": "7b4076288d968657b7a3170e972bd8bb122f84d5bbeb1c28571c5cf1fc47f752",
+    "TEST-com.evidence.rag.web.DocumentRemovalHttpTest.xml": "0853a84d62b4ef011fac3e39effd0b6b3e63b649203692add86528acafeec1e5",
+    "TEST-com.evidence.rag.web.ImageMainlineHttpTest.xml": "32dcae9d3168a21aad2bd591b8ba0a69d79090b23b5e92009bd8bcbf389ec049",
+    "TEST-com.evidence.rag.web.IndexingHttpTest.xml": "692c5f7ce53bbf271b68e5805fbb138731b4e24d386cc5f2eb7c2a87ab07637a",
+    "TEST-com.evidence.rag.web.IndexingJwtHttpTest.xml": "e92240d889bb746940b0ada35210306bfb07040e943e8ad5aa78730b5fa46316",
+    "TEST-com.evidence.rag.web.IngestionHttpTest.xml": "ed08e7921458b5c56ff6196356cdf4dcbcd95fd1ed3ddf5964bae009112bae65",
+    "TEST-com.evidence.rag.web.ManagementHttpTest.xml": "d47fa2ebc56709a2175690baab859344eeb70fb0f23e5c3d48db5805447f2937",
+    "TEST-com.evidence.rag.web.MediaContentResponseTest.xml": "3837e61926c908ac44d2687cf293788d5ab096133a4c922e14ef09fc5b55707b",
+    "TEST-com.evidence.rag.web.ProblemHandlerTest.xml": "e8dccb0ce44582396ad5d00e2dc87dad2817dcdca525465c6c95061fbe2fbb92",
+    "TEST-com.evidence.rag.web.RuntimeControllerTest.xml": "ac5c86e5c373106749d9e2da084c5492c3aa2bbd0b107e47d9192483224d4eaf",
+    "TEST-com.evidence.rag.web.TextMainlineHttpTest.xml": "881dcc1fa5b349bb8ecd51df830e4120f08c213e299cbc108211033511979888",
+    "TEST-com.evidence.rag.web.VideoAnswerControllerTest.xml": "760113ec95f602bfb41746743232f6a687bb35ddf3f165c05eb46b491cd0b990",
+    "TEST-com.evidence.rag.web.VideoUploadServletTest.xml": "e660b6856d5e2e8f9c03b6fa0d6b504519773ca660e7b7667c7a7f68bfe1672e",
+    "TEST-com.evidence.rag.web.converter.AnswerRequestMapperTest.xml": "2d7e7c1a154b7e628c8e9c8412196d78a19273560d477ac35734bc4655212fde",
+    "TEST-com.evidence.rag.web.converter.ResponseSnapshotTest.xml": "f152d47847ad6c37aecce960a48c611b271dac99eb4fe6dcf97c8ac57bcaf39a",
+    "TEST-com.evidence.rag.web.converter.TaskResponseMapperTest.xml": "79e6e2ae2b77e0f4d4918969edb593472472fc91e73518b5b049978b803f5f04",
+    "TEST-com.evidence.rag.web.converter.VideoAnswerRequestMapperTest.xml": "7fbbe575cd1be84fe55d559cbdd5c898391a83d8eac73ca5791f9152367f7526",
+    "TEST-com.evidence.rag.web.converter.VideoOcrRequestMapperTest.xml": "f19d84cbc458cc6f53db912155647a79504cd4bc4205f5c09df005f05774f2d5",
+    "TEST-com.evidence.rag.worker.indexing.IndexWorkerLifetimeTest.xml": "4ad97afaec4db25506e9519297e0f2a691ca9793a5d9fe20fbe79c5244a068c1",
+    "TEST-com.evidence.rag.worker.indexing.IndexWorkerParentDeathTest.xml": "6b61787ddbc56aad9e7b5194564dbfe9a8708abf336208ee5f8bb99ff01d5c91",
+    "TEST-com.evidence.rag.worker.indexing.IndexWorkerTest.xml": "a1bb1ee400ede49d3aee3c3929b72c5f934363ff94a174f0393b3465bf3f904a",
+    "TEST-com.evidence.rag.worker.indexing.ProcessTextIndexerTest.xml": "4a90fe3041f130a242235fc2612a5aabb7c60f7f08f1c2b1b6c495fbd45b34f4",
+    "TEST-com.evidence.rag.worker.indexing.VisualIndexWorkerTest.xml": "a6ee78529bb4147907b236e92f50301b784d5a0f466795116b2736453157cb6e",
+    "TEST-com.evidence.rag.worker.parser.ParserWorkerTest.xml": "fd00bf594fe0e2944a0d45fd7ee79abb4b76f815261a5b4ca5f56cd21b16e183",
+    "TEST-com.evidence.rag.worker.parser.ProcessAudioDecoderTest.xml": "5434715f0342871c36834da2e76e1fb5767dd20368a53e3f4d8d3c72e02202be",
+    "TEST-com.evidence.rag.worker.parser.ProcessImageOcrTest.xml": "0b0b7e4cfe8324217113071e55340ee33487e48f5a155f89f391780dc73a63a6",
+    "TEST-com.evidence.rag.worker.parser.ProcessImageParserTest.xml": "8545c6b59d9bdda426fbdbf0ac59bdfc619641449a017e534f87950f8bf81870",
+    "TEST-com.evidence.rag.worker.parser.ProcessTextParserTest.xml": "796e00a6450388be73b2c46bc14dad00aa67e7ed5ec39e33f9e1b62849225911",
+    "TEST-com.evidence.rag.worker.parser.ProcessVideoDecoderTest.xml": "0244e0ce59a2a216a41c45ae3a763ebfa1574388f733351133c0742647e01eb6"
+  },
+  "evidence": {
+    "red.log": "7609eb220776964f7a1f450e1069bb2bd97423d195acab07c4fc2c52e1beb424",
+    "green.log": "6e3840c309400cd196062c5c29eabdcee840d4f96796ad9c25bd4e7b2e2147bd",
+    "verify.log": "bae51afba7880c931c9b0ebac47ef47ca27cc0b17983e31279dee6dfdea15155",
+    "node-green.log": "4de293ba0af5946ce2c10a4013ee1d4fddf4a319695ec0c477e25d1268a905af",
+    "target/site/jacoco/jacoco.xml": "6f4d76c54e6b9a4e84a24dc6909ce158f39ee4dcc8965ea8939482a5829de153",
+    "target/rag-java-0.1.0-SNAPSHOT.jar": "d7c8365994b2acab7df9afd73f7f0b95c1ca38d45417571ae39f9534b1b52e40"
+  },
+  "inputs": [
+    {
+      "path": ".mvn/settings.xml",
+      "sha256": "ad42eef43ca9d86c82a15cb120f7f0e8fd974cdbbf7ae85fcf041add8bc68875"
+    },
+    {
+      "path": "docs/evals/golden.json",
+      "sha256": "f9482c00a0592f54350cfeb67370753d0a29955febdf4eb428fbe8aaaef1477a"
+    },
+    {
+      "path": "pom.xml",
+      "sha256": "5c3f614fbff21adaa8b95686baa3c11ca78aef6cb12a9cc5211749778747923c"
+    },
+    {
+      "path": "run-dev.sh",
+      "sha256": "ccb927e2a7dd8a4e6efd769646072da2f53721ab4c606d124533b88002f87ffc"
+    },
+    {
+      "path": "scripts/check-secrets.mjs",
+      "sha256": "cf5ac3b44843a856774f89d2eacc3b1a92869326992ec42a30905f9e35a71389"
+    },
+    {
+      "path": "scripts/check-secrets.test.mjs",
+      "sha256": "e9c7f4f586be50f3a9a3357041cefe1bc680623943677275078d0c3c352ff0e2"
+    },
+    {
+      "path": "scripts/container/Dockerfile",
+      "sha256": "401800b2adf5674ea8738f3ccbc9c8fad122bf2b1e179abc932c9fed513c748b"
+    },
+    {
+      "path": "scripts/container/HttpProbe.java",
+      "sha256": "a586d0e9d83dbcfe4cc634920ba37271fa052cf42edbe2f9090eb6a8b900f6fa"
+    },
+    {
+      "path": "scripts/container/smoke.mjs",
+      "sha256": "99a4d573833c801a69a4cb175cf48c32ab5c6e8c173401abab2f961889dd38bc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/RagApplication.java",
+      "sha256": "47d2f95cc07abcacc2aa25b4a177137cc58d0762fd75780c73acf930586989c2"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/bootstrap/DemoFixtures.java",
+      "sha256": "b2e44d059b7816fce860947bf624d706916945a8f4d11fde956afca431fc8f89"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/AudioModels.java",
+      "sha256": "cacf2dfde62d4ce1a41cf288f6d7bba2783eb0b3ddf02d768263c162ed4751c4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/FactTextModels.java",
+      "sha256": "9cb75f5a7054cf87bf2c1cd6e0cbddbeb4c7c5f066ca87138ea9aa65e31d6834"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/FactVisionModels.java",
+      "sha256": "4344933b3302d8e18a9aca83ff8b022a207eb7a71a591a9b22eba03e4ccc559b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/ModelHttpTransport.java",
+      "sha256": "067da5260e6a46a08bd58dfe311c3f56f969fbc755198996289c4913066d8ccd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleAudioModels.java",
+      "sha256": "4e540459c0106bd10906e369c17bd18103d007c05f1ac7ea0a826f0f7577e0eb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleModels.java",
+      "sha256": "f2631c030d5d48118eba54380a0dd809ae09a29f0baec053362181e12ce827a5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleSynopsisModels.java",
+      "sha256": "3ae09ace86577853371c0113fe640d311e93edc355bbd571a1848b43d38c1828"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/OpenAiCompatibleVisionModels.java",
+      "sha256": "f0657fb87522126adace531f112b9a1e5d635fa1eec31ae63fd2105ea84cca85"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/SynopsisModels.java",
+      "sha256": "7a9d882e1ea21a2d1165d413b6bc2cd028aededf7176f3bcac3a5c35e54ed677"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/TextModels.java",
+      "sha256": "85bc7c290527216322af17ef39f166cbb243a165ca27c39bc67ca0efe6911b0c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/model/VisionModels.java",
+      "sha256": "0a987a7b5ab355d9e9050fdb885d41a2b9789b4621bdf2c261ca7dadccaac361"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/vector/MilvusRestProjection.java",
+      "sha256": "98ff1bc58db7c52b2cfb5675dca247718caf08e0d96ee8e00ffb990cf7f5e08b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/vector/MilvusSchema.java",
+      "sha256": "8bdd2b57b02e9d221cf08c36a138dada0bddf0c9d79ddd12944ad4518ae9a100"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/client/vector/RetrievalProjection.java",
+      "sha256": "de16f38bebff7f319c4ffd0c8e395dabc17e86b7fd2e69d304a74dfbed333740"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/AnswersConfiguration.java",
+      "sha256": "23f25b9f4d7db410f9baa07c14592b88aa52865d7d0abd8abcb110cbb5a0c4a0"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/AnswersSettings.java",
+      "sha256": "bc403dd1ae2efab589709d86fb8a3774acda0822fef6bb379664371f162158ed"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/AudioConfiguration.java",
+      "sha256": "f7a7d2d7eb7feffbd6bc4aa5709ea8846fddc16918de52c0870a1a72711982d6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/DocumentRemovalConfiguration.java",
+      "sha256": "32ae984bd53dd66c573a27a73966b093865db4b9f18a37a50f7726d2bb71c3a0"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/DocumentRemovalSettings.java",
+      "sha256": "5c928635f194a858e60e4ddd6cd60897103eb455326fef366b4e2605dcf030f8"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/ImageOcrConfiguration.java",
+      "sha256": "d839a47111f87a89e779ee49493ec635b782920e19e04cfa00540835ace45cd9"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/IndexingConfiguration.java",
+      "sha256": "e8717a75acbf499e2d47207feb3a5c9672325798b3e4399940636d465fd8fdc0"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/IndexingSettings.java",
+      "sha256": "7489addeea98e4fcad21b331474b00b5821957ef2d02d7bb6bcd94c535871281"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/IngestionConfiguration.java",
+      "sha256": "2e4cec53f34bfed56531e7263b2ed7e5cba709fa2f5a3b1701b40fc5679eb329"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/IngestionSettings.java",
+      "sha256": "4ebac7a81268d63b625f89861aaf3046e53c5ad9b110a7e494f1c4eb36e8e9dd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/PersistenceConfiguration.java",
+      "sha256": "8a04c9e9f7dd59511982db1039fd26431d1e8835290da9e5d7f80aaf90a285e9"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RagProperties.java",
+      "sha256": "26b8cf1656353e903bbcd5dd1cbe4df48ea630c62c18dc77531817f834916f79"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RuntimeConfiguration.java",
+      "sha256": "ded6a2d1769b5210836c341b3a974b92ee585730e7f858273937411bacfc2ede"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/RuntimeGuard.java",
+      "sha256": "379c27f69c915cae0413855b262b7ee5fd49034e50a788e30f575a7370a3149a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/SecurityConfiguration.java",
+      "sha256": "0d40744b1248ad7a1b677ecee93390004f13782a7b78dc2d0be9ac306097ce51"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/TextAdapterSettings.java",
+      "sha256": "28b039efc1cffd1feacd7742f14d9bd8555b3996519c550b50b149aa3101d9ee"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/TextAdaptersConfiguration.java",
+      "sha256": "3ce5473571ffa28f231a2251da5a6ba95fa7c8988615e673e0c1ba6827213912"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/VideoConfiguration.java",
+      "sha256": "079b6a3d4c115b387d1a3f7db9a701d9efb04a0f2f137715607abe82f22da004"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/VisualConfiguration.java",
+      "sha256": "02d6b21207858bfe1bcd5e62daf9b0ea5f7ec3a97ef6b95291e6c4d3e9fbe2b2"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/AnswerController.java",
+      "sha256": "b46b6a314d77abbf0b08e51f5981bc36c30e12e8534a1892758c72f3003db14c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/AudioAnswerController.java",
+      "sha256": "070b80d37c561cab2036095616fde92db1ac6464a0c34e9a4c55b17241b151ed"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/DocumentRemovalController.java",
+      "sha256": "cbac57d8242f4668f963380f5bc81c9b3ebed704e2270ce74eba29216e4bda87"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/IndexingController.java",
+      "sha256": "d9f07e2bdfc3a2fd3d4b77e23192df8a1aee3f841ab13ea8aa9636927b9dfd9c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/IngestionController.java",
+      "sha256": "2f12702915a56f5f5de021a803d4cb9fd1dd1dba7bdd5fb3726856b85cb6c9ed"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/ManagementController.java",
+      "sha256": "1b27dfa04a9b7ae1dd644e54e38e700d33351cea390fd03989d365af4d146f2e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/RuntimeController.java",
+      "sha256": "f65583dcc6931364a51fdd55b7bd96d3f4f0e4956628f4e89ffdcfec1d944fd8"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/SessionController.java",
+      "sha256": "3b86e51e4c77a3e36bb8f90b49f58a42910f208353702f10c45b1a8ac26bb36d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/SourceContentController.java",
+      "sha256": "86c92f5ead95e83ea95504853d26132472053b9c4ee08585fac5f64356533cdd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/VideoAnswerController.java",
+      "sha256": "8975c73f17d8905b48be4bfdd6f47163a20e00966f731f18b483f12de58b8b6b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/VisualAnswerController.java",
+      "sha256": "c6047cb12f937fd6d0e571fb4a0c672cd85c4ccb677dc923e666f41cb282e321"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/exception/ApplicationException.java",
+      "sha256": "14a55ca60bab10ba7e2276996219501aecbd688ec45f8789e64330dc7f8c89ca"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/exception/FailureKind.java",
+      "sha256": "34204d1239711b4a594bceca42ea69ef2b13958592edcd26855cff0caab12463"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/exception/ProjectionException.java",
+      "sha256": "109b8e595b995d7bf60ba7de3c40cb5cfdaa3186fa5101fe31c75ddb35a3957b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/job/IndexingJob.java",
+      "sha256": "db4de2e3ce4693d8439f8a6cad4afd503d2f28842474e0b91182d432927a7924"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/job/IngestionJob.java",
+      "sha256": "816e2f963767e57fc86bc6bc1959d24bdcd7e4f25c6b3d865ceaac49fa77d638"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/Actor.java",
+      "sha256": "12179ba262ee345babcab7a9753b3968801e8ced7efa342057516e4b5aa258eb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AnswerEligibility.java",
+      "sha256": "f9916ade914d0e5eb283a7311feed90bcd9cc21cf06bfe2001c0ad15f27950fb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AudioCompilation.java",
+      "sha256": "692dd189856586b7d5f6ff91e4e8329344449699dd341a24fca098b3cd3df08c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AudioEvidence.java",
+      "sha256": "7748adf01a35a4918d67ec4867b3eb34586ca521471a6f9683f3cb10fa66e32a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AudioSourceEvidence.java",
+      "sha256": "ddc0b749ea0a77a78d2eeb8d029681f707cc9f1065b202396489826025a16194"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AudioTraceEvidence.java",
+      "sha256": "4f430299381d73cb10154dfc4f5df7aea2bedd847ab636248e83ea96fb1bb22e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AudioTranscriptSpan.java",
+      "sha256": "f0e71b2abed23878abb942af4e0049a3bd933c0fe0b0d08e630bf6cc7a763b55"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AudioTranscription.java",
+      "sha256": "830eb50a85a04a41dd2c85c8fab8c6c983f3290928a446ea1a9a5c21c9e42aab"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/AuthenticationOptions.java",
+      "sha256": "bcb193db11d2a6a9b36e550007ce306beb82d92369f0e6760e58f76b2345ba0e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/DecodedAudio.java",
+      "sha256": "8953377d1c05f3a0130f59bb17995e4aacc7e51ad94b39119dd680f3e1971c42"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/DecodedVideo.java",
+      "sha256": "c6a623a59cb6fd34fa9fd810a4a0fa3c0ed66699371d9dc44e229193977cb233"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/DocumentSelection.java",
+      "sha256": "1dcb8a66f424bc6495cf2bf52100ce272b2841d987a765b6deb5c0b4b223a430"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/EvidenceScope.java",
+      "sha256": "61b062d479342f4d9957458632a955c8c4c4e783617bd4d2ce93e63db588caed"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/FileSynopsis.java",
+      "sha256": "3b9d64bd8a4942fec109756f29448af7d0d4870e2dd11e889610e7cfc7295a70"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/GroundedQuote.java",
+      "sha256": "93004bf51efa0d01ae1803f1366c5ce43afdd2179dbe4c8ad965436f62b75e66"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/GroundingQuote.java",
+      "sha256": "4c05fffe408b686392461fa9b490bc6fdfd12a63e1f3c3fe47840b8b1208abd4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/GroundingResult.java",
+      "sha256": "1be97cdb2bc6bd3b29de79a34f7ed9742dfff65b91c5a2a53f546686153c7f8f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/GroundingText.java",
+      "sha256": "657441fda184fc4515424637b8cf7652bc163d0f4b4098fdde0b511ec804b538"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ImageDimensions.java",
+      "sha256": "a20e8aec478532982a1a28198d4432f96509f4323071eea50c10be97673ed596"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ImageEvidence.java",
+      "sha256": "db0c4f838f663a8f1f1729bb530c7cc279fc7431bcef7aab33710257e62132da"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ImageOcrOptions.java",
+      "sha256": "01e4caa9cefda94623dad87eea8904f5b64c49f1f9e238de98a01a73cda47149"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ImageRecall.java",
+      "sha256": "9d8caa7fbe0428baffb244c634bf72c217146b260490a8be9584a6bbe795696b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ImageTextRegion.java",
+      "sha256": "7b20134b7b49e7091eda52674f7cd72448bd696d2a9149759983f445db36a1e2"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/IndexClaim.java",
+      "sha256": "6c9a48df6c9a1ec82b6d30620801cae218da9d1bd1ab11d61b24c716f8ca48ad"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/IndexSegment.java",
+      "sha256": "17275393c31249fe1a39cc4630dec0527a84ca7908de9904023d9c5003502395"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/IndexTarget.java",
+      "sha256": "50fe72134a8d175f6aa8b513dbd0af675ae61de3a1652400acfbbf1830764037"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/IndexingResult.java",
+      "sha256": "c613168d91e2bc7fdb2ef93a9f42393bff454543b0dd981c191b8dc4d4c98260"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/IngestionClaim.java",
+      "sha256": "3903498c7adca05b8bc68bf23dc2f39fd14ecde1fc804a48af2ce86abaa2cb2a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ModelValues.java",
+      "sha256": "bf78caeb8d8fb4cf3eccd446f7a5c5f2fb1d2f14a328459d69c087802ae8df48"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ParsedImage.java",
+      "sha256": "967be7d3d7908d180655e28463dd832b2a74d0e75aac474a92ffe4b8830f9dbf"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ParsedText.java",
+      "sha256": "8375b9da66d76c42c184b43427d83af489cc3cdffa5d86b2fd438bcdc7f0333c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/ProjectionItem.java",
+      "sha256": "b8f23ba8ea3ab95e63d8a6d36ef2d877e91eb9c4c4617807704e9dfb279568dd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublicationVersion.java",
+      "sha256": "deb45a0a3b1125d9447f8dccd6219c52fd083298568ccaa450d525f8102529db"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedAudioEvidence.java",
+      "sha256": "63aa175c1ec68d218852ea083b006a98702127a3f47d53819caf5bcc9480b608"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedEvidence.java",
+      "sha256": "4586bd4383fbf880e12cdc0ac6dbbe29778c344ca0abdf9a75874fd935d330bd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedImageEvidence.java",
+      "sha256": "601183d8a0ecd7be876553bea7412b9645e6b4799b60f5bb006d0966088ccf0b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedVideoCandidate.java",
+      "sha256": "db2b78539bb0188aff6010edb1cd855e0cd8b3e39fe3441b6e66c3b737335b82"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedVideoEvidence.java",
+      "sha256": "22bbca471bff8df2e09e0ab14a616cd84937029aeece7c6435c4322c1ad05e3c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedVideoGroup.java",
+      "sha256": "e935e1aa8f291233f388010a84b4e12b3792cea09d2b2aeff25e0a7cc974963b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/PublishedVideoOcrEvidence.java",
+      "sha256": "fb89cc6b8bcc48495f595b96d920ec4631fab8c93aff3dc76ebd03a9c14dcfd6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/QuestionFact.java",
+      "sha256": "d6f147721e8ade7b0e29ac621be467b8567dbcab9462b0dbbd15a3a04b530701"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/QuestionPlan.java",
+      "sha256": "4beb6b3dd29725e727ac1fb288bb3f77b4799231086978508e66b12bbcbe1ce5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SourceAudio.java",
+      "sha256": "3f2e8cc062252ffbe82df32f1f1838b7c69e3b749c186013338b9bec80c88ec5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SourceEvidence.java",
+      "sha256": "797a7c6bfaca32ed06dd9b1f371681c19b51ee415865e9288509caf96fb2fa9f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SourceImage.java",
+      "sha256": "37cb12a8e7d98890d2c2d39eeb3351d638449697795a8fbbfc4fd77fb2a0e35d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SourceVideo.java",
+      "sha256": "837283c21bc0b2cdd71e088ed052f6e2be7778a14f3e7707f365d82bff2fa25a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SynopsisDraft.java",
+      "sha256": "b62c09ef40ec0cc1f2e2972fd87e9e178947386ede92d9d74561be164d551ed8"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SynopsisEvidence.java",
+      "sha256": "d2e9c2b6c22c67bb74f65de5ba8466f936871f524db3f6a8dd0e41d3cde027c9"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SynopsisInput.java",
+      "sha256": "6f0f541b47daa5b3d121757c1690db277f7363231e149d7dfb59b69d9301f06a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/SyntheticDocument.java",
+      "sha256": "e1bbee4fd5d5ce44e36ec5f6d7185e215480a12d372ab42f77f38d51267bbc35"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/TextPage.java",
+      "sha256": "e6414f33a9f9116142bff14c521465c401875e6a46ae5ee1b4ae9006a0c1af89"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/TextSegment.java",
+      "sha256": "994f12e2c4912b2e037768b1aee835be8c48785064a75de5c03207d9478b3b8b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/TraceDraft.java",
+      "sha256": "a0078a28cf76adaeb983d1d2c3cde6d4f4305761b50f5879bb6de8104f5d2549"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/TraceEvidence.java",
+      "sha256": "4156496ef6fcc2fd3f00510fd7fa026454cb720c57c609c8b575656c8e054496"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VerifiedRevision.java",
+      "sha256": "4267cff43918bfdb2e4c1fbe94d8dde2111b3e6a1265f67db2d022d9ad65df94"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoAnswerProposal.java",
+      "sha256": "1c54b8058789788350bb3e07b1aaf07f2f49f64a0f37c8bf6899f515c35b9d7d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoAssessment.java",
+      "sha256": "46c5677e6551b92d01ced45aeabbc639bcee1241808e56c02a2b2b2366f229e4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoCompilation.java",
+      "sha256": "c9a6858ac95585cf018eb13cd63f025d5eec0fd1c6a20de27352aa76eaabde17"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoEvidence.java",
+      "sha256": "e54c736e949ce2a6d3a5ade96efdd91cf73d4dd8541bc14372cd60359eb0fc6b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoEvidenceGroup.java",
+      "sha256": "a3fb6a034b0d9e8201b79b68b8319bdef25bd1fb438d4b9a799c7b501bdb0335"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoFactProof.java",
+      "sha256": "a2c327c071311157175da914bd4fd6bf854824e2d3e410297033197c4b7b105b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoFrame.java",
+      "sha256": "0cb9c4fcabab66269e46e4d7ea8e79abf80984b4a8f6f1c592a0da50cf6e14be"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoFrameEvidence.java",
+      "sha256": "9261faf4fc9aa98a55a0052f8063830303467501015bb301249317bfab4dae8f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoFrameOcr.java",
+      "sha256": "07ccd9a8266c2b8c69812e9342fe3764653fa7a4cad1199cf9bb7ca59c5dc250"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoFrameRecall.java",
+      "sha256": "0f33e91c35187ee85aab7e6292e1948a1f9b4bd213ed7b2c41c27008acdb9e82"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoOcrCompilation.java",
+      "sha256": "13d6f59c31042d1a151c2e402ca8f18789621e50262cc459a03541a9fdcb48e7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoOcrEvidence.java",
+      "sha256": "c7d4b8bdd072a4b2e996b42fa7087517bdf4bc6db328c176a630656c16c442ba"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoOcrSegment.java",
+      "sha256": "227e7e7ec98bf38f10f6af349b90fa376ef407f22aabb15fd04613c03f75a19f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoOcrSegmentEvidence.java",
+      "sha256": "70110b8a80403f280174d6dcf86a5b0d7fdf8545e6fcc72e5aa2dd30ec0dc178"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoOcrSourceEvidence.java",
+      "sha256": "033133e585d71cdb3541e9e1c66aea27efa0ff227b245a10d58258ac57c681e4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoProofInput.java",
+      "sha256": "f88adf183ce6f464368fc6114582a9d9e43eb390b58f5af323123aab192f0c51"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoSourceEvidence.java",
+      "sha256": "0e11b2b79e0d85a0483cdd6a747c4e3b92e10c2f084e4069a60391491e06f155"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoTraceEvidence.java",
+      "sha256": "80dd42e5424c81beb5c81bfbaba58cfdc5aeb449d18df82e5dd2162a33129215"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoTraceFact.java",
+      "sha256": "ce7e8fbf0635001f080907129ff663b6f1d271bc0b162f6bf0c5d99eb9e1b564"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoTraceProof.java",
+      "sha256": "b059957d9ee6fdb17881c1def53693f0779f8c715f31fe6d412748303106fbfc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VideoTranscriptEvidence.java",
+      "sha256": "569f757501af5117e15f0c2ff1ad811776047c0a30eb1eb5af6da2731067a8c1"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VisualAssessment.java",
+      "sha256": "e096749ceb509afc1399d14ba525938aab2095b4bfb6fb6628758988f412c16e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VisualImage.java",
+      "sha256": "a3deb5316315e154dd85ad64fe70ab53e2f00713a06da967c7016d3399f36b9c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VisualIngestionOptions.java",
+      "sha256": "4c2907dde414760d81e48a2f6ae86709d47f4eb25bde9dee9a1fcfeff644aee7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VisualSourceEvidence.java",
+      "sha256": "8c7e4b48b9f5308fcc8fe3aa5e84d7db746ab4e2f76dfe7b7304accb5798db16"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/VisualTraceEvidence.java",
+      "sha256": "15ededa92d8bf6f840ba735d5745f377da32ec2843b2a0ff14f63238eda55a9e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/AnswerCommand.java",
+      "sha256": "c267424597989f02eecebdfe36fa0a89c41915b5f2ebbadcafa747ab8666a0ab"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/AnswerResult.java",
+      "sha256": "a4889a1444a224f8532d76be7691a962b850a85cbadd3f5b6f935725d2d94700"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/AudioAnswerResult.java",
+      "sha256": "1922c784ae4aa091ef888053befdf74030c2ca6eab72bbe34492a1430a148b0c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/AudioCitationResult.java",
+      "sha256": "6b2ac585c75926c43b90af0ed1c6fd6680a97f1304e415fd67d4e617f4846467"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/AudioSourceResult.java",
+      "sha256": "ba8c9dd808ee0684d2ece2de8b408e13c6d4b574f67b1b927c51806495505c48"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/AuditEventResult.java",
+      "sha256": "0b748b9f0afa56e32609240fc0ef80db572ef80221d7d7cda91933d97255d6bb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/CitationResult.java",
+      "sha256": "7a4082478b612f6947b35664944791f730b899bf14fb6932c433f69341b05fef"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentActionCommand.java",
+      "sha256": "822baf76e922d74d216630d404b322afebb793848900420465c58d3795380261"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentActionResult.java",
+      "sha256": "e8de02189fcd4a60f529f4c16339a268e8b52bc532718be826bdce9a70b2742a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentPageResult.java",
+      "sha256": "cdd84d0f8bfdd10768d3897c9c1ff8f0cd4fa4f7a6f48a67b8ae0361c57f447e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentPatchCommand.java",
+      "sha256": "5ecd8b5327e42076c063f26b1ccf7343b7a6646c0dd14f3786b848b1ba62540d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentRemovalResult.java",
+      "sha256": "23fbb2713877984b91f4de1c6b066842451da1ac461605ee266c953f10dfc171"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentResult.java",
+      "sha256": "c9d77ba36fdb931213ed2cb946e375241849d19e8aeb2f804263f100f689c887"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/FolderListResult.java",
+      "sha256": "e651e13a879d44a65a43cf21a14665423106fc6807fa335c01527be7cbd3504e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/FolderRemovalResult.java",
+      "sha256": "d3d58d29b3a3f4ad7f5ef8b027c12f80c5fbfc6565e79c13f9744d13274e006f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/FolderResult.java",
+      "sha256": "007f361ba8429c297d1dcaa3ebdb5f171702f16befd4761d62e01f33c652d94f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/ImageSourceResult.java",
+      "sha256": "9fdd18380d3b5efde03b0f60ba710d74c4a0705146efdff3fc6fd90c8bdebdc6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/ImageTextRegionResult.java",
+      "sha256": "0f4a9ec54b19224091a862d0f37ab6b26f92db8246fd30070f95173435f7514c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/RuntimeCapabilities.java",
+      "sha256": "f86b8da9e9f3daa3ccbc125a2f5722440a6f33f53952542a951567d2ac4f6d17"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/SourceResult.java",
+      "sha256": "338d817789b38eabf5da5883b59ddf2a1984cd5b070c31b7527f517391c1eec7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/TaskResult.java",
+      "sha256": "510bafaf221bf1cb77f08d466ead75b1b0a85ab3d8e194466612d4b7f058df02"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/TraceReceipt.java",
+      "sha256": "428251c03dfb87d374ab8698368c95f2cf63460fa8f94278502de70656937cbf"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoAnswerCommand.java",
+      "sha256": "9962d8bf184ff75b20ba37e303459ff2dc327e0233cb73433642ce8dbc26f8bb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoAnswerResult.java",
+      "sha256": "2ae1952fb826184c441334320fb1944d4da0b15a32f5a4acfcf75288b9e36ed2"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoCitationResult.java",
+      "sha256": "1e16ffbf34794800210cb47e866165e4cc328e4d9a4edbe31957ddb723a44244"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoFrameResult.java",
+      "sha256": "ae4fb4075ac9685c1b66a87ebed1eb7fa5af654a54e6a204a7255446554999a4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoOcrResult.java",
+      "sha256": "80f5f027a41e83bcef5a690b72466a8eb0f0acb54e60ff3e5d9380672a728f60"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoSourceResult.java",
+      "sha256": "ecd2bf2ac30a770265e6192adff79bb9a8dc2cdfad7bba044b83f3e7e5c3775b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VideoTranscriptResult.java",
+      "sha256": "ebd2b5cde2a7be929be996871690dc1bd6ccc22a1092ae715f0f4f6556a7c94f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VisualAnswerResult.java",
+      "sha256": "73a12b9e3d4079a249ca428ec89e6db2df1f42b9ae0cedf998ec3edc34169752"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VisualCitationResult.java",
+      "sha256": "3b5bb442b996aed7a6a4c49fa2a414a96f16021871ec946ef1ab3a2e1af06a0d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/VisualSourceResult.java",
+      "sha256": "7d454d1616c93419fb3526000c8c12280e11d5df0c52432b1570d34419bdaac1"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/AuditEventEntity.java",
+      "sha256": "9bef4f7b40354ba5e87ee02fba62149603e6c4de01c5b2e4d8d7342583ab56f2"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/DocumentEntity.java",
+      "sha256": "6579c3e72c43750a68339929add9107e83b2313450a7b6f6f7dc47153854e7f6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/DocumentEvidenceEntity.java",
+      "sha256": "ffa5d40cfd8708089ab92a9c26a4c9e2c24372b03cdd25564b11301f8cb856b1"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/DocumentRemovalEntity.java",
+      "sha256": "09eec41e3aba3da17044ac5f94f942448371068c04ae6761717fa0da4310425b"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/FolderEntity.java",
+      "sha256": "19e47ea8c383bc8c3360d92f52ee27b4e4670d752531340deba16dc3bf669611"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/IndexPublicationEntity.java",
+      "sha256": "8904cfe64c123403a6d767369c4674dc2da4b9ce566e46715aa48acd6e4593ca"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/RevisionEntity.java",
+      "sha256": "2be5ee55b91e0c73e9dc3c1f1e16ea7a0bd36fb66f1aa63eec57d050b5778b09"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/TaskEntity.java",
+      "sha256": "65b49a71e8095e3995d08691edf273d6bc700d29219e61ee66d2d32826ce8708"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/TraceAudioCitationEntity.java",
+      "sha256": "940b8bc8763b5d47342b7ff530f8dd27e86a04b4d8b54b202eaece8d21f68c7a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/TraceCitationEntity.java",
+      "sha256": "56c5c6a5f702fa45ee2baf06f1b4a83b600e1acf5c32f316ef1373d0240bcf32"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/TraceImageCitationEntity.java",
+      "sha256": "323092577963fdb4093533af56bb5bff990ab2ffa2e9185f191b75c113eb631c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/TraceVideoCitationEntity.java",
+      "sha256": "365f9d1d08d694f6596f2ee938ed5da85aa471060928868be7cc1cbd2ddff3f4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/entity/TraceVideoOcrCitationEntity.java",
+      "sha256": "c9eedfc65ab8dbf109b8c3167a89506f75b429dbcf9e07cee7980250d2eabc18"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/query/DocumentQuery.java",
+      "sha256": "a708c5345dc71e5e847fe79f5c7983a66124e493174f6065156510bb6a721a3c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/DocumentActionReceipt.java",
+      "sha256": "d93f2cac0f44b1dfb13233c8bae3a22a614510db62547f8100a6e30f4fbb11c4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/DocumentActionResponse.java",
+      "sha256": "edb775f8a0b431ec842037a8ccb6157e519bc7ca889e6b8b6cda10185839a83d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/DocumentActionsResponse.java",
+      "sha256": "aabb4eb0db549f075b62e6773f3361cf1edf85982a56797fa71331b3a17f5885"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/DocumentPageResponse.java",
+      "sha256": "d36e620461dec09cff8ebac07ac0f25c4f329cdbd4a0486b67e662728cf73ed9"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/DocumentResponse.java",
+      "sha256": "ec957746649f625cf0a96114d5e8b5fb9651bf95d626f4db32874566b99f2f70"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/HealthResponse.java",
+      "sha256": "01062c43bf1fd128b939e1c4c60722f7d39c718ce237fb2025910f80a45ff87d"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/MediaInfoResponse.java",
+      "sha256": "36ba2a8f0a0b65fa5299ff50b72040ed3991730b22ee000f2855448c7c243ec5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/ProblemResponse.java",
+      "sha256": "69726fe0042df052432929b1d38c67e3dfa66be56f19b88bf8560bab60851544"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/RuntimeResponse.java",
+      "sha256": "c95c371135365e57d757364f829cb92cb5d53262ec54a776b6f47eabce1b7ba7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/SessionResponse.java",
+      "sha256": "a806444f0913eb2e724e27adf351faf1b83e4c625eadb8f123b4f297f2b49104"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/TagListResponse.java",
+      "sha256": "8320e1a927dbd2bdf32cd493053f9fa59932c6e50076d3b27d5dc8b9217559bd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/vo/TaskResponse.java",
+      "sha256": "6c8c68787a97eaa28ae5f7f4238e72cb3fbf66374e01bb5903f4cd6ba5dfbf92"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/AuthorityRows.java",
+      "sha256": "f7ee774ced6e9a30e693b15175b14478ab1747fac3ec66f7731e3c07b524b642"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/AuthoritySchema.java",
+      "sha256": "efaefd9385a8f5a019777e1c7edff9458c1a4f7f99364ddc9beb2ca43e17ca2f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/DocumentLifecycleRepository.java",
+      "sha256": "a44db35af6355f7c67ee0068947f3eff75f12cabd02660d729ac39bed42f0525"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/EvidenceRepository.java",
+      "sha256": "b101a29fd954df23efc48fdc8217b7be53e46a2298ebcbb10187ae647ad9482a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/IndexingRepository.java",
+      "sha256": "5f6eec735a5fce948331168aad8ea9d0b00e6be51873559c00c8e23b10186376"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/IngestionRepository.java",
+      "sha256": "11938c75f99733dbfda1e7902c7a2c9ab394b8b8f882aebf587d1bdf1365c35a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/ManagementRepository.java",
+      "sha256": "c39d3ecd003b2e5badfc6ea49eedceeeedba1d355bbae568ab5ee9ecdeac09c7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/SqliteAuthorityStore.java",
+      "sha256": "bcb13be14c6b3cb18c15f36e46593decb4161feeac3fe1cee6343a31629f111a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/authentication/JwtAuthenticator.java",
+      "sha256": "a3a762981e434d2d3288abfcc8e48a4a52394485f9a1b761f293bc346d9694fc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/authorization/DocumentPermissionPolicy.java",
+      "sha256": "8866e983f6a3b2319092ead50667c0fd7c62e517fd4c7631ed386ec6e8d67f76"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/web/AuthenticatedActor.java",
+      "sha256": "354661e05a52d7e34ceff01c8be3b21ee1bdefe18854da119e213ff3a9a6a3c9"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/web/AuthenticationFilter.java",
+      "sha256": "bdf6c3923b6305dfb8928e8f482c01d32c6fdaabd4c487311824e8c04fec2ee4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/security/web/RequestAuthenticator.java",
+      "sha256": "a2a1f0db8107066cbef725222a3095da4d19e045214ba84a1f6ad469544b651e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/AnswerService.java",
+      "sha256": "318f3e6f4602497bc3d3f7f6bd0552014f6a026a4afe89164f692788bb1b7838"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/AudioCompilationService.java",
+      "sha256": "24c17d1587c70b47f44ff71637144d1402006f4bf8e80e8e7caaad0d76ef62a1"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/AudioTranscriptionService.java",
+      "sha256": "ba177da5d9bd5c8e43f03f10e1381e7dcb6214fdeddb26d30c71d59725002c71"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/DocumentLifecycleService.java",
+      "sha256": "79c43bf52f1ec2902c3ff6e4e316f9d68f6c9e2986e1f3c2267c6869c5c98d0e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/EvidenceService.java",
+      "sha256": "3e85fc2fd436abc401f3ece28658b59bb77ebaa5694df3e28f0a72238a55799e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/IndexingService.java",
+      "sha256": "917bd48879f4f4eec7534dfd689953f4fce7d85c3db3a54e08b33046955a85e7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/IndexingTaskProcessor.java",
+      "sha256": "bf430f06c82a62760269df880b0c9b3fb9a32e37b0e56a3e53ec46add382f704"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/IngestionService.java",
+      "sha256": "ec7eecc29d99ff045a860a9b1d4f38d56f79e4c12d4862cb907b008840d7bc15"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/IngestionTaskProcessor.java",
+      "sha256": "1c0b33e5ff6a1c29c756f10d87ed28d95170afb88c6c089ef12ab8688347ccdb"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/ManagementService.java",
+      "sha256": "21189b0a70e272deccfb26106c82345769d9e6405329dcb37d8ebc0f78f718ef"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/RuntimeService.java",
+      "sha256": "f67de003f95c0231255fb38fe7eaeb8b8e7ac0898d6027b0ab7698a6e38c03a1"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/SynopsisService.java",
+      "sha256": "a23dc05f636915acaf26b19bd190d156060e4bccdf0e332b1c6e7302dbeff5d6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/TaskResults.java",
+      "sha256": "ee52849f26500b496c0b0bbc11babc77a4b4f7289b4da7c9b8bb8076ee48e5f6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/VideoAnswerProposalService.java",
+      "sha256": "f8cd8dd6abbe9991dd2e19cfd5022cd56c0da9eb5ec4d94a07790ee3d298f17e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/VideoAssessmentService.java",
+      "sha256": "5002b9dae93067d64a26fdc3e073c86b1439c6498ba309f5ed78abcdab705a63"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/VideoCompilationService.java",
+      "sha256": "3ed498dfc477cd6c4884511eef7fda2934fe4884014a9cdce392f17d12e3adb1"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/VisualAnswerService.java",
+      "sha256": "3027df95fc0cad950acf5ab55b14b61990ec0c105f6954b971ee9666bf89ee58"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/VisualAssessmentService.java",
+      "sha256": "2a171782c7fc6b8a513d1d4dd1304c231fc4ee057701089c5863948a75bb71b8"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/EvidenceConflicts.java",
+      "sha256": "8561283af55aa755b21169311214c727a4ac63714d9dba4a40a61461565f0cb0"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/ProcedureEvidence.java",
+      "sha256": "a457e283484f12514a82b05656bf8717f61da1770d16d8311eb4638ab20461f7"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/QuestionFacts.java",
+      "sha256": "57cae36488786bb13adf43cfa6ddf205b6bdaf156c7b3de637e052eb8f52b934"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/QuestionPlanning.java",
+      "sha256": "7c501a873e5932f41abd66b96c3a101b54a34ff0bf2816a64c11e9d10391ae88"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/SourceFields.java",
+      "sha256": "8a50dab70b30393c85652fd7be999b2b257414401cf5257d5ca60215251187f4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/SourceInstructions.java",
+      "sha256": "80498614190c5b3a940bfb816e51603acb10d1ac118725fbf3ff5b6777d5faac"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/TextGrounding.java",
+      "sha256": "382db8c68fc69e8396c5bd6653773430e97cfab3daf2ba08a34e9fe0f8b83bfd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/answer/TruthContext.java",
+      "sha256": "5312bf430c4328a6bef795a8bab2ea780acd1dfb97506790908d0a7315095e68"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/parser/AudioInput.java",
+      "sha256": "6049b2ed7b2a0f47250daeac7d8784e9dcb897d46d66b7efd7312fad85f98ce3"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/parser/AudioPcm.java",
+      "sha256": "5f2773cd70252a605e55fa2f4c4cd85156ad4298832db668821df0539970ba0c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/parser/ImageInput.java",
+      "sha256": "392b836735dfd6e8f9b142059d8d2352fe68e8bd9e275eed62a6b9b0defb7c0a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/parser/ImageTsvParser.java",
+      "sha256": "78e1244329b02a67d0bedd9083ddeeaa1347f78013de6f6e29d50901b6896a5a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/parser/TextParser.java",
+      "sha256": "0fa299d64c06931a454636c6380ace2781edd14cf49b2478ac3d5586a384149f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/tool/parser/VideoInput.java",
+      "sha256": "9f16b010be35cb48a220b13955f909ce5c182fd47db804dcc509bb91d8b17e34"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/AudioContentResponse.java",
+      "sha256": "2fe2e2cd8c9f5cdf11e6537e621a1d1c8f6a986d08b6e104fb5e66e184de94bc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/HttpProblemMapper.java",
+      "sha256": "91513b77403113f7274dd3bfa66899eff55de1616b16059d74e8a1f5a56d3a97"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/MediaContentResponse.java",
+      "sha256": "0ff48e176927081f0540f5271311fdf8c2ff2dfc618a5dd9a3a75949ec56b385"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/ProblemHandler.java",
+      "sha256": "9d1f80d9b58849594ca0a248dfe73c86c47749fd4326ffbb4ab0d3f9b9403ff9"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/RequestContextFilter.java",
+      "sha256": "2da977baeff05d56a3721d4ecc5a7cf427c0758f2aa91785bb3df17ecda17c81"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/UploadServlet.java",
+      "sha256": "9b8d99327ea19536b734f1277683e38140b1d2b755331480c90f67b8f3db1dec"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/converter/AnswerRequestMapper.java",
+      "sha256": "0618f57d3630af1650d54058260f4a2a9221f39d4592f111d70548b975da526e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/converter/ManagementRequestMapper.java",
+      "sha256": "d6d411113c84ea2eeeb1b7cc178b1104495eb3eeec7fcbc067b7e68668427032"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/converter/ManagementResponseMapper.java",
+      "sha256": "325e6a6b2ca6a54a2e4e368405668a71fd8a6d2999be707b0c33aefa79365cdc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/converter/TaskResponseMapper.java",
+      "sha256": "7df525a6eb2a6258994fa946575016997540d5364fb34f4e2196ee7c7cfafc19"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/converter/VideoAnswerRequestMapper.java",
+      "sha256": "6ec1016c6755826017b15817ca0d06660a6f7eef063dd316e3b7e0bf39a664be"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/indexing/IndexProtocol.java",
+      "sha256": "eb3e26f05d1806695f632699fb22901be11c8ed534562b5399bb90bfe78b9d68"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/indexing/IndexWorker.java",
+      "sha256": "82b5905d680fc7134a78069659c7978bb2fdfa826efbadd1f8fc9651c28182b5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/indexing/IndexWorkerLifetime.java",
+      "sha256": "2e08a2176f1676fa69a918698042d8399747785f6502bc1f9fa53fd02185cd25"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/indexing/ProcessTextIndexer.java",
+      "sha256": "89ae673d5109783883499db964c3e44d50af178a23b2ace40d47b43301efe6ac"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/AudioDecoder.java",
+      "sha256": "48e1f924bd8325b928bb5add213a4bf265691a9e6f04217b9031802804587e59"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ImageOcr.java",
+      "sha256": "56d3426a1ff728acfe0de7ad4f1ea1943ceaa4fcb4009ec9bbc1835393e4a458"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/NativeMediaSession.java",
+      "sha256": "41308f83a6c8979ade50533feeb659413bf666e5d1828644fbcb0a586537c4f3"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ParserProtocol.java",
+      "sha256": "57c4b0a77518bbffa64bc5dae48053d823897c83908b5953f9b257ed2053bb7c"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ParserWorker.java",
+      "sha256": "03f498f78ca964be07cd680258275ebbf9793c9b6e5f1785e1ad43dad66d12fd"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ProcessAudioDecoder.java",
+      "sha256": "6bf4c646e497f1eb48143a1239584fed8d1dc8787ca22492177a96bdb0c8de12"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ProcessImageParser.java",
+      "sha256": "cb326c617081162bf28f3ff0fd031ace5afcb02399a3a32dd49f24ffa27988da"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ProcessTextParser.java",
+      "sha256": "827335569d2ea3de95a79178f4f75c2ee6d6978f36dd42c736faf4554d3e8a80"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/ProcessVideoDecoder.java",
+      "sha256": "dfe3d0d183f6872ae912f74815866edbe6c67ff827d51dad8c5247065d5a1610"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/VideoDecoder.java",
+      "sha256": "705b8ab60b1321ca4f3622cb1072681f7e912a78457e80d8ce929a5075d733e6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/worker/parser/VideoNativeOutput.java",
+      "sha256": "6b0c28add8b285632c16a56b367adb5642e207951c8aae2aba3ab90f7eb7cded"
+    },
+    {
+      "path": "src/main/resources/application.properties",
+      "sha256": "0fb14fc8aa9897876822b9579e0bb473aaaca9941a270bf0c3f2442280185e84"
+    },
+    {
+      "path": "src/main/resources/static/api.mjs",
+      "sha256": "0ac55f0895cb9416f4dae137eb2480e1320a2dcb5b3c95d3ecf6b1e50b4bcbad"
+    },
+    {
+      "path": "src/main/resources/static/app.js",
+      "sha256": "58ebed966402bd7ab67d76422a18d2b5f57791466581534fc82568db57c502b7"
+    },
+    {
+      "path": "src/main/resources/static/index.html",
+      "sha256": "368bcc7f7b45f61613b34ad0a5a6acd690a459b84906c85dc12468faac818bf8"
+    },
+    {
+      "path": "src/main/resources/static/notices.mjs",
+      "sha256": "8e43264e4f7e52bca45f8893bd797f66e0ec2ad7ae5a5fcffe142b070da61a80"
+    },
+    {
+      "path": "src/main/resources/static/styles.css",
+      "sha256": "66e9b29f7815841579af33e0f10e9e2d979b8f6280d2cf8e81af0867d6285829"
+    },
+    {
+      "path": "src/main/resources/static/workbench-state.mjs",
+      "sha256": "932f776f1d7caf5c4aa29e9e9dbb589235e345e886521edfe370cd0589d52bfd"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/architecture/ArchitectureRules.java",
+      "sha256": "256af331375879309972a90febf0fd1c4af608180be1ad6e49243ee9884b8d2e"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/architecture/ArchitectureRulesTest.java",
+      "sha256": "232b55574b81fee1eb0e4c587cd605382ab2d4427c1999d63dcd5c9d29b66262"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/bootstrap/DemoFixturesTest.java",
+      "sha256": "8f4038839b30ddea1115308a24fb34ac3152a728beed6cd04c6fda234703632a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleAudioModelsTest.java",
+      "sha256": "39da554ac58a02377f195e3e03c3306d3e4b616ad5b24ac7be68b99e49e1b51f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleFactModelsTest.java",
+      "sha256": "c579737033bb343c17276a17544f000a9b3452b1742d74072ee90f17259fcf0b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleModelsTest.java",
+      "sha256": "53aa683f629e5fe0752f3c5cae2ac9dcecead3c11ea51a5276abbce4155144b2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleSynopsisModelsTest.java",
+      "sha256": "3c4d4176ae51b27be594940e8c1632b69aa9a4bdbf53eae13e4066f0ebebca11"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/OpenAiCompatibleVisionModelsTest.java",
+      "sha256": "9ded39b08e7448a6617a4b5f91e311db01154edc235cbc0002541296a2b762d3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/SiliconFlowGenerationLiveIT.java",
+      "sha256": "d0b9d014141536eda891c7873e11015cc125c646016c403b82438feeba073c63"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/model/SiliconFlowLiveIT.java",
+      "sha256": "a60088bb8d62c2549f590f74a8952ab253d10208b33e3e0a2948826ecb3ba04c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/vector/DeterministicProjection.java",
+      "sha256": "41eb2113d66bd5dd7e7a84555ba348f328c59ad3005e407f937e55141c15ab2f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/vector/MilvusAuthenticationLiveIT.java",
+      "sha256": "7859606217a48061c78585bae01d91a3c32247314be1aa4dde2e5579acbbb24a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/vector/MilvusLiveIT.java",
+      "sha256": "800339486a4639efc677a70a469d101f60dcd6c01eb2724dc480341490af01e3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/vector/MilvusRestProjectionTest.java",
+      "sha256": "3195c4865166f0bd996801248d412f9e85070ecec173544202908c8bd7c5820e"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/vector/MilvusSearchPreparationTest.java",
+      "sha256": "4c8d80196c1af72281306383af86a1abbc6472503a3e3055b7337e917c0910c2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/client/vector/RetrievalProjectionTest.java",
+      "sha256": "80fcdd448628e61f4d08fc7d9b07f07350c499f456962f3f931cb69809299876"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/AnswersSettingsTest.java",
+      "sha256": "61baf47ee2d16393212734dc175fd558a814c681efe12d9e1bb4608d2da1aa0d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/AudioConfigurationTest.java",
+      "sha256": "b0155081e4e7a77471f547d97c8d18a5b65be09e14e22789ecb555bfbcb37b12"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/AudioRuntimeTest.java",
+      "sha256": "6d9c4adce217466583f0a5255575b58bd31ce0268845aab3e7d56f86c2328f44"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/DocumentRemovalConfigurationTest.java",
+      "sha256": "7481be9b905e0aad5310e77727798cad40871bbfc62b902f156d7be70c9e141e"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/ImageOcrConfigurationTest.java",
+      "sha256": "298e22d59155a1d1870521c3852ecfb8fe7a316012155724cde26b6872307aa3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/IndexingConfigurationTest.java",
+      "sha256": "8a4dc1ef0efa9f84893ec10bbd7b0f55d289a4b413c0c17ab3c9709216cfe031"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/IndexingSettingsTest.java",
+      "sha256": "509303760cdf81f13057150ac76b58da29218ac02150bce4adb8b69075161181"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/IngestionSettingsTest.java",
+      "sha256": "9d189059580d59eceeb41e33726ad8158cc35d8d6523fa34f08935b7b9a6e318"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/RagPropertiesTest.java",
+      "sha256": "30bd6487c8f6a07923729157c3c195c1b946cf407969218a490c3607fa0a90a9"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/RuntimeGuardTest.java",
+      "sha256": "21bec976067891db4d3dfacd812450d996d450ef6f52944e1e51644ae469132f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/TextAdapterSettingsTest.java",
+      "sha256": "9c31a1d371dbecbff183e08f78f310df02aa83dfc48759c36940e0cdde3851b4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/TextAdaptersConfigurationTest.java",
+      "sha256": "1cf10fa4f156780f6adb46f452ec64ab480731c3da5ed63d5ef748fe8fed065e"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/VideoAnswersConfigurationTest.java",
+      "sha256": "186391e5a780d017dd550df44fbdf0e88e44155860ebd8562a328cf58619e241"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/VideoConfigurationTest.java",
+      "sha256": "f376cf76fc14b214b338b220a11491acd0d24df36a87fc9445be6739bb22221d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/VideoOcrConfigurationTest.java",
+      "sha256": "4900eeecbe52a0bcc04bd9d24145cdc584a387c4977b4bccc89b5e99d4ca112d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/VisualConfigurationTest.java",
+      "sha256": "de54756e6eceabba2ce5e5edf0ecd3239cf76286cc0272d37a6e9b9cfb382800"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/AudioDomainTest.java",
+      "sha256": "1d5902555acefd18aab5703daec5ee6e1e2f86cadd0dedf2c26523ecb62ffd19"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/AudioDtoTest.java",
+      "sha256": "94b30129e4c2405598736d37d5702c27d76cb6b5b42fa8b1fee899e00026ef7c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/AudioSourceEvidenceTest.java",
+      "sha256": "91f2637835ef0c3e8fa440da62d3e3caa291f26ab768f50c451b0f07d9d02a80"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/AudioTranscriptionTest.java",
+      "sha256": "d2a4fd436852c7891ca734f85d33f2c82c8454ef0cea307bfd904ddcbef889a0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/GroundingDomainTest.java",
+      "sha256": "750a4cd7a14b110e0d9a333cf8399f17f6c88dfefda24e19d11ee4c4d34ef93c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/ImageOcrOptionsTest.java",
+      "sha256": "a99406dc783e1d6b2b5c68854fc29472d1c2954b331a44c18c5c6e6be202975c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/PublishedVideoDomainTest.java",
+      "sha256": "aadf17de974d8a6543eeb0ad839634b477eb7c9c7881f03754710d5b8eb43186"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/QuestionPlanTest.java",
+      "sha256": "b0c0df42fa55d86d2b8226a971563c97ab87e37fde33321e00b40d3678452916"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/SourceAudioTest.java",
+      "sha256": "096ac7d0b3d085e03be187049a2565bd5d64d4a75f20747de6b3682b6052004a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/SynopsisDomainTest.java",
+      "sha256": "2aa553d1cc58dbfe6ac77ffcd7feb46c6cfc9d52d85f8323cf5785840500b0c2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VideoAssessmentTest.java",
+      "sha256": "c3e9e38c840ca9b94358ae1cc9fc1a6bbe97e2b0d4f6cde5264baa2109dc8dee"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VideoDomainTest.java",
+      "sha256": "f27167378beda4041f87cfb11af1df42c39fc2ef9c99ba591a6923997aaa1b4d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VideoEvidenceTest.java",
+      "sha256": "ac445f6a2cc335765e8f67f201aa051ebe17edf29ef0a7e12f5f59faf58adce0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VideoOcrCompilationTest.java",
+      "sha256": "af15f21abb76774eab211fb0614c17846d27172ef2c11ca739e9c3c30545d7f2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VideoProofInputTest.java",
+      "sha256": "a76e5ddbeea238aa55be902bba12ab9dd89daafa59cc046c5fcf4b1e8a9d8bbc"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VideoTraceDomainTest.java",
+      "sha256": "7310b3c7363f5c2d7ad65b6efee88a7d849fa412df002e2311a84f69740e4d8f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VisualAssessmentTest.java",
+      "sha256": "f6e25a9022b959c86757276de226ad536d1075033dcd78282717ebaed8960a8c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VisualDtoTest.java",
+      "sha256": "679e47c4227d95fbc5b69a4931db033d450de8f9f850e9b0671bac4d53f30f8c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/domain/VisualImageTest.java",
+      "sha256": "d8c0809e927f7f5390c9ea605a5bb75ed621e0bb7cb9710cbc6fb08cce5965a2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/model/entity/VideoTraceCitationEntityTest.java",
+      "sha256": "381791286289f0ecdbd5e31e21a6e3b2de960004e3368b4474c36e040ccd0eb9"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/AudioLibraryMigrationTest.java",
+      "sha256": "d574f919941dae523d6cee2a4f38b55263f0beab2494379a7633bd1aab0d0b8d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/AudioTraceMigrationTest.java",
+      "sha256": "68ec1a963614b7f1c479f3c8e8fa517ff49d6bdcefb2d5c9d8b10a36facb1284"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/DocumentLifecycleMigrationTest.java",
+      "sha256": "b72728d1b49a68efc8c958d47dd41feab94ce7cace6275f5b6c9fc9e339d8b97"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/EvidenceMigrationTest.java",
+      "sha256": "527965af58535a8ea6a7a6a0e4d8d02b44a042b291b3e7951a53ce759cc91425"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/ImageRegionMigrationTest.java",
+      "sha256": "a87153dd430396aea7c1b685d6aa46a908779243a661550ad451d4cb467e413f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/IndexingMigrationTest.java",
+      "sha256": "7d93ebebfc0dfc3bbdd6d76f49738615bec28ce564fd0bf58d65a4dc7f47d5fb"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/IngestionMigrationTest.java",
+      "sha256": "55933291b1251f0d966ffc3f46403ed822d6e376fc25ba6f70d14e2fc703265b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/SqliteAuthorityStoreTest.java",
+      "sha256": "9de02e74e49cded0b1d2f0750e1a3fc8ff2a921f3c0304c72a1653c123cb9c4d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/VideoLibraryMigrationTest.java",
+      "sha256": "949a30cad61e3f3367bda06378855f0b22f88c71740aeb40a761f9fa82e40e2c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/VideoOcrMigrationTest.java",
+      "sha256": "da091efc6d3fa79fd8246fb60172e56c4f7e3e82593b23cde606f2f0d23c07af"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/VideoOcrRepositoryTest.java",
+      "sha256": "229945752bb65804608229a07b65803d968a4cca2f31110a05bfaed0e85c4f8f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/VideoTraceMigrationTest.java",
+      "sha256": "005194085325ca151c8196f8e2f4c361e052ee189336263b8113d1829ff6dfac"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/VideoTraceRepositoryTest.java",
+      "sha256": "1ceb11e538b8ff5ce62a1c112d575f95aa9b266b9f4d8d2ac540763b9496a87d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/VisualLibraryMigrationTest.java",
+      "sha256": "65fbd7193eedb9f7e8ac229f4fc6c84741977c86ea672bccce24a17e8163550f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/AuthenticationFilterTest.java",
+      "sha256": "9f55196232008293b869203dac6917af77eccea42b2e69fb9a1deaece1e0dcec"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/JwtHttpTest.java",
+      "sha256": "5bcf7111c0e2d6eadc6d4742251fe80bc0e5171e6d747abf58f5ff70e2918fd8"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/RequestAuthenticatorTest.java",
+      "sha256": "f918fc022b24828f9766dccafc066753203a435fe7a687e9a413fabe368b0db8"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/security/SessionControllerTest.java",
+      "sha256": "61b3e74d6272e7dca3286413d4bea97dbf94629641058c1a761008a3c518d269"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerCancellationTest.java",
+      "sha256": "505fcfa71cff63feca11b2025ace4581c8d63f60c7ac8d7f252453f3fe7fed85"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerCommitRaceTest.java",
+      "sha256": "9195a0a4c4b572d7118ebcbbef7788059a8a5ea2986d98117bd58ee6178d7e26"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerGoldenTest.java",
+      "sha256": "8cceb8a5dcbbe56c6383d2143dd6ed7d2f0f1397ac106bb83dc6b9749983d4b1"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerLifecycleTest.java",
+      "sha256": "2d2867956f8fb36d9924567d92f3cd4a86576f920b2eb3c636147995b1026165"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerPageConflictTest.java",
+      "sha256": "bf11c035334d6b14c2ec2fe0c4e27fe2c2d6652fb8bc9b76f4e702437a7318d2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerRemovalTest.java",
+      "sha256": "a472ce498c7366badea647a09e0ca4b05abf2b700277f558604c0861f2cb68de"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerSemanticContextTest.java",
+      "sha256": "e7ce0001792efa8b06406a2f3b2dca3e1357ad22736d1f4f4cb148c9cfa13b8b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerSemanticScopeTest.java",
+      "sha256": "23254769240359fe20ebe8fcf2a9c96ae6c00881c201ec4f6866d601311929dc"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerServiceBoundaryTest.java",
+      "sha256": "fa74c31204063a223f387710f95419b6960b57e3f97557c3fe84c0e5df31bd8d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AnswerServiceTest.java",
+      "sha256": "e74721f062b36d7fe096adf45dec987be195f84d62cba55c81364183868970f5"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioAnswerServiceTest.java",
+      "sha256": "d61370ec9ffb5bb78dcb9551c23c26773fe2882ef422477be2e85f4be5a2cc66"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioAnswersNativeIT.java",
+      "sha256": "90e9ab25d0c578e7e2bb2b5ec428b41149375ae86fe6012b29492e58079bf6c3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioCompilationNativeIT.java",
+      "sha256": "5cac5ca944926179f13ae2a81a167a56cad4fe32e56843a80dbb9712841518b0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioCompilationServiceTest.java",
+      "sha256": "ca034e3f8b8999218e777232e5f3bcfe14cad4b80f9adaba6f8bee628563f3f4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioEvidenceServiceTest.java",
+      "sha256": "16d443f9b5697d283205e09c543f67f543c67ce462b12e2c33efa765817e8b4d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioIndexingServiceTest.java",
+      "sha256": "e308db2ba1730cb886d2ae3ee7cf1c15a23ea30ec3b8310da1ec9685d087080c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioIngestionServiceTest.java",
+      "sha256": "f2879f64a3e5600291682b942c3c5a29ad7ee3487c36b4614076aaaab6aadff2"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioPublicationNativeIT.java",
+      "sha256": "4a80ea41b10acd4c9e4410f9ede2d03aeb0b1f39288bb05c71255ed7c9033f80"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioTestFixture.java",
+      "sha256": "6a2bb5096fd30a7e9cad20d5ff961de12d6d8eae4c1037b2679dd6d7afc5e7d9"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/AudioTranscriptionServiceTest.java",
+      "sha256": "cb265f77281aa1e2f03d23bd36706f3f253683689d2dadc25be18f74e1a5c161"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/DocumentLifecycleServiceTest.java",
+      "sha256": "a823332e41e6b9980013c988460181a129f2c6a409c817ef2ce6cf2b6cd68b6c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/DocumentRemovalProcessTest.java",
+      "sha256": "e89d1b9477649a51d7c7e1327a114c05597d930c22654c242011f99a0fe610f0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/EvidenceCapacityTest.java",
+      "sha256": "a9cbfb7a15a4bf623f892f506cec6e85ce3885fe63c56f55af83c6a6ef2e60ce"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/EvidenceDomainTest.java",
+      "sha256": "251f8259c3bfb5efea01d41e9666bbdafc2e4070584376c41bbaa6c950992093"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/EvidenceServiceTest.java",
+      "sha256": "6528214347f3d24a2808f64e3a79c50ca3cebdc14a0006155a7f3d2c2ad966d3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/EvidenceTraceSealTest.java",
+      "sha256": "0b961d5ae25e106a00be4a7ebcd096e62901c6fb5ff5401210035ff2705e296f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/ImageIngestionServiceTest.java",
+      "sha256": "b0d5c92fa316dd74b1e91c974f2241aa84f4c8d9de78d209787e22542e3f6b56"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/ImageRegionServiceTest.java",
+      "sha256": "a85eab615c8b699d1fce1895131c9c86450f4f94f567f89655dc94bb98e9b1c1"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/IndexingServiceTest.java",
+      "sha256": "c7ed404f9ea8f399e85a1cf472120616044e7d7e726fa2288eee7f0784fd9d07"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/IndexingTaskProcessorTest.java",
+      "sha256": "9f1ee6a0008941cb62d7e25abafa1155f8b9c64f2426c207f2d8adbb64beeeb7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/IngestionAuthorizationProcessTest.java",
+      "sha256": "8918324033566debbf338bf97cd6a4ba2c8e188da9ded37994061304c06ee060"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/IngestionAuthorizationTest.java",
+      "sha256": "a4fa402ea593baced5de901d078dea622fd6ee5de6de9ce5eb2aa999caf9f14c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/IngestionServiceTest.java",
+      "sha256": "c126e740039d787cfd60eee37a870447a3cac5852f1998b36d021fac5faf146f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/IngestionTaskProcessorTest.java",
+      "sha256": "921c610094ccfa62cecdbd285f6e8c98c0704ab9dc26dc8371dcdf2a49ad2f1f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/ManagementServiceTest.java",
+      "sha256": "0531c6f1d85da0f59bcd45820f542ff85d50e4233ba8549dd076c1d456deca02"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/SourceImageTest.java",
+      "sha256": "1222dd8c9a0cab0e4a0ad8248f3d961fbabb679e7437607a3d1c3af3812d00c1"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/SynopsisServiceTest.java",
+      "sha256": "abb2bc805be7f1fff93888727f173c9d4090a5065a5a5d6be001b1516fbda113"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/TextAnswersLiveIT.java",
+      "sha256": "875a96797099061f519431fbd04fff1f55c8e08ae1995e0f8bf80a7e6be3a5f3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/TextVisualCoexistenceTest.java",
+      "sha256": "1ab5227d0130d1ea5701028c89356903268236de9a53536be098b59ba666649f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAnswerEntryTest.java",
+      "sha256": "5c84208a5c83fb0926b0af72389f91589116a20a96fed0e2575c93587654a827"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAnswerFixture.java",
+      "sha256": "01726c1008a7c97a55a6432f02403a2374659ebf0181a78d340279a061649e33"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAnswerProposalServiceTest.java",
+      "sha256": "5b655155dd42db39a4eeaec38ef004cf8629a2bc8590c01d189a509c60c5561f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAnswersNativeIT.java",
+      "sha256": "cbbd3d888581de1404bfe645722034191f632cc55c3b7e212d25547e81d3df6d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAnswersRuntimeTest.java",
+      "sha256": "905ce248b96b64071b0c3dd0f22a794c2b5328d8775519a4a0d22f4c81195628"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAssessmentNativeIT.java",
+      "sha256": "79dc10ac1a422614d980e4bd4a88dd1f770c793859c8c4737c9b9727d19487f7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoAssessmentServiceTest.java",
+      "sha256": "1bbaece67a0426cd6ea043ebae8dc25411bef3bd1f10a49f9d3231ab29eea011"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoCompilationNativeIT.java",
+      "sha256": "470cc6d51c0d4a0afa33bdb41e5a2a4e61af543f173739a6df519e4942ae37a7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoCompilationServiceTest.java",
+      "sha256": "453692b6b5094f9d7b853c7a8793c2aebbf97a3e3be42f5fd185098e92bcbb45"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoIndexingServiceTest.java",
+      "sha256": "cfeee709c14095a6a0a117e49acdda09689d1f512721c139cb0e1b2decd16853"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoIngestionServiceTest.java",
+      "sha256": "2cbb57bbf52e743c7599ea1be4acc89636aaeee1bd2cb21dd730d2fd9d500aab"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoIngestionTaskProcessorTest.java",
+      "sha256": "f896f8f3bbb65c6dd1fce2518b5fda2e7dc305c1f2145a093e8bfdec00a768a6"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoOcrAnswerServiceTest.java",
+      "sha256": "2d7ddec80626a96c12d6483389b6cca8ddecad8746c9d5fe2bf82d86192bd646"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoOcrAnswersNativeIT.java",
+      "sha256": "c14e5e1b635e90894233b6190c5461cd9372ac5b7640112171e9002d61f1f960"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoOcrCompilationServiceTest.java",
+      "sha256": "8106b4258d125633fc6c31ff6c31530b4f44972470a2466a7dcfebdc60134193"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoOcrIngestionTaskProcessorTest.java",
+      "sha256": "5f7a6135c096c85345c8637ea5dd3fd20b2386dff10483ecab6b8d50a8c35be8"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoProofInputServiceTest.java",
+      "sha256": "710236ac3a4c3ab8fdf53a0d0f6a266858f8c5ad6520348fa940578dec10e71d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoProposalContractsTest.java",
+      "sha256": "d365a2bab98cee314e153a8641d4b4eff9f287fa03de700b2ecf9b250488438b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VideoPublicationNativeIT.java",
+      "sha256": "caeceb098254d4499bacac6528dc829d333a311a70613281bfabd68a6ba8024b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisionModelsLiveIT.java",
+      "sha256": "82cd0c477245149d97e2995fc745e393f17ecc94a219ca1eeecd0b8a39d52ddb"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualAnswerServiceTest.java",
+      "sha256": "4560265c13d7133daa54cbeddfb01e5e30002df499fac2f82f569e3c9838a056"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualAssessmentServiceTest.java",
+      "sha256": "1802b38e501d93054f3dd992bb8d0d08da6efa95e43028b39a72527bb5f6e0a0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualEvidenceDomainTest.java",
+      "sha256": "71162ba58fa8ec4a4c028a49c048a24ec05e8fab92761c0786f2fa593fb10bec"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualEvidenceServiceTest.java",
+      "sha256": "8c6c27db92a3a88f53a0a2c1b901e938357fcaf2a900db4ddfe7bca6740c01ef"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualIndexingServiceTest.java",
+      "sha256": "64d4efd650a4488ad86d1b5105d909c8b31c2607196f9d9aaa898c28786af595"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualIngestionServiceTest.java",
+      "sha256": "292dd4ba0b442c21732dfe6e36df89c2019aac122978c8e6eb569f682dd4b116"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualLibraryHttpTest.java",
+      "sha256": "c6e3d391c93ffe35dff889082dfe841e4e8a67776f288000a0a42e68be67ef4b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualModelFlowHttpTest.java",
+      "sha256": "8512d200d865b769194753f38367e0539183dc46172e7ef1dc4e352b3caf5252"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/VisualSyntheticFixture.java",
+      "sha256": "12601031b7f1f55864fa6265d0d2065bbc6b02372bc4edd3c0a8cdf46cf1a876"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/support/AnswerProtocolServer.java",
+      "sha256": "7fe66c661e1ffcd9b9acd430ac444a45228236ab8d52b026a0eaedf1b9b90170"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/support/AnswerTestContext.java",
+      "sha256": "94f74c29ecd476009979754f0890b96ab31b131249339ac4a83bc0d95546a967"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/support/AuthorityTestContext.java",
+      "sha256": "fdf91ebcd3c2f39bef6158276a8c3bf8497e9c30a397e075578d08b06502e8d6"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/support/PublishedCorpusFixture.java",
+      "sha256": "21aa1998256310656ceb68e6bbd58db222aa2f61c24b0a5c36dd1b6abe0f8715"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/support/VideoCompilationFixture.java",
+      "sha256": "de2519b6753b7c192369d41f77db8d43e0a8c9c2660a7be5704aa706a6d4cf73"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/GroundingTextTest.java",
+      "sha256": "ce0823aab490db1f24b125a27e36212214af1b361d3a3199a7041383a4c05787"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/QuestionPlanningTest.java",
+      "sha256": "6ed164f48654377fcc578154a6c56014590bcf13940575cd2418feac1241cea0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextFactGroundingTest.java",
+      "sha256": "23c9bea5bd68c65b58bd11cb081e7ac210f4b87120cbe4a43dc4a46e3906efe5"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingBooleanTest.java",
+      "sha256": "efedf83888d5e56ced0fabc26fdb2bd473e13c948cccda4df04dcbb812633ec7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingBoundaryTest.java",
+      "sha256": "342717f41c1181434cd14a1d48bb80e6094a1f9e15c13f43bf932474aeecda5c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingConflictTest.java",
+      "sha256": "f40e7cb6c039d83fdab7d137e9b193dd100a483a5338209387bbd1b0ecc8caae"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingContextTest.java",
+      "sha256": "b2483d1ecad4d777418a48ceef4eeec90d3419405517f4b3638259809db2d0e1"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingExampleTest.java",
+      "sha256": "cbf8b854331ae19149271b6a1676d4969852920a6aa3d2cd771d314425f404e1"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingInstructionTest.java",
+      "sha256": "294ab26c971b19ab7a3b1e9aefe97534caf41079bfd981972f74a1d646dcd5aa"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingPageConflictTest.java",
+      "sha256": "2a1820b1f7977190dbb75ee8fee0151a6a5481f20853b817e67f222a92b9554a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingPolicyTest.java",
+      "sha256": "279e13ef8392c63cbf9073dc8c4fabb2d564d0baa3f9328f3b1b06800a00c70a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingProcedureResourceTest.java",
+      "sha256": "99eee4034e6102d806fb61cc7096340f21f6fb89d6a924a98a83ee0ae4b3d137"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingProcedureTest.java",
+      "sha256": "aff1a8ec222fca41e1c7bac291e99c925cc41f32dbfb942e10f99b6bd98db21d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingQuoteTest.java",
+      "sha256": "c3d523da4ab3726c061b2ef851166fc3b9c585a17629c73cd29afafe75c7aa2b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingResourceTest.java",
+      "sha256": "2afe9a91a398eff590c5e31dd57ea5be0ba1777b78764f608557545f8c8e3506"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingScopeTest.java",
+      "sha256": "ce845e03e8e0282fe83e3b6d2d8954dccdf07c3d7174f1e38cf475b4438fa4b4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingTest.java",
+      "sha256": "da0415bd66a420a4c75600fb919c7e6de5ac0d2bebdaa40872a6846c846bf026"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TextGroundingWholeFieldTest.java",
+      "sha256": "e6895bb7312998b656431f048279e48ec0e54e67bf1a7190e2073d1458f05ee0"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/answer/TranscriptFactConflictTest.java",
+      "sha256": "59e549c816d84449a48c4067f49159345f16709f5e48a6cef3bc0b341dea6aab"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/parser/AudioInputTest.java",
+      "sha256": "fc401667b177067f08570ba9d3fc01b9ea0ccab12254e9b5e62a69f12b5b8bc5"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/parser/ImageInputTest.java",
+      "sha256": "c74f570746e7d9defa9f7d137593164295f15e5600a5782e72c41123a34e6406"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/parser/ImageTsvOptionalTest.java",
+      "sha256": "b768820c8fa0f0a56567b155748d97ed26bc8bfe1a1d3ec871715fc88d414324"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/parser/ImageTsvParserTest.java",
+      "sha256": "7a8e4d670b89a0ac300365b389caec133ff348408973fae2f47ba6a5a115c5c8"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/parser/TextParserTest.java",
+      "sha256": "4b47c6d0db80128bfc4ba1369bbf5d6997b6a38ad76a686bea22c1e069067b8c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/tool/parser/VideoInputTest.java",
+      "sha256": "6edac5f95200b0fa1427bab0353170b91c1d5de5a9647f08ffd006bbace68c49"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/AnswersHttpTest.java",
+      "sha256": "587bea587d5a849e9b9b230e838168fc3abe1e6b3127fcc7d847bedbc99529c3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/AnswersRuntimeTest.java",
+      "sha256": "0131c45018623bfff7c61bc3000779619dd6726ccb3e5680edee39b7792031ef"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/AudioAnswerControllerTest.java",
+      "sha256": "22811e065689c75311fa32bc1f3133088db648ed5241ec3d338613f13bed5890"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/AudioContentResponseTest.java",
+      "sha256": "3a820797194fbfb1f65d07113aabc8a87b5af94d0aa4d950eabbc6afd1287901"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/DocumentRemovalHttpTest.java",
+      "sha256": "9ff96f940afbf4812570dbf36c1a8ea22c2f4fda7b7aa0dc499fe22900b79631"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ImageMainlineHttpTest.java",
+      "sha256": "4b9044b3fa65892fde13074fa3c2513554fa7879845f82e16b9d8a7c763a85de"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ImageOcrMainlineIT.java",
+      "sha256": "142b90d2fb80ce0a2f5174cc80ad8a3957de5d6f0a6f5ce1ee78d3ed95c45099"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/IndexingHttpTest.java",
+      "sha256": "6972d6186642aa06487472c30671d17e38b613fd45beff30c0bd81f4f83d3514"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/IndexingJwtHttpTest.java",
+      "sha256": "10a00c3c0e7d21a40b8821b9ea58fbddb6e509449cbefe534f21cfdae896e4f6"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/IngestionHttpTest.java",
+      "sha256": "8005f4ab3da7267f902831b5fa82f4b06b66c2842dd874961d24c836624c675c"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ManagementHttpTest.java",
+      "sha256": "6b8522cbb549725b5166111301aa4b44129470f8abd252d87da8b092a9013aff"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/MediaContentResponseTest.java",
+      "sha256": "f01aa5db9ca59ce4679c8ed0c4835c8a6adb39227cdf136609549efdd523dff7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/ProblemHandlerTest.java",
+      "sha256": "c2485bc2e07fe44bc2ef3a97f8f5501af8616ef1b6ce8f47ea64bad0c3c1fd3d"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/RuntimeControllerTest.java",
+      "sha256": "e5b8c25199188aef1f4b0aa3074a3479f21b2bcca1e11dca9f2a7ef2f8fd07db"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/TextMainlineHttpTest.java",
+      "sha256": "e5dba4c2d2912b4217141bc1d183aea66e0ad96fdd0141a6e36da76bd8c2120a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/VideoAnswerControllerTest.java",
+      "sha256": "c433bbabeb6a3352a20bb192ad1415b958d01852a85c3a2eb0c7d0881e6f7f32"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/VideoUploadServletTest.java",
+      "sha256": "c6937eafc8c6ffaca77f88ee15eead8663768eae81cea3489c566a91b0f25233"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/converter/AnswerRequestMapperTest.java",
+      "sha256": "e2a938417c00b83dda5e3e5836987d6eb9116bf208622cb6f2f8c3717814755b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/converter/ResponseSnapshotTest.java",
+      "sha256": "59288c83e4f9afebbaa27b33af07fdc22ba0bba8799ab3d7768e5a3482e10c19"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/converter/TaskResponseMapperTest.java",
+      "sha256": "ffeb408e8e705d4f5cc5f5143926c74dd6840853407f9f2a0199e86ca2aa11ce"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/converter/VideoAnswerRequestMapperTest.java",
+      "sha256": "8c11a61afcb8a7b2cc283ba515b69d3910060fa44eeff1539dd4e50c08483d7b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/converter/VideoOcrRequestMapperTest.java",
+      "sha256": "9cc928c948304ab9116ab97dcd503bc8f30367b3e4b7327cf66a19648267a1cd"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/ControlledIndexerFixture.java",
+      "sha256": "8c4a62004280756de1de0d2bc29db1bf7333e9615b3ecfacfbc952ad70ef8761"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/IndexWorkerLifetimeTest.java",
+      "sha256": "056875665c73ba89933aac81fb433fe127285cc3b6d52329fcfb801dd1d3ca2b"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/IndexWorkerParentDeathTest.java",
+      "sha256": "6d5db9eb946e7d476719c466c36b4f7140971af43f461942c672868957982355"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/IndexWorkerTest.java",
+      "sha256": "f7bde160250ab243d8fb6bcdde52fdec57acb3749e0f594c8d9e6c124d4c2116"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/IndexingTestServer.java",
+      "sha256": "202a6aeea57e32ff5f1e691e494d25109e6a9629df009fbc1220e3516381b443"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/LiveIndexWorker.java",
+      "sha256": "a4e376bb37c2ca45f482bfa34291b97698e627b8225843b5036315a7cbc824b4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/ProcessTextIndexerTest.java",
+      "sha256": "3cadd46f4fe06d5bb7814c44ca31506f7bf8f06fd55f631a7ab687274c3ef36a"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/indexing/VisualIndexWorkerTest.java",
+      "sha256": "cb35066ac2374bbff79c56f48148619202119646a5731cee5b4036cdb8b125b4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/AudioDecoderNativeIT.java",
+      "sha256": "fc48a3e343c0fd78455ad81939df1b34457658fcf132bcb1be56d60f3ee99984"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/ParserWorkerTest.java",
+      "sha256": "baa9278bb5be13e7e5966b5056fcf58c660d2b395d190ffdd0307839d1167210"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/ProcessAudioDecoderTest.java",
+      "sha256": "ff6f25614ccb99898ccd4d0dfe3bb5e10fd4c179be7538eb11653b327ba786e3"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/ProcessImageOcrTest.java",
+      "sha256": "b91e27ad18bb472a0d41744464352257acf297af3ce9f9449ac378a4b9d72c54"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/ProcessImageParserTest.java",
+      "sha256": "0f8b6c03655e8db91293122eb2324c735b8d37ba415924e58a90239ba23f4a70"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/ProcessTextParserTest.java",
+      "sha256": "470d3c1680aa084f54cccd1062b710d0ce33959d416e636025eb8a0c8d53c62f"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/ProcessVideoDecoderTest.java",
+      "sha256": "496a0ab9e240c98eca24d7b02fc85b807e1c09358e7ec456d76a3b60bc48f104"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/SlowParserFixture.java",
+      "sha256": "f7e12f0acc2e5571ab833a1a7fb771f86f42e269e085392f91aa9b67410038f9"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/worker/parser/VideoDecoderNativeIT.java",
+      "sha256": "16d849611499e32eca5e255cd6bfc371ec931671bcf9b9dd4837a7545c4faf85"
+    },
+    {
+      "path": "src/test/resources/corpus/Atlas路由器运维手册.pdf",
+      "sha256": "7fa65681117ae933d2009a455ad190acb40d34eaf3ac500e97973689688df15a"
+    },
+    {
+      "path": "src/test/resources/corpus/不可信指令样例.pdf",
+      "sha256": "9bdc66d8756f1c67d1feae67f067992794164259892385ef378aecf390b5b462"
+    },
+    {
+      "path": "src/test/resources/corpus/另一组织薪酬资料.pdf",
+      "sha256": "08b8a548a153aa8e7753884daae3e0a4f46bd55f9115bf4e02cc1dc9363ddec5"
+    },
+    {
+      "path": "src/test/resources/corpus/星河制造差旅政策.pdf",
+      "sha256": "7baf4e2206a9779b59a6252217c86e610897d8e6980e06b1f05a512732f46752"
+    },
+    {
+      "path": "ui-tests/api.test.mjs",
+      "sha256": "9fb658eb7237c557d6e1efe34cc56ceb3f4578193dbcc2697251293ce629fca5"
+    },
+    {
+      "path": "ui-tests/indexing.test.mjs",
+      "sha256": "9cfc8b7b23e920a551691e0bc53f08eaf7019038b82f8d992889f00b195d4dd5"
+    },
+    {
+      "path": "ui-tests/ingestion.test.mjs",
+      "sha256": "69026c571f7f1e8a354bd0b15f206975a70567f8ed500bc6869cb78c298eb193"
+    },
+    {
+      "path": "ui-tests/markup.test.mjs",
+      "sha256": "92e9e4f0738fc79cba0c9d6f93d0cc662beea0cf9c71d113b2c8ea040cfa4100"
+    },
+    {
+      "path": "ui-tests/notices.test.mjs",
+      "sha256": "3f75481f62bdc677bd3408fad18c42d700ee1d616480dd71ead59a2bc0766604"
+    },
+    {
+      "path": "ui-tests/task-detail.test.mjs",
+      "sha256": "dbd4b5a0d793f7eacd739d9649d85d737e12f6fa87b4e148057221f9f984fa22"
+    },
+    {
+      "path": "ui-tests/workbench-state.test.mjs",
+      "sha256": "a00130f0d8b3391754c1caf50add2e41ee968429fc67f97596fe8f93e865f2f8"
+    }
+  ]
+}

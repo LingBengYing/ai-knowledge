@@ -1,5 +1,13 @@
 # HTTP API：资料管理、文本摄取、索引与可选问答
 
+0017新增默认关闭的`POST /v1/attachment-answers`：原文字问题、明确库内模式及最多3个临时图片/音频/视频附件，在完整授权范围内辅助检索；结果是原typed答案和安全处理说明的包络。28 MiB JSON/20 MiB decoded有界接收，不启用multipart、附件不入库/不作引用；配置、完整JSON及模式映射见[查询附件](QUERY_ATTACHMENTS.md)。旧四种JSON问答入口不改，来源仍走原路径。真实合成媒体HTTP链已验证，不代表前端或生产上线。
+
+0014新增独立默认关闭的[视频上传与完整索引](VIDEO_PUBLICATION.md)：原`POST /v1/documents?filename=...`接受显式`video/mp4`、`video/quicktime`、`video/webm`、`video/x-matroska`原始请求体；旧octet-stream行为不变。202只表示请求类型已冻结并排队，真实流型在后台完整编译中核实；parsed后仍需原索引接口。video与answers同时开启时提供显式问答、typed来源、原帧和原视频单Range；原`visual/transcript/joint`保持，新增独立`ocr`模式消费[选中原帧OCR](VIDEO_OCR.md)，已完成[本机冻结验证](changes/0014-video-library/ocr-verification.md)。见下方“视频问答与来源”和[完整视频问答合同](VIDEO_ANSWERS.md)。`video_upload/video_index`本身不代表问答已启用或任意问题可回答；后文旧“上传只接受octet-stream”说明仅指原文本/图片/音频合同。本机模型协议替身不代表真实模型质量、网页或生产验收。
+
+0013音频上传/索引复用原`POST /v1/documents`、摄取任务与索引任务端点，未增加重复上传Controller。默认关闭，当前仅开发/测试loopback；配置、typed字段和顺序见[音频知识库](AUDIO_COMPILATION.md)。audio与answers同时开启时提供`POST /v1/audio-answers`、`GET /v1/audio-sources/{answerId}/{ordinal}`和`/content`，Runtime声明`audio_answers/audio_sources`。引用时间为服务器真实分段，内容支持完整200、单byte Range 206/416；不输出假页码或词级时间。indexed仍不代表真实ASR质量或问题一定可回答。
+
+0012新增显式图片模式：POST /v1/visual-answers，GET /v1/visual-sources/{answerId}/{ordinal} 及 /content。typed整图引用不含文字页码/offset/quote；沿用完整scope与原回答者当前授权。配置、上传索引顺序和明确限制见[原图知识库](VISUAL_LIBRARY.md)。旧文字端点不变，前端与生产仍未开放。
+
 0003提供显式本机摄取：[TEXT_INGESTION](TEXT_INGESTION.md)；0004新增显式索引：[TEXT_INDEXING](TEXT_INDEXING.md)。0007新增独立、默认关闭的文本问答与引用读取，见下方“可选文本问答与引用读取”。三个开关只允许development/test与字面loopback。0007仍为IMPLEMENTATION：本机真实HTTP九项回归已通过，但不代表完整0007、网页问答、真实provider/Milvus质量或生产验收；逐次源码与验证边界见[0007 verification](changes/0007-text-answers/verification.md)。0003发布bc82a7a的190项Java/42项Node和0005/0006历史验收不认证新增问答代码。
 
 本文只记录当前代码已映射的端点。基础URL使用本地配置，默认端口18084；响应通常为JSON，上传body为原文件字节，任务操作无body。源码依据：[ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[ManagementService](../src/main/java/com/evidence/rag/service/ManagementService.java)、[IndexingController](../src/main/java/com/evidence/rag/controller/IndexingController.java)、[AnswerController](../src/main/java/com/evidence/rag/controller/AnswerController.java)、[RuntimeController](../src/main/java/com/evidence/rag/controller/RuntimeController.java)、[SessionController](../src/main/java/com/evidence/rag/controller/SessionController.java)。
@@ -51,6 +59,8 @@ X-Principal-Id: owner
 ```
 
 capabilities/unavailable是能力名称数组，不是布尔字段。管理五项能力始终保留；摄取启用时加入`text_upload/ingestions`并移除`upload/ingestions`不可用项；索引启用时加入`text_index/indexings`并移除对应不可用项。问答关闭时，原stage优先级保持`text_indexing`、`text_ingestion`、`management_slice`；问答启用时另加入`answers/sources`、移除对应不可用项，stage为`text_answers`，不隐式开启摄取或索引。`reindex/document_delete`继续不可用，readiness始终503。能力开关不代表网页已经接线或任何具体资料可直接回答。
+
+视频开启且摄取/索引各自开启时分别声明`video_upload`/`video_index`；视频与问答同时开启才声明`video_answers/video_sources`，不改变上述stage或readiness。视频装配仍要求摄取开启、development/test及字面loopback，不能仅设置两个问答开关而省略原视频配置。
 
 `RAG_DOCUMENT_REMOVAL_ENABLED=true`只额外声明`document_removal`，不改变stage，不移除`document_delete/reindex`，不自动开启上述三个开关或要求模型配置。关闭时保持原能力数组。
 
@@ -268,6 +278,39 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 问答协议错误仍使用下方既有`application/problem+json`，安全码字段是`error_code`，不是`code`或回答的`reason`。典型额外错误为408 `answer_timeout`、429 `answer_capacity_exceeded`/`scope_capacity_exceeded`、503 `answers_unavailable`；未开启问答时上述路由在通过身份检查后为404。证据不足的200拒答与这些HTTP错误必须分开处理。
 
+## 视频问答与来源（0014）
+
+需同时显式设置`RAG_VIDEO_ENABLED=true`与`RAG_ANSWERS_ENABLED=true`。视频原有`RAG_INGESTION_ENABLED=true`、development/test、字面`127.0.0.1`/`::1`和codec/ASR/vision配置要求不变；问答还需完整TextAdapterSettings。视频使用自己的vision资源及共用fact-capable文字模型，不要求打开旧`RAG_AUDIO_ENABLED`/`RAG_VISUAL_ENABLED`。完整配置、逐字段JSON合同和验证边界见[VIDEO_ANSWERS](VIDEO_ANSWERS.md)。
+
+视频OCR摄取额外使用默认关闭的`RAG_VIDEO_OCR_ENABLED`及显式本机Tesseract设置，详见[VIDEO_OCR](VIDEO_OCR.md#配置)。它逐个处理已有选帧，使用v2 compiler/v12附表；旧v1资料不自动重识别，不代表全部视频帧、独立字幕轨或完整字幕识别。
+
+| 方法与路径 | 返回与用途 |
+| --- | --- |
+| `POST /v1/video-answers` | 200：`answer_id/status/answer/reason/citations`；有据回答或有审计拒答 |
+| `GET /v1/video-sources/{answerId}/{ordinal}` | 200：`answer_id/citation`；重读当前授权的同一typed引用 |
+| `GET /v1/video-sources/{answerId}/{ordinal}/frame` | 200：该引用封存的原始解码PNG/JPEG；旧三模式组无帧时404 |
+| `GET /v1/video-sources/{answerId}/{ordinal}/content` | 原视频：无Range为200，单byte Range为206，非法/多段/不可满足Range为416 |
+
+POST使用JSON，无query，仅允许如下字段；`mode`必填且只接受小写`visual`、`transcript`、`joint`或`ocr`，不会从问题推断或降级：
+
+```json
+{"question":"指示灯的颜色是什么？重启等待时间是多少秒？","document_ids":["doc-video"],"mode":"joint"}
+```
+
+`doc-video`为示意ID。`question`和`document_ids`复用文字问答的验证及完整范围：省略选择为当前可见已发布全库；`[]`是零模型/投影调用的`empty_scope`拒答；任一不可用的显式选择使整次404，绝不回退全库。视频筛选只缩小检索候选，不删去原范围中的普通文本/图片/音频资料；最终提交和来源回读仍复验完整范围。
+
+`visual`或`transcript`要求该模态覆盖完整问题；`joint`要求同一个真实`EvidenceGroup`覆盖全部事实，而且原帧和转录各自至少贡献一个通过证明的事实。caption仅供召回，不能替代原帧证明。沿用有界确定性语法，最多8个事实，不提供通用拆题/代词消解；无法保留共享条件、时间或所属关系时明确拒答，不截断问题。
+
+`ocr`走独立文字证明，使用完整原帧OCR上下文及精确摘录覆盖全部事实，不使用caption/ASR代证，也不计为`joint`的视觉贡献。同generation混合命中先全部经authority验证分类，再按证据类型筛选；未知或越权ID不能被静默滤掉。
+
+引用最多32个。原三模式的`kind=video_frame`或`video_transcript`分别对应`proof_origin=machine_vlm`或`machine_asr`。公共字段包含parent文档/revision/source SHA、compiler版本、真实`group_id`、`start_us/end_us`及精确十进制`start_ms/end_ms`、`time_precision=group_interval`、`frame`/`transcript`、服务器生成的来源/原视频URL。帧有真实PTS、SHA、尺寸和`origin=decoded_original`；转录有精确摘录及ASR整段`start_ms/end_ms`、`text_origin=machine_asr`、`time_precision=server_chunk`。
+
+OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null`、`time_precision=frame_interval`；有`frame`、无`transcript`，时间严格取该原帧PTS及实际显示时长。独立`ocr`对象含整帧文字的`start_code_point/end_code_point`、`quote/quote_sha256`、`ocr_revision`和相交完整词框`regions`（`start/end`为CP，`left/top/right/bottom`为原像素坐标）。旧三模式的`ocr`为null。全部模式均不伪造scene、page或词级时间；OCR只公开真实frame-local CP，完整字段见[typed引用表](VIDEO_ANSWERS.md#typed引用字段)。
+
+所有来源GET只接受1–32的`ordinal`，无query/body/Transfer-Encoding；需原回答者当前身份。未知/拒答来源、失效publication、完整范围内任何资料失权或源SHA不符统一404。先完整授权及原视频SHA校验，再处理Range；不会通过416泄露未授权文件长度。帧不按请求时间重新生成，`/content`不提供按毫秒剪辑或抽取音轨。
+
+视频、文字与音频共用原`RAG_ANSWERS_TIMEOUT_MS`和`RAG_ANSWERS_MAX_CONCURRENT`；没有额外视频执行队列或调用额度。预算中断不返回部分答案；200 `abstained`与408/429/503 HTTP错误保持区别。真实FFmpeg/Spring HTTP/SQLite链路使用本机ASR/VLM/embedding/rerank/Milvus协议替身，未证明真实云模型质量、网页播放器或生产可用性。
+
 ## 编辑资料展示元数据
 
 `PATCH /v1/management/documents/{documentId}`
@@ -369,6 +412,22 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 ## 明确不存在的业务端点
 
-当前没有streaming、独立候选检索、任意来源页预览/原文件下载、物理删除完成/已发布版本重索引、摘要、自动标签、独立嵌入/重排/Milvus管理或多模态API。摄取、索引、0007文本问答/引用以及0008撤下请求仅在各自开关启用时提供上文路由；关闭或未映射路径在通过身份后通常404。引用读取只支持服务器已校验引用，不是通用来源浏览器。
+当前没有streaming、独立候选检索、任意来源页预览/自由原文件下载、物理删除完成/已发布版本重索引、摘要、自动标签或独立嵌入/重排/Milvus管理API。显式图片、音频和视频问答及其授权来源端点见本文与对应专项文档；它们不是通用来源浏览器。摄取、索引、问答/引用以及0008撤下仅在各自开关启用时提供路由。
 
 `TextParser.parse(...)`、`TextModels.rerank/extract`和`RetrievalProjection.search`仍是Java库Interface，没有独立HTTP端点；问答由上述受授权用例编排调用。未来端点应先在版本化变更工件中明确范围和验收，再更新本文及HTTP测试。完整问答、selected-set、来源、多模态和生产目标见[ROADMAP](ROADMAP.md)，局部HTTP通过不缩减或完成这些目标。
+
+## 0009：图片文字和同版本原图
+
+显式图片OCR opt-in后，原上传接口额外支持PNG/JPG/JPEG，真实type=image、上限10MiB/1200万像素；其他任务/索引/回答路径复用上文契约。关闭图片配置保留原文本准入。配置与当前验证边界见[IMAGE_EVIDENCE](IMAGE_EVIDENCE.md)。
+
+`GET /v1/sources/{answerId}/{ordinal}` 对图片来源增加 `image` 对象：`type=image`、`mime_type`、`width`、`height`、`bbox=[0,0,1,1]`、`coordinate_system=normalized_xyxy`、`text_origin=machine_ocr`、`content_url`。文本来源不输出image字段，原citation字段不变。page/start/end是OCR转录定位，bbox只是整图，不是文字区域。
+
+0010新增词级区域：新`java-image-ocr-v2-tsv`解析结果的`image`另含`region_kind=ocr_word`和`regions`数组；每项为`{start,end,bbox:[left,top,right,bottom]}`，bbox为0–1归一化xyxy浮点数，start/end为同一OCR页的code point半开区间。只返回与该引用相交的完整词框，不冒称字符级框；词框可超出摘录的字符范围。原整图bbox和content_url保持不变，旧v1图片省略region_kind/regions，不重新识别或推测位置。示例（合成，不是真实OCR结果）：
+
+```json
+{"region_kind":"ocr_word","regions":[{"start":7,"end":10,"bbox":[0.35,0.0,0.55,0.16666666666666666]}]}
+```
+
+区域不是模型生成位置，且不接收客户端bbox。新v2来源缺少有效区域时安全失败，不能伪装成旧整图来源。当前验收与范围见[0010](changes/0010-image-regions/spec.md)。
+
+`GET /v1/sources/{answerId}/{ordinal}/content` 返回该有效引用对应的PNG/JPEG原字节、真实Content-Type/Content-Length、Cache-Control:no-store和X-Content-Type-Options:nosniff。原Actor、完整scope、当前ACL/active、revision、引用与原图SHA同一事务复验；无权/已撤下/文本来源为404。禁止query/body/用户自定locator，不提供音视频Range。开发身份头缺失沿用422 invalid_identity，JWT无凭据沿用401 unauthorized。

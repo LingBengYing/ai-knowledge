@@ -190,11 +190,11 @@ class ProcessTextIndexerTest {
                           original.sourceSha256(),
                           original.parserRevision(),
                           bad,
-                          original.segments(),
+                          original.items(),
                           original.projectionGenerationId())));
         }
         failure("indexing_output_invalid", () -> indexer.index(null));
-        var reversed = original.segments().reversed();
+        var reversed = original.items().reversed();
         failure(
             "indexing_output_invalid",
             () ->
@@ -332,10 +332,10 @@ class ProcessTextIndexerTest {
     for (int i = 0; i < request.target().dimensions(); i++) {
       vector.add(0.5);
     }
-    for (var segment : request.segments()) {
+    for (var segment : request.items()) {
       String physicalId =
           RetrievalProjection.physicalSegmentId(
-              request.projectionGenerationId(), segment.segmentId());
+              request.projectionGenerationId(), segment.evidenceId());
       digests.put(
           physicalId,
           RetrievalProjection.entryDigest(
@@ -344,7 +344,7 @@ class ProcessTextIndexerTest {
                   request.workspaceId(),
                   request.documentId(),
                   request.projectionGenerationId(),
-                  segment.text(),
+                  segment.recallText(),
                   vector)));
     }
     var manifest =

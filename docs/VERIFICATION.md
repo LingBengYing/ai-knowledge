@@ -1,6 +1,42 @@
 # 验证记录：Java 开发纵切
 
-## 当前：0008 文档生命周期 · IMPLEMENTATION
+## 当前：0019 音视频模型评测工具 · 本机冻结
+
+[评测入口验证](changes/0019-audio-video-provider-eval/verification.md)：2026-09-21 09:43:17默认clean verify通过1685 Java/582格式、LINE93.5334741%/BRANCH80.2014336%；73 Node通过，15:46:13单列native23通过。613输入双副本SHA绑定、旧606原字节和旧1680默认/22 native精确身份多重性保持；235报告/10日志制品及443生产class经独立审计，实质不符0。固定合成WAV/MP4通过完整真实解码、F+9首请求预算、生产客户端协议及原文/同组完整双事实证明；本轮只有测试/资源/说明新增，无生产修改。LiveIT未运行、云0，真实provider/Milvus质量、网页和生产未验收。
+
+## 历史：0018 完整多模态配置装配 · 本机冻结
+
+[完整装配验证](changes/0018-multimodal-composition/verification.md)：2026-09-20 18:12:47最终clean verify通过1680 Java/578格式，LINE93.539182%/BRANCH80.210507%，73 Node通过；18:13:49单列native22通过。606输入在仓库/隔离构建副本均绑定SHA，旧604原字节和旧1680默认/21 native身份多重性保持；独立制品审计实质不符0，443个生产class在JAR与target/classes逐字节一致。新增测试只用RagApplication与全部真实Bean，完整HTTP上传/任务/索引、附件/音频/视频OCR/字幕问答、短摘要及重启零模型/向量来源回读通过。无生产源码或旧测试修改。模型/Milvus仍为loopback替身；全开配置不认证云质量、长摘要或visual/joint再次验收，原专项测试保留；前端和生产未验收。
+
+## 历史：0017 查询附件授权答案与HTTP · 本机后端冻结
+
+[附件答案验证](changes/0017-query-attachments/answers-verification.md)：2026-09-20 17:33:40最终干净构建1680 Java/577格式、LINE93.527767%/BRANCH80.192360%和73 Node通过，17:35:00单列native21通过。604构建输入，旧1619精确身份与多重性保留；542旧输入原字节不变、37必要修改、25新增、删除0。真实合成PNG/WAV/双字幕轨MP4经HTTP辅助检索→库内证明与原typed引用→重启零模型来源回读已验证。模型/Milvus为loopback替身，默认关闭；前端、真实质量和生产未验收。上一阶段输入/排序工件保持历史原件。
+
+## 历史：0017 查询附件输入/匹配 · 本机 Module 冻结
+
+[查询附件验证](changes/0017-query-attachments/verification.md)：2026-09-20 16:41:06完整1619 Java/552格式/双80%、73 Node通过，单列native20于16:41:52通过。579输入中旧567原字节不变，旧1595用例身份/多重性保留；实际PNG OCR、WAV/MP4完整转录/字幕尾部和原图采样、标准双角色多图排序已验证。仅内部Module，授权答案/trace/HTTP未接线，无前端、云模型或生产变更。下一步直接做授权带附件问答闭环。
+
+## 历史：0016 完整字幕知识库 · 本机后端冻结
+
+[字幕后端验证](changes/0016-subtitle-tracks/library-verification.md)：2026-09-20 16:10:40完整1595 Java/540格式/双80%、73 Node通过，单列native19于16:06:53通过。567输入、旧1541用例身份多重性保留；全轨持久化/完整索引、同轨全文问答、typed时间/原视频Range、完整短长摘要与重启零模型来源读取已接通。模型/Milvus为loopback替身，默认关闭；云质量、查询附件、前端与生产未完成。步骤1工件保持历史原字节。
+
+## 历史：0016 内嵌字幕输入/编译 · 本机 Module 冻结
+
+[字幕输入验证](changes/0016-subtitle-tracks/verification.md)：2026-09-20 15:10:56完整1541 Java/520格式、双80%、73 Node通过；单列native14于15:07:19通过。547输入、534旧输入不变/5生产修改/8新增Java、旧1485测试身份多重性全部保留。真实MP4/MKV/WebM全轨/原包/有理epoch/尾部已验证；尚未接字幕持久化、索引、问答、摘要或来源HTTP，Runtime不激活。非云质量、网页或生产完成。
+
+## 历史：0015 完整长文件摘要 · 本机后端冻结
+
+[分层验证](changes/0015-file-synopsis/hierarchy-verification.md)：2026-09-20 14:33:25完整1485 Java/512格式、双80%、73 Node通过；539输入与旧1429身份多重性保持。真实Spring/SQLite/loopback模型覆盖长文字、长音频、9帧视频、尾部反证否决、v14迁移与重启原来源读取；旧短模式及上步[持久摘要](changes/0015-file-synopsis/library-verification.md)保留。非云语义质量、native上传重验、前端或生产完成。
+
+## 历史：0014 视频选中原帧 OCR · 本机冻结
+
+[OCR验证记录](changes/0014-video-library/ocr-verification.md)：2026-09-20 12:49:55完整1352 Java/458格式、双80%、73 Node通过；12:50:46单列native6通过。485输入与旧1299身份多重性经独立制品审计；真实合成英文FFmpeg/Tesseract与HTTP链不代表中文/云模型质量、网页或生产完成。后者及摘要等主线继续保留。
+
+## 历史：0014 视频授权问答与来源 · IMPLEMENTATION
+
+当前真实闭环及逐次结果见[视频答案验证](changes/0014-video-library/answers-verification.md)。它衔接[输入](changes/0014-video-library/verification.md)、[持久发布](changes/0014-video-library/publication-verification.md)、[内部证明](changes/0014-video-library/assessment-verification.md)三次历史冻结；只以最新源码绑定认证当前链。ASR/VLM/文字/向量服务为本机协议替身，不能认证真实模型质量、网页或生产。下方均为历史基线。
+
+## 历史：0008 文档生命周期 · IMPLEMENTATION
 
 基准10dff37的773项Java、73项Node及GitHub CI通过属于历史。新增v5、撤下/取消/来源失效和相关真实进程、SQL、HTTP证据独立记录在[0008验证](changes/0008-document-lifecycle/verification.md)。物理清理B步、完整生命周期、多模态及生产仍未完成；不得用历史773项认证工作区新代码。
 

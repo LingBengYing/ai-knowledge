@@ -132,7 +132,7 @@ public final class IndexingService {
                     task.sourceSha256(),
                     task.parserRevision(),
                     task.target(),
-                    indexing.segments(task.revisionId()),
+                    indexing.projectionItems(task.revisionId()),
                     generation));
           }
           return Optional.empty();
@@ -159,7 +159,7 @@ public final class IndexingService {
             finishFailed(task, "authorization_changed");
             return false;
           }
-          var authoritative = indexing.segments(claim.revisionId());
+          var authoritative = indexing.projectionItems(claim.revisionId());
           var full = new TreeMap<String, String>();
           if (entryDigests == null
               || verified == null
@@ -169,7 +169,7 @@ public final class IndexingService {
           for (var segment : authoritative) {
             String physicalId =
                 RetrievalProjection.physicalSegmentId(
-                    claim.projectionGenerationId(), segment.segmentId());
+                    claim.projectionGenerationId(), segment.evidenceId());
             String value = entryDigests.get(physicalId);
             if (value == null || !value.matches("[a-f0-9]{64}")) {
               throw invalidIndexOutput();
@@ -202,9 +202,9 @@ public final class IndexingService {
           for (var segment : authoritative) {
             String physicalId =
                 RetrievalProjection.physicalSegmentId(
-                    claim.projectionGenerationId(), segment.segmentId());
+                    claim.projectionGenerationId(), segment.evidenceId());
             indexing.insertPublicationEntry(
-                publicationId, segment.segmentId(), physicalId, full.get(physicalId));
+                publicationId, segment.evidenceId(), physicalId, full.get(physicalId));
           }
           indexing.activatePublication(claim.documentId(), publicationId, claim.revisionId());
           audit(
@@ -377,7 +377,7 @@ public final class IndexingService {
             task.claimTokenSha256().getBytes(StandardCharsets.US_ASCII))
         || !indexing.sourceCurrent(task)
         || !indexing.attemptExists(claim.jobId(), claim.attempt(), claim.projectionGenerationId())
-        || !claim.segments().equals(indexing.segments(claim.revisionId()))) {
+        || !claim.items().equals(indexing.projectionItems(claim.revisionId()))) {
       return null;
     }
     return task;

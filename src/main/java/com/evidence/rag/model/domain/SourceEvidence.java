@@ -1,7 +1,11 @@
 package com.evidence.rag.model.domain;
 
 /** Exact saved citation range; callers must not substitute the whole source page. */
-public record SourceEvidence(PublishedEvidence evidence, int start, int end) {
+public record SourceEvidence(PublishedEvidence evidence, int start, int end, SourceImage image) {
+  public SourceEvidence(PublishedEvidence evidence, int start, int end) {
+    this(evidence, start, end, null);
+  }
+
   public SourceEvidence {
     if (evidence == null
         || start < evidence.segment().start()

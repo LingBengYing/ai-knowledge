@@ -39,7 +39,7 @@ class IndexWorkerLifetimeTest {
               original.documentId(),
               original.revisionId(),
               original.target(),
-              original.segments(),
+              original.items(),
               original.projectionGenerationId(),
               forged);
       var input = new ByteArrayOutputStream();

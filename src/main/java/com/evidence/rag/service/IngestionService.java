@@ -8,11 +8,18 @@ import static com.evidence.rag.model.domain.ModelValues.sha256;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.AudioCompilation;
+import com.evidence.rag.model.domain.ImageEvidence;
+import com.evidence.rag.model.domain.ImageOcrOptions;
+import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.IngestionClaim;
+import com.evidence.rag.model.domain.ParsedImage;
 import com.evidence.rag.model.domain.ParsedText;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.domain.TextPage;
 import com.evidence.rag.model.domain.TextSegment;
+import com.evidence.rag.model.domain.VideoCompilation;
+import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.TaskEntity;
@@ -20,7 +27,10 @@ import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.tool.parser.AudioInput;
+import com.evidence.rag.tool.parser.ImageInput;
 import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.tool.parser.VideoInput;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -50,16 +60,99 @@ public final class IngestionService {
   private final IngestionRepository ingestion;
   private final ManagementRepository management;
   private final DocumentPermissionPolicy permissions;
+  private final ImageOcrOptions images;
+  private final VisualIngestionOptions visual;
+  private final String audioCompilerRevision;
+  private final String videoCompilerRevision;
+  private final boolean videoOcrExpected;
 
   public IngestionService(
       SqliteAuthorityStore store,
       IngestionRepository ingestion,
       ManagementRepository management,
       DocumentPermissionPolicy permissions) {
+    this(store, ingestion, management, permissions, null);
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images) {
+    this(store, ingestion, management, permissions, images, null);
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images,
+      VisualIngestionOptions visual) {
+    this(store, ingestion, management, permissions, images, visual, null);
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images,
+      VisualIngestionOptions visual,
+      String audioCompilerRevision) {
+    this(store, ingestion, management, permissions, images, visual, audioCompilerRevision, null);
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images,
+      VisualIngestionOptions visual,
+      String audioCompilerRevision,
+      String videoCompilerRevision) {
+    this(
+        store,
+        ingestion,
+        management,
+        permissions,
+        images,
+        visual,
+        audioCompilerRevision,
+        videoCompilerRevision,
+        videoCompilerRevision != null
+            && videoCompilerRevision.startsWith("java-video-compiler-v2:"));
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images,
+      VisualIngestionOptions visual,
+      String audioCompilerRevision,
+      String videoCompilerRevision,
+      boolean videoOcrExpected) {
     this.store = Objects.requireNonNull(store);
     this.ingestion = Objects.requireNonNull(ingestion);
     this.management = Objects.requireNonNull(management);
     this.permissions = Objects.requireNonNull(permissions);
+    this.images = images;
+    this.visual = visual;
+    if (audioCompilerRevision != null
+        && !audioCompilerRevision.matches("java-audio-compiler-v1:[0-9a-f]{64}")) {
+      throw invalid();
+    }
+    this.audioCompilerRevision = audioCompilerRevision;
+    if (videoCompilerRevision != null
+        && !videoCompilerRevision.matches("java-video-compiler-v[123]:[0-9a-f]{64}")) {
+      throw invalid();
+    }
+    this.videoCompilerRevision = videoCompilerRevision;
+    this.videoOcrExpected = videoOcrExpected;
   }
 
   public int maximumUploadBytes() {
@@ -69,11 +162,33 @@ public final class IngestionService {
   /** Admits file metadata before Web receives bytes; full content is revalidated on upload. */
   public String prepareUpload(String filename) {
     try {
+      if (audioEnabled(filename)) {
+        AudioInput.validateMetadata(filename, "application/octet-stream");
+        return AudioInput.canonicalMime(filename);
+      }
+      if (imageEnabled(filename)) {
+        ImageInput.validateMetadata(filename, "application/octet-stream");
+        return ImageInput.canonicalMime(filename);
+      }
       TextParser.validateMetadata(filename, "application/octet-stream");
       return canonicalMime(filename);
     } catch (TextParser.Failure failure) {
-      throw new ApplicationException(
-          FailureKind.INVALID_INPUT, "unsupported_document", "仅支持符合文件格式的 PDF、TXT 和 Markdown。");
+      throw unsupportedDocument();
+    }
+  }
+
+  public String prepareUpload(String filename, String contentType) {
+    if ("application/octet-stream".equalsIgnoreCase(contentType)) {
+      return prepareUpload(filename);
+    }
+    try {
+      if (!videoEnabled(filename, contentType)) {
+        throw unsupportedDocument();
+      }
+      VideoInput.validateMetadata(filename, contentType);
+      return VideoInput.canonicalMime(filename);
+    } catch (TextParser.Failure failure) {
+      throw unsupportedDocument();
     }
   }
 
@@ -86,11 +201,62 @@ public final class IngestionService {
 
   public void validateUploadEnvelope(String filename, String mime, byte[] content) {
     try {
-      TextParser.validateEnvelope(filename, mime, content);
+      if (videoRequested(mime)) {
+        if (!videoEnabled(filename, mime)) {
+          throw unsupportedDocument();
+        }
+        VideoInput.validateEnvelope(filename, mime, content);
+      } else if (audioEnabled(filename)) {
+        AudioInput.validateEnvelope(filename, mime, content);
+      } else if (imageEnabled(filename)) {
+        ImageInput.validateEnvelope(filename, mime, content);
+      } else {
+        TextParser.validateEnvelope(filename, mime, content);
+      }
     } catch (TextParser.Failure failure) {
-      throw new ApplicationException(
-          FailureKind.INVALID_INPUT, "unsupported_document", "仅支持符合文件格式的 PDF、TXT 和 Markdown。");
+      throw unsupportedDocument();
     }
+  }
+
+  private boolean imageEnabled(String filename) {
+    return (images != null || visual != null) && ImageInput.isImageName(filename);
+  }
+
+  private boolean audioEnabled(String filename) {
+    return audioCompilerRevision != null && AudioInput.isAudioName(filename);
+  }
+
+  private static boolean videoRequested(String mime) {
+    return mime != null && mime.startsWith("video/");
+  }
+
+  private boolean videoEnabled(String filename, String mime) {
+    return videoCompilerRevision != null
+        && VideoInput.isVideoName(filename)
+        && VideoInput.canonicalMime(filename).equals(mime);
+  }
+
+  private String parserRevision(String filename) {
+    if (audioEnabled(filename)) {
+      return audioCompilerRevision;
+    }
+    if (!imageEnabled(filename)) {
+      return TextParser.REVISION;
+    }
+    return visual != null ? visual.parserRevision() : images.parserRevision();
+  }
+
+  private ApplicationException unsupportedDocument() {
+    return new ApplicationException(
+        FailureKind.INVALID_INPUT,
+        "unsupported_document",
+        videoCompilerRevision != null
+            ? "仅支持已启用且符合文件格式和大小限制的资料；视频需显式选择受支持的视频内容类型。"
+            : audioCompilerRevision != null
+                ? "仅支持已启用且符合文件格式和大小限制的文本、图片或音频资料。"
+                : images == null && visual == null
+                    ? "仅支持符合文件格式的 PDF、TXT 和 Markdown。"
+                    : "仅支持符合文件格式和大小限制的 PDF、TXT、Markdown、PNG 和 JPEG。");
   }
 
   public TaskResult uploadDocument(Actor owner, String filename, String mime, byte[] content) {
@@ -102,7 +268,16 @@ public final class IngestionService {
     }
     byte[] original = content.clone();
     validateUploadEnvelope(filename, mime, original);
-    String canonicalMime = canonicalMime(filename);
+    boolean video = videoEnabled(filename, mime);
+    boolean image = imageEnabled(filename);
+    boolean audio = audioEnabled(filename);
+    String canonicalMime =
+        video
+            ? VideoInput.canonicalMime(filename)
+            : audio
+                ? AudioInput.canonicalMime(filename)
+                : image ? ImageInput.canonicalMime(filename) : canonicalMime(filename);
+    String parserRevision = video ? videoCompilerRevision : parserRevision(filename);
     String sourceHash = sha256(original);
     return store.transaction(
         () -> {
@@ -118,7 +293,7 @@ public final class IngestionService {
               new SyntheticDocument(
                   documentId,
                   filename,
-                  "document",
+                  video ? "video" : audio ? "audio" : image ? "image" : "document",
                   canonicalMime,
                   revisionId,
                   sourceHash,
@@ -126,7 +301,7 @@ public final class IngestionService {
               now);
           management.insertGrant(documentId, owner.principalId(), "owner");
           ingestion.insertOriginal(
-              documentId, revisionId, TextParser.REVISION, sourceHash, original, now);
+              documentId, revisionId, parserRevision, sourceHash, original, now);
           ingestion.insertJob(jobId, documentId, revisionId, owner.principalId(), now);
           audit(
               owner,
@@ -192,13 +367,249 @@ public final class IngestionService {
   }
 
   public boolean completeIngestion(IngestionClaim claim, ParsedText parsed) {
+    return completeParsed(claim, parsed, null);
+  }
+
+  public boolean completeImageIngestion(IngestionClaim claim, ParsedImage image) {
+    return completeParsed(claim, image == null ? null : image.text(), image);
+  }
+
+  public boolean completeAudioIngestion(IngestionClaim claim, AudioCompilation compilation) {
     return store.transaction(
         () -> {
           var task = currentClaim(claim);
           if (task == null) {
             return false;
           }
-          if (!TextParser.REVISION.equals(task.parserRevision())
+          if (audioCompilerRevision == null
+              || !AudioInput.isAudioName(task.filename())
+              || !audioCompilerRevision.equals(task.parserRevision())
+              || !sha256(claim.content()).equals(task.sourceSha256())) {
+            throw invalidParserOutput();
+          }
+          if (cancelIfUnauthorized(task)) {
+            return false;
+          }
+          if (compilation == null
+              || !audioCompilerRevision.equals(compilation.compilerRevision())
+              || !task.sourceSha256().equals(compilation.sourceSha256())) {
+            throw invalidParserOutput();
+          }
+          String now = Instant.now().toString();
+          ingestion.insertAudioCompilation(claim.revisionId(), compilation, now);
+          ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
+          audit(
+              new Actor(claim.workspaceId(), "system:ingestion"),
+              claim.documentId(),
+              "ingestion_parsed",
+              values("state", "processing"),
+              values(
+                  "state", "parsed",
+                  "revision_id", claim.revisionId(),
+                  "page_count", 0,
+                  "segment_count", 0,
+                  "audio_span_count", compilation.spans().size(),
+                  "audio_indexable_count",
+                      compilation.spans().stream().filter(span -> !span.text().isBlank()).count(),
+                  "duration_ms", compilation.durationMs(),
+                  "compiler_revision", compilation.compilerRevision()),
+              Set.of(
+                  "state",
+                  "revision_id",
+                  "page_count",
+                  "segment_count",
+                  "audio_span_count",
+                  "audio_indexable_count",
+                  "duration_ms",
+                  "compiler_revision"));
+          return true;
+        });
+  }
+
+  public boolean completeVideoIngestion(IngestionClaim claim, VideoCompilation compilation) {
+    return store.transaction(
+        () -> {
+          var task = currentClaim(claim);
+          if (task == null) {
+            return false;
+          }
+          if (!videoEnabled(task.filename(), task.mimeType())
+              || !videoCompilerRevision.equals(task.parserRevision())
+              || !sha256(claim.content()).equals(task.sourceSha256())) {
+            throw invalidParserOutput();
+          }
+          if (cancelIfUnauthorized(task)) {
+            return false;
+          }
+          if (compilation == null
+              || !videoCompilerRevision.equals(compilation.compilerRevision())
+              || !task.sourceSha256().equals(compilation.sourceSha256())) {
+            throw invalidParserOutput();
+          }
+          if (videoCompilerRevision.startsWith("java-video-compiler-v3:")
+                  != (compilation.subtitles() != null)
+              || videoOcrExpected != (compilation.ocr() != null)) {
+            throw invalidParserOutput();
+          }
+          validateVideoFrames(compilation);
+          String now = Instant.now().toString();
+          ingestion.insertVideoCompilation(claim.revisionId(), compilation, now);
+          ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
+          audit(
+              new Actor(claim.workspaceId(), "system:ingestion"),
+              claim.documentId(),
+              "ingestion_parsed",
+              values("state", "processing"),
+              values(
+                  "state",
+                  "parsed",
+                  "revision_id",
+                  claim.revisionId(),
+                  "page_count",
+                  0,
+                  "segment_count",
+                  0,
+                  "video_frame_count",
+                  compilation.frames().size(),
+                  "video_audio_span_count",
+                  compilation.audio() == null ? 0 : compilation.audio().spans().size(),
+                  "duration_us",
+                  compilation.durationUs(),
+                  "compiler_revision",
+                  compilation.compilerRevision()),
+              Set.of(
+                  "state",
+                  "revision_id",
+                  "page_count",
+                  "segment_count",
+                  "video_frame_count",
+                  "video_audio_span_count",
+                  "duration_us",
+                  "compiler_revision"));
+          return true;
+        });
+  }
+
+  private static void validateVideoFrames(VideoCompilation compilation) {
+    try {
+      for (var recall : compilation.frames()) {
+        var frame = recall.frame();
+        var image = frame.image();
+        byte[] content = image.content();
+        ImageInput.validateEnvelope(
+            image.mediaType().equals("image/png") ? "frame.png" : "frame.jpeg",
+            image.mediaType(),
+            content);
+        var dimensions = ImageInput.inspect(content);
+        if (dimensions.width() != frame.width() || dimensions.height() != frame.height()) {
+          throw invalidParserOutput();
+        }
+      }
+    } catch (TextParser.Failure failure) {
+      throw invalidParserOutput();
+    }
+  }
+
+  public boolean completeVisualIngestion(IngestionClaim claim, ImageRecall recall) {
+    return store.transaction(
+        () -> {
+          var task = currentClaim(claim);
+          if (task == null) {
+            return false;
+          }
+          if (visual == null
+              || !ImageInput.isImageName(task.filename())
+              || !visual.parserRevision().equals(task.parserRevision())
+              || !sha256(claim.content()).equals(task.sourceSha256())) {
+            throw invalidParserOutput();
+          }
+          if (cancelIfUnauthorized(task)) {
+            return false;
+          }
+          if (recall == null || !visual.modelRevision().equals(recall.modelRevision())) {
+            throw invalidParserOutput();
+          }
+          var dimensions = imageDimensions(claim.content());
+          String recallHash = sha256(recall.recallText().getBytes(StandardCharsets.UTF_8));
+          String imageId =
+              "image_"
+                  + sha256(
+                      (claim.workspaceId()
+                              + "\u0000"
+                              + claim.documentId()
+                              + "\u0000"
+                              + claim.revisionId()
+                              + "\u0000visual-v1\u0000"
+                              + task.sourceSha256()
+                              + "\u0000"
+                              + recallHash
+                              + "\u0000"
+                              + recall.modelRevision())
+                          .getBytes(StandardCharsets.UTF_8));
+          String now = Instant.now().toString();
+          ingestion.insertImageEvidence(
+              new ImageEvidence(
+                  imageId,
+                  claim.revisionId(),
+                  dimensions.width(),
+                  dimensions.height(),
+                  recall.recallText(),
+                  recallHash,
+                  recall.modelRevision()),
+              now);
+          ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
+          audit(
+              new Actor(claim.workspaceId(), "system:ingestion"),
+              claim.documentId(),
+              "ingestion_parsed",
+              values("state", "processing"),
+              values(
+                  "state",
+                  "parsed",
+                  "revision_id",
+                  claim.revisionId(),
+                  "page_count",
+                  0,
+                  "segment_count",
+                  0,
+                  "image_evidence_id",
+                  imageId,
+                  "recall_sha256",
+                  recallHash,
+                  "description_revision",
+                  recall.modelRevision()),
+              Set.of(
+                  "state",
+                  "revision_id",
+                  "page_count",
+                  "segment_count",
+                  "image_evidence_id",
+                  "recall_sha256",
+                  "description_revision"));
+          return true;
+        });
+  }
+
+  private static com.evidence.rag.model.domain.ImageDimensions imageDimensions(byte[] original) {
+    try {
+      return ImageInput.inspect(original);
+    } catch (TextParser.Failure failure) {
+      throw invalidParserOutput();
+    }
+  }
+
+  private boolean completeParsed(IngestionClaim claim, ParsedText parsed, ParsedImage image) {
+    return store.transaction(
+        () -> {
+          var task = currentClaim(claim);
+          if (task == null) {
+            return false;
+          }
+          String expectedRevision =
+              ImageInput.isImageName(task.filename())
+                  ? images == null ? null : images.parserRevision()
+                  : TextParser.REVISION;
+          if (!Objects.equals(expectedRevision, task.parserRevision())
               || !sha256(claim.content()).equals(task.sourceSha256())) {
             throw invalidParserOutput();
           }
@@ -206,6 +617,12 @@ public final class IngestionService {
             return false;
           }
           validateParsed(parsed);
+          if (imageEnabled(task.filename()) != (image != null)) {
+            throw invalidParserOutput();
+          }
+          if (image != null) {
+            validateImage(image, claim.content());
+          }
           for (TextPage page : parsed.pages()) {
             ingestion.insertPage(
                 claim.revisionId(), page, sha256(page.text().getBytes(StandardCharsets.UTF_8)));
@@ -225,6 +642,12 @@ public final class IngestionService {
                             + textHash)
                         .getBytes(StandardCharsets.UTF_8));
             ingestion.insertSegment(segmentId, claim.revisionId(), segment, textHash);
+          }
+          if (image != null) {
+            for (int ordinal = 0; ordinal < image.regions().size(); ordinal++) {
+              ingestion.insertImageRegion(
+                  claim.revisionId(), ordinal, image.regions().get(ordinal));
+            }
           }
           ingestion.markParsed(
               claim.jobId(),
@@ -250,6 +673,51 @@ public final class IngestionService {
               Set.of("state", "revision_id", "page_count", "segment_count"));
           return true;
         });
+  }
+
+  private static void validateImage(ParsedImage image, byte[] original) {
+    try {
+      if (!ImageInput.inspect(original).equals(image.dimensions())) {
+        throw invalidParserOutput();
+      }
+    } catch (TextParser.Failure failure) {
+      throw invalidParserOutput();
+    }
+    if (image.text().pages().size() != 1
+        || image.regions().isEmpty()
+        || image.regions().size() > 50_000) {
+      throw invalidParserOutput();
+    }
+    int[] points = image.text().pages().getFirst().text().codePoints().toArray();
+    int covered = 0;
+    for (var region : image.regions()) {
+      if (region.start() < covered
+          || region.end() <= region.start()
+          || region.end() > points.length
+          || region.left() < 0
+          || region.top() < 0
+          || region.right() <= region.left()
+          || region.bottom() <= region.top()
+          || region.right() > image.dimensions().width()
+          || region.bottom() > image.dimensions().height()) {
+        throw invalidParserOutput();
+      }
+      for (; covered < region.start(); covered++) {
+        if (!Character.isWhitespace(points[covered]) && !Character.isSpaceChar(points[covered])) {
+          throw invalidParserOutput();
+        }
+      }
+      for (; covered < region.end(); covered++) {
+        if (Character.isWhitespace(points[covered]) || Character.isSpaceChar(points[covered])) {
+          throw invalidParserOutput();
+        }
+      }
+    }
+    for (; covered < points.length; covered++) {
+      if (!Character.isWhitespace(points[covered]) && !Character.isSpaceChar(points[covered])) {
+        throw invalidParserOutput();
+      }
+    }
   }
 
   public boolean failIngestion(IngestionClaim claim, String safeCode) {

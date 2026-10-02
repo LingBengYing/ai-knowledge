@@ -1,5 +1,35 @@
 # AI Context：从这里理解仓库
 
+2026-09-22 17:39:50当前：第二组具名2次诊断获准并完成，累计6/20、未使用14。原/full真正证明均命中SourceInstructions.INSTRUCTION的instruction_in_field；转录SHA与诊断01相同，规范化731=true/AU=false。具体字符不猜测，安全规则不放宽。下一步核对ASR配置/候选而不是重做证明规则；613输入不变、无重试、视频未开始，真实质量与生产未通过。见[台账](changes/0019-audio-video-provider-eval/provider-run.md)，下方2/12等仅为历史。
+
+2026-09-22当前执行终态：[0019本批台账](changes/0019-audio-video-provider-eval/provider-run.md)记录真实LiveIT的`eval_audio_not_grounded`失败，ASR与摘录各1次，2/12后停止，视频0次。未使用10次不得自动转作诊断/重试，后续云调用须另行明确授权。原始响应未记录，不能据同名安全码推断根因；613输入未改，不重跑本机冻结或放宽证明。真实质量与生产未完成，全部既有范围边界保持。下方未授权/NOT_RUN表述为历史快照。
+
+最新入口：[0019音视频模型评测工具](changes/0019-audio-video-provider-eval/intent.md) intent→spec→plan→REVIEW。本机工具范围AVE-01～06及独立制品审计通过，见[verification](changes/0019-audio-video-provider-eval/verification.md)：1685默认/23 native/73 Node、582格式/双80%，613输入且旧606原字节和旧身份多重性保持。只新增测试域共享评测/LiveIT、固定合成资源及说明，未改生产代码；生产JAR的443个class与0018逐字节一致。完整PCM/全部选帧、F+9事前预算、失败计数无重试、原文与同组双事实已验；LiveIT为NOT_RUN，下一步按[运行说明](AUDIO_VIDEO_PROVIDER_EVAL.md)在新授权/私有轮换密钥/模型名就绪后执行真实评测。不要重做本机工具或装配诊断；真实provider/Milvus整链、网页和生产仍未完成，前端/旧服务/数据/Git写入/部署边界不变。下方为历史入口。
+
+最新入口：[0018完整多模态配置装配](changes/0018-multimodal-composition/intent.md) intent→spec→plan→REVIEW。本机MC-01～06与独立制品审计已通过，见[verification](changes/0018-multimodal-composition/verification.md)：仅真实RagApplication与生产Bean，共同开启已有能力并完成四类上传/任务/完整索引、附件问答、音频/视频OCR/字幕来源、短摘要与重启零调用。没有生产源码或旧测试修改，606输入中旧604原字节保持；1680默认/22 native/73 Node与原格式/双80%通过。配置与运行边界见[MULTIMODAL_RUNTIME](MULTIMODAL_RUNTIME.md)。这不是production profile、真实模型效果、网页或生产发布验收；hierarchy只在本切确认装配，既有专项行为测试保留。下一主线为新授权下的真实provider/Milvus质量，不重复已验装配/协议诊断。前端、旧服务/数据、Git写入/部署与云调用边界不变，下方是历史入口。
+
+最新执行入口：[0017查询附件](changes/0017-query-attachments/intent.md) intent→spec→plan→REVIEW。[后端合同](QUERY_ATTACHMENTS.md)已接完整scope→请求期编译/完整分批检索/原图匹配→原完整问题与库内证据证明→v16 hash-only终态trace→opt-in有界HTTP。真实合成PNG/WAV/MP4请求及重启零模型来源回读见[附件答案验证](changes/0017-query-attachments/answers-verification.md)。旧客户端与事实证明不改；QA-01～12后端验证不等于云质量、前端或生产完成。不要重做已冻结输入/排序/授权trace/HTTP诊断；下一交付需要真实质量与生产配置验收，并保持新增云调用、前端和部署需对应授权的边界。下方为历史入口。
+
+当前入口：[0016内嵌字幕](changes/0016-subtitle-tracks/intent.md) intent→spec→plan→REVIEW。[字幕后端](VIDEO_SUBTITLES.md)已接全轨原包→v15独立authority/完整publication→`mode=subtitle`同轨全文证明→独立typed时间/原视频Range→第八类完整摘要材料/重启零模型读取。验收与源码绑定见[library-verification](changes/0016-subtitle-tracks/library-verification.md)。Runtime为显式opt-in、默认关闭，旧ASR/OCR/joint合同保持；raw markup不冒充渲染文字，caption/摘要不作证据。文字证明v5保留中性标签与示例区别，完整共享语义须冻结。下一主线为查询附件，随后真实质量、前端和生产；不重复已完成字幕协议/存储/HTTP诊断。前端、旧服务/数据、Git写入/部署与云调用边界保持。下方入口仅为历史状态。
+
+当前入口：[0015文件摘要](changes/0015-file-synopsis/intent.md) intent→spec→plan→REVIEW。[本机后端合同](FILE_SYNOPSIS.md)已接完整长文件原证据、分层候选/实际引用证明/每批原材料复查，v14持久任务与原typed来源HTTP；[hierarchy-verification](changes/0015-file-synopsis/hierarchy-verification.md)记录1485 Java/73 Node/512格式/双80%和旧1429身份保留。SynopsisLibraryService拥有授权与最终事务，短SynopsisService及新HierarchicalSynopsisService只生成/核验；新Domain保持真实publication/全文件指纹，派生节点不是原证据。Config默认关闭且不依赖Answers/Milvus，关闭仍无模型恢复；旧短协议/结果不变。下一业务主线独立字幕轨与typed时间来源，不重做摘要协议/迁移/HTTP。云质量、查询附件、网页/生产未完成，下方为历史入口。
+
+当前实现入口为0014[视频选中原帧OCR](VIDEO_OCR.md)：先读当前intent→spec中的VOCR合同→plan→REVIEW。默认关闭的v2 compiler共用ImageOcr/ProcessImageParser，完整无字结果也封存；v12独立附表保存frame-local文字、词框、publication和OCR trace。`mode=ocr`使用共用文字证明，混合物理命中先完整authority分类再筛选；旧三模式及v11贡献语义保持。本机冻结已通过1352 Java、73 Node、458格式/双80%和单列native6，[OCR验证记录](changes/0014-video-library/ocr-verification.md)绑定当前源码及旧1299身份/多重性；以下1299是上一冻结基线。只识别已有选帧，真实Tesseract合成英文与本机模型/Milvus替身不代表独立字幕轨、全视频文字或中文质量；网页与生产未完成。
+
+最新入口（2026-09-20）：0014[视频授权问答与来源](VIDEO_ANSWERS.md)已本机通过，完整scope→真实publication候选/同组原帧转录→逐事实全覆盖→v11 trace→typed时间/原帧/原视频Range已接通；[answers-verification](changes/0014-video-library/answers-verification.md)绑定461输入、1299 Java/73 Node、437格式/双80%和单列native5。旧1216用例身份/多重性保留。下一主线为视频原帧OCR文字与真实定位，不重做输入/入库/证明/授权HTTP诊断；独立字幕轨、摘要、查询附件、网页、云质量及生产继续保留。内部span句柄已通过publication映射后才发布，caption只召回。模型/Milvus替身不认证云质量；前端/旧服务/数据、Git分支/提交/推送/部署及云调用边界不变。下方为历史快照，“当前/下一步”不作为现行执行入口。
+
+当前只推进[0014视频主线](changes/0014-video-library/intent.md)的intent→spec→plan→REVIEW。步骤2[视频HTTP上传/持久任务/独立authority/真实EvidenceGroup/完整索引](VIDEO_PUBLICATION.md)已本机验收：1171 Java、native10、73 Node与383格式/双80%，407输入绑定见[验证](changes/0014-video-library/publication-verification.md)。下一步为共同事实身份、原帧+转录同组证明和typed时间来源；caption不是真实视觉证明，indexed不等于视频可问答。旧octet音频容器合同保留，显式video MIME只选处理合同、真实流型由后台核实。前端、旧服务/数据不动，不调用云模型、不推送部署；以下是历史基线。
+
+当前执行入口是[0013音频时间证据](changes/0013-audio-library/intent.md)的intent→spec→plan→REVIEW。默认关闭的音频装配已接入既有上传/任务/索引HTTP、v8完整音频authority和publication；新增共用AnswerService的完整转录证明、v9音频trace、typed时间来源与原音频单byte Range。接口/时间精度/预算边界见[AUDIO_COMPILATION](AUDIO_COMPILATION.md)，实际验收以0013当前记录为准，不将替身测试写成云模型质量或网页验收。0012为保留的图片基线，不重复已完成诊断，不挪用旧文本预算调用音频云模型。
+
+当前入口：[0012原图知识库](changes/0012-visual-library/intent.md) intent→spec→plan→REVIEW及[Interface](VISUAL_LIBRARY.md)。caption存独立image_evidence仅用于召回，原图问答有单独typed HTTP；全scope/ACL/active/trace复用，0文字页/分块不是假OCR。2026-09-10本地942 Java/73 Node及独立限定审查通过，[源码绑定与验收](changes/0012-visual-library/verification.md)为当前证据；云质量、真实Milvus新图、网页与生产未验收。下方0011及此前为历史记录。
+
+当前实现入口：[0011视觉模型](changes/0011-visual-models/intent.md) intent→spec→plan→REVIEW。VisionModels与VisualAssessmentService只处理原图/完整问题/逐事实核验；caption仅供未来召回。还没有纯视觉authority/检索/HTTP接线，不给runtime增加能力旗标。Interface与明确未完成项见[VISION_MODELS](VISION_MODELS.md)。
+
+2026-09-09当前入口：[0010图片OCR区域](changes/0010-image-regions/intent.md)的intent/spec/plan/REVIEW，承接0009整图引用。独立ParsedImage与不可变区域附表，不机械扩展ParsedText/ParserProtocol或Milvus投影；历史验证不认证新增源码。
+
+2026-09-08最新入口：[0009图片证据](changes/0009-image-evidence/intent.md)的intent/spec/plan/REVIEW及[图片接口说明](IMAGE_EVIDENCE.md)。负责人已要求多模态成为主线；先图片文字证据正常闭环，后音频/视频/联合事实。0007固定PDF真实后端结果见[mainline-live](changes/0007-text-answers/mainline-live.md)。下方历史入口不触发重做文本诊断或0008清理B；新图片能力与未验证项只按0009记录声明。
+
 最新入口为[0008文档生命周期](changes/0008-document-lifecycle/intent.md)：先读intent/spec/plan/REVIEW与[验证](changes/0008-document-lifecycle/verification.md)。新增DocumentRemovalController→DocumentLifecycleService→DocumentLifecycleRepository与v5 document_tombstones；当前查询排除墓碑、历史trace/publication和物理配额保留。`RAG_DOCUMENT_REMOVAL_ENABLED`默认false，开启仅新增document_removal能力，其他三个文本开关/阶段不变。A步只有deleting/pending撤下回执，B步物理清理与重建、多模态/生产仍未完成。下面0007入口叙述及历史报告不认证新代码。
 
 当前工作入口已切换为[0007文本问答](changes/0007-text-answers/intent.md)：完整目标在blocked后重新启用，恢复本切IMPLEMENTATION。先读0007 intent/spec/plan/REVIEW/interfaces和[最新验证](changes/0007-text-answers/verification.md)。下面0005/0006属于已交付基线，其指纹与测试不认证新增问答源码；前端详情页、旧服务和生产gate保持原边界。
@@ -59,6 +89,7 @@
 | 问答HTTP、独立开关与共享配置 / answers, opt-in, composition | [AnswerController](../src/main/java/com/evidence/rag/controller/AnswerController.java)、[AnswerRequestMapper](../src/main/java/com/evidence/rag/web/converter/AnswerRequestMapper.java)、[AnswersConfiguration](../src/main/java/com/evidence/rag/config/AnswersConfiguration.java)、[TextAdaptersConfiguration](../src/main/java/com/evidence/rag/config/TextAdaptersConfiguration.java)、[AnswersHttpTest](../src/test/java/com/evidence/rag/web/AnswersHttpTest.java) |
 | 授权证据、最终资格与来源 / full scope, hydrate, trace, source | [AnswerService](../src/main/java/com/evidence/rag/service/AnswerService.java)、[EvidenceService](../src/main/java/com/evidence/rag/service/EvidenceService.java)、[EvidenceRepository](../src/main/java/com/evidence/rag/repository/EvidenceRepository.java)、[AnswerEligibility](../src/main/java/com/evidence/rag/model/domain/AnswerEligibility.java) |
 | 文本事实与确定性样例 / grounding, golden | [TextGrounding](../src/main/java/com/evidence/rag/tool/answer/TextGrounding.java)、[AnswerGoldenTest](../src/test/java/com/evidence/rag/service/AnswerGoldenTest.java) |
+| 视频原帧文字与像素词框 / video OCR, frame-local evidence, v12 | [VIDEO_OCR](VIDEO_OCR.md)、[ImageOcr](../src/main/java/com/evidence/rag/worker/parser/ImageOcr.java)、[VideoCompilationService](../src/main/java/com/evidence/rag/service/VideoCompilationService.java)、[VideoFrameOcr](../src/main/java/com/evidence/rag/model/domain/VideoFrameOcr.java)、[VideoOcrResult](../src/main/java/com/evidence/rag/model/dto/VideoOcrResult.java) |
 | 模型 / Milvus 协议 / embedding, vector projection | [OpenAiCompatibleModels](../src/main/java/com/evidence/rag/client/model/OpenAiCompatibleModels.java)、[MilvusRestProjection](../src/main/java/com/evidence/rag/client/vector/MilvusRestProjection.java)、[TEXT_ADAPTERS](TEXT_ADAPTERS.md) |
 | 能力发现与错误出口 / readiness, exceptions, runtime guard | [RuntimeService](../src/main/java/com/evidence/rag/service/RuntimeService.java)、[RuntimeController](../src/main/java/com/evidence/rag/controller/RuntimeController.java)、[RuntimeGuard](../src/main/java/com/evidence/rag/config/RuntimeGuard.java)、[HttpProblemMapper](../src/main/java/com/evidence/rag/web/HttpProblemMapper.java)、[ProblemHandler](../src/main/java/com/evidence/rag/web/ProblemHandler.java) |
 

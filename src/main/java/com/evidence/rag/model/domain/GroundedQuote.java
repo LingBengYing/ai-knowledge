@@ -2,7 +2,7 @@ package com.evidence.rag.model.domain;
 
 import java.util.List;
 
-/** A verified source fragment; start/end count code points in the authoritative page. */
+/** A verified source fragment; start/end count code points in the authoritative context. */
 public record GroundedQuote(
     String physicalId, int start, int end, String quote, List<String> factHashes) {
   public GroundedQuote {

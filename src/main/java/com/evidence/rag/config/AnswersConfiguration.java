@@ -9,7 +9,10 @@ import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.EvidenceService;
+import com.evidence.rag.service.QueryAttachmentService;
+import com.evidence.rag.service.VideoAnswerProposalService;
 import java.time.Duration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,7 +41,9 @@ public class AnswersConfiguration {
       TextModels models,
       RetrievalProjection projection,
       TextAdapterSettings settings,
-      AnswersSettings limits) {
+      AnswersSettings limits,
+      ObjectProvider<VideoAnswerProposalService> videoProposals,
+      ObjectProvider<QueryAttachmentService> queryAttachments) {
     var target =
         new IndexTarget(
             settings.projection().embeddingIdentity(),
@@ -51,6 +56,8 @@ public class AnswersConfiguration {
         projection,
         target,
         Duration.ofMillis(limits.timeoutMs()),
-        limits.maxConcurrent());
+        limits.maxConcurrent(),
+        videoProposals.getIfAvailable(),
+        queryAttachments.getIfAvailable());
   }
 }

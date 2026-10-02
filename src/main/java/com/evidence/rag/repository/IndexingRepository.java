@@ -1,17 +1,35 @@
 package com.evidence.rag.repository;
 
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.AudioEvidence;
+import com.evidence.rag.model.domain.AudioTranscriptSpan;
+import com.evidence.rag.model.domain.ImageEvidence;
+import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.IndexSegment;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.domain.ProjectionItem;
+import com.evidence.rag.model.domain.VideoEvidence;
+import com.evidence.rag.model.domain.VideoOcrSegment;
+import com.evidence.rag.model.domain.VideoOcrSegmentEvidence;
+import com.evidence.rag.model.domain.VideoTranscriptEvidence;
 import com.evidence.rag.model.entity.IndexPublicationEntity;
 import com.evidence.rag.model.entity.RevisionEntity;
 import com.evidence.rag.model.entity.TaskEntity;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** SQL for index attempts, immutable publication entries and active pointers. */
 public final class IndexingRepository {
+  private static final String PROJECTION_COUNT =
+      "(r.segment_count+(SELECT COUNT(*) FROM image_evidence i WHERE i.revision_id=r.id)"
+          + "+(SELECT COUNT(*) FROM audio_spans s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)"
+          + "+(SELECT COUNT(*) FROM video_frames f WHERE f.revision_id=r.id)"
+          + "+(SELECT COUNT(*) FROM video_transcript_spans s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)"
+          + "+(SELECT COUNT(*) FROM video_ocr_segments s WHERE s.revision_id=r.id)"
+          + "+(SELECT COUNT(*) FROM video_subtitle_cues s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL))";
   private final SqliteAuthorityStore store;
 
   public IndexingRepository(SqliteAuthorityStore store) {
@@ -21,7 +39,9 @@ public final class IndexingRepository {
   public Optional<RevisionEntity> parsedRevision(String documentId) {
     return store
         .rows(
-            "SELECT r.* FROM corpus_documents c JOIN corpus_revisions r ON r.id=c.parsed_revision_id AND r.document_id=c.document_id JOIN ingestion_jobs p ON p.document_id=c.document_id AND p.revision_id=r.id WHERE c.document_id=? AND r.parsed_at IS NOT NULL AND r.segment_count BETWEEN 1 AND 4096 AND p.state='parsed' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=c.document_id)",
+            "SELECT r.* FROM corpus_documents c JOIN corpus_revisions r ON r.id=c.parsed_revision_id AND r.document_id=c.document_id JOIN ingestion_jobs p ON p.document_id=c.document_id AND p.revision_id=r.id WHERE c.document_id=? AND r.parsed_at IS NOT NULL AND "
+                + PROJECTION_COUNT
+                + " BETWEEN 1 AND 4096 AND p.state='parsed' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=c.document_id)",
             documentId)
         .stream()
         .findFirst()
@@ -108,7 +128,9 @@ public final class IndexingRepository {
 
   public boolean sourceCurrent(TaskEntity job) {
     return store.count(
-            "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND r.segment_count BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
+            "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND "
+                + PROJECTION_COUNT
+                + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             job.documentId(),
             job.revisionId(),
             job.sourceSha256(),
@@ -116,7 +138,121 @@ public final class IndexingRepository {
         == 1;
   }
 
-  public List<IndexSegment> segments(String revisionId) {
+  /** Complete recall snapshot; text locations are validated before leaving their source type. */
+  public List<ProjectionItem> projectionItems(String revisionId) {
+    var items = new ArrayList<ProjectionItem>();
+    for (var segment : segments(revisionId)) {
+      items.add(ProjectionItem.fromText(segment));
+    }
+    for (var row :
+        store.rows("SELECT * FROM image_evidence WHERE revision_id=? ORDER BY id", revisionId)) {
+      var image =
+          new ImageEvidence(
+              AuthorityRows.text(row, "id"),
+              AuthorityRows.text(row, "revision_id"),
+              AuthorityRows.integer(row, "width"),
+              AuthorityRows.integer(row, "height"),
+              AuthorityRows.text(row, "recall_text"),
+              AuthorityRows.text(row, "recall_sha256"),
+              AuthorityRows.text(row, "description_revision"));
+      items.add(
+          new ProjectionItem(image.id(), items.size(), image.recallText(), image.recallSha256()));
+    }
+    for (var row :
+        store.rows(
+            "SELECT * FROM audio_spans WHERE revision_id=? AND index_ordinal IS NOT NULL ORDER BY index_ordinal",
+            revisionId)) {
+      var audio =
+          new AudioEvidence(
+              AuthorityRows.text(row, "id"),
+              AuthorityRows.text(row, "revision_id"),
+              AuthorityRows.integer(row, "ordinal"),
+              AuthorityRows.integer(row, "start_ms"),
+              AuthorityRows.integer(row, "end_ms"),
+              AuthorityRows.text(row, "text"),
+              AuthorityRows.text(row, "text_sha256"),
+              AuthorityRows.integer(row, "index_ordinal"));
+      items.add(new ProjectionItem(audio.id(), items.size(), audio.text(), audio.textSha256()));
+    }
+    // Recall does not need the sealed original frame bytes; those remain in video authority.
+    for (var row :
+        store.rows(
+            "SELECT id,revision_id,ordinal,recall_text,recall_sha256,description_revision FROM video_frames WHERE revision_id=? ORDER BY ordinal",
+            revisionId)) {
+      String id = AuthorityRows.text(row, "id");
+      if (!VideoEvidence.frameIdentity(
+              AuthorityRows.text(row, "revision_id"), AuthorityRows.integer(row, "ordinal"))
+          .equals(id)) {
+        throw ModelValues.invalid();
+      }
+      var recall =
+          new ImageRecall(
+              AuthorityRows.text(row, "recall_text"),
+              AuthorityRows.text(row, "description_revision"));
+      items.add(
+          new ProjectionItem(
+              id, items.size(), recall.recallText(), AuthorityRows.text(row, "recall_sha256")));
+    }
+    for (var row :
+        store.rows(
+            "SELECT * FROM video_transcript_spans WHERE revision_id=? AND index_ordinal IS NOT NULL ORDER BY index_ordinal",
+            revisionId)) {
+      var transcript =
+          new VideoTranscriptEvidence(
+              AuthorityRows.text(row, "id"),
+              AuthorityRows.text(row, "revision_id"),
+              new AudioTranscriptSpan(
+                  AuthorityRows.integer(row, "ordinal"),
+                  AuthorityRows.integer(row, "start_ms"),
+                  AuthorityRows.integer(row, "end_ms"),
+                  AuthorityRows.text(row, "text")),
+              AuthorityRows.integer(row, "index_ordinal"));
+      items.add(
+          new ProjectionItem(
+              transcript.id(),
+              items.size(),
+              transcript.span().text(),
+              AuthorityRows.text(row, "text_sha256")));
+    }
+    for (var row :
+        store.rows(
+            "SELECT s.* FROM video_ocr_segments s JOIN video_frame_ocr f ON f.frame_id=s.frame_id WHERE s.revision_id=? ORDER BY f.ordinal,s.ordinal",
+            revisionId)) {
+      var segment =
+          new VideoOcrSegment(
+              AuthorityRows.integer(row, "ordinal"),
+              AuthorityRows.integer(row, "start_offset"),
+              AuthorityRows.integer(row, "end_offset"),
+              AuthorityRows.text(row, "text"));
+      var evidence =
+          new VideoOcrSegmentEvidence(
+              AuthorityRows.text(row, "id"),
+              revisionId,
+              AuthorityRows.text(row, "frame_id"),
+              segment);
+      items.add(
+          new ProjectionItem(
+              evidence.id(), items.size(), segment.text(), AuthorityRows.text(row, "text_sha256")));
+    }
+    if (store.count(
+            "SELECT COUNT(*) FROM video_subtitle_compilations WHERE revision_id=?", revisionId)
+        != 0) {
+      var subtitles =
+          IngestionRepository.readVideoSubtitleEvidence(store, revisionId)
+              .orElseThrow(ModelValues::invalid);
+      for (var track : subtitles.tracks()) {
+        for (var cue : track.cues()) {
+          if (cue.indexOrdinal() != null) {
+            items.add(
+                new ProjectionItem(cue.id(), items.size(), cue.cue().text(), cue.textSha256()));
+          }
+        }
+      }
+    }
+    return List.copyOf(items);
+  }
+
+  private List<IndexSegment> segments(String revisionId) {
     return store
         .rows("SELECT * FROM corpus_segments WHERE revision_id=? ORDER BY ordinal", revisionId)
         .stream()
@@ -182,13 +318,81 @@ public final class IndexingRepository {
   }
 
   public void insertPublicationEntry(
-      String publicationId, String sourceSegmentId, String physicalSegmentId, String digest) {
-    store.execute(
-        "INSERT INTO index_publication_entries(publication_id,source_segment_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
-        publicationId,
-        sourceSegmentId,
-        physicalSegmentId,
-        digest);
+      String publicationId, String evidenceId, String physicalSegmentId, String digest) {
+    if (store.count(
+            "SELECT COUNT(*) FROM image_evidence i JOIN index_publications p ON p.revision_id=i.revision_id WHERE p.id=? AND i.id=?",
+            publicationId,
+            evidenceId)
+        == 1) {
+      store.execute(
+          "INSERT INTO image_publication_entries(publication_id,image_evidence_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    } else if (store.count(
+            "SELECT COUNT(*) FROM audio_spans s JOIN index_publications p ON p.revision_id=s.revision_id WHERE p.id=? AND s.id=? AND s.index_ordinal IS NOT NULL",
+            publicationId,
+            evidenceId)
+        == 1) {
+      store.execute(
+          "INSERT INTO audio_publication_entries(publication_id,audio_span_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    } else if (store.count(
+            "SELECT COUNT(*) FROM video_frames f JOIN index_publications p ON p.revision_id=f.revision_id WHERE p.id=? AND f.id=?",
+            publicationId,
+            evidenceId)
+        == 1) {
+      store.execute(
+          "INSERT INTO video_frame_publication_entries(publication_id,video_frame_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    } else if (store.count(
+            "SELECT COUNT(*) FROM video_transcript_spans s JOIN index_publications p ON p.revision_id=s.revision_id WHERE p.id=? AND s.id=? AND s.index_ordinal IS NOT NULL",
+            publicationId,
+            evidenceId)
+        == 1) {
+      store.execute(
+          "INSERT INTO video_transcript_publication_entries(publication_id,video_transcript_span_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    } else if (store.count(
+            "SELECT COUNT(*) FROM video_ocr_segments s JOIN index_publications p ON p.revision_id=s.revision_id WHERE p.id=? AND s.id=?",
+            publicationId,
+            evidenceId)
+        == 1) {
+      store.execute(
+          "INSERT INTO video_ocr_publication_entries(publication_id,video_ocr_segment_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    } else if (store.count(
+            "SELECT COUNT(*) FROM video_subtitle_cues s JOIN index_publications p ON p.revision_id=s.revision_id WHERE p.id=? AND s.id=? AND s.index_ordinal IS NOT NULL",
+            publicationId,
+            evidenceId)
+        == 1) {
+      store.execute(
+          "INSERT INTO video_subtitle_publication_entries(publication_id,video_subtitle_cue_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    } else {
+      store.execute(
+          "INSERT INTO index_publication_entries(publication_id,source_segment_id,physical_segment_id,entry_sha256) VALUES(?,?,?,?)",
+          publicationId,
+          evidenceId,
+          physicalSegmentId,
+          digest);
+    }
   }
 
   public void activatePublication(String documentId, String publicationId, String revisionId) {

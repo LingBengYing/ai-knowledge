@@ -75,6 +75,7 @@ final class TruthContext {
       if ((LIMITED_STATEMENT.matcher(preceding.text()).find()
               || APPROVAL_CONDITION.matcher(preceding.text()).find()
               || QUALIFIER.matcher(preceding.text()).find())
+          && !SourceInstructions.unsafe(page, preceding, fields)
           && sameRelationChanged(field.text(), preceding.text(), false)) {
         return true;
       }
@@ -103,7 +104,8 @@ final class TruthContext {
               || LIMITED_CLAUSE.matcher(tail).find())) {
         return true;
       }
-      if (sameRelationChanged(field.text(), tail, true)) {
+      if (sameRelationChanged(field.text(), tail, true)
+          && !SourceInstructions.unsafe(page, following, fields)) {
         return true;
       }
       immediate = false;
@@ -123,17 +125,20 @@ final class TruthContext {
         || APPROVAL_CONDITION.matcher(context).find())) {
       return false;
     }
+    // Use the same neutral-label normalization as fact matching, without changing source ranges.
+    String statement = SourceFields.statement(assertion);
+    String revision = SourceFields.statement(context);
     for (Pattern relation : RELATIONS) {
-      var original = relation.matcher(assertion);
+      var original = relation.matcher(statement);
       if (!original.find()) {
         continue;
       }
-      String originalSubject = subject(assertion.substring(0, original.start()));
-      var next = relation.matcher(context);
+      String originalSubject = subject(statement.substring(0, original.start()));
+      var next = relation.matcher(revision);
       while (next.find()) {
-        String relationPrefix = context.substring(0, next.start());
+        String relationPrefix = revision.substring(0, next.start());
         String newSubject = subject(relationPrefix);
-        String nextTail = context.substring(next.end()).stripLeading();
+        String nextTail = revision.substring(next.end()).stripLeading();
         boolean revokedReference = REVOKED_REFERENCE.matcher(newSubject).matches();
         boolean relatedSubject =
             newSubject.equals(originalSubject)

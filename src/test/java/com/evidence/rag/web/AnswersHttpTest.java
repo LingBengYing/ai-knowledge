@@ -531,16 +531,16 @@ class AnswersHttpTest {
       indexing.createIndexing(actor, upload.documentId(), target);
       var claim = indexing.claimIndexing(actor.workspaceId()).orElseThrow();
       var entries =
-          claim.segments().stream()
+          claim.items().stream()
               .map(
                   segment ->
                       new RetrievalProjection.Entry(
                           RetrievalProjection.physicalSegmentId(
-                              claim.projectionGenerationId(), segment.segmentId()),
+                              claim.projectionGenerationId(), segment.evidenceId()),
                           actor.workspaceId(),
                           claim.documentId(),
                           claim.projectionGenerationId(),
-                          segment.text(),
+                          segment.recallText(),
                           List.of(1.0, 0.0)))
               .toList();
       var digests = new TreeMap<String, String>();

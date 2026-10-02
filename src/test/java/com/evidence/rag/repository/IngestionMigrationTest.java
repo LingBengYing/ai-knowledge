@@ -27,7 +27,7 @@ class IngestionMigrationTest {
     Path original = directory.resolve("original");
     versionOne(original);
     try (var authority = new AuthorityTestContext(original)) {
-      assertEquals(5, scalar(original, "PRAGMA user_version"));
+      assertEquals(16, scalar(original, "PRAGMA user_version"));
       var before = first(authority.listDocuments(reader, Map.of()));
       assertEquals("existing", before.get("document_id"));
       assertEquals("original.pdf", before.get("filename"));

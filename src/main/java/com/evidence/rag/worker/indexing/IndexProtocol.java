@@ -4,9 +4,9 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.IndexClaim;
-import com.evidence.rag.model.domain.IndexSegment;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.ProjectionItem;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,7 +30,7 @@ import java.util.TreeMap;
  */
 final class IndexProtocol {
   static final int MAGIC = 0x52414749;
-  static final int VERSION = 2;
+  static final int VERSION = 3;
   static final int MAX_REQUEST = 8 * 1024 * 1024;
   static final int MAX_OUTPUT = 1024 * 1024;
   static final int MAX_SEGMENTS = 4096;
@@ -45,11 +45,11 @@ final class IndexProtocol {
       String documentId,
       String revisionId,
       IndexTarget target,
-      List<IndexSegment> segments,
+      List<ProjectionItem> items,
       String projectionGenerationId,
       IndexWorkerLifetime.Parent parent) {
     Request {
-      segments = List.copyOf(segments);
+      items = List.copyOf(items);
     }
 
     @Override
@@ -75,7 +75,7 @@ final class IndexProtocol {
             claim.documentId(),
             claim.revisionId(),
             claim.target(),
-            claim.segments(),
+            claim.items(),
             claim.projectionGenerationId(),
             IndexWorkerLifetime.Parent.current());
     validate(request);
@@ -108,8 +108,8 @@ final class IndexProtocol {
       throw invalid();
     }
     if (request.target() == null
-        || request.segments().isEmpty()
-        || request.segments().size() > MAX_SEGMENTS) {
+        || request.items().isEmpty()
+        || request.items().size() > MAX_SEGMENTS) {
       throw invalid();
     }
     var configuration = request.models();
@@ -124,22 +124,16 @@ final class IndexProtocol {
       }
     }
     var seen = new HashSet<String>();
-    int total = 0, previousPage = 0, previousStart = -1;
-    for (int i = 0; i < request.segments().size(); i++) {
-      var segment = request.segments().get(i);
-      if (segment == null
-          || segment.ordinal() != i
-          || !seen.add(segment.segmentId())
-          || segment.page() < previousPage
-          || segment.page() == previousPage && segment.start() <= previousStart) {
+    int total = 0;
+    for (int i = 0; i < request.items().size(); i++) {
+      var segment = request.items().get(i);
+      if (segment == null || segment.ordinal() != i || !seen.add(segment.evidenceId())) {
         throw invalid();
       }
-      total += segment.end() - segment.start();
+      total += segment.recallText().codePointCount(0, segment.recallText().length());
       if (total > 1_500_000) {
         throw invalid();
       }
-      previousPage = segment.page();
-      previousStart = segment.start();
     }
   }
 
@@ -185,15 +179,12 @@ final class IndexProtocol {
       string(writer, value);
     }
     writer.writeInt(request.target().dimensions());
-    writer.writeInt(request.segments().size());
-    for (var segment : request.segments()) {
-      string(writer, segment.segmentId());
+    writer.writeInt(request.items().size());
+    for (var segment : request.items()) {
+      string(writer, segment.evidenceId());
       writer.writeInt(segment.ordinal());
-      writer.writeInt(segment.page());
-      writer.writeInt(segment.start());
-      writer.writeInt(segment.end());
-      string(writer, segment.text());
-      string(writer, segment.textSha256());
+      string(writer, segment.recallText());
+      string(writer, segment.recallTextSha256());
     }
     string(writer, request.projectionGenerationId());
     writer.writeLong(request.parent().pid());
@@ -245,16 +236,13 @@ final class IndexProtocol {
         new IndexTarget(
             string(reader, 160), string(reader, 160), string(reader, 160), reader.readInt());
     int count = bounded(reader.readInt(), 1, MAX_SEGMENTS);
-    var segments = new ArrayList<IndexSegment>(count);
+    var segments = new ArrayList<ProjectionItem>(count);
     for (int i = 0; i < count; i++) {
       segments.add(
-          new IndexSegment(
+          new ProjectionItem(
               string(reader, 128),
               reader.readInt(),
-              reader.readInt(),
-              reader.readInt(),
-              reader.readInt(),
-              string(reader, 4800),
+              string(reader, ProjectionItem.MAX_TEXT_BYTES),
               string(reader, 64)));
     }
     String generation = string(reader, 128);
@@ -338,12 +326,12 @@ final class IndexProtocol {
     }
     var expectedIds = new HashSet<String>();
     request
-        .segments()
+        .items()
         .forEach(
             segment ->
                 expectedIds.add(
                     RetrievalProjection.physicalSegmentId(
-                        request.projectionGenerationId(), segment.segmentId())));
+                        request.projectionGenerationId(), segment.evidenceId())));
     var manifest =
         new RetrievalProjection.RevisionManifest(
             request.workspaceId(), request.documentId(), request.projectionGenerationId(), digests);

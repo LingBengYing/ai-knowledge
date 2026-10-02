@@ -17,12 +17,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Nonblocking, bounded HTTP upload Adapter. It never parses files or runs models. */
 public final class UploadServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
+  private static final Set<String> VIDEO_CONTENT_TYPES =
+      Set.of("video/mp4", "video/webm", "video/quicktime", "video/x-matroska");
   private final transient IngestionService authority;
   private final int deadlineMs;
   private final JsonMapper json;
@@ -49,11 +52,12 @@ public final class UploadServlet extends HttpServlet {
       Actor actor = AuthenticatedActor.require(request);
       var contentTypes = Collections.list(request.getHeaders("Content-Type"));
       if (contentTypes.size() != 1
-          || !"application/octet-stream".equalsIgnoreCase(contentTypes.getFirst())) {
+          || !("application/octet-stream".equalsIgnoreCase(contentTypes.getFirst())
+              || VIDEO_CONTENT_TYPES.contains(contentTypes.getFirst()))) {
         throw new ApplicationException(
             FailureKind.UNSUPPORTED_MEDIA,
             "unsupported_media_type",
-            "上传需要application/octet-stream原始文件内容。");
+            "上传需要application/octet-stream，或受支持的显式视频内容类型及原始文件内容。");
       }
       var parameters = request.getParameterMap();
       if (parameters.size() != 1
@@ -63,7 +67,7 @@ public final class UploadServlet extends HttpServlet {
             FailureKind.INVALID_INPUT, "invalid_request", "请提供唯一文件名，不接受其他参数。");
       }
       String filename = parameters.get("filename")[0];
-      String mime = authority.prepareUpload(filename);
+      String mime = authority.prepareUpload(filename, contentTypes.getFirst());
       if (request.getContentLengthLong() > authority.maximumUploadBytes()) {
         throw tooLarge();
       }

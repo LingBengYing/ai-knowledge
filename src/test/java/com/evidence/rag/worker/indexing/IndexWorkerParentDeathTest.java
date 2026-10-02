@@ -114,10 +114,10 @@ class IndexWorkerParentDeathTest {
         assertEquals(1, server.committedUpserts.size());
         String newId =
             RetrievalProjection.physicalSegmentId(
-                retryClaim.projectionGenerationId(), retryClaim.segments().getFirst().segmentId());
+                retryClaim.projectionGenerationId(), retryClaim.items().getFirst().evidenceId());
         String oldId =
             RetrievalProjection.physicalSegmentId(
-                oldClaim.projectionGenerationId(), oldClaim.segments().getFirst().segmentId());
+                oldClaim.projectionGenerationId(), oldClaim.items().getFirst().evidenceId());
         assertNotEquals(oldId, newId);
         assertEquals(java.util.Set.of(newId), publication.entryDigests().keySet());
         server.releaseUpsert.countDown();
@@ -143,8 +143,8 @@ class IndexWorkerParentDeathTest {
             retryClaim.revisionId(),
             "Source revision identity remains unchanged");
         assertEquals(
-            oldClaim.segments(),
-            retryClaim.segments(),
+            oldClaim.items(),
+            retryClaim.items(),
             "Source segment identity and locators remain unchanged");
       } finally {
         server.releaseUpsert.countDown();
@@ -201,7 +201,7 @@ class IndexWorkerParentDeathTest {
               IndexingTestServer.sha256("synthetic source"),
               com.evidence.rag.tool.parser.TextParser.REVISION,
               request.target(),
-              request.segments(),
+              request.items(),
               request.projectionGenerationId());
       try (var indexer =
           new ProcessTextIndexer(request.models(), request.projection(), request.timeout())) {

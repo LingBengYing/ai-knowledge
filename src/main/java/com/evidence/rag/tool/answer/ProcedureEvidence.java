@@ -1,7 +1,7 @@
 package com.evidence.rag.tool.answer;
 
 import com.evidence.rag.model.domain.GroundedQuote;
-import com.evidence.rag.model.domain.PublishedEvidence;
+import com.evidence.rag.model.domain.GroundingText;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.regex.Pattern;
 
-/** Same-page procedure requirements and quote coverage; page context never supplies support. */
+/** Same-context procedure requirements and quote coverage; context alone never supplies support. */
 final class ProcedureEvidence {
   private static final Pattern ORDINAL =
       pattern("^(?:(?:步骤|step\\s*)?\\d{1,2}[.)、）:：]|[（(]\\d{1,2}[)）])\\s*");
@@ -113,14 +113,14 @@ final class ProcedureEvidence {
   }
 
   static Proof prove(QuestionFacts.ProcedureFact fact, List<QuoteRange> quotes) {
-    var visited = new HashSet<PageIdentity>();
+    var visited = new HashSet<String>();
     for (var quote : quotes) {
       interrupted();
       var identity = identity(quote.source());
       if (!visited.add(identity)) {
         continue;
       }
-      String page = quote.source().page().text();
+      String page = quote.source().contextText();
       var samePage =
           quotes.stream().filter(value -> identity(value.source()).equals(identity)).toList();
       var fields = SourceFields.split(page);
@@ -155,14 +155,14 @@ final class ProcedureEvidence {
       int last = index;
       for (var quote : quotes) {
         if (!quote.contains(first)
-            || !bounded(quote.source().page().text(), first.start(), first.end())) {
+            || !bounded(quote.source().contextText(), first.start(), first.end())) {
           continue;
         }
         int end = index;
         while (end + 1 < group.steps().size()
             && quote.contains(group.steps().get(end + 1))
             && bounded(
-                quote.source().page().text(), first.start(), group.steps().get(end + 1).end())) {
+                quote.source().contextText(), first.start(), group.steps().get(end + 1).end())) {
           interrupted();
           end++;
         }
@@ -174,11 +174,11 @@ final class ProcedureEvidence {
       if (selected == null) {
         return List.of();
       }
-      String page = selected.source().page().text();
+      String page = selected.source().contextText();
       int end = group.steps().get(last).end();
       fragments.add(
           new GroundedQuote(
-              selected.source().physicalSegmentId(),
+              selected.source().physicalId(),
               page.codePointCount(0, first.start()),
               page.codePointCount(0, end),
               page.substring(first.start(), end),
@@ -235,8 +235,8 @@ final class ProcedureEvidence {
     return new SourceFields.Field(start, end, page.substring(start, end));
   }
 
-  private static PageIdentity identity(PublishedEvidence source) {
-    return new PageIdentity(source.publication().publicationId(), source.page().number());
+  private static String identity(GroundingText source) {
+    return source.contextId();
   }
 
   private static Pattern pattern(String value) {
@@ -249,7 +249,7 @@ final class ProcedureEvidence {
     }
   }
 
-  record QuoteRange(PublishedEvidence source, int start, int end) {
+  record QuoteRange(GroundingText source, int start, int end) {
     boolean contains(SourceFields.Field field) {
       return field.start() >= start && field.end() <= end;
     }
@@ -281,6 +281,4 @@ final class ProcedureEvidence {
       return "ProcedureProof[redacted]";
     }
   }
-
-  private record PageIdentity(String publicationId, int pageNumber) {}
 }

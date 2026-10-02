@@ -45,11 +45,11 @@ class DocumentLifecycleMigrationTest {
         var statement = database.createStatement()) {
       try (var version = statement.executeQuery("PRAGMA user_version")) {
         assertTrue(version.next());
-        assertEquals(5, version.getInt(1));
+        assertEquals(16, version.getInt(1));
       }
       try (var format = statement.executeQuery("SELECT version FROM format_info")) {
         assertTrue(format.next());
-        assertEquals(5, format.getInt(1));
+        assertEquals(16, format.getInt(1));
       }
     }
   }
@@ -70,10 +70,12 @@ class DocumentLifecycleMigrationTest {
       assertEquals(1, sources.size());
     }
 
+    VisualLibraryMigrationTest.restoreVersionSix(directory);
     Path database = directory.resolve("java-library.db");
     try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
         var statement = connection.createStatement()) {
       // Restore only the new sidecar/version marker to construct an actual v4 publication fixture.
+      statement.execute("DROP TABLE image_text_regions");
       statement.execute("DROP TABLE document_tombstones");
       statement.execute("UPDATE format_info SET version=4");
       statement.execute("PRAGMA user_version=4");
@@ -85,8 +87,8 @@ class DocumentLifecycleMigrationTest {
         var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
         assertEquals(publications, scope.publications());
         assertEquals(sources, fixture.evidence.hydrate(scope, physicalIds));
-        assertEquals(5, scalar(database, "PRAGMA user_version"));
-        assertEquals(5, scalar(database, "SELECT version FROM format_info"));
+        assertEquals(16, scalar(database, "PRAGMA user_version"));
+        assertEquals(16, scalar(database, "SELECT version FROM format_info"));
       }
       assertEquals(1, backups().size());
     }
@@ -138,6 +140,7 @@ class DocumentLifecycleMigrationTest {
     try (var ignored = new SqliteAuthorityStore(directory)) {
       // Only the persisted test fixture is damaged, never a production or historical DDL method.
     }
+    restoreVersionFive();
     sql(corruption);
 
     var failure =
@@ -164,6 +167,7 @@ class DocumentLifecycleMigrationTest {
     try (var ignored = new SqliteAuthorityStore(directory)) {
       // Start from a valid, fully committed v5 database.
     }
+    restoreVersionFive();
     sql(corruption);
     Path database = directory.resolve("java-library.db");
     int versionBefore = scalar(database, "PRAGMA user_version");
@@ -287,6 +291,8 @@ class DocumentLifecycleMigrationTest {
               .publications()
               .getFirst();
     }
+    VisualLibraryMigrationTest.restoreVersionSix(directory);
+    sql("DROP TABLE image_text_regions");
     sql("DROP TABLE document_tombstones");
     sql("UPDATE format_info SET version=4");
     sql("PRAGMA user_version=4");
@@ -324,6 +330,13 @@ class DocumentLifecycleMigrationTest {
         assertFalse(result.next());
       }
     }
+  }
+
+  private void restoreVersionFive() throws SQLException {
+    VisualLibraryMigrationTest.restoreVersionSix(directory);
+    sql("DROP TABLE image_text_regions");
+    sql("UPDATE format_info SET version=5");
+    sql("PRAGMA user_version=5");
   }
 
   private void createSyntheticDocument() {

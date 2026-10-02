@@ -22,12 +22,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Synthetic local HTTP Adapter fixture; never contacts a real model or Milvus deployment. */
 public final class IndexingTestServer implements AutoCloseable {
   private static final JsonMapper JSON = JsonMapper.builder().build();
+  private static final Pattern SCOPED_GENERATION =
+      Pattern.compile(
+          "\\(document_id == \"([A-Za-z0-9._:-]+)\" && revision_id == \"([A-Za-z0-9._:-]+)\"\\)");
   private final HttpServer server;
   private final java.util.concurrent.ExecutorService executor =
       Executors.newVirtualThreadPerTaskExecutor();
@@ -199,6 +203,8 @@ public final class IndexingTestServer implements AutoCloseable {
           blockedUpsertCommitted.countDown();
         }
         data = Map.of("upsertCount", ids.size(), "upsertIds", ids);
+      } else if (path.endsWith("/entities/search")) {
+        data = search(body);
       } else if (path.endsWith("/entities/query")) {
         String filter = body.path("filter").asString();
         var result = new ArrayList<Map<String, Object>>();
@@ -264,6 +270,41 @@ public final class IndexingTestServer implements AutoCloseable {
     } catch (InterruptedException ignored) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  private List<Map<String, Object>> search(JsonNode request) {
+    String filter = request.path("filter").asString();
+    if (!filter.startsWith("workspace_id == \"org-main\" && (")) {
+      return List.of();
+    }
+    var scope = new LinkedHashMap<String, String>();
+    var matcher = SCOPED_GENERATION.matcher(filter);
+    while (matcher.find()) {
+      scope.put(matcher.group(1), matcher.group(2));
+    }
+    return rows.values().stream()
+        .filter(
+            row ->
+                row.path("workspace_id").asString().equals("org-main")
+                    && row.path("revision_id")
+                        .asString()
+                        .equals(scope.get(row.path("document_id").asString())))
+        .sorted(java.util.Comparator.comparing(row -> row.path("id").asString()))
+        .limit(request.path("limit").asInt())
+        .map(
+            row ->
+                Map.<String, Object>of(
+                    "id",
+                    row.path("id").asString(),
+                    "workspace_id",
+                    row.path("workspace_id").asString(),
+                    "document_id",
+                    row.path("document_id").asString(),
+                    "revision_id",
+                    row.path("revision_id").asString(),
+                    "distance",
+                    0.9))
+        .toList();
   }
 
   private Map<String, Object> description() {

@@ -4,20 +4,47 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AnswerEligibility;
+import com.evidence.rag.model.domain.AudioSourceEvidence;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.PublishedAudioEvidence;
 import com.evidence.rag.model.domain.PublishedEvidence;
+import com.evidence.rag.model.domain.PublishedImageEvidence;
+import com.evidence.rag.model.domain.PublishedVideoCandidate;
+import com.evidence.rag.model.domain.PublishedVideoEvidence;
+import com.evidence.rag.model.domain.PublishedVideoGroup;
+import com.evidence.rag.model.domain.PublishedVideoOcrEvidence;
+import com.evidence.rag.model.domain.PublishedVideoSubtitleEvidence;
+import com.evidence.rag.model.domain.SourceAudio;
 import com.evidence.rag.model.domain.SourceEvidence;
+import com.evidence.rag.model.domain.SourceImage;
+import com.evidence.rag.model.domain.SourceVideo;
 import com.evidence.rag.model.domain.TraceDraft;
+import com.evidence.rag.model.domain.TraceEvidence;
+import com.evidence.rag.model.domain.VideoOcrSourceEvidence;
+import com.evidence.rag.model.domain.VideoSourceEvidence;
+import com.evidence.rag.model.domain.VideoSubtitleSourceEvidence;
+import com.evidence.rag.model.domain.VideoTraceEvidence;
+import com.evidence.rag.model.domain.VisualImage;
+import com.evidence.rag.model.domain.VisualSourceEvidence;
 import com.evidence.rag.model.dto.TraceReceipt;
+import com.evidence.rag.model.entity.TraceAudioCitationEntity;
 import com.evidence.rag.model.entity.TraceCitationEntity;
+import com.evidence.rag.model.entity.TraceImageCitationEntity;
+import com.evidence.rag.model.entity.TraceVideoCitationEntity;
+import com.evidence.rag.model.entity.TraceVideoOcrCitationEntity;
+import com.evidence.rag.model.entity.TraceVideoSubtitleCitationEntity;
 import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.tool.parser.AudioInput;
+import com.evidence.rag.tool.parser.ImageInput;
+import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.tool.parser.VideoInput;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,6 +58,405 @@ import org.springframework.stereotype.Service;
 /** Current-ACL evidence authority and atomic final trace decision. Remote work is excluded. */
 @Service
 public final class EvidenceService {
+  public List<PublicationVersion> videoPublications(EvidenceScope scope) {
+    requireScope(scope);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          var publications = evidence.findVideoPublications(scope);
+          if (!scope.publications().containsAll(publications)) {
+            throw ModelValues.invalid();
+          }
+          return publications;
+        });
+  }
+
+  public List<PublishedVideoCandidate> hydrateVideo(EvidenceScope scope, List<String> physicalIds) {
+    requireScope(scope);
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return classifiedVideo(scope, ids).video();
+        });
+  }
+
+  public List<PublicationVersion> videoOcrPublications(EvidenceScope scope) {
+    requireScope(scope);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          var publications = evidence.findVideoOcrPublications(scope);
+          if (!scope.publications().containsAll(publications)) {
+            throw ModelValues.invalid();
+          }
+          return publications;
+        });
+  }
+
+  public List<PublishedVideoOcrEvidence> hydrateVideoOcr(
+      EvidenceScope scope, List<String> physicalIds) {
+    requireScope(scope);
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return classifiedVideo(scope, ids).ocr();
+        });
+  }
+
+  /** Classify every authorized physical hit before filtering; unknown hits never disappear. */
+  private VideoCandidates classifiedVideo(EvidenceScope scope, List<String> ids) {
+    var video = new HashMap<String, PublishedVideoCandidate>();
+    var ocr = new HashMap<String, PublishedVideoOcrEvidence>();
+    var subtitles = new HashMap<String, PublishedVideoSubtitleEvidence>();
+    var seen = new HashSet<String>();
+    for (var item : evidence.findPublishedVideoCandidates(scope, ids)) {
+      if (!scope.publications().contains(item.publication())
+          || !ids.contains(item.physicalSegmentId())
+          || !seen.add(item.physicalSegmentId())) {
+        throw ModelValues.invalid();
+      }
+      video.put(item.physicalSegmentId(), item);
+    }
+    for (var item : evidence.findPublishedVideoOcrEvidence(scope, ids)) {
+      if (!scope.publications().contains(item.publication())
+          || !ids.contains(item.physicalSegmentId())
+          || !seen.add(item.physicalSegmentId())) {
+        throw ModelValues.invalid();
+      }
+      ocr.put(item.physicalSegmentId(), item);
+    }
+    for (var item : evidence.findPublishedVideoSubtitleEvidence(scope, ids)) {
+      if (!scope.publications().contains(item.publication())
+          || !ids.contains(item.physicalSegmentId())
+          || !seen.add(item.physicalSegmentId())) {
+        throw ModelValues.invalid();
+      }
+      subtitles.put(item.physicalSegmentId(), item);
+    }
+    if (seen.size() != ids.size()) {
+      throw ModelValues.invalid();
+    }
+    return new VideoCandidates(
+        ids.stream().filter(video::containsKey).map(video::get).toList(),
+        ids.stream().filter(ocr::containsKey).map(ocr::get).toList(),
+        ids.stream().filter(subtitles::containsKey).map(subtitles::get).toList());
+  }
+
+  private record VideoCandidates(
+      List<PublishedVideoCandidate> video,
+      List<PublishedVideoOcrEvidence> ocr,
+      List<PublishedVideoSubtitleEvidence> subtitles) {}
+
+  public List<PublicationVersion> videoSubtitlePublications(EvidenceScope scope) {
+    requireScope(scope);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          var publications = evidence.findVideoSubtitlePublications(scope);
+          if (!scope.publications().containsAll(publications)) {
+            throw ModelValues.invalid();
+          }
+          return publications;
+        });
+  }
+
+  public List<PublishedVideoSubtitleEvidence> hydrateVideoSubtitle(
+      EvidenceScope scope, List<String> physicalIds) {
+    requireScope(scope);
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return classifiedVideo(scope, ids).subtitles();
+        });
+  }
+
+  public VideoSubtitleSourceEvidence videoSubtitleExcerpt(
+      EvidenceScope scope, TraceEvidence trace) {
+    requireScope(scope);
+    if (trace == null) {
+      throw ModelValues.invalid();
+    }
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return subtitleMaterial(scope, trace);
+        });
+  }
+
+  private VideoSubtitleSourceEvidence subtitleMaterial(EvidenceScope scope, TraceEvidence trace) {
+    var sources = classifiedVideo(scope, List.of(trace.physicalSegmentId())).subtitles();
+    if (sources.size() != 1) {
+      throw ModelValues.notFound();
+    }
+    return new VideoSubtitleSourceEvidence(sources.getFirst(), trace, null);
+  }
+
+  /** Null identifies another source kind only after complete saved scope authorization succeeds. */
+  public VideoSubtitleSourceEvidence videoSubtitleSource(Actor actor, String traceId, int ordinal) {
+    if (actor == null) {
+      throw ModelValues.invalid();
+    }
+    ModelValues.identifier(traceId, 128);
+    if (ordinal < 1 || ordinal > 32) {
+      throw ModelValues.notFound();
+    }
+    return store.transaction(
+        () -> {
+          var scope = evidence.findTraceScope(actor, traceId);
+          if (scope == null || !current(scope)) {
+            throw ModelValues.notFound();
+          }
+          var saved = evidence.findTraceVideoSubtitleCitation(actor, traceId, ordinal);
+          if (saved == null) {
+            return null;
+          }
+          var source = subtitleMaterial(scope, saved.evidence());
+          if (!subtitleCitation(source).equals(saved)) {
+            throw ModelValues.notFound();
+          }
+          var publication = source.source().publication();
+          byte[] original = evidence.findVideoOriginal(actor, publication, VideoInput.MAX_BYTES);
+          if (original == null
+              || !ModelValues.sha256(original).equals(publication.sourceSha256())) {
+            throw ModelValues.notFound();
+          }
+          try {
+            VideoInput.validateEnvelope(
+                source.source().filename(), source.source().mediaType(), original);
+          } catch (TextParser.Failure invalid) {
+            throw ModelValues.notFound();
+          }
+          return new VideoSubtitleSourceEvidence(
+              source.source(),
+              saved.evidence(),
+              new SourceVideo(source.source().mediaType(), original));
+        });
+  }
+
+  private static TraceVideoSubtitleCitationEntity subtitleCitation(
+      VideoSubtitleSourceEvidence source) {
+    var item = source.source();
+    return new TraceVideoSubtitleCitationEntity(
+        source.trace(),
+        item.publication().publicationId(),
+        item.source().id(),
+        item.track().id(),
+        item.publication().sourceSha256(),
+        item.subtitleManifestSha256(),
+        item.nativeManifestSha256(),
+        item.trackTextSha256(),
+        item.source().cue().payloadSha256(),
+        ModelValues.sha256(source.quote().getBytes(StandardCharsets.UTF_8)));
+  }
+
+  public VideoOcrSourceEvidence videoOcrExcerpt(EvidenceScope scope, TraceEvidence trace) {
+    requireScope(scope);
+    if (trace == null) {
+      throw ModelValues.invalid();
+    }
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return ocrMaterial(scope, trace);
+        });
+  }
+
+  private VideoOcrSourceEvidence ocrMaterial(EvidenceScope scope, TraceEvidence trace) {
+    var items = classifiedVideo(scope, List.of(trace.physicalSegmentId())).ocr();
+    if (items.size() != 1) {
+      throw ModelValues.notFound();
+    }
+    var source = items.getFirst();
+    var frame =
+        evidence.findVideoFrame(scope.actor(), source.publication(), source.source().frameId());
+    return new VideoOcrSourceEvidence(source, trace, frame, null);
+  }
+
+  /** Null means a current authorized trace uses an older video proof kind, not failed authority. */
+  public VideoOcrSourceEvidence videoOcrSource(Actor actor, String traceId, int ordinal) {
+    if (actor == null) {
+      throw ModelValues.invalid();
+    }
+    ModelValues.identifier(traceId, 128);
+    if (ordinal < 1 || ordinal > 32) {
+      throw ModelValues.notFound();
+    }
+    return store.transaction(
+        () -> {
+          var scope = evidence.findTraceScope(actor, traceId);
+          if (scope == null || !current(scope)) {
+            throw ModelValues.notFound();
+          }
+          var saved = evidence.findTraceVideoOcrCitation(actor, traceId, ordinal);
+          if (saved == null) {
+            return null;
+          }
+          var source = ocrMaterial(scope, saved.evidence());
+          if (!ocrCitation(source).equals(saved)) {
+            throw ModelValues.notFound();
+          }
+          var publication = source.source().publication();
+          byte[] bytes = evidence.findVideoOriginal(actor, publication, VideoInput.MAX_BYTES);
+          if (bytes == null || !ModelValues.sha256(bytes).equals(publication.sourceSha256())) {
+            throw ModelValues.notFound();
+          }
+          try {
+            VideoInput.validateEnvelope(
+                source.source().filename(), source.source().mediaType(), bytes);
+          } catch (TextParser.Failure invalid) {
+            throw ModelValues.notFound();
+          }
+          return new VideoOcrSourceEvidence(
+              source.source(),
+              saved.evidence(),
+              source.frame(),
+              new SourceVideo(source.source().mediaType(), bytes));
+        });
+  }
+
+  private static TraceVideoOcrCitationEntity ocrCitation(VideoOcrSourceEvidence source) {
+    var item = source.source();
+    return new TraceVideoOcrCitationEntity(
+        source.trace(),
+        item.publication().publicationId(),
+        item.source().id(),
+        item.source().frameId(),
+        item.publication().sourceSha256(),
+        item.frame().frameSha256(),
+        item.ocrManifestSha256(),
+        ModelValues.sha256(item.frame().text().getBytes(StandardCharsets.UTF_8)),
+        ModelValues.sha256(source.quote().getBytes(StandardCharsets.UTF_8)));
+  }
+
+  public List<PublishedVideoGroup> videoGroups(EvidenceScope scope, List<String> physicalIds) {
+    requireScope(scope);
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          var groups = evidence.findPublishedVideoGroups(scope, ids);
+          var seen = new HashSet<String>();
+          for (var group : groups) {
+            if (!scope.publications().contains(group.publication())
+                || !seen.add(group.publication().publicationId() + "/" + group.group().id())
+                || !(group.framePhysicalSegmentId() != null
+                        && ids.contains(group.framePhysicalSegmentId())
+                    || group.transcriptPhysicalSegmentId() != null
+                        && ids.contains(group.transcriptPhysicalSegmentId()))) {
+              throw ModelValues.invalid();
+            }
+          }
+          return List.copyOf(groups);
+        });
+  }
+
+  public PublishedVideoEvidence videoEvidence(
+      EvidenceScope scope, String publicationId, String groupId) {
+    requireScope(scope);
+    ModelValues.identifier(publicationId, 128);
+    ModelValues.identifier(groupId, 128);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return videoMaterial(scope, publicationId, groupId);
+        });
+  }
+
+  public VideoSourceEvidence videoSource(Actor actor, String traceId, int citationOrdinal) {
+    if (actor == null) {
+      throw ModelValues.invalid();
+    }
+    ModelValues.identifier(traceId, 128);
+    if (citationOrdinal < 1 || citationOrdinal > 32) {
+      throw ModelValues.notFound();
+    }
+    return store.transaction(
+        () -> {
+          var scope = evidence.findTraceScope(actor, traceId);
+          if (scope == null || !current(scope)) {
+            throw ModelValues.notFound();
+          }
+          var saved = evidence.findTraceVideoCitation(actor, traceId, citationOrdinal);
+          var proof = evidence.findTraceVideoProof(actor, traceId);
+          if (saved == null
+              || proof == null
+              || !proof.publicationId().equals(saved.publicationId())
+              || !proof.groupId().equals(saved.groupId())) {
+            throw ModelValues.notFound();
+          }
+          var material = videoMaterial(scope, saved.publicationId(), saved.groupId());
+          var source = new VideoSourceEvidence(material, saved.evidence());
+          if (!videoCitation(source).equals(saved)) {
+            throw ModelValues.notFound();
+          }
+          var publication = material.source().publication();
+          byte[] bytes = evidence.findVideoOriginal(actor, publication, VideoInput.MAX_BYTES);
+          if (bytes == null || !ModelValues.sha256(bytes).equals(publication.sourceSha256())) {
+            throw ModelValues.notFound();
+          }
+          try {
+            VideoInput.validateEnvelope(
+                material.source().filename(), material.source().mediaType(), bytes);
+          } catch (TextParser.Failure invalid) {
+            throw ModelValues.notFound();
+          }
+          return new VideoSourceEvidence(
+              material, saved.evidence(), new SourceVideo(material.source().mediaType(), bytes));
+        });
+  }
+
+  private PublishedVideoEvidence videoMaterial(
+      EvidenceScope scope, String publicationId, String groupId) {
+    var material = evidence.findPublishedVideoEvidence(scope, publicationId, groupId);
+    if (material == null
+        || !scope.publications().contains(material.source().publication())
+        || !publicationId.equals(material.source().publication().publicationId())
+        || !groupId.equals(material.source().group().id())) {
+      throw ModelValues.notFound();
+    }
+    return material;
+  }
+
+  private static TraceVideoCitationEntity videoCitation(VideoSourceEvidence source) {
+    var published = source.source();
+    var material = published.proofInput();
+    boolean visual = source.trace().kind() == VideoTraceEvidence.Kind.VISUAL;
+    return new TraceVideoCitationEntity(
+        source.trace(),
+        published.source().publication().publicationId(),
+        material.group().id(),
+        visual ? material.group().frameId() : null,
+        visual ? null : material.group().transcriptSpanId(),
+        material.sourceSha256(),
+        material.manifestSha256(),
+        visual ? material.frame().image().sha256() : null,
+        visual ? null : published.transcriptSpan().span().textSha256(),
+        visual ? null : ModelValues.sha256(source.quote().getBytes(StandardCharsets.UTF_8)));
+  }
+
   private static final long MAX_PAGE_BYTES = 8L * 1024 * 1024;
   private final SqliteAuthorityStore store;
   private final EvidenceRepository evidence;
@@ -86,6 +512,171 @@ public final class EvidenceService {
         });
   }
 
+  public List<PublicationVersion> textPublications(EvidenceScope snapshot) {
+    requireScope(snapshot);
+    return store.transaction(
+        () -> {
+          if (!current(snapshot)) {
+            throw changed();
+          }
+          var texts = evidence.findTextPublications(snapshot);
+          if (!snapshot.publications().containsAll(texts)) {
+            throw ModelValues.invalid();
+          }
+          return texts;
+        });
+  }
+
+  public List<PublicationVersion> imagePublications(EvidenceScope snapshot) {
+    requireScope(snapshot);
+    return store.transaction(
+        () -> {
+          if (!current(snapshot)) {
+            throw changed();
+          }
+          var images = evidence.findImagePublications(snapshot);
+          if (!snapshot.publications().containsAll(images)) {
+            throw ModelValues.invalid();
+          }
+          return images;
+        });
+  }
+
+  public List<PublicationVersion> audioPublications(EvidenceScope snapshot) {
+    requireScope(snapshot);
+    return store.transaction(
+        () -> {
+          if (!current(snapshot)) {
+            throw changed();
+          }
+          var audio = evidence.findAudioPublications(snapshot);
+          if (!snapshot.publications().containsAll(audio)) {
+            throw ModelValues.invalid();
+          }
+          return audio;
+        });
+  }
+
+  public List<PublishedAudioEvidence> hydrateAudio(
+      EvidenceScope snapshot, List<String> physicalIds) {
+    requireScope(snapshot);
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!current(snapshot)) {
+            throw changed();
+          }
+          return hydratedAudio(snapshot, ids);
+        });
+  }
+
+  public AudioSourceEvidence audioSource(Actor actor, String traceId, int citationOrdinal) {
+    if (actor == null) {
+      throw ModelValues.invalid();
+    }
+    ModelValues.identifier(traceId, 128);
+    if (citationOrdinal < 1 || citationOrdinal > 32) {
+      throw ModelValues.notFound();
+    }
+    return store.transaction(
+        () -> {
+          var scope = evidence.findTraceScope(actor, traceId);
+          if (scope == null || !current(scope)) {
+            throw ModelValues.notFound();
+          }
+          var saved = evidence.findTraceAudioCitation(actor, traceId, citationOrdinal);
+          if (saved == null) {
+            throw ModelValues.notFound();
+          }
+          var item = hydratedAudio(scope, List.of(saved.evidence().physicalSegmentId())).getFirst();
+          var source =
+              new AudioSourceEvidence(
+                  item, saved.evidence().startCodePoint(), saved.evidence().endCodePoint());
+          if (!item.publication().publicationId().equals(saved.publicationId())
+              || !item.span().id().equals(saved.audioSpanId())
+              || source.startMs() != saved.startMs()
+              || source.endMs() != saved.endMs()
+              || !item.publication().sourceSha256().equals(saved.sourceSha256())
+              || !item.span().textSha256().equals(saved.textSha256())
+              || !item.transcript().contextSha256().equals(saved.transcriptSha256())
+              || !audioQuoteHash(source).equals(saved.quoteSha256())) {
+            throw ModelValues.notFound();
+          }
+          byte[] original =
+              evidence.findAudioOriginal(actor, item.publication(), AudioInput.MAX_BYTES);
+          if (original == null
+              || !ModelValues.sha256(original).equals(item.publication().sourceSha256())) {
+            throw ModelValues.notFound();
+          }
+          try {
+            AudioInput.validateEnvelope(item.filename(), item.mediaType(), original);
+            return new AudioSourceEvidence(
+                item,
+                source.startCodePoint(),
+                source.endCodePoint(),
+                new SourceAudio(item.mediaType(), original));
+          } catch (TextParser.Failure invalid) {
+            throw ModelValues.notFound();
+          }
+        });
+  }
+
+  public List<PublishedImageEvidence> hydrateImages(
+      EvidenceScope snapshot, List<String> physicalIds) {
+    requireScope(snapshot);
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!current(snapshot)) {
+            throw changed();
+          }
+          return hydratedImages(snapshot, ids);
+        });
+  }
+
+  public VisualSourceEvidence image(EvidenceScope snapshot, String physicalId) {
+    requireScope(snapshot);
+    ModelValues.identifier(physicalId, 128);
+    return store.transaction(
+        () -> {
+          if (!current(snapshot)) {
+            throw changed();
+          }
+          var image = hydratedImages(snapshot, List.of(physicalId)).getFirst();
+          return imageSource(snapshot.actor(), image);
+        });
+  }
+
+  public VisualSourceEvidence visualSource(Actor actor, String traceId, int citationOrdinal) {
+    if (actor == null) {
+      throw ModelValues.invalid();
+    }
+    ModelValues.identifier(traceId, 128);
+    if (citationOrdinal < 1 || citationOrdinal > 32) {
+      throw ModelValues.notFound();
+    }
+    return store.transaction(
+        () -> {
+          var scope = evidence.findTraceScope(actor, traceId);
+          if (scope == null || !current(scope)) {
+            throw ModelValues.notFound();
+          }
+          var saved = evidence.findTraceImageCitation(actor, traceId, citationOrdinal);
+          if (saved == null) {
+            throw ModelValues.notFound();
+          }
+          var item =
+              hydratedImages(scope, List.of(saved.evidence().physicalSegmentId())).getFirst();
+          if (!item.publication().publicationId().equals(saved.publicationId())
+              || !item.image().id().equals(saved.imageEvidenceId())
+              || !item.publication().sourceSha256().equals(saved.sourceSha256())) {
+            throw ModelValues.notFound();
+          }
+          var original = imageSource(actor, item);
+          return new VisualSourceEvidence(item, original.original(), saved.evidence());
+        });
+  }
+
   public TraceReceipt finish(
       EvidenceScope snapshot, TraceDraft draft, Supplier<AnswerEligibility> eligibility) {
     requireScope(snapshot);
@@ -112,6 +703,11 @@ public final class EvidenceService {
             decision = refused(draft, "scope_changed");
           }
           var citations = new ArrayList<TraceCitationEntity>();
+          var imageCitations = new ArrayList<TraceImageCitationEntity>();
+          var audioCitations = new ArrayList<TraceAudioCitationEntity>();
+          var videoCitations = new ArrayList<TraceVideoCitationEntity>();
+          var ocrCitations = new ArrayList<TraceVideoOcrCitationEntity>();
+          var subtitleCitations = new ArrayList<TraceVideoSubtitleCitationEntity>();
           if ("answered".equals(decision.outcome())) {
             var ids =
                 decision.evidence().stream()
@@ -137,6 +733,81 @@ public final class EvidenceService {
                       item.pageSha256(),
                       quoteHash(source)));
             }
+            var imageIds =
+                decision.visualEvidence().stream()
+                    .map(item -> item.physicalSegmentId())
+                    .distinct()
+                    .toList();
+            var imagesById = new HashMap<String, PublishedImageEvidence>();
+            for (var item : hydratedImages(snapshot, imageIds)) {
+              imagesById.put(item.physicalSegmentId(), item);
+            }
+            for (var locator : decision.visualEvidence()) {
+              var source =
+                  imageSource(snapshot.actor(), imagesById.get(locator.physicalSegmentId()));
+              var item = source.source();
+              imageCitations.add(
+                  new TraceImageCitationEntity(
+                      locator,
+                      item.publication().publicationId(),
+                      item.image().id(),
+                      source.original().sha256()));
+            }
+            var audioIds =
+                decision.audioEvidence().stream()
+                    .map(item -> item.physicalSegmentId())
+                    .distinct()
+                    .toList();
+            var audioById = new HashMap<String, PublishedAudioEvidence>();
+            for (var item : hydratedAudio(snapshot, audioIds)) {
+              audioById.put(item.physicalSegmentId(), item);
+            }
+            for (var locator : decision.audioEvidence()) {
+              var source =
+                  new AudioSourceEvidence(
+                      audioById.get(locator.physicalSegmentId()),
+                      locator.startCodePoint(),
+                      locator.endCodePoint());
+              var item = source.evidence();
+              audioCitations.add(
+                  new TraceAudioCitationEntity(
+                      locator,
+                      item.publication().publicationId(),
+                      item.span().id(),
+                      source.startMs(),
+                      source.endMs(),
+                      item.publication().sourceSha256(),
+                      item.span().textSha256(),
+                      item.transcript().contextSha256(),
+                      audioQuoteHash(source)));
+            }
+          }
+          if ("answered".equals(decision.outcome()) && decision.videoProof() != null) {
+            var proof = decision.videoProof();
+            var material = videoMaterial(snapshot, proof.publicationId(), proof.groupId());
+            for (var locator : decision.videoEvidence()) {
+              videoCitations.add(videoCitation(new VideoSourceEvidence(material, locator)));
+            }
+          }
+          if ("answered".equals(decision.outcome())) {
+            for (var locator : decision.videoOcrEvidence()) {
+              ocrCitations.add(ocrCitation(ocrMaterial(snapshot, locator)));
+            }
+            var subtitleIds =
+                decision.videoSubtitleEvidence().stream()
+                    .map(TraceEvidence::physicalSegmentId)
+                    .distinct()
+                    .toList();
+            var subtitleById = new HashMap<String, PublishedVideoSubtitleEvidence>();
+            for (var source : classifiedVideo(snapshot, subtitleIds).subtitles()) {
+              subtitleById.put(source.physicalSegmentId(), source);
+            }
+            for (var locator : decision.videoSubtitleEvidence()) {
+              subtitleCitations.add(
+                  subtitleCitation(
+                      new VideoSubtitleSourceEvidence(
+                          subtitleById.get(locator.physicalSegmentId()), locator, null)));
+            }
           }
           AnswerEligibility lastCheck = eligibility.get();
           if (lastCheck == null) {
@@ -145,9 +816,24 @@ public final class EvidenceService {
           if (firstCheck == AnswerEligibility.ELIGIBLE && lastCheck != AnswerEligibility.ELIGIBLE) {
             decision = eligibleDraft(draft, lastCheck);
             citations.clear();
+            imageCitations.clear();
+            audioCitations.clear();
+            videoCitations.clear();
+            ocrCitations.clear();
+            subtitleCitations.clear();
           }
           String traceId = UUID.randomUUID().toString();
-          evidence.insertTrace(traceId, snapshot, decision, citations, Instant.now().toString());
+          evidence.insertTrace(
+              traceId,
+              snapshot,
+              decision,
+              citations,
+              imageCitations,
+              audioCitations,
+              videoCitations,
+              ocrCitations,
+              subtitleCitations,
+              Instant.now().toString());
           return new TraceReceipt(traceId, decision.outcome(), decision.reasonCode());
         });
   }
@@ -180,8 +866,62 @@ public final class EvidenceService {
               || !quoteHash(source).equals(saved.quoteSha256())) {
             throw ModelValues.notFound();
           }
-          return source;
+          return new SourceEvidence(
+              item,
+              source.start(),
+              source.end(),
+              sourceImage(actor, item, source.start(), source.end()));
         });
+  }
+
+  private SourceImage sourceImage(Actor actor, PublishedEvidence source, int start, int end) {
+    var document =
+        management
+            .findAuthorizedDocument(actor, source.publication().documentId(), false)
+            .orElseThrow(ModelValues::notFound);
+    if (!"image".equals(document.documentType())) {
+      return null;
+    }
+    byte[] original = evidence.findImageOriginal(actor, source.publication(), ImageInput.MAX_BYTES);
+    if (original == null
+        || !ModelValues.sha256(original).equals(source.publication().sourceSha256())) {
+      throw ModelValues.notFound();
+    }
+    try {
+      ImageInput.validateEnvelope(document.filename(), document.mimeType(), original);
+      var dimensions = ImageInput.inspect(original);
+      var regions = evidence.findImageRegions(source.publication(), start, end);
+      if (source.publication().parserRevision().startsWith("java-image-ocr-v2-tsv:")
+          && regions.isEmpty()) {
+        throw ModelValues.notFound();
+      }
+      return new SourceImage(
+          document.mimeType(), original, dimensions.width(), dimensions.height(), regions);
+    } catch (TextParser.Failure failure) {
+      throw ModelValues.notFound();
+    }
+  }
+
+  private VisualSourceEvidence imageSource(Actor actor, PublishedImageEvidence source) {
+    if (source == null) {
+      throw ModelValues.notFound();
+    }
+    byte[] original = evidence.findImageOriginal(actor, source.publication(), ImageInput.MAX_BYTES);
+    if (original == null
+        || !ModelValues.sha256(original).equals(source.publication().sourceSha256())) {
+      throw ModelValues.notFound();
+    }
+    try {
+      ImageInput.validateEnvelope(source.filename(), source.mediaType(), original);
+      var dimensions = ImageInput.inspect(original);
+      if (dimensions.width() != source.image().width()
+          || dimensions.height() != source.image().height()) {
+        throw ModelValues.notFound();
+      }
+      return new VisualSourceEvidence(source, new VisualImage(source.mediaType(), original));
+    } catch (TextParser.Failure failure) {
+      throw ModelValues.notFound();
+    }
   }
 
   private boolean current(EvidenceScope scope) {
@@ -219,6 +959,44 @@ public final class EvidenceService {
     return ids.stream().map(byId::get).toList();
   }
 
+  private List<PublishedImageEvidence> hydratedImages(EvidenceScope scope, List<String> ids) {
+    var items = evidence.findPublishedImageEvidence(scope, ids);
+    if (items.size() != ids.size()) {
+      throw ModelValues.invalid();
+    }
+    var byId = new HashMap<String, PublishedImageEvidence>();
+    for (var item : items) {
+      if (!scope.publications().contains(item.publication())
+          || byId.put(item.physicalSegmentId(), item) != null) {
+        throw ModelValues.invalid();
+      }
+    }
+    return ids.stream().map(byId::get).toList();
+  }
+
+  private List<PublishedAudioEvidence> hydratedAudio(EvidenceScope scope, List<String> ids) {
+    if (evidence.publishedAudioTranscriptBytes(scope, ids) > MAX_PAGE_BYTES) {
+      throw new ApplicationException(
+          FailureKind.CAPACITY_EXCEEDED, "evidence_capacity_exceeded", "引用音频转录超过处理上限，请缩小资料范围。");
+    }
+    var items = evidence.findPublishedAudioEvidence(scope, ids);
+    if (items.size() != ids.size()) {
+      throw ModelValues.invalid();
+    }
+    var byId = new HashMap<String, PublishedAudioEvidence>();
+    for (var item : items) {
+      if (!scope.publications().contains(item.publication())
+          || byId.put(item.physicalSegmentId(), item) != null) {
+        throw ModelValues.invalid();
+      }
+    }
+    return ids.stream().map(byId::get).toList();
+  }
+
+  private static String audioQuoteHash(AudioSourceEvidence source) {
+    return ModelValues.sha256(source.quote().getBytes(StandardCharsets.UTF_8));
+  }
+
   private static List<String> candidateIds(List<String> physicalIds) {
     if (physicalIds == null || physicalIds.size() > 64) {
       throw ModelValues.invalid();
@@ -241,14 +1019,15 @@ public final class EvidenceService {
 
   private static TraceDraft refused(TraceDraft draft, String reason) {
     return new TraceDraft(
-        draft.questionSha256(),
-        null,
-        "abstained",
-        reason,
-        draft.modelRevision(),
-        draft.promptRevision(),
-        draft.policyRevision(),
-        List.of());
+            draft.questionSha256(),
+            null,
+            "abstained",
+            reason,
+            draft.modelRevision(),
+            draft.promptRevision(),
+            draft.policyRevision(),
+            List.of())
+        .withQueryTrace(draft.queryTrace());
   }
 
   private static TraceDraft eligibleDraft(TraceDraft draft, AnswerEligibility eligibility) {

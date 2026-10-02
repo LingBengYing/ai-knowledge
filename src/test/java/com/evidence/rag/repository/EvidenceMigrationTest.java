@@ -27,8 +27,8 @@ class EvidenceMigrationTest {
   void v3UpgradeBacksUpRealPublicationAndPreservesSourceAndActiveConstraints() throws Exception {
     versionThree();
     try (var fixture = new PublishedCorpusFixture(directory)) {
-      assertEquals(5, scalar("PRAGMA user_version"));
-      assertEquals(5, scalar("SELECT version FROM format_info"));
+      assertEquals(16, scalar("PRAGMA user_version"));
+      assertEquals(16, scalar("SELECT version FROM format_info"));
       assertEquals(
           1,
           fixture
@@ -137,6 +137,8 @@ class EvidenceMigrationTest {
   }
 
   private void stripVersionFive() throws SQLException {
+    VisualLibraryMigrationTest.restoreVersionSix(directory);
+    sql("DROP TABLE IF EXISTS image_text_regions");
     sql("DROP TABLE IF EXISTS document_tombstones");
     sql("UPDATE format_info SET version=4");
     sql("PRAGMA user_version=4");
