@@ -1,34 +1,43 @@
 package com.evidence.rag.config;
 
+import com.evidence.rag.client.model.AudioEmbeddingModels;
+import com.evidence.rag.client.model.ImageEmbeddingModels;
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.OpenAiCompatibleQueryRankingModels;
 import com.evidence.rag.client.model.QueryRankingModels;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
+import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.dto.QueryAnswerMode;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.QueryPreparationService;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.service.VisualAnswerService;
+import com.evidence.rag.web.BoundedMediaQueryServlet;
 import com.evidence.rag.web.ProblemHandler;
-import com.evidence.rag.web.QueryAttachmentServlet;
+import com.evidence.rag.web.converter.QueryAttachmentRequestMapper;
 import com.evidence.rag.worker.parser.ProcessImageParser;
 import java.net.URI;
 import java.time.Duration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Explicit local attachment opt-in without startup model requests. */
 @Configuration(proxyBeanMethods = false)
+@Conditional(LegacyTextCondition.class)
 @ConditionalOnProperty(prefix = "rag.query-attachments", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(QueryAttachmentSettings.class)
 public class QueryAttachmentConfiguration {
@@ -75,9 +84,15 @@ public class QueryAttachmentConfiguration {
       @Qualifier("queryImageOcr") ProcessImageParser ocr,
       AudioCompilationService audio,
       VideoCompilationService video,
-      AnswersSettings limits) {
+      AnswersSettings limits,
+      ObjectProvider<AudioEmbeddingModels> audioEmbedding) {
     return new QueryPreparationService(
-        vision, ocr, audio, video, Duration.ofMillis(limits.timeoutMs()));
+        vision,
+        ocr,
+        audio,
+        video,
+        Duration.ofMillis(limits.timeoutMs()),
+        audioEmbedding.getIfAvailable() != null);
   }
 
   @Bean
@@ -86,18 +101,35 @@ public class QueryAttachmentConfiguration {
       QueryRankingModels ranking,
       TextModels text,
       RetrievalProjection projection,
-      TextAdapterSettings settings) {
+      TextAdapterSettings settings,
+      ObjectProvider<ImageEmbeddingModels> imageModels,
+      @Qualifier("imageVectorProjection") ObjectProvider<RetrievalProjection> imageProjection,
+      @Qualifier("imageVectorTarget") ObjectProvider<IndexTarget> imageTarget,
+      ObjectProvider<AudioEmbeddingModels> audioModels,
+      @Qualifier("audioVectorProjection") ObjectProvider<RetrievalProjection> audioProjection,
+      @Qualifier("audioVectorTarget") ObjectProvider<IndexTarget> audioTarget) {
     var target =
         new IndexTarget(
             settings.projection().embeddingIdentity(),
             settings.projection().identity(),
             text.revision(),
             settings.projection().dimension());
-    return new QueryAttachmentService(preparation, ranking, text, projection, target);
+    return new QueryAttachmentService(
+        preparation,
+        ranking,
+        text,
+        projection,
+        target,
+        imageModels.getIfAvailable(),
+        imageProjection.getIfAvailable(),
+        imageTarget.getIfAvailable(),
+        audioModels.getIfAvailable(),
+        audioProjection.getIfAvailable(),
+        audioTarget.getIfAvailable());
   }
 
   @Bean
-  ServletRegistrationBean<QueryAttachmentServlet> queryAttachmentServlet(
+  ServletRegistrationBean<BoundedMediaQueryServlet> queryAttachmentServlet(
       AnswerService answers,
       VisualAnswerService visual,
       QueryAttachmentSettings transport,
@@ -106,15 +138,26 @@ public class QueryAttachmentConfiguration {
       ProblemHandler errors) {
     var registration =
         new ServletRegistrationBean<>(
-            new QueryAttachmentServlet(
-                answers,
-                visual,
+            new BoundedMediaQueryServlet(
+                (actor, body) -> {
+                  var command = QueryAttachmentRequestMapper.command(body);
+                  if (command.mode() == QueryAnswerMode.IMAGE) {
+                    if (visual == null) {
+                      throw new ApplicationException(
+                          FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
+                    }
+                    return visual.answerAttached(actor, command.answer(), command.attachments());
+                  }
+                  return answers.answerAttached(actor, command);
+                },
+                QueryAttachmentRequestMapper.MAX_REQUEST_BYTES,
                 transport.receiveTimeoutMs(),
                 processing.timeoutMs(),
                 transport.maxConcurrent(),
                 json,
                 errors),
             "/v1/attachment-answers");
+    registration.setName("queryAttachmentServlet");
     registration.setAsyncSupported(true);
     return registration;
   }

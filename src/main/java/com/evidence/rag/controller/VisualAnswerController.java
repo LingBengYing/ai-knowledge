@@ -9,6 +9,7 @@ import com.evidence.rag.service.VisualAnswerService;
 import com.evidence.rag.web.converter.AnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,8 +25,16 @@ import org.springframework.web.bind.annotation.RestController;
 public final class VisualAnswerController {
   private final VisualAnswerService answers;
 
-  public VisualAnswerController(VisualAnswerService answers) {
+  public VisualAnswerController(@Nullable VisualAnswerService answers) {
     this.answers = answers;
+  }
+
+  private VisualAnswerService selected() {
+    if (answers == null) {
+      throw new ApplicationException(
+          FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成文字模型及对应媒体功能配置。");
+    }
+    return answers;
   }
 
   @PostMapping(
@@ -37,7 +46,8 @@ public final class VisualAnswerController {
     if (request.getQueryString() != null) {
       throw invalid();
     }
-    return answers.answer(AuthenticatedActor.require(request), AnswerRequestMapper.command(body));
+    var actor = AuthenticatedActor.require(request);
+    return selected().answer(actor, AnswerRequestMapper.command(body));
   }
 
   @GetMapping(
@@ -46,14 +56,16 @@ public final class VisualAnswerController {
   public VisualSourceResult source(
       HttpServletRequest request, @PathVariable String answerId, @PathVariable int ordinal) {
     validateSource(request, ordinal);
-    return answers.source(AuthenticatedActor.require(request), answerId, ordinal);
+    var actor = AuthenticatedActor.require(request);
+    return selected().source(actor, answerId, ordinal);
   }
 
   @GetMapping("/v1/visual-sources/{answerId}/{ordinal}/content")
   public ResponseEntity<byte[]> content(
       HttpServletRequest request, @PathVariable String answerId, @PathVariable int ordinal) {
     validateSource(request, ordinal);
-    var original = answers.content(AuthenticatedActor.require(request), answerId, ordinal);
+    var actor = AuthenticatedActor.require(request);
+    var original = selected().content(actor, answerId, ordinal);
     byte[] bytes = original.content();
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(original.mediaType()))

@@ -1,6 +1,12 @@
 # Security and secret handling
 
-## 当前使用范围
+## 隔离外部入口改造
+
+显式启用 `RAG_EXTERNAL_ENTRY_ENABLED=true` 与精确HTTPS `RAG_PUBLIC_ORIGIN` 可使用JWT认证的外部预发布入口。Java必须内部loopback，独立Node入口先校验Java策略再启动；原外部Origin由Java显式验证，TLS终止后的会话强制Secure Cookie，静态知识库资源与业务API须真实JWT会话。开发身份头不对外转发，代理不信任任意转发头，不生成凭据。生产environment与ready503仍保留；没有把预发布、构建或本机测试称为完整生产/四类质量验收。本地整合范围见docs/changes/0020-external-entry及独立前端docs/EXTERNAL_ENTRY.md；真实TLS和公网未验收。
+
+下方为原稳定快照的历史限制。此次已补齐同机TLS代理的Secure Cookie和入口限流，原“没有上传/模型接线”属于早期历史描述，实际以当前源码/运行开关为准。OS沙箱、完整恢复容量和生产发布证据未由本改造认证。
+
+## 原稳定快照使用范围
 
 此版本仅用于受控本地开发。生产模式被拒绝，readiness 为 503；尚未完成生产容量、恢复、发布审批和完整 RAG 安全验证。独立 TextParser 不是安全沙箱，当前没有上传接口，不能自行暴露给不可信公网输入。
 

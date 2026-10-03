@@ -16,7 +16,7 @@ import java.util.function.Function;
 
 /** Pure full-question proof and source-fragment validation; callers own current authorization. */
 public final class TextGrounding {
-  public static final String VERSION = "java-text-grounding-v5-neutral-label-context";
+  public static final String VERSION = "java-text-grounding-v6-numeric-sequences";
   private static final int MAX_QUESTION_BYTES = 4096;
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;

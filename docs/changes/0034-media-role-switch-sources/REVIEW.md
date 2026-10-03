@@ -1,0 +1,11 @@
+# Review：具名缺口与待执行审查
+
+状态：LOCAL_VERIFIED。下方早期静态判断按当时记录保留，实际误报已明确撤回。
+
+B只读跟踪：AnswerService三个纯视频来源方法先requireVideo；ModelConfigurationConfiguration在gen/rerank不同后不注入legacy videoProposals。旧VisualAnswerController及QueryAttachmentConfiguration POST直用legacy graph，cap隐藏不替代provider前拒绝。EvidenceService来源完整ACL/trace/字节路径无需模型，应保留而不重建证据。
+
+A于2026-10-03实际读取后端六份与前端五份正式工件，限定合同审查无阻断。接口收敛为VisualAnswerService最长构造末尾明确executionGuard，旧构造保留legacy空操作策略；真实execute的processing.check之后、snapshot和异常转换之前执行。两个Config生产Bean以可懒解析ObjectProvider传guard，旧装配入口无Bean并保持，避免restore循环。来源不调用guard。
+
+上述为早期静态审查记录。root第三次实际HTTP运行为2项、1FAIL、0ERROR、0跳过：原来源GET在模型切换后503；独立旧POST用例已PASS，且全部1032执行输入前后相同、原1029字节未改。LibraryOperationFilter既有legacyRoute已拦媒体POST，同时错误拦了source路径。早期“缺执行guard”的推断撤回；未实施的VisualAnswerService/两个Config新guard取消，合同据真实证据收窄至来源读取、过滤器pure source匹配与cap。不用新增重复门禁掩盖误报。A、B原报告保留各自当时判断，不能当最终实施证据。
+
+B三文件实施经A独立限定审查22源码及6当时合同，无阻断，报告a-final-source-review.json保留当时SHA。原17个核心/测试字节保持；没有实施早期三个guard。root相关66、full3075、原门禁及六Native最终实际通过，DOM同一RED→GREEN及431全量通过；所有夹具/命令失败均另留原始日志并排除业务RED。审计结果只以实际执行的新报告为准，未部署。

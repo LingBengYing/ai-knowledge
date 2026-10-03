@@ -13,6 +13,8 @@ import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.config.RagProperties;
 import com.evidence.rag.config.TextAdapterSettings;
+import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DecodedAudio;
 import com.evidence.rag.model.domain.DecodedVideo;
@@ -22,6 +24,7 @@ import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.QueryRankCandidate;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import com.evidence.rag.model.domain.VisualImage;
+import com.evidence.rag.model.dto.QueryAnswerMode;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.AudioTranscriptionService;
@@ -32,6 +35,7 @@ import com.evidence.rag.service.QueryPreparationService;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.support.AnswerProtocolServer;
 import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.web.converter.QueryAttachmentRequestMapper;
 import com.evidence.rag.worker.parser.AudioDecoder;
 import com.evidence.rag.worker.parser.ImageOcr;
 import com.evidence.rag.worker.parser.VideoDecoder;
@@ -398,11 +402,25 @@ class QueryAttachmentHttpTest {
     }
 
     @Bean
-    ServletRegistrationBean<QueryAttachmentServlet> fixtureAttachmentServlet(
+    ServletRegistrationBean<BoundedMediaQueryServlet> fixtureAttachmentServlet(
         AnswerService answers, JsonMapper json, ProblemHandler errors) {
       var registration =
           new ServletRegistrationBean<>(
-              new QueryAttachmentServlet(answers, null, 5000, 2000, 1, json, errors),
+              new BoundedMediaQueryServlet(
+                  (actor, body) -> {
+                    var command = QueryAttachmentRequestMapper.command(body);
+                    if (command.mode() == QueryAnswerMode.IMAGE) {
+                      throw new ApplicationException(
+                          FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
+                    }
+                    return answers.answerAttached(actor, command);
+                  },
+                  QueryAttachmentRequestMapper.MAX_REQUEST_BYTES,
+                  5000,
+                  2000,
+                  1,
+                  json,
+                  errors),
               "/v1/attachment-answers");
       registration.setAsyncSupported(true);
       return registration;

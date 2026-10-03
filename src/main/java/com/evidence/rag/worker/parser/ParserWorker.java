@@ -15,19 +15,38 @@ public final class ParserWorker {
     // Libraries may log to System.out. Only this entrypoint owns the child JVM globals;
     // run(InputStream, OutputStream) remains safe to exercise inside a test/application JVM.
     System.setOut(new PrintStream(OutputStream.nullOutputStream()));
-    run(System.in, protocol);
+    if (args.length == 0) {
+      run(System.in, protocol);
+      return;
+    }
+    try (var lifetime = new PdfWorkerLifetime(args)) {
+      run(System.in, protocol, new PdfOcrCompiler(lifetime.ocr()));
+    } catch (RuntimeException ignored) {
+      try {
+        protocol.write(ParserProtocol.failure());
+        protocol.flush();
+      } catch (IOException disconnected) {
+        // Parent rejects incomplete output.
+      }
+    }
   }
 
   /**
    * Exactly one bounded request. Failures disclose neither document data nor library exceptions.
    */
   public static void run(InputStream input, OutputStream output) {
+    run(input, output, null);
+  }
+
+  private static void run(InputStream input, OutputStream output, PdfOcrCompiler pdfs) {
     byte[] response;
     try {
       var request = ParserProtocol.readRequest(input);
       response =
           ParserProtocol.encode(
-              new TextParser().parse(request.filename(), request.mime(), request.content()));
+              pdfs == null
+                  ? new TextParser().parse(request.filename(), request.mime(), request.content())
+                  : pdfs.parse(request.filename(), request.mime(), request.content()));
     } catch (IOException | RuntimeException ignored) {
       response = ParserProtocol.failure();
     }

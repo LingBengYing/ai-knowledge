@@ -9,6 +9,7 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.AudioSourceEvidence;
 import com.evidence.rag.model.domain.AudioTraceEvidence;
+import com.evidence.rag.model.domain.AudioVectorScope;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.GroundingQuote;
 import com.evidence.rag.model.domain.GroundingText;
@@ -25,6 +26,7 @@ import com.evidence.rag.model.domain.QueryTrace;
 import com.evidence.rag.model.domain.SourceAudio;
 import com.evidence.rag.model.domain.SourceEvidence;
 import com.evidence.rag.model.domain.SourceVideo;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TraceDraft;
 import com.evidence.rag.model.domain.TraceEvidence;
 import com.evidence.rag.model.domain.VideoAssessment;
@@ -102,6 +104,17 @@ public final class AnswerService implements AutoCloseable {
   private final TextModels models;
   private final RetrievalProjection projection;
   private final IndexTarget target;
+  private final TextIndexAnchor indexAnchor;
+  private final String modelsRevision;
+
+  IndexTarget runtimeTarget() {
+    return target;
+  }
+
+  String runtimeModelsRevision() {
+    return modelsRevision;
+  }
+
   private final VideoAnswerProposalService videoProposals;
   private final QueryAttachmentService queries;
   private final long timeoutNanos;
@@ -140,6 +153,28 @@ public final class AnswerService implements AutoCloseable {
       int maximumConcurrent,
       VideoAnswerProposalService videoProposals,
       QueryAttachmentService queries) {
+    this(
+        evidence,
+        models,
+        projection,
+        target,
+        deadline,
+        maximumConcurrent,
+        videoProposals,
+        queries,
+        null);
+  }
+
+  public AnswerService(
+      EvidenceService evidence,
+      TextModels models,
+      RetrievalProjection projection,
+      IndexTarget target,
+      Duration deadline,
+      int maximumConcurrent,
+      VideoAnswerProposalService videoProposals,
+      QueryAttachmentService queries,
+      TextIndexAnchor indexAnchor) {
     if (evidence == null
         || models == null
         || projection == null
@@ -149,7 +184,8 @@ public final class AnswerService implements AutoCloseable {
         || deadline.compareTo(Duration.ofMinutes(10)) > 0
         || maximumConcurrent < 1
         || maximumConcurrent > 8
-        || !target.modelRevision().equals(models.revision())
+        || (indexAnchor == null && !target.modelRevision().equals(models.revision()))
+        || (indexAnchor != null && !indexAnchor.target().equals(target))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -157,6 +193,8 @@ public final class AnswerService implements AutoCloseable {
     this.models = models;
     this.projection = projection;
     this.target = target;
+    this.indexAnchor = indexAnchor;
+    this.modelsRevision = models.revision();
     this.videoProposals = videoProposals;
     this.queries = queries;
     timeoutNanos = deadline.toNanos();
@@ -198,7 +236,12 @@ public final class AnswerService implements AutoCloseable {
     var proposed = completed.proposed();
     boolean answered = "answered".equals(receipt.outcome());
     String status = answered ? "answered" : "abstained";
-    String text = answered ? proposed.answer() : REFUSAL;
+    String text =
+        answered
+            ? proposed.answer()
+            : "audio_vector_required".equals(receipt.reasonCode())
+                ? "请为当前范围的全部音频建立完整原声向量。"
+                : REFUSAL;
     String reason = answered ? null : receipt.reasonCode();
     if (kind == SourceKind.TEXT) {
       var citations = new ArrayList<CitationResult>();
@@ -275,7 +318,7 @@ public final class AnswerService implements AutoCloseable {
   }
 
   public VideoSourceResult videoSource(Actor actor, String answerId, int ordinal) {
-    requireVideo();
+    requireVideoSource();
     var subtitle = evidence.videoSubtitleSource(actor, answerId, ordinal);
     if (subtitle != null) {
       return new VideoSourceResult(answerId, videoSubtitleCitation(answerId, ordinal, subtitle));
@@ -289,7 +332,7 @@ public final class AnswerService implements AutoCloseable {
   }
 
   public VisualImage videoFrame(Actor actor, String answerId, int ordinal) {
-    requireVideo();
+    requireVideoSource();
     if (evidence.videoSubtitleSource(actor, answerId, ordinal) != null) {
       throw ModelValues.notFound();
     }
@@ -305,7 +348,7 @@ public final class AnswerService implements AutoCloseable {
   }
 
   public SourceVideo videoContent(Actor actor, String answerId, int ordinal) {
-    requireVideo();
+    requireVideoSource();
     var subtitle = evidence.videoSubtitleSource(actor, answerId, ordinal);
     if (subtitle != null) {
       return subtitle.video();
@@ -327,6 +370,15 @@ public final class AnswerService implements AutoCloseable {
     }
   }
 
+  private void requireVideoSource() {
+    if (closed.get()) {
+      throw unavailable();
+    }
+    if (indexAnchor == null) {
+      requireVideo();
+    }
+  }
+
   private <T> T submit(
       Actor actor, AnswerCommand command, SourceKind kind, Function<Completed, T> resultMapping) {
     return submit(actor, command, kind, List.of(), resultMapping);
@@ -345,7 +397,9 @@ public final class AnswerService implements AutoCloseable {
       throw unavailable();
     }
     var processing = new Processing(!attachments.isEmpty());
+    var reservation = evidence.operationGate().reserve();
     if (!admission.tryAcquire()) {
+      reservation.close();
       throw new ApplicationException(
           FailureKind.CAPACITY_EXCEEDED, "answer_capacity_exceeded", "问答任务已达并发上限。");
     }
@@ -354,21 +408,29 @@ public final class AnswerService implements AutoCloseable {
       // Cancelling the result must not prevent this runnable's finally from releasing admission.
       executor.execute(
           () -> {
-            processing.thread.set(Thread.currentThread());
-            try {
-              result.complete(
-                  resultMapping.apply(execute(actor, command, kind, attachments, processing)));
-            } catch (RuntimeException | Error failure) {
-              result.completeExceptionally(failure);
-            } finally {
-              processing.thread.set(null);
-              admission.release();
+            try (var operation = reservation.begin()) {
+              processing.thread.set(Thread.currentThread());
+              try {
+                result.complete(
+                    resultMapping.apply(execute(actor, command, kind, attachments, processing)));
+              } catch (RuntimeException | Error failure) {
+                result.completeExceptionally(failure);
+              } finally {
+                processing.thread.set(null);
+                admission.release();
+              }
             }
           });
     } catch (RejectedExecutionException failure) {
+      reservation.close();
       admission.release();
       throw unavailable();
+    } catch (RuntimeException | Error failedSubmission) {
+      reservation.close();
+      admission.release();
+      throw failedSubmission;
     }
+
     try {
       T answer = result.get(Math.max(0, processing.remaining()), TimeUnit.NANOSECONDS);
       processing.check();
@@ -408,10 +470,26 @@ public final class AnswerService implements AutoCloseable {
   }
 
   public SourceResult source(Actor actor, String answerId, int citationOrdinal) {
+    return sourceWithTarget(actor, answerId, citationOrdinal, null);
+  }
+
+  public SourceResult source(
+      Actor actor, String answerId, int citationOrdinal, IndexTarget requiredTarget) {
+    if (requiredTarget == null) {
+      throw ModelValues.invalid();
+    }
+    return sourceWithTarget(actor, answerId, citationOrdinal, requiredTarget);
+  }
+
+  private SourceResult sourceWithTarget(
+      Actor actor, String answerId, int citationOrdinal, IndexTarget requiredTarget) {
     if (closed.get()) {
       throw unavailable();
     }
-    SourceEvidence source = evidence.source(actor, answerId, citationOrdinal);
+    SourceEvidence source =
+        requiredTarget == null
+            ? evidence.source(actor, answerId, citationOrdinal)
+            : evidence.source(actor, answerId, citationOrdinal, requiredTarget);
     var citation = citation(answerId, citationOrdinal, source);
     if (source.image() == null) {
       return new SourceResult(answerId, citation);
@@ -467,6 +545,13 @@ public final class AnswerService implements AutoCloseable {
                 () -> requireCurrent(scope, List.of(), kind, processing));
         queryTrace = QueryTrace.prepared(query, queries.rankingRevision());
       }
+      if (kind == SourceKind.AUDIO && queries != null && queries.usesAudioVectors(query)) {
+        if (!queries.audioConfigurationCurrent()) {
+          throw rejected("configuration_changed");
+        }
+        processing.audioVectorScope =
+            evidence.audioVectorScope(scope, queries.audioTarget(), queries.audioDecoderRevision());
+      }
       proposed = propose(scope, query, kind, processing);
     } catch (TextParser.Failure failure) {
       proposed = abstention(command.question(), failure.code(), kind);
@@ -483,6 +568,8 @@ public final class AnswerService implements AutoCloseable {
         proposed = abstention(command.question(), "scope_changed", kind);
       } else if ("configuration_changed".equals(failure.code())) {
         proposed = abstention(command.question(), "configuration_changed", kind);
+      } else if ("audio_vector_required".equals(failure.code())) {
+        proposed = abstention(command.question(), "audio_vector_required", kind);
       } else if (failure.kind() == FailureKind.TIMEOUT || !processing.active()) {
         proposed = abstention(command.question(), "processing_timeout", kind);
       } else if (failure.kind() == FailureKind.INVALID_INPUT
@@ -508,7 +595,12 @@ public final class AnswerService implements AutoCloseable {
     }
     // Keep audit/storage failures outside the upstream-error catch: no durable trace, no answer.
     var receipt =
-        evidence.finish(scope, proposed.trace(), () -> commitEligibility(processing, kind));
+        evidence.finish(
+            scope,
+            proposed.trace(),
+            () -> commitEligibility(processing, kind),
+            null,
+            processing.audioVectorScope);
     if ("answered".equals(receipt.outcome()) && !"answered".equals(proposed.trace().outcome())) {
       throw unavailable();
     }
@@ -557,27 +649,43 @@ public final class AnswerService implements AutoCloseable {
     }
     var generations = new LinkedHashMap<String, String>();
     // Query modality narrows retrieval only; scope is never replaced by this subset.
-    (kind == SourceKind.VIDEO_SUBTITLE
-            ? evidence.videoSubtitlePublications(scope)
-            : kind == SourceKind.VIDEO_OCR
-                ? evidence.videoOcrPublications(scope)
-                : kind == SourceKind.AUDIO
-                    ? evidence.audioPublications(scope)
-                    : evidence.textPublications(scope))
-        .forEach(p -> generations.put(p.documentId(), p.projectionGenerationId()));
+    if (processing.audioVectorScope != null) {
+      processing
+          .audioVectorScope
+          .publications()
+          .forEach(p -> generations.put(p.basePublication().documentId(), p.vectorGenerationId()));
+    } else {
+      (kind == SourceKind.VIDEO_SUBTITLE
+              ? evidence.videoSubtitlePublications(scope)
+              : kind == SourceKind.VIDEO_OCR
+                  ? evidence.videoOcrPublications(scope)
+                  : kind == SourceKind.AUDIO
+                      ? evidence.audioPublications(scope)
+                      : evidence.textPublications(scope))
+          .forEach(p -> generations.put(p.documentId(), p.projectionGenerationId()));
+    }
     requireCurrent(scope, List.of(), kind, processing);
     var authorized =
         new RetrievalProjection.AuthorizedScope(scope.actor().workspaceId(), generations);
     var candidates =
-        query.attachments().isEmpty()
-            ? projection.search(
-                new RetrievalProjection.Query(
-                    question, embedded.getFirst(), authorized, MAX_CANDIDATES))
-            : queries.search(
+        processing.audioVectorScope != null
+            ? queries.searchAudio(
                 query,
                 authorized,
                 () -> requireCurrent(scope, List.of(), kind, processing),
-                ids -> requireCurrent(scope, ids, kind, processing));
+                vectorIds ->
+                    evidence.hydrateAudioVectors(processing.audioVectorScope, vectorIds).stream()
+                        .map(PublishedAudioEvidence::physicalSegmentId)
+                        .toList())
+            : query.attachments().isEmpty()
+                ? projection.search(
+                    new RetrievalProjection.Query(
+                        question, embedded.getFirst(), authorized, MAX_CANDIDATES))
+                : queries.search(
+                    query,
+                    authorized,
+                    () -> requireCurrent(scope, List.of(), kind, processing),
+                    ids -> requireCurrent(scope, ids, kind, processing));
     processing.check();
     if (candidates == null || candidates.size() > MAX_CANDIDATES) {
       throw rejected("upstream_invalid");
@@ -748,7 +856,7 @@ public final class AnswerService implements AutoCloseable {
             sha(answer),
             "answered",
             null,
-            target.modelRevision(),
+            modelsRevision,
             PROMPT_REVISION,
             TextGrounding.VERSION,
             trace,
@@ -765,6 +873,9 @@ public final class AnswerService implements AutoCloseable {
     processing.check();
     if (!configurationCurrent(kind, processing)) {
       throw rejected("configuration_changed");
+    }
+    if (processing.audioVectorScope != null) {
+      evidence.hydrateAudioVectors(processing.audioVectorScope, List.of());
     }
     var sources =
         kind == SourceKind.VIDEO_SUBTITLE
@@ -827,9 +938,10 @@ public final class AnswerService implements AutoCloseable {
   }
 
   private boolean configurationCurrent(SourceKind kind, Processing processing) {
-    return target.modelRevision().equals(models.revision())
+    return modelsRevision.equals(models.revision())
         && target.projectionIdentity().equals(projection.identity())
         && (!kind.video() || videoProposals.configurationCurrent())
+        && (processing.audioVectorScope == null || queries.audioConfigurationCurrent())
         && (!processing.attached || queries.configurationCurrent());
   }
 
@@ -867,7 +979,7 @@ public final class AnswerService implements AutoCloseable {
             null,
             "abstained",
             reason,
-            kind.video() ? videoProposals.modelRevision() : target.modelRevision(),
+            kind.video() ? videoProposals.modelRevision() : modelsRevision,
             kind.video() ? VideoAnswerProposalService.PROMPT_REVISION : PROMPT_REVISION,
             kind.video() ? VideoAssessmentService.POLICY_REVISION : TextGrounding.VERSION,
             List.of()));
@@ -1200,6 +1312,7 @@ public final class AnswerService implements AutoCloseable {
 
   private final class Processing {
     private final boolean attached;
+    private AudioVectorScope audioVectorScope;
     private final long started = System.nanoTime();
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private final AtomicReference<Thread> thread = new AtomicReference<>();

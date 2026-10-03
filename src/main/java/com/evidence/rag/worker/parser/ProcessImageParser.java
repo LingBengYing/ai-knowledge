@@ -2,11 +2,13 @@ package com.evidence.rag.worker.parser;
 
 import com.evidence.rag.model.domain.ImageDimensions;
 import com.evidence.rag.model.domain.ImageOcrOptions;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ParsedImage;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.tool.parser.ImageInput;
 import com.evidence.rag.tool.parser.ImageTsvParser;
 import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.worker.OwnedTemporaryResources;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +20,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -105,10 +108,22 @@ public final class ProcessImageParser implements ImageOcr, AutoCloseable {
       if (!CAPACITY.tryAcquire()) {
         throw failure("parser_busy");
       }
-      job = new Job(original, dimensions);
+      try {
+        job = new Job(original, dimensions);
+      } catch (RuntimeException | Error reserveFailure) {
+        CAPACITY.release();
+        throw reserveFailure;
+      }
       active = job;
-      job.thread = Thread.ofVirtual().name("image-ocr-process").unstarted(job.result);
-      job.thread.start();
+      try {
+        job.thread = Thread.ofVirtual().name("image-ocr-process").unstarted(job.result);
+        job.thread.start();
+      } catch (RuntimeException | Error startFailure) {
+        job.body.close();
+        active = null;
+        CAPACITY.release();
+        throw startFailure;
+      }
     }
     try {
       long remaining = deadlineNanos - (System.nanoTime() - started);
@@ -183,11 +198,15 @@ public final class ProcessImageParser implements ImageOcr, AutoCloseable {
     final ImageDimensions dimensions;
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
-    final FutureTask<Optional<ParsedImage>> result = new FutureTask<>(this::execute);
+    final LibraryOperationGate.ReservedCall<Optional<ParsedImage>> body =
+        LibraryOperationGate.protectCurrent((Callable<Optional<ParsedImage>>) this::execute);
+    final FutureTask<Optional<ParsedImage>> result = new FutureTask<>(body);
     volatile Thread thread;
     volatile Process process;
     volatile boolean cleaned;
+    boolean terminalCleanup;
     Thread writerThread;
+    final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
 
     Job(byte[] content, ImageDimensions dimensions) {
@@ -196,10 +215,16 @@ public final class ProcessImageParser implements ImageOcr, AutoCloseable {
     }
 
     void cancel(String code) {
-      if (cancelled.compareAndSet(null, code)) {
-        Process child = process;
-        if (child != null) {
-          child.destroyForcibly();
+      synchronized (lock) {
+        if (!cancelled.compareAndSet(null, code)) {
+          return;
+        }
+        if (terminalCleanup) {
+          return;
+        }
+        Process current = process;
+        if (current != null) {
+          current.destroyForcibly();
         }
         thread.interrupt();
       }
@@ -214,24 +239,33 @@ public final class ProcessImageParser implements ImageOcr, AutoCloseable {
     Optional<ParsedImage> execute() {
       try {
         checkCancelled();
-        directory = Files.createTempDirectory("rag-image-parser-");
+        directory = OwnedTemporaryResources.createDirectory("rag-image-parser-", managedRoot);
         var builder =
             new ProcessBuilder(command)
                 .directory(directory.toFile())
                 .redirectError(ProcessBuilder.Redirect.DISCARD);
         builder.environment().clear();
         checkCancelled();
+        OwnedTemporaryResources.launching(directory);
         process = builder.start();
+        OwnedTemporaryResources.childStarted(directory, process);
         checkCancelled();
-        var writer =
-            new FutureTask<Void>(
-                () -> {
-                  try (var output = process.getOutputStream()) {
-                    output.write(content);
-                  }
-                  return null;
-                });
-        writerThread = Thread.ofVirtual().name("image-ocr-input").start(writer);
+        var inputBody =
+            LibraryOperationGate.protectCurrent(
+                (Callable<Void>)
+                    () -> {
+                      try (var output = process.getOutputStream()) {
+                        output.write(content);
+                      }
+                      return null;
+                    });
+        var writer = new FutureTask<Void>(inputBody);
+        try {
+          writerThread = Thread.ofVirtual().name("image-ocr-input").start(writer);
+        } catch (RuntimeException | Error startFailure) {
+          inputBody.close();
+          throw startFailure;
+        }
         var response = new ByteArrayOutputStream();
         try (var input = process.getInputStream()) {
           byte[] buffer = new byte[8192];
@@ -261,8 +295,19 @@ public final class ProcessImageParser implements ImageOcr, AutoCloseable {
         checkCancelled();
         throw failure("parser_failed");
       } finally {
-        Thread.interrupted();
+        synchronized (lock) {
+          // Preserve cancellation without interrupting confirmed resource and ownership cleanup.
+          terminalCleanup = true;
+          Thread.interrupted();
+        }
         cleaned = cleanup();
+        if (cleaned) {
+          try {
+            OwnedTemporaryResources.finished(directory);
+          } catch (IOException failedOwnershipCleanup) {
+            cleaned = false;
+          }
+        }
         if (cleaned) {
           synchronized (lock) {
             if (active == this) {

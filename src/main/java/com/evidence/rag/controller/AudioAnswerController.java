@@ -5,11 +5,14 @@ import com.evidence.rag.model.dto.AudioAnswerResult;
 import com.evidence.rag.model.dto.AudioSourceResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.AnswerService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.web.AudioContentResponse;
 import com.evidence.rag.web.converter.AnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -25,9 +28,22 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnExpression("${rag.audio.enabled:false} && ${rag.answers.enabled:false}")
 public final class AudioAnswerController {
   private final AnswerService answers;
+  private final ManagedTextRuntime runtime;
 
   public AudioAnswerController(AnswerService answers) {
     this.answers = answers;
+    this.runtime = null;
+  }
+
+  @Autowired
+  public AudioAnswerController(
+      ObjectProvider<AnswerService> answers, ObjectProvider<ManagedTextRuntime> runtime) {
+    this.answers = answers.getIfAvailable();
+    this.runtime = runtime.getIfAvailable();
+  }
+
+  private AnswerService selected() {
+    return runtime == null ? answers : runtime.capture().answers();
   }
 
   @PostMapping(
@@ -39,8 +55,8 @@ public final class AudioAnswerController {
     if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
-    return answers.answerAudio(
-        AuthenticatedActor.require(request), AnswerRequestMapper.command(body));
+    var actor = AuthenticatedActor.require(request);
+    return selected().answerAudio(actor, AnswerRequestMapper.command(body));
   }
 
   @GetMapping(
@@ -49,14 +65,16 @@ public final class AudioAnswerController {
   public AudioSourceResult source(
       HttpServletRequest request, @PathVariable String answerId, @PathVariable int ordinal) {
     validateSource(request, ordinal);
-    return answers.audioSource(AuthenticatedActor.require(request), answerId, ordinal);
+    var actor = AuthenticatedActor.require(request);
+    return selected().audioSource(actor, answerId, ordinal);
   }
 
   @GetMapping("/v1/audio-sources/{answerId}/{ordinal}/content")
   public ResponseEntity<byte[]> content(
       HttpServletRequest request, @PathVariable String answerId, @PathVariable int ordinal) {
     validateSource(request, ordinal);
-    var original = answers.audioContent(AuthenticatedActor.require(request), answerId, ordinal);
+    var actor = AuthenticatedActor.require(request);
+    var original = selected().audioContent(actor, answerId, ordinal);
     // Resolve the entire current-authorized source before Range parsing can expose its length.
     return AudioContentResponse.create(
         original, Collections.list(request.getHeaders(HttpHeaders.RANGE)));

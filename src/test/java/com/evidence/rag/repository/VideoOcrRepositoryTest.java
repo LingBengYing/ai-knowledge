@@ -46,7 +46,7 @@ class VideoOcrRepositoryTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(16, store.count("PRAGMA user_version"));
+            assertEquals(24, store.count("PRAGMA user_version"));
             assertEquals(
                 6,
                 store.count(

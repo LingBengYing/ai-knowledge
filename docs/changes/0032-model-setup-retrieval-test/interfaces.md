@@ -1,0 +1,23 @@
+# Interfaces：一次配置，一次运行快照
+
+状态：FROZEN_IMPLEMENTATION。A/B已协调；root实现受信装配，C只依赖公开HTTP。0032产品已整合，最终本机完整门禁已通过；冻结及部署状态按verification与实际manifest认定。
+
+所有新配置前缀为RAG_MODEL_CONFIGURATION_* / rag.model-configuration.*，不占用旧RAG_TEXT_*未知字段拒绝范围。启用管理员名单必须显式，缺管理员不默认给文档owner。provider URL由受信服务器设置，正式默认硅基流动；Milvus同理，不从设置请求收地址。
+
+A拥有纯Domain TextModelConfiguration（完整三角色model/key及embedding dimensions/revision；防御复制、toString脱敏），ModelConfigurationState（version、draft、activeVersion、active两独立快照），typed保存命令/安全结果及TextModelRole。
+
+A拥有ModelConfigurationRepository(Path privateFile)：read、save(baseVersion,fullDraft)、activate(version)、bootstrapIfAbsent(fullConfiguration)，CAS及原子私有持久化只在其中。初始version=0，draft/activeVersion/active为null。坏文件不得回退环境。TextModelTargetRepository(store)隐藏短SQL兼容检查，精确比完整index job/publication目标及legacy route已登记尝试的实际projection identity/embedding/dimension，独立媒体投影不硬比文字目标。
+
+A拥有ModelConfigurationPermissionPolicy(workspaceId,Set<String> administrators)：canEdit(Actor)、requireRead(Actor)、requireEdit(Actor)。ModelConfigurationService(store,repository,policy,runtime,probe)提供get(Actor)、save(Actor,command)、test(Actor,version,role)、activate(Actor,version)，没有Servlet/配置类依赖。ModelConfigurationController/RequestMapper只协议适配；GET/PUT/test/activate固定HTTP字段见spec。
+
+B拥有ManagedTextRuntime(store,SnapshotFactory)，prepare(long version,TextModelConfiguration)->TextRuntimeSnapshot；SnapshotFactory.build同签名，由root config实现。install(candidate,真实MaintenanceLease,Runnable persistActive)再次验本Store真实维护lease，persist成功后原子swap，再close旧snapshot；持久失败不swap。capture只在本gate当前普通context取得一次snapshot，未配返回安全text_configuration_required。currentVersion/currentTarget未配为null；用于安全状态，不取真实正文。
+
+B拥有TextRuntimeSnapshot(long version,TextModels,RetrievalProjection,IndexTarget,AnswerService,IndexingTaskProcessor,Runnable releaseClients)：version/target/models/projection/answers/indexing的不可变安全访问，构造完整身份一致性检查，toString脱敏；close幂等，先answers再真实clients资源，不假装close会撤回已发上游请求。root将capture用于旧文字index/answer/source/controller/job，实际body准入保证安装时零执行，不按模型阶段重新取最新版。
+
+B拥有TextRetrievalTestService及typedcommand/result：使用同一次snapshot的models/projection/target与真实EvidenceService，所有scope/authority候选完整校验、可选rerank、最终资格复验后才输出片段；无生成/extraction/answer trace。匹配公开shape固定见spec。线程预算及当前gate预留不因caller超时而提前退出。
+
+A的TextModelConnectionProbe只从精确保存draft构造现有真实客户端，embedding/rerank/generation每次只调用所选单个方法；不依赖runtime.prepare或Milvus，三个文字角色缺投影时仍可保存和测试。projection探测只读且精确有界，返回已配置/维度/can_test及安全结果。可以保留旧TextModels.Failure.code不变，附加仅HTTP数字状态供新probe辨别鉴权/限流，旧异常不新增正文/凭据。
+
+新增字段422仅本配置入口扩展旧六字段ProblemResponse并加可选field，白名单request/base_version/version/role/embedding.model/embedding.dimensions/embedding.revision/embedding.api_key/rerank.model/rerank.api_key/generation.model/generation.api_key；未知字段映request，不回显提交名字。model用既有严格ASCII 1..256字符，revision 1..160及原非latest/default/unknown规则；dims2..8192，key非空ASCII可打印且≤4096，旧示例前缀拒绝。C可为ApiError增加可选安全errorCode/field元数据，但旧构造/status/detail/API错误形状与旧用例保留。
+
+ownership：A只上述配置/权限/存储/探测/API新文件及必要旧客户端安全status字段；B只运行快照/召回新文件与必要EvidenceService窄最终scope复验接口。root只Spring默认legacy/managed装配、既有controller/job/source/runtime/gate/profile守卫与端到端验证。C只前端0021工件、两个独立Session、页面/API安全元数据/两代理及对应测试。跨owner修改先协调，不并行共享Maven/Spotless/target。

@@ -45,11 +45,11 @@ class DocumentLifecycleMigrationTest {
         var statement = database.createStatement()) {
       try (var version = statement.executeQuery("PRAGMA user_version")) {
         assertTrue(version.next());
-        assertEquals(16, version.getInt(1));
+        assertEquals(24, version.getInt(1));
       }
       try (var format = statement.executeQuery("SELECT version FROM format_info")) {
         assertTrue(format.next());
-        assertEquals(16, format.getInt(1));
+        assertEquals(24, format.getInt(1));
       }
     }
   }
@@ -87,8 +87,8 @@ class DocumentLifecycleMigrationTest {
         var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
         assertEquals(publications, scope.publications());
         assertEquals(sources, fixture.evidence.hydrate(scope, physicalIds));
-        assertEquals(16, scalar(database, "PRAGMA user_version"));
-        assertEquals(16, scalar(database, "SELECT version FROM format_info"));
+        assertEquals(24, scalar(database, "PRAGMA user_version"));
+        assertEquals(24, scalar(database, "SELECT version FROM format_info"));
       }
       assertEquals(1, backups().size());
     }

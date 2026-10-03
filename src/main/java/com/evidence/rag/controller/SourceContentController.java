@@ -3,7 +3,10 @@ package com.evidence.rag.controller;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.EvidenceService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -17,9 +20,18 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
 public final class SourceContentController {
   private final EvidenceService evidence;
+  private final ManagedTextRuntime runtime;
 
   public SourceContentController(EvidenceService evidence) {
     this.evidence = evidence;
+    this.runtime = null;
+  }
+
+  @Autowired
+  public SourceContentController(
+      EvidenceService evidence, ObjectProvider<ManagedTextRuntime> runtime) {
+    this.evidence = evidence;
+    this.runtime = runtime.getIfAvailable();
   }
 
   @GetMapping("/v1/sources/{answerId}/{ordinal}/content")
@@ -32,7 +44,11 @@ public final class SourceContentController {
         || request.getHeader("Transfer-Encoding") != null) {
       throw ModelValues.invalid();
     }
-    var source = evidence.source(AuthenticatedActor.require(request), answerId, ordinal);
+    var actor = AuthenticatedActor.require(request);
+    var source =
+        runtime == null
+            ? evidence.source(actor, answerId, ordinal)
+            : evidence.source(actor, answerId, ordinal, runtime.capture().target());
     if (source.image() == null) {
       throw ModelValues.notFound();
     }

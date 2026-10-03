@@ -1,6 +1,8 @@
 package com.evidence.rag.worker.parser;
 
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.worker.OwnedTemporaryResources;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +18,7 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -87,10 +90,22 @@ final class NativeMediaSession implements AutoCloseable {
       if (!CAPACITY.tryAcquire()) {
         throw failure("parser_busy");
       }
-      job = new Job<>(original, filename, work);
+      try {
+        job = new Job<>(original, filename, work);
+      } catch (RuntimeException | Error reserveFailure) {
+        CAPACITY.release();
+        throw reserveFailure;
+      }
       active = job;
-      job.thread = Thread.ofVirtual().name(kind + "-decoder-process").unstarted(job.result);
-      job.thread.start();
+      try {
+        job.thread = Thread.ofVirtual().name(kind + "-decoder-process").unstarted(job.result);
+        job.thread.start();
+      } catch (RuntimeException | Error startFailure) {
+        job.body.close();
+        active = null;
+        CAPACITY.release();
+        throw startFailure;
+      }
     }
     try {
       long remaining = deadlineNanos - (System.nanoTime() - started);
@@ -173,11 +188,15 @@ final class NativeMediaSession implements AutoCloseable {
     final Work<T> work;
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
-    final FutureTask<T> result = new FutureTask<>(this::execute);
+    final LibraryOperationGate.ReservedCall<T> body =
+        LibraryOperationGate.protectCurrent((Callable<T>) this::execute);
+    final FutureTask<T> result = new FutureTask<>(body);
     volatile Thread thread;
     volatile Process process;
     volatile Thread errorReader;
     volatile boolean cleaned;
+    boolean terminalCleanup;
+    final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
     Path input;
 
@@ -188,10 +207,16 @@ final class NativeMediaSession implements AutoCloseable {
     }
 
     void cancel(String code) {
-      if (cancelled.compareAndSet(null, code)) {
-        Process child = process;
-        if (child != null) {
-          child.destroyForcibly();
+      synchronized (lock) {
+        if (!cancelled.compareAndSet(null, code)) {
+          return;
+        }
+        if (terminalCleanup) {
+          return;
+        }
+        Process current = process;
+        if (current != null) {
+          current.destroyForcibly();
         }
         thread.interrupt();
       }
@@ -206,7 +231,8 @@ final class NativeMediaSession implements AutoCloseable {
     T execute() {
       try {
         checkCancelled();
-        directory = Files.createTempDirectory("rag-" + kind + "-decoder-");
+        directory =
+            OwnedTemporaryResources.createDirectory("rag-" + kind + "-decoder-", managedRoot);
         input = directory.resolve("original" + suffix);
         Files.write(input, source);
         checkCancelled();
@@ -218,8 +244,19 @@ final class NativeMediaSession implements AutoCloseable {
         checkCancelled();
         throw failure("parser_failed");
       } finally {
-        Thread.interrupted();
+        synchronized (lock) {
+          // Preserve cancellation without interrupting confirmed resource and ownership cleanup.
+          terminalCleanup = true;
+          Thread.interrupted();
+        }
         cleaned = cleanup();
+        if (cleaned) {
+          try {
+            OwnedTemporaryResources.finished(directory);
+          } catch (IOException failedOwnershipCleanup) {
+            cleaned = false;
+          }
+        }
         if (cleaned) {
           synchronized (lock) {
             if (active == this) {
@@ -271,23 +308,32 @@ final class NativeMediaSession implements AutoCloseable {
       }
       builder.environment().clear();
       checkCancelled();
+      OwnedTemporaryResources.launching(directory);
       process = builder.start();
+      OwnedTemporaryResources.childStarted(directory, process);
       Process child = process;
       checkCancelled();
       child.getOutputStream().close();
       FutureTask<byte[]> error = null;
       if (maximumError > 0) {
-        error =
-            new FutureTask<>(
-                () -> {
-                  try {
-                    return read(child.getErrorStream(), maximumError);
-                  } catch (IOException | RuntimeException failed) {
-                    child.destroyForcibly();
-                    throw failed;
-                  }
-                });
-        errorReader = Thread.ofVirtual().name(kind + "-decoder-stderr").start(error);
+        var errorBody =
+            LibraryOperationGate.protectCurrent(
+                (Callable<byte[]>)
+                    () -> {
+                      try {
+                        return read(child.getErrorStream(), maximumError);
+                      } catch (IOException | RuntimeException failed) {
+                        child.destroyForcibly();
+                        throw failed;
+                      }
+                    });
+        error = new FutureTask<>(errorBody);
+        try {
+          errorReader = Thread.ofVirtual().name(kind + "-decoder-stderr").start(error);
+        } catch (RuntimeException | Error startFailure) {
+          errorBody.close();
+          throw startFailure;
+        }
       }
       byte[] stdout = read(child.getInputStream(), maximum);
       byte[] stderr = new byte[0];

@@ -1,0 +1,7 @@
+# 0026：原图向量检索
+
+状态IMPLEMENTATION。继续已批准ROADMAP中的视觉embedding主线：已上传、解析并发布的原图，由当前编辑者显式建立原图向量；原图视觉模式携参考图片时，以真实图片向量召回，再经既有匹配、原图事实证明及库内来源回读。新旧已发布图片使用同一构建入口。
+
+保留原文字/caption publication和既有索引任务。旧indexing_jobs对document唯一且拒绝已有active publication，不将它误当作可重建任务。增加独立、显式、有界构建，成功在authority附表封存同原publication/source的向量receipt；每次尝试使用独立generation，失败或晚写不会覆盖已验证的其他代次。不自动重算旧资料，不改变原文件或已发布来源身份。
+
+与三个现有子智能体并行实现。只使用合成资料及loopback模型/Milvus协议，不读取凭据、旧业务数据，不新增真实/付费调用、Git写入、服务器或浏览器操作。语音与标签冻结包不改；页面由用户验收，usage/计费取消。

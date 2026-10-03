@@ -4,6 +4,8 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.LibraryOperationGate;
+import com.evidence.rag.worker.OwnedTemporaryResources;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +18,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -34,6 +38,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   private final Duration timeout;
   private final long timeoutNanos;
   private final List<String> launch;
+  private final CleanupObserver cleanupObserver;
   private final Object lock = new Object();
   private boolean closed;
   private Job active;
@@ -52,12 +57,24 @@ public final class ProcessTextIndexer implements AutoCloseable {
       Duration timeout,
       String fixtureMainClass,
       List<String> fixtureArgs) {
+    this(models, projection, timeout, fixtureMainClass, fixtureArgs, CleanupObserver.NONE);
+  }
+
+  // Package-private observation only; cleanup and process exit remain the production path.
+  ProcessTextIndexer(
+      OpenAiCompatibleModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      Duration timeout,
+      String fixtureMainClass,
+      List<String> fixtureArgs,
+      CleanupObserver cleanupObserver) {
     IndexProtocol.validateSettings(models, projection, timeout);
     this.models = models;
     this.projection = projection;
     this.timeout = timeout;
     timeoutNanos = timeout.toNanos();
     launch = launch(fixtureMainClass, fixtureArgs);
+    this.cleanupObserver = Objects.requireNonNull(cleanupObserver);
   }
 
   public IndexingResult index(IndexClaim claim) {
@@ -78,10 +95,22 @@ public final class ProcessTextIndexer implements AutoCloseable {
       if (!CAPACITY.tryAcquire()) {
         throw new Failure("indexing_busy");
       }
-      job = new Job(request);
+      try {
+        job = new Job(request);
+      } catch (RuntimeException | Error reserveFailure) {
+        CAPACITY.release();
+        throw reserveFailure;
+      }
       active = job;
-      job.thread = Thread.ofVirtual().name("text-index-process").unstarted(job.result);
-      job.thread.start();
+      try {
+        job.thread = Thread.ofVirtual().name("text-index-process").unstarted(job.result);
+        job.thread.start();
+      } catch (RuntimeException | Error startFailure) {
+        job.body.close();
+        active = null;
+        CAPACITY.release();
+        throw startFailure;
+      }
     }
     try {
       long remaining = timeoutNanos - (System.nanoTime() - started);
@@ -155,11 +184,15 @@ public final class ProcessTextIndexer implements AutoCloseable {
     final IndexProtocol.Request request;
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
-    final FutureTask<IndexingResult> result = new FutureTask<>(this::execute);
+    final LibraryOperationGate.ReservedCall<IndexingResult> body =
+        LibraryOperationGate.protectCurrent((Callable<IndexingResult>) this::execute);
+    final FutureTask<IndexingResult> result = new FutureTask<>(body);
     volatile Thread thread;
     volatile Process process;
     volatile boolean cleaned;
+    boolean terminalCleanup;
     Thread writerThread;
+    final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
 
     Job(IndexProtocol.Request request) {
@@ -167,14 +200,21 @@ public final class ProcessTextIndexer implements AutoCloseable {
     }
 
     void cancel(String code) {
-      if (!cancelled.compareAndSet(null, code)) {
-        return;
+      boolean interrupted;
+      synchronized (lock) {
+        if (!cancelled.compareAndSet(null, code)) {
+          return;
+        }
+        interrupted = !terminalCleanup;
+        if (interrupted) {
+          Process current = process;
+          if (current != null) {
+            current.destroyForcibly();
+          }
+          thread.interrupt();
+        }
       }
-      Process current = process;
-      if (current != null) {
-        current.destroyForcibly();
-      }
-      thread.interrupt();
+      cleanupObserver.cancelled(interrupted);
     }
 
     void checkCancelled() {
@@ -187,7 +227,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
     IndexingResult execute() {
       try {
         checkCancelled();
-        directory = Files.createTempDirectory("rag-index-");
+        directory = OwnedTemporaryResources.createDirectory("rag-index-", managedRoot);
         var command = new ArrayList<String>();
         command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
         command.addAll(
@@ -210,17 +250,26 @@ public final class ProcessTextIndexer implements AutoCloseable {
         builder.environment().clear();
         // macOS may independently add its bounded numeric CoreFoundation locale at JVM startup.
         checkCancelled();
+        OwnedTemporaryResources.launching(directory);
         process = builder.start();
+        OwnedTemporaryResources.childStarted(directory, process);
         checkCancelled();
-        var writer =
-            new FutureTask<Void>(
-                () -> {
-                  try (var output = process.getOutputStream()) {
-                    IndexProtocol.writeRequest(output, request);
-                  }
-                  return null;
-                });
-        writerThread = Thread.ofVirtual().name("text-index-input").start(writer);
+        var inputBody =
+            LibraryOperationGate.protectCurrent(
+                (Callable<Void>)
+                    () -> {
+                      try (var output = process.getOutputStream()) {
+                        IndexProtocol.writeRequest(output, request);
+                      }
+                      return null;
+                    });
+        var writer = new FutureTask<Void>(inputBody);
+        try {
+          writerThread = Thread.ofVirtual().name("text-index-input").start(writer);
+        } catch (RuntimeException | Error startFailure) {
+          inputBody.close();
+          throw startFailure;
+        }
         var response = new ByteArrayOutputStream();
         try (var input = process.getInputStream()) {
           byte[] buffer = new byte[8192];
@@ -251,8 +300,21 @@ public final class ProcessTextIndexer implements AutoCloseable {
         throw new Failure("indexing_failed");
       } finally {
         // Release the single global permit only after both child and input writer have stopped.
-        Thread.interrupted();
+        synchronized (lock) {
+          // A later cancellation still rejects the result, but cannot interrupt durable cleanup.
+          terminalCleanup = true;
+          Thread.interrupted();
+        }
         cleaned = cleanup();
+        if (cleaned) {
+          try {
+            cleanupObserver.beforeOwnershipCleanup(directory);
+            OwnedTemporaryResources.finished(directory);
+          } catch (IOException failedOwnershipCleanup) {
+            cleanupObserver.ownershipFailure(failedOwnershipCleanup);
+            cleaned = false;
+          }
+        }
         if (cleaned) {
           synchronized (lock) {
             if (active == this) {
@@ -347,6 +409,16 @@ public final class ProcessTextIndexer implements AutoCloseable {
         return false;
       }
     }
+  }
+
+  interface CleanupObserver {
+    CleanupObserver NONE = new CleanupObserver() {};
+
+    default void beforeOwnershipCleanup(Path directory) {}
+
+    default void cancelled(boolean interrupted) {}
+
+    default void ownershipFailure(IOException failure) {}
   }
 
   private static List<String> launch(String fixtureMainClass, List<String> fixtureArgs) {

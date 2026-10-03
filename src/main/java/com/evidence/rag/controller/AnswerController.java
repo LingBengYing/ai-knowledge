@@ -6,9 +6,12 @@ import com.evidence.rag.model.dto.AnswerResult;
 import com.evidence.rag.model.dto.SourceResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.AnswerService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.web.converter.AnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,9 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
 public final class AnswerController {
   private final AnswerService answers;
+  private final ManagedTextRuntime runtime;
 
   public AnswerController(AnswerService answers) {
     this.answers = answers;
+    this.runtime = null;
+  }
+
+  @Autowired
+  public AnswerController(
+      ObjectProvider<AnswerService> answers, ObjectProvider<ManagedTextRuntime> runtime) {
+    this.answers = answers.getIfAvailable();
+    this.runtime = runtime.getIfAvailable();
+  }
+
+  private AnswerService selected() {
+    return runtime == null ? answers : runtime.capture().answers();
   }
 
   @PostMapping(
@@ -35,7 +51,8 @@ public final class AnswerController {
     if (request.getQueryString() != null) {
       throw invalid();
     }
-    return answers.answer(AuthenticatedActor.require(request), AnswerRequestMapper.command(body));
+    var actor = AuthenticatedActor.require(request);
+    return selected().answer(actor, AnswerRequestMapper.command(body));
   }
 
   @GetMapping(
@@ -50,7 +67,12 @@ public final class AnswerController {
         || request.getHeader("Transfer-Encoding") != null) {
       throw invalid();
     }
-    return answers.source(AuthenticatedActor.require(request), answerId, ordinal);
+    var actor = AuthenticatedActor.require(request);
+    if (runtime == null) {
+      return answers.source(actor, answerId, ordinal);
+    }
+    var snapshot = runtime.capture();
+    return snapshot.answers().source(actor, answerId, ordinal, snapshot.target());
   }
 
   private static ApplicationException invalid() {

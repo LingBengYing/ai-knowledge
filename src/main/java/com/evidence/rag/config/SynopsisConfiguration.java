@@ -6,17 +6,21 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.OpenAiCompatibleSynopsisModels;
 import com.evidence.rag.client.model.SynopsisModels;
 import com.evidence.rag.job.SynopsisJob;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.SynopsisMaterialRepository;
 import com.evidence.rag.repository.SynopsisRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.HierarchicalSynopsisService;
+import com.evidence.rag.service.ManagementService;
 import com.evidence.rag.service.SynopsisLibraryService;
 import com.evidence.rag.service.SynopsisService;
 import com.evidence.rag.service.SynopsisTaskProcessor;
+import com.evidence.rag.service.TagSuggestionService;
 import java.net.URI;
 import java.time.Duration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -110,6 +114,12 @@ public class SynopsisConfiguration {
   }
 
   @Bean
+  TagSuggestionService tagSuggestionService(
+      SqliteAuthorityStore store, SynopsisLibraryService synopsis, ManagementService management) {
+    return new TagSuggestionService(store, synopsis, management);
+  }
+
+  @Bean
   SynopsisTaskProcessor synopsisTaskProcessor(
       SynopsisLibraryService library,
       SynopsisService generator,
@@ -120,7 +130,8 @@ public class SynopsisConfiguration {
   }
 
   @Bean(destroyMethod = "close")
-  SynopsisJob synopsisJob(SynopsisTaskProcessor processor) {
-    return new SynopsisJob(processor);
+  SynopsisJob synopsisJob(
+      SynopsisTaskProcessor processor, ObjectProvider<LibraryOperationGate> operations) {
+    return new SynopsisJob(processor, operations.getIfAvailable());
   }
 }

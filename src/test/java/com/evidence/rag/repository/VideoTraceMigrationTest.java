@@ -79,7 +79,7 @@ class VideoTraceMigrationTest {
                           .count(
                               "SELECT COUNT(*) FROM query_traces WHERE id='old-refusal' AND question_sha256=? AND outcome='abstained'",
                               "a".repeat(64)));
-                  assertEquals(16, fixture.authority.store().count("PRAGMA user_version"));
+                  assertEquals(24, fixture.authority.store().count("PRAGMA user_version"));
                   return null;
                 });
       }

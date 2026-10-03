@@ -1,0 +1,15 @@
+# Plan：单条基础设置修复
+
+状态：CONTRACT_FROZEN_IMPLEMENTATION。
+
+A独占TextIndexAnchor、ModelConfigurationState、ModelConfigurationRepository及新增domain/repository持久恢复负例测试，并独立审核B实现。
+
+B独占ManagedTextRuntime、TextRuntimeSnapshot、ModelConfigurationService、AnswerService、LegacyTextProfileGuard、ModelConfigurationConfiguration和必要ManagedTextSettings装配，以及自己的新service unit tests。不修改A产品/测试、旧HTTP测试、C新测试或operator guide。TextModelTargetRepository、IndexProtocol、worker与Evidence/source算法保持严格原实现。
+
+C独占新增ManagedTextRoleSwitchMainlineHttpTest、必要的旧HTTP负例输入演进及两份MODEL_SETUP_AND_RETRIEVAL.md指南。root独占正式合同、其余文档、证据工具、共享构建和最终整合。
+
+先冻结小合同和接口；C在旧产品上写并由root执行真实业务RED，保存原日志、XML和输入。RED完成后B实施，A补必要边界。不得删除、跳过或放宽原断言/门禁；仅合同明确的负例输入演进单独记录diff。Maven/Spotless/target仅root串行，Node每次显式CLT PATH，源码执行前后冻结。
+
+先正常链再相关回归，最终clean verify保持原LINE/BRANCH双80与架构门禁。前端运行文件若字节不变，绑定此前430回归和64输入，不为纯说明文档重复执行。必要Native、全部class/JAR、原case多重性及新旧交接完整哈希由root与独立审计核实。
+
+新准备证据仅写.tools/model-role-switch-preparation；0032冻结包及旧准备根只读。不改Git索引/提交/部署/旧业务数据，不访问页面或真实模型。

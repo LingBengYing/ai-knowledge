@@ -127,32 +127,34 @@ public final class SynopsisLibraryService {
   }
 
   public SynopsisDocumentResult get(Actor actor, String documentId) {
+    return store.transaction(() -> currentSynopsisInTransaction(actor, documentId));
+  }
+
+  /** Current authorized result; the caller owns this store's single authority transaction. */
+  SynopsisDocumentResult currentSynopsisInTransaction(Actor actor, String documentId) {
     identifier(documentId, 100);
     if (actor == null) {
       throw invalid();
     }
-    return store.transaction(
-        () -> {
-          var publication =
-              materials
-                  .publication(actor, documentId)
-                  .orElseThrow(com.evidence.rag.model.domain.ModelValues::notFound);
-          var input = materials.document(actor, publication);
-          String policy = policy(input);
-          String model = revision(policy);
-          if (model == null) {
-            throw notFound();
-          }
-          var task =
-              repository
-                  .findReusable(documentId, publication.publicationId(), model, policy)
-                  .orElseThrow(com.evidence.rag.model.domain.ModelValues::notFound);
-          var synopsis = available(task);
-          if (!input.fingerprint().equals(synopsis.inputFingerprint())) {
-            throw notFound();
-          }
-          return new SynopsisDocumentResult(task.id(), synopsis);
-        });
+    var publication =
+        materials
+            .publication(actor, documentId)
+            .orElseThrow(com.evidence.rag.model.domain.ModelValues::notFound);
+    var input = materials.document(actor, publication);
+    String policy = policy(input);
+    String model = revision(policy);
+    if (model == null) {
+      throw notFound();
+    }
+    var task =
+        repository
+            .findReusable(documentId, publication.publicationId(), model, policy)
+            .orElseThrow(com.evidence.rag.model.domain.ModelValues::notFound);
+    var synopsis = available(task);
+    if (!input.fingerprint().equals(synopsis.inputFingerprint())) {
+      throw notFound();
+    }
+    return new SynopsisDocumentResult(task.id(), synopsis);
   }
 
   public SynopsisSourceMaterial source(

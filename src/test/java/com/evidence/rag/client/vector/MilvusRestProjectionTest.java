@@ -736,6 +736,51 @@ class MilvusRestProjectionTest {
     }
   }
 
+  @Test
+  void imageVectorDenseOnlySearchNeverSendsTextOrBm25AndKeepsScopeBeforeLimit() throws Exception {
+    try (var stub = new MilvusStub(true);
+        var projection = new MilvusRestProjection(settings(stub.endpoint()))) {
+      projection.prepareSearch();
+      stub.dense =
+          List.of(
+              hit("vector-b", "doc-b", "image-generation-b", -0.5),
+              hit("vector-a", "doc-a", "image-generation-a", 0.9));
+      stub.sparse = List.of(hit("caption-only", "doc-a", "image-generation-a", 100));
+      var scope =
+          new AuthorizedScope(
+              "org-main", Map.of("doc-a", "image-generation-a", "doc-b", "image-generation-b"));
+      var found =
+          projection.search(
+              new Query(
+                  "not sent as text",
+                  List.of(1.0, 0.0),
+                  scope,
+                  2,
+                  RetrievalProjection.SearchMode.DENSE_ONLY));
+      assertEquals(
+          List.of("vector-a", "vector-b"),
+          found.stream().map(RetrievalProjection.Candidate::segmentId).toList());
+      assertEquals(1.0 / 61, found.getFirst().score());
+      assertEquals(1.0 / 62, found.getLast().score());
+      var searches = stub.requests.stream().filter(r -> r.path().endsWith("/search")).toList();
+      assertEquals(1, searches.size());
+      var request = searches.getFirst().body();
+      assertEquals("dense", request.path("annsField").asString());
+      assertEquals("COSINE", request.path("searchParams").path("metricType").asString());
+      assertEquals(2, request.path("limit").asInt());
+      assertEquals(
+          "workspace_id == \"org-main\" && ((document_id == \"doc-a\" && revision_id == \"image-generation-a\") || (document_id == \"doc-b\" && revision_id == \"image-generation-b\"))",
+          request.path("filter").asString());
+      assertEquals(MilvusStub.JSON.valueToTree(List.of(List.of(1.0, 0.0))), request.path("data"));
+      assertFalse(request.toString().contains("not sent as text"));
+      assertEquals(
+          RetrievalProjection.SearchMode.HYBRID,
+          new Query("legacy", List.of(1.0, 0.0), scope, 2).mode());
+      assertThrows(
+          ProjectionException.class, () -> new Query("legacy", List.of(1.0, 0.0), scope, 2, null));
+    }
+  }
+
   private static Entry entry(String id, String document, String revision) {
     return new Entry(id, "org-main", document, revision, "合成政策证据", List.of(1.0, 0.0));
   }

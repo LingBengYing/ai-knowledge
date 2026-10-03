@@ -1,0 +1,9 @@
+# Review
+
+实现前限定合同复核由现有执行者完成：标签采用有效摘要中的完整短条目，不把TextModels摘录或SynopsisModels整文合同强改为新模型协议。sqlite禁止嵌套事务，确认流程须单事务重验摘要和当前编辑ACL并合并最新标签。候选身份与可变现有标签分离，避免并发新增标签改变建议序号或覆盖手工标签。
+
+实现后的限定交叉复核由backend_originals执行，范围为TagSuggestionService、Management/Synopsis包内helper及所依赖的authority事务/Repository/权限policy。未发现阻断项：GET与确认各只有一个外层事务；确认先要求当前可写，再验证当前available摘要、完整publication/材料指纹及model/policy；候选由服务器重算，指纹不含现有标签；合并复读此刻标签，20条超限和审计失败整体回滚。Repository只更新元数据/标签，原文件及source revision/publication/索引身份保持，审计只留字段名和值哈希。Domain集合防御复制且诊断字符串脱敏；Tool不依赖DTO/持久化/HTTP/模型。
+
+本切主线有效RED是2026-10-03 02:35:23当前摘要新GET路由404而预期200，1项测试/1失败。实现后首轮169项中的6个错误来自新SQLite测试查询夹具q=null，按既有合同改为空字符串后169项全部通过；不是产品规则修复或新增产品RED，原日志保留。root完整HTTP测试已证明读取不写、显式序号合并、期间新增标签保留、筛选及重启、source/revision/publication不变和模型调用0。root于02:46:23完成1812项默认Java、624文件Spotless及LINE93.5393566802%/BRANCH80.2623577448%，既有双80%门禁未改。命令、执行者和完整日志位置见[验证记录](verification.md)。归档Controller包路径误写仅修正证据采集脚本，未改变生产或测试。
+
+此结论限于已有静态复核及实际本机验证范围，当前尚未部署、浏览器由用户验收；不认证真实分类质量、网页像素、云模型或生产，不恢复已取消usage/计费。前端/代理与最终制品交接由root记录。

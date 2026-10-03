@@ -1,0 +1,13 @@
+# Review：基本操作与发布边界
+
+状态：LOCAL_VERIFIED；本机实施和实际回归通过，未部署。当前证据见[verification](verification.md)。下方设计及早期记录保留历史语境。
+
+B/C/A已分别检查现有schema、实际后台事务及页面入口。当前v23的document_id唯一索引任务和禁止active UPDATE是明确阻碍，不能删除原guard或重用indexed job。用户看到的base必须随请求提交，避免较早页面请求在一次成功后意外再次收费重建。依据现有EvidenceService current策略，成功后旧trace来源失效，页面必须说明重查。
+
+image/audio独立receipt绑定旧base，首切不能偷偷改指针或使原向量功能断裂，因此真实资格及事务拒绝该类资料；这不是删除后续迁移需求。旧pending synopsis单资料slot会阻止新摘要，成功CAS必须同事务按source_changed终止旧pending，完成结果/标签保留。最新任务必须用immutable sequence，不按随机UUID或时间猜测。
+
+原SQL/source完整性、重复初次拒绝、claim/ACL/取消/迟到/三次重试及清理全历史约束均保留；原迁移测试current oracle更新为24是规格变化，需明确差异，不制造“原字节全部未变”的假报告。旧真实provider/生产/页面证据不复用为本切通过。root将在实际RED后发实施许可，最后只按实际执行和独立源码审查更新此记录。
+
+迁移夹具细化：B发现ModelConfigurationV22Fixture及VideoAvMigrationTest等原逆迁移从当前库开始。当前升级为24后须先恢复真实旧23格式，保留所有旧输入/断言；正式spec明确允许新test-only逆24 helper的必要调用，原assert23在真实恢复后仍保留。源码和用例仍待实际执行。
+
+本机业务RED已实际执行：原1032输入保持，仅新增HTTP和Format测试后共1034输入，格式归一后3项均FAIL、0ERROR/skip；实际新route404对202和current23对24，不把尚未到达的断言算独立RED。前端13新项实际12FAIL/1PASS后同测试字节13GREEN，全量448/原435身份多重性保留和syntax通过。后台新产品尚待整合，不能据此前端结果宣称重建后台已完成。

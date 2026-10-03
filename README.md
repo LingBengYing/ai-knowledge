@@ -1,5 +1,27 @@
 # AI Knowledge · Java Edition
 
+2026-10-03当前0035：[保存材料重建](docs/changes/0035-saved-source-reindex/verification.md)。已发布资料可明确重建保存的完整文本索引，处理期间旧索引可用，成功才切换；失败、取消和重启中断保留旧版本。入口核对真实能力及当前资格，成功后提示重新查询，保留问题、范围与整理草稿。模型配置、逐角色测试、明确应用和召回测试继续沿既有流程。首切不支持已有独立图片/音频向量的资料及真正嵌入/投影迁移；后续receipt迁移与原文件版本替换继续保留。未部署，页面用户验收，0新增真实provider调用，完整目标ACTIVE。
+
+2026-10-03基础修复0034：更换文字生成或重排模型后，已有图片、视频、OCR及字幕来源继续按当前权限打开；来源能力与新问答能力分开。保留已生效的媒体POST门禁，只改三处后端和一个前端回调。实际3075 Java、431前端/syntax及六Native各1通过，原格式、架构与双80%门禁保持。结果见[0034验证](docs/changes/0034-media-role-switch-sources/verification.md)，交接以工作区`.tools/media-role-switch-handoff`实际manifest为准；未部署、0新增真实provider调用、页面用户验收。完整目标active，下一基础缺口为retrieval-only范围入口，原重建及版本更新范围保留。下方是历史记录。
+
+2026-10-03当前基础修复0033：已有文字索引后，仅更换生成或重排模型可以保存、单独测试并明确应用；嵌入配置及投影不变时不重建资料索引。实际新角色与新trace、原索引/旧来源、连续切换及重启均已本机验证；真正嵌入或投影变化仍拒绝，legacy媒体按实际完整profile判定。最终3058 Java、1013格式、原LINE/BRANCH双80与架构、六Native各1通过；1029后端输入相同、761生产class稳定。前端64及后端18 Node/static输入字节不变，430/check与73明确复用此前实跑证据。新交接.tools/model-role-switch-handoff以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收、真实ASR未宣称修复，目标active。历史记录保留。
+
+2026-10-03当前本机主线：[模型配置与召回测试](docs/MODEL_SETUP_AND_RETRIEVAL.md)已接通保存草稿、逐角色连接测试、明确应用、完整范围召回预览与同版本来源；无模型可启动，应用丢响应后显式读取能恢复索引/召回入口。资料清理及取消后清理恢复一并整合。实际3011 Java、1004格式、原LINE/BRANCH双80%、430前端/check、73后端Node及六Native各1通过；1020/64执行输入相同，759完整生产class与最终JAR一致，旧2640/370用例身份多重性保留。详见[0032验证](docs/changes/0032-model-setup-retrieval-test/verification.md)。交接工作区`.tools/model-setup-handoff`以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收，原ASR质量未宣称解决，目标active、usage/计费取消。下方保留历史记录。
+
+新增[原视频参考问答](docs/VIDEO_AV_QUERY.md)：一至三份参考视频按画面/声音/联合模式使用完整实际媒体帮助召回，库内证据继续证明完整问题并打开原来源。后端0030/前端0019实际2640 Java、894格式、原双80%门禁、370前端、73 Node及六Native通过，910/57输入和668完整生产class/JAR绑定见[验证](docs/changes/0030-video-av-query/verification.md)。交接入口工作区`.tools/video-av-query-handoff`以实际manifest/validation为准；未部署，当前已核部署仍voice-tags，页面用户验收、真实语义质量待验、目标active、usage/计费取消。下方为历史快照。
+
+新增[原视频音画知识库](docs/VIDEO_AUDIOVISUAL.md)：已接真实连续画面和完整原音轨分别索引、画面/声音/联合完整文字问题核验及原视频来源。最终本机完整门禁、六项真实媒体Native与制品绑定通过，见[0029验证](docs/changes/0029-video-audiovisual/verification.md)。功能默认关闭，交接以工作区`.tools/video-audiovisual-handoff`实际manifest/validation为准；未部署，已核对的部署记录为20261003-voice-tags。网页用户验收、真实语义质量和原ASR问题仍开放，目标active；下方为历史快照。
+
+新增[原声向量检索](docs/AUDIO_VECTOR_RETRIEVAL.md)：已发布音频由编辑者显式建立全部可引用语音分段的原始PCM向量；携参考音频提问时保留全部查询声段，按完整授权范围召回，再用库内保存转录证明并打开原音频时间来源。独立默认关闭，本机正常链和最终门禁见[0027验证](docs/changes/0027-audio-vector-retrieval/verification.md)。新原图/原声向量尚未部署，当前部署仍20261003-voice-tags；完整页面由用户验收，真实ASR、原声语义质量及非语音声音事实仍待完成。下方为历史记录。
+
+新增[原图向量检索](docs/IMAGE_VECTOR_RETRIEVAL.md)：已索引图片显式建立独立原图向量，原图模式携参考图片时按完整授权范围召回，再核验库内原图事实并打开原来源。默认关闭，不自动补建旧资料；本机实现与验证见[0026](docs/changes/0026-image-vector-retrieval/verification.md)。本增量未部署。当前已部署20261003-voice-tags，含扫描PDF、查询附件、摘要建议标签和语音提问；部署结果与只读入口报告已核对，完整页面由用户验收，真实ASR仍未通过。下方日期和发布状态均为对应历史快照。
+
+新增[语音提问](docs/VOICE_QUESTIONS.md)：上传音频→完整转录→编辑核对→确认填入问题→按原资料范围问答并打开库内来源。默认关闭，复用现有ASR，转录输入不入库、不成为引用。后端0025与前端0014配套，验证见[0025](docs/changes/0025-voice-questions/verification.md)。本机实现尚待发布；当前部署20261003-scanned-pdf已含查询附件、文件摘要和PDF来源，生成/问答全链由用户验收。下方日期和发布状态保留为对应历史快照。
+
+新增[摘要建议标签](docs/TAG_SUGGESTIONS.md)：读取已保存摘要中的短术语/主题，勾选后追加到现有标签，再用标签筛选资料；保留手工标签且不增加模型调用。默认随既有摘要功能启用，本机验证与未验范围见[0024](docs/changes/0024-tag-suggestions/verification.md)。本轮尚未部署。
+
+新增[扫描PDF逐页OCR](docs/PDF_OCR.md)：独立开关启用后可识别扫描件及含文字层/扫描图的混合页，索引后以文字模式问答，引用按原页码回看PDF。默认关闭，TXT/Markdown与旧资料身份保持。源码和本机合成验证见[0023](docs/changes/0023-scanned-pdf/verification.md)；新功能尚未部署，真实中文/复杂版面及用户页面验收仍开放。
+
 2026-09-22 17:39最新诊断：累计6/20次；已通过原字节码定位到同字段指令检测`instruction_in_field`，原摘录/完整转录均被拒绝。编号规范化能找到731，找不到AU，具体错字不猜测。下一步检查ASR配置/候选，不放宽安全规则；视频尚未开始，见[完整台账](docs/changes/0019-audio-video-provider-eval/provider-run.md)。诊断完成不等于真实质量或上线通过，下方2/12为首次运行历史。
 
 2026-09-22真实评测结果：获批最多12次后，音频ASR和文字摘录各调用1次，随后原文证据校验`eval_audio_not_grounded`失败；视频尚未开始。实际2/12，剩余10次未使用，无重试，见[执行台账](docs/changes/0019-audio-video-provider-eval/provider-run.md)。这不是质量或上线通过，后续云诊断需另行授权。以下为9/21及更早交付快照，其中NOT_RUN不是当前状态。

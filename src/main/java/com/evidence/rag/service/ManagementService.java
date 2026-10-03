@@ -10,10 +10,12 @@ import static com.evidence.rag.model.domain.ModelValues.tags;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.dto.AuditEventResult;
 import com.evidence.rag.model.dto.DocumentActionCommand;
 import com.evidence.rag.model.dto.DocumentActionResult;
+import com.evidence.rag.model.dto.DocumentOriginalResult;
 import com.evidence.rag.model.dto.DocumentPageResult;
 import com.evidence.rag.model.dto.DocumentPatchCommand;
 import com.evidence.rag.model.dto.DocumentResult;
@@ -26,7 +28,9 @@ import com.evidence.rag.model.query.DocumentQuery;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
+import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
+import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,6 +57,7 @@ public final class ManagementService {
   private final IngestionRepository ingestion;
   private final IndexingRepository indexing;
   private final DocumentPermissionPolicy permissions;
+  private final boolean reindexEnabled;
 
   public ManagementService(
       SqliteAuthorityStore store,
@@ -60,11 +65,22 @@ public final class ManagementService {
       IngestionRepository ingestion,
       IndexingRepository indexing,
       DocumentPermissionPolicy permissions) {
+    this(store, management, ingestion, indexing, permissions, false);
+  }
+
+  public ManagementService(
+      SqliteAuthorityStore store,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      IndexingRepository indexing,
+      DocumentPermissionPolicy permissions,
+      boolean reindexEnabled) {
     this.store = Objects.requireNonNull(store);
     this.management = Objects.requireNonNull(management);
     this.ingestion = Objects.requireNonNull(ingestion);
     this.indexing = Objects.requireNonNull(indexing);
     this.permissions = Objects.requireNonNull(permissions);
+    this.reindexEnabled = reindexEnabled;
   }
 
   public void registerSyntheticDocument(
@@ -118,6 +134,47 @@ public final class ManagementService {
               query.pageSize(),
               (total + query.pageSize() - 1) / query.pageSize());
         });
+  }
+
+  public DocumentOriginalResult documentOriginal(Actor actor, String documentId) {
+    validateOriginalIdentity(actor, documentId);
+    return store.transaction(
+        () -> {
+          var original = authorizedOriginal(actor, documentId);
+          return new DocumentOriginalResult(
+              original.documentId(),
+              original.revisionId(),
+              original.filename(),
+              original.documentType(),
+              original.mediaType(),
+              original.sourceSha256(),
+              original.sizeBytes());
+        });
+  }
+
+  public DocumentOriginal documentContent(Actor actor, String documentId, String revisionId) {
+    validateOriginalIdentity(actor, documentId);
+    identifier(revisionId, 100);
+    return store.transaction(
+        () -> {
+          var original = authorizedOriginal(actor, documentId);
+          if (!original.revisionId().equals(revisionId)) {
+            throw notFound();
+          }
+          return original;
+        });
+  }
+
+  private static void validateOriginalIdentity(Actor actor, String documentId) {
+    if (actor == null) {
+      throw invalid();
+    }
+    identifier(documentId, 100);
+  }
+
+  private DocumentOriginal authorizedOriginal(Actor actor, String documentId) {
+    permissions.require(management.currentRole(actor, documentId), false);
+    return management.findDocumentOriginal(actor, documentId).orElseThrow(() -> notFound());
   }
 
   private static void validateQuery(DocumentQuery query) {
@@ -209,6 +266,23 @@ public final class ManagementService {
 
   public List<String> listTags(Actor actor) {
     return store.transaction(() -> management.findTags(actor));
+  }
+
+  /** Current metadata view within a use case's existing authority transaction. */
+  DocumentResult authorizedDocumentInTransaction(Actor actor, String id, boolean requireWrite) {
+    validateOriginalIdentity(actor, id);
+    var document =
+        management.findAuthorizedDocument(actor, id, requireWrite).orElseThrow(() -> notFound());
+    permissions.require(document.currentRole(), requireWrite);
+    return documentResult(document);
+  }
+
+  /** Reuses the manual append rules and audit in the caller's single authority transaction. */
+  DocumentResult appendTagsInTransaction(Actor actor, String id, List<String> appendedTags) {
+    validateOriginalIdentity(actor, id);
+    var patch =
+        validatePatch(new DocumentPatchCommand(false, null, false, null, true, appendedTags));
+    return patchDocument(actor, id, patch, true);
   }
 
   /**
@@ -341,6 +415,68 @@ public final class ManagementService {
   private DocumentResult documentResult(DocumentEntity document) {
     permissions.require(document.currentRole(), false);
     var evidence = management.evidence(document.id()).orElse(null);
+    var sound =
+        evidence == null
+            ? new SoundRepository(store).managedEvidence(document.id()).orElse(null)
+            : null;
+    if (sound != null) {
+      boolean published = sound.publicationId() != null;
+      return new DocumentResult(
+          document.id(),
+          document.filename(),
+          published ? "parsed" : "ready",
+          published ? sound.sourceRevisionId() : null,
+          sound.sourceRevisionId(),
+          sound.spanCount(),
+          document.updatedAt(),
+          document.mimeType(),
+          document.sizeBytes(),
+          document.sourceSha256(),
+          document.displayName(),
+          document.folderId(),
+          document.folderName(),
+          management.documentTags(document.id()),
+          document.currentRole(),
+          permissions.canEdit(document.currentRole()),
+          published ? "indexed" : "not_indexed",
+          null,
+          sound.publicationId(),
+          false,
+          null,
+          false,
+          document.documentType());
+    }
+    var videoAv =
+        evidence == null
+            ? new VideoAvRepository(store).managedEvidence(document.id()).orElse(null)
+            : null;
+    if (videoAv != null) {
+      boolean published = videoAv.publicationId() != null;
+      return new DocumentResult(
+          document.id(),
+          document.filename(),
+          published ? "parsed" : "ready",
+          published ? videoAv.sourceRevisionId() : null,
+          videoAv.sourceRevisionId(),
+          videoAv.windowCount(),
+          document.updatedAt(),
+          document.mimeType(),
+          document.sizeBytes(),
+          document.sourceSha256(),
+          document.displayName(),
+          document.folderId(),
+          document.folderName(),
+          management.documentTags(document.id()),
+          document.currentRole(),
+          permissions.canEdit(document.currentRole()),
+          published ? "indexed" : "not_indexed",
+          null,
+          videoAv.publicationId(),
+          false,
+          null,
+          false,
+          document.documentType());
+    }
     boolean synthetic = evidence == null;
     TaskResult parseTask = null, indexTask = null;
     if (!synthetic) {
@@ -391,7 +527,11 @@ public final class ManagementService {
             && permissions.canEdit(document.currentRole()),
         parseTask,
         synthetic,
-        document.documentType());
+        document.documentType(),
+        reindexEnabled
+            && !synthetic
+            && permissions.canEdit(document.currentRole())
+            && indexing.canReindex(document.id()));
   }
 
   private List<FolderResult> folderResults(Actor actor) {

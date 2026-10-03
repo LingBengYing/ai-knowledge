@@ -1,7 +1,10 @@
 package com.evidence.rag.worker.parser;
 
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ParsedText;
+import com.evidence.rag.model.domain.PdfOcrOptions;
 import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.worker.OwnedTemporaryResources;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -11,9 +14,12 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -31,6 +37,7 @@ public final class ProcessTextParser implements AutoCloseable {
   private static final long CLEANUP_NANOS = TimeUnit.SECONDS.toNanos(2);
   private final long deadlineNanos;
   private final List<String> launch;
+  private final PdfOcrOptions pdfs;
   private final Object lock = new Object();
   private boolean closed;
   private Job active;
@@ -39,8 +46,17 @@ public final class ProcessTextParser implements AutoCloseable {
     this(deadline, null, List.of());
   }
 
+  public ProcessTextParser(Duration deadline, PdfOcrOptions pdfs) {
+    this(deadline, null, List.of(), pdfs);
+  }
+
   // Trusted test seam: still uses the same JDK, cleared environment and fixed resource controls.
   ProcessTextParser(Duration deadline, String fixtureMainClass, List<String> fixtureArgs) {
+    this(deadline, fixtureMainClass, fixtureArgs, null);
+  }
+
+  private ProcessTextParser(
+      Duration deadline, String fixtureMainClass, List<String> fixtureArgs, PdfOcrOptions pdfs) {
     if (deadline == null
         || deadline.compareTo(Duration.ofMillis(10)) < 0
         || deadline.compareTo(Duration.ofSeconds(60)) > 0) {
@@ -48,6 +64,7 @@ public final class ProcessTextParser implements AutoCloseable {
     }
     deadlineNanos = deadline.toNanos();
     launch = launch(fixtureMainClass, fixtureArgs);
+    this.pdfs = pdfs;
   }
 
   public ParsedText parse(String filename, String mime, byte[] content) {
@@ -64,10 +81,22 @@ public final class ProcessTextParser implements AutoCloseable {
       if (!CAPACITY.tryAcquire()) {
         throw failure("parser_busy");
       }
-      job = new Job(filename, mime, content.clone());
+      try {
+        job = new Job(filename, mime, content.clone(), started);
+      } catch (RuntimeException | Error reserveFailure) {
+        CAPACITY.release();
+        throw reserveFailure;
+      }
       active = job;
-      job.thread = Thread.ofVirtual().name("text-parser-process").unstarted(job.result);
-      job.thread.start();
+      try {
+        job.thread = Thread.ofVirtual().name("text-parser-process").unstarted(job.result);
+        job.thread.start();
+      } catch (RuntimeException | Error startFailure) {
+        job.body.close();
+        active = null;
+        CAPACITY.release();
+        throw startFailure;
+      }
     }
     try {
       long remaining = deadlineNanos - (System.nanoTime() - started);
@@ -113,7 +142,7 @@ public final class ProcessTextParser implements AutoCloseable {
 
   private static void awaitCleanup(Job job) {
     boolean interrupted = Thread.interrupted();
-    long until = System.nanoTime() + CLEANUP_NANOS;
+    long until = System.nanoTime() + job.cleanupNanos();
     try {
       while (job.finished.getCount() != 0) {
         long remaining = until - System.nanoTime();
@@ -142,30 +171,56 @@ public final class ProcessTextParser implements AutoCloseable {
     final String filename;
     final String mime;
     final byte[] content;
+    final long started;
+    final boolean pdfOcr;
+    final ConcurrentHashMap<Child, ProcessHandle> children = new ConcurrentHashMap<>();
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
-    final FutureTask<ParsedText> result = new FutureTask<>(this::execute);
+    final LibraryOperationGate.ReservedCall<ParsedText> body =
+        LibraryOperationGate.protectCurrent((Callable<ParsedText>) this::execute);
+    final FutureTask<ParsedText> result = new FutureTask<>(body);
     volatile Thread thread;
     volatile Process process;
     volatile boolean cleaned;
+    boolean terminalCleanup;
     Thread writerThread;
+    Thread descendantsThread;
+    volatile boolean observing = true;
+    volatile boolean descendantsInvalid;
+    final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
 
-    Job(String filename, String mime, byte[] content) {
+    Job(String filename, String mime, byte[] content, long started) {
       this.filename = filename;
       this.mime = mime;
       this.content = content;
+      this.started = started;
+      pdfOcr = pdfs != null && filename.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf");
+    }
+
+    long cleanupNanos() {
+      return pdfOcr ? TimeUnit.SECONDS.toNanos(5) : CLEANUP_NANOS;
     }
 
     void cancel(String code) {
-      if (!cancelled.compareAndSet(null, code)) {
-        return;
+      synchronized (lock) {
+        if (!cancelled.compareAndSet(null, code)) {
+          return;
+        }
+        if (terminalCleanup) {
+          return;
+        }
+        Process current = process;
+        if (current != null) {
+          if (pdfOcr) {
+            observeChildren();
+            current.destroy();
+          } else {
+            current.destroyForcibly();
+          }
+        }
+        thread.interrupt();
       }
-      Process current = process;
-      if (current != null) {
-        current.destroyForcibly();
-      }
-      thread.interrupt();
     }
 
     void checkCancelled() {
@@ -178,7 +233,7 @@ public final class ProcessTextParser implements AutoCloseable {
     ParsedText execute() {
       try {
         checkCancelled();
-        directory = Files.createTempDirectory("rag-parser-");
+        directory = OwnedTemporaryResources.createDirectory("rag-parser-", managedRoot);
         var command = new ArrayList<String>();
         command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
         command.addAll(
@@ -194,6 +249,25 @@ public final class ProcessTextParser implements AutoCloseable {
                 "-Djava.io.tmpdir=" + directory,
                 "-XX:ErrorFile=" + directory.resolve("jvm-error.log")));
         command.addAll(launch);
+        if (pdfOcr) {
+          long remaining = deadlineNanos - (System.nanoTime() - started);
+          long millis = TimeUnit.NANOSECONDS.toMillis(remaining);
+          if (millis < 10) {
+            throw failure("parser_timeout");
+          }
+          var parent = ProcessHandle.current();
+          var born = parent.info().startInstant().orElseThrow(() -> failure("parser_failed"));
+          command.addAll(
+              List.of(
+                  "--pdf-ocr",
+                  pdfs.ocr().executable().toString(),
+                  pdfs.ocr().language(),
+                  pdfs.ocr().revision(),
+                  Long.toString(parent.pid()),
+                  Long.toString(born.getEpochSecond()),
+                  Integer.toString(born.getNano()),
+                  Long.toString(millis)));
+        }
         var builder =
             new ProcessBuilder(command)
                 .directory(directory.toFile())
@@ -202,17 +276,36 @@ public final class ProcessTextParser implements AutoCloseable {
         // macOS may independently add its numeric CoreFoundation locale variable on JVM startup.
         // No application, provider, JVM-option or database environment variable is inherited here.
         checkCancelled();
+        OwnedTemporaryResources.launching(directory);
         process = builder.start();
+        OwnedTemporaryResources.childStarted(directory, process);
+        if (pdfOcr) {
+          var observerBody = LibraryOperationGate.protectCurrent((Runnable) this::watchChildren);
+          try {
+            descendantsThread =
+                Thread.ofVirtual().name("pdf-parser-descendants").start(observerBody);
+          } catch (RuntimeException | Error startFailure) {
+            observerBody.close();
+            throw startFailure;
+          }
+        }
         checkCancelled();
-        var writer =
-            new FutureTask<Void>(
-                () -> {
-                  try (var output = process.getOutputStream()) {
-                    ParserProtocol.writeRequest(output, filename, mime, content);
-                  }
-                  return null;
-                });
-        writerThread = Thread.ofVirtual().name("text-parser-input").start(writer);
+        var inputBody =
+            LibraryOperationGate.protectCurrent(
+                (Callable<Void>)
+                    () -> {
+                      try (var output = process.getOutputStream()) {
+                        ParserProtocol.writeRequest(output, filename, mime, content);
+                      }
+                      return null;
+                    });
+        var writer = new FutureTask<Void>(inputBody);
+        try {
+          writerThread = Thread.ofVirtual().name("text-parser-input").start(writer);
+        } catch (RuntimeException | Error startFailure) {
+          inputBody.close();
+          throw startFailure;
+        }
         var response = new ByteArrayOutputStream();
         try (var input = process.getInputStream()) {
           byte[] buffer = new byte[8192];
@@ -244,8 +337,19 @@ public final class ProcessTextParser implements AutoCloseable {
       } finally {
         // Only this job releases capacity, and only after its child and input writer really stop.
         // A start/kill that cannot be confirmed leaves the global admission gate closed.
-        Thread.interrupted();
+        synchronized (lock) {
+          // Preserve cancellation without interrupting confirmed resource and ownership cleanup.
+          terminalCleanup = true;
+          Thread.interrupted();
+        }
         cleaned = cleanup();
+        if (cleaned) {
+          try {
+            OwnedTemporaryResources.finished(directory);
+          } catch (IOException failedOwnershipCleanup) {
+            cleaned = false;
+          }
+        }
         if (cleaned) {
           synchronized (lock) {
             if (active == this) {
@@ -262,11 +366,28 @@ public final class ProcessTextParser implements AutoCloseable {
     }
 
     boolean cleanup() {
-      long until = System.nanoTime() + CLEANUP_NANOS;
+      long until = System.nanoTime() + cleanupNanos();
       try {
         if (process != null) {
           if (process.isAlive()) {
-            process.destroyForcibly();
+            if (pdfOcr) {
+              observeChildren();
+              process.destroy();
+              // The worker hook closes OCR admission and confirms native exit before JVM exit.
+              long grace = Math.min(until, System.nanoTime() + TimeUnit.SECONDS.toNanos(3));
+              while (process.isAlive() && System.nanoTime() < grace) {
+                try {
+                  process.waitFor(10, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {
+                  // Keep the graceful native cleanup window bounded even under repeated cancel.
+                }
+              }
+              observeChildren();
+              stopChildren();
+            }
+            if (process.isAlive()) {
+              process.destroyForcibly();
+            }
           }
           while (process.isAlive()) {
             long remaining = until - System.nanoTime();
@@ -280,6 +401,38 @@ public final class ProcessTextParser implements AutoCloseable {
             } catch (InterruptedException ignored) {
               // Cancellation can arrive while cleanup is already in progress. Still confirm exit.
             }
+          }
+        }
+        if (pdfOcr) {
+          observing = false;
+          if (descendantsThread != null) {
+            descendantsThread.interrupt();
+            while (descendantsThread.isAlive()) {
+              long remaining = until - System.nanoTime();
+              if (remaining <= 0) {
+                return false;
+              }
+              try {
+                descendantsThread.join(Duration.ofNanos(remaining));
+              } catch (InterruptedException ignored) {
+                // The observation thread must stop before deciding all tracked children exited.
+              }
+            }
+          }
+          stopChildren();
+          while (children.entrySet().stream()
+              .anyMatch(entry -> alive(entry.getKey(), entry.getValue()))) {
+            if (System.nanoTime() >= until) {
+              return false;
+            }
+            try {
+              Thread.sleep(10);
+            } catch (InterruptedException ignored) {
+              // Confirm native process termination before releasing the shared parser permit.
+            }
+          }
+          if (descendantsInvalid) {
+            return false;
           }
         }
         if (writerThread != null) {
@@ -340,6 +493,53 @@ public final class ProcessTextParser implements AutoCloseable {
         return false;
       }
     }
+
+    void watchChildren() {
+      try {
+        while (observing && process.isAlive()) {
+          observeChildren();
+          Thread.sleep(10);
+        }
+      } catch (InterruptedException ended) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    void observeChildren() {
+      if (process == null) {
+        return;
+      }
+      try (var descendants = process.descendants()) {
+        descendants
+            .limit(1025)
+            .forEach(
+                child -> {
+                  var born = child.info().startInstant();
+                  if (born.isPresent()) {
+                    children.putIfAbsent(new Child(child.pid(), born.get()), child);
+                    if (children.size() > 4096) {
+                      descendantsInvalid = true;
+                    }
+                  }
+                });
+      }
+    }
+
+    void stopChildren() {
+      children.forEach(
+          (identity, child) -> {
+            if (alive(identity, child)) {
+              child.destroyForcibly();
+            }
+          });
+    }
+  }
+
+  private record Child(long pid, Instant started) {}
+
+  private static boolean alive(Child identity, ProcessHandle child) {
+    return child.isAlive()
+        && child.info().startInstant().filter(identity.started()::equals).isPresent();
   }
 
   private static List<String> launch(String fixtureMainClass, List<String> fixtureArgs) {

@@ -15,6 +15,7 @@ import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.IngestionClaim;
 import com.evidence.rag.model.domain.ParsedImage;
 import com.evidence.rag.model.domain.ParsedText;
+import com.evidence.rag.model.domain.PdfOcrOptions;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.domain.TextPage;
 import com.evidence.rag.model.domain.TextSegment;
@@ -52,6 +53,8 @@ public final class IngestionService {
   private static final Set<String> ERRORS =
       Set.of(
           "unsupported_document",
+          "text_configuration_required",
+          "media_text_configuration_mismatch",
           "parser_failed",
           "parser_timeout",
           "parser_output_invalid",
@@ -65,6 +68,7 @@ public final class IngestionService {
   private final String audioCompilerRevision;
   private final String videoCompilerRevision;
   private final boolean videoOcrExpected;
+  private final PdfOcrOptions pdfs;
 
   public IngestionService(
       SqliteAuthorityStore store,
@@ -136,6 +140,30 @@ public final class IngestionService {
       String audioCompilerRevision,
       String videoCompilerRevision,
       boolean videoOcrExpected) {
+    this(
+        store,
+        ingestion,
+        management,
+        permissions,
+        images,
+        visual,
+        audioCompilerRevision,
+        videoCompilerRevision,
+        videoOcrExpected,
+        null);
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images,
+      VisualIngestionOptions visual,
+      String audioCompilerRevision,
+      String videoCompilerRevision,
+      boolean videoOcrExpected,
+      PdfOcrOptions pdfs) {
     this.store = Objects.requireNonNull(store);
     this.ingestion = Objects.requireNonNull(ingestion);
     this.management = Objects.requireNonNull(management);
@@ -153,6 +181,7 @@ public final class IngestionService {
     }
     this.videoCompilerRevision = videoCompilerRevision;
     this.videoOcrExpected = videoOcrExpected;
+    this.pdfs = pdfs;
   }
 
   public int maximumUploadBytes() {
@@ -241,9 +270,13 @@ public final class IngestionService {
       return audioCompilerRevision;
     }
     if (!imageEnabled(filename)) {
-      return TextParser.REVISION;
+      return pdfs != null && isPdf(filename) ? pdfs.parserRevision() : TextParser.REVISION;
     }
     return visual != null ? visual.parserRevision() : images.parserRevision();
+  }
+
+  private static boolean isPdf(String filename) {
+    return filename != null && filename.toLowerCase(Locale.ROOT).endsWith(".pdf");
   }
 
   private ApplicationException unsupportedDocument() {
@@ -608,13 +641,22 @@ public final class IngestionService {
           String expectedRevision =
               ImageInput.isImageName(task.filename())
                   ? images == null ? null : images.parserRevision()
-                  : TextParser.REVISION;
+                  : pdfs != null && isPdf(task.filename())
+                      ? pdfs.parserRevision()
+                      : TextParser.REVISION;
           if (!Objects.equals(expectedRevision, task.parserRevision())
               || !sha256(claim.content()).equals(task.sourceSha256())) {
             throw invalidParserOutput();
           }
           if (cancelIfUnauthorized(task)) {
             return false;
+          }
+          if (!ImageInput.isImageName(task.filename())) {
+            try {
+              TextParser.validateEnvelope(task.filename(), task.mimeType(), claim.content());
+            } catch (TextParser.Failure failure) {
+              throw invalidParserOutput();
+            }
           }
           validateParsed(parsed);
           if (imageEnabled(task.filename()) != (image != null)) {

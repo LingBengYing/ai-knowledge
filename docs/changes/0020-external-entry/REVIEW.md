@@ -1,0 +1,1 @@
+本地整合稳定，非独立审查PASS或生产结论。Node173、Java28针对性、当前JAR认证集成1及当前代码JWT入口四类七条正常链通过；Java package/Spotless成功。模型/Milvus为本机替身。保持production/readiness，真实质量与公网待验；完整结果见前端deployment-external-entry/integration.md及本地交接manifest。

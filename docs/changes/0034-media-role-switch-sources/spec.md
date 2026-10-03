@@ -1,0 +1,29 @@
+# Spec：可执行媒体图与可核验历史来源分开
+
+状态：LOCAL_VERIFIED；实际本机验收见verification。新模型质量和部署页面尚未验收。
+
+## 1. 模型处理入口
+
+managed模式中视觉、视频问答与旧`/v1/attachment-answers` POST，继续由现有LibraryOperationFilter在解析附件、执行decoder和provider前检查LegacyTextProfileGuard实际完整profile。实际HTTP证明该边界已生效，不新增服务构造或重复guard。无active配置沿text_configuration_required；不兼容沿media_text_configuration_mismatch。同profile可用时保持原正常请求、严格输入、完整selected-set、预算、provider/ACL/trace行为。legacy模式及原公开构造保持。
+
+独立sound/video-av/query不新增文字身份依赖。文字/OCR、音频转录、原件、独立向量构建和摘要按各自现有合同保持。来源可读不开放媒体处理；新请求不能暗中使用旧生成/重排模型。
+
+## 2. 纯来源读取
+
+请求过滤器的媒体模型资格检查不再匹配视觉及视频纯来源路径，仍为这些请求保留operation lease、原认证和Controller校验。实际managed构造的已配置bundle有受信TextIndexAnchor时，视频metadata、原帧、原视频content GET不需要VideoAnswerProposalService或远程模型可用；当前AnswerService尚未关闭并且authority支持读取才可执行。旧无anchor公开legacy构造仍保留原未启用video时answers_unavailable合同，不能改其既有VideoAnswerEntryTest断言。新读取语义以实际managed装配区分，不增加任意boolean绕过或把手造anchor当生产身份证明。保留closed拒绝、ordinal/query/body/Range规则、可信Actor、原回答者、完整saved scope当前ACL/active/来源身份、原字节SHA及媒体envelope验证。
+
+普通视频、OCR、字幕都遵守既有typed结果；无帧字幕或纯音频事实仍404，不伪造frame。来源读取零模型/decoder/投影写入，不改历史trace/publication/job/sidecar/原文件。重启同active/anchor后仍能读取；撤权、撤下、源字节不符仍拒绝。视觉来源保持authority纯读，不加模型执行guard。
+
+## 3. 能力声明
+
+provider可执行性继续要求完整legacy profile；visual_answers/upload、video_answers/upload/index及旧query附件/向量召回不因来源可读开放。不能把anchor相等当成模型热更新。
+
+managed文字bundle可用且实际source路由/authority读取装配存在时，visual_sources/video_sources独立保留，即使生成/重排不同。视觉来源仍需要实际VisualAnswerService；视频来源只需实际managed AnswerService及EvidenceService，不要求decoder/proposal Bean。保留原路由开关，不补不存在的路由或来源。读取资格由原saved scope/publication/ACL和SHA权威验证，不能拿当前provider状态代替它。前端新答案仍需answers与sources同时可用，只有sources不等于可生成答案。
+
+## 4. 本机验收
+
+实际行为RED先于实现：旧视频/图片答案来源可读；只换生成/重排后旧视频GET预期可读但当前503。独立旧媒体POST用例已经PASS，保留其503与零额外处理调用断言。正常链以真实Spring/HTTP/临时SQLite及loopback调用记录证明修复后同版本metadata/frame/content/SHA保持；普通新文字问答使用新角色；连续切换、重启及当前ACL/撤下拒绝保持。至少普通视频、OCR、字幕三个typed读取用例，字幕frame仍404，不用独立video-av替代legacy视频。
+
+前端旧视觉来源在完整metadata/citation/原图SHA校验后仅要求实际visual_sources可用；visual_answers关闭时仍禁止提交新视觉答案。不以答案能力拒绝已经校验的原图读取，不放宽身份、版本、SHA或迟到结果隔离。
+
+原3058默认和430前端测试身份、断言、POM双80及架构保持。直接相关RED/回归先执行，再根统一全量/必要Native、前端syntax/full及源码/classes/JAR绑定。前端程序本切确实修改，须重新执行，不能复用430冒充新源码通过。真实模型与部署页面仍未验。

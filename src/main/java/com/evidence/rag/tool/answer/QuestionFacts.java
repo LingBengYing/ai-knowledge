@@ -39,6 +39,8 @@ final class QuestionFacts {
           Pattern.CASE_INSENSITIVE);
   private static final Pattern REFERENCE_ONLY =
       Pattern.compile("^(?:详?见|参见|参考|请?(?:查看|查阅)|see\\b|refer\\b)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern EXCLUDED_NUMERIC_SEQUENCE =
+      Pattern.compile("^not\\s+\\p{Nd}++(?:[ \\t]*+[,，][ \\t]*+\\p{Nd}++)++$");
 
   private QuestionFacts() {}
 
@@ -193,6 +195,14 @@ final class QuestionFacts {
       return REFERENCE_ONLY.matcher(value).find() || (quantity != null && !quantity.accepts(value))
           ? null
           : value;
+    }
+
+    @Override
+    public boolean matches(String field) {
+      String value = value(field);
+      // An excluded sequence may veto a conflicting assertion but never supplies its actual
+      // value. Ordinary negative states such as "not enabled" remain valid literal answers.
+      return value != null && !EXCLUDED_NUMERIC_SEQUENCE.matcher(value).matches();
     }
 
     @Override

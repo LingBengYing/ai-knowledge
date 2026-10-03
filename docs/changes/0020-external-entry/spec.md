@@ -1,0 +1,1 @@
+新增精确HTTPS外部Origin配置，仅JWT+loopback允许启用；原Origin透传，拒绝任意转发头；会话交换/删除强制Secure Cookie；会话回读由Java验证真实JWT。独立入口通过内部策略握手，未认证仅提供登录页，知识库资源与API要求合法会话。nginx终止TLS，Node与Java仅loopback。生产/readiness门禁保留，不宣称四类或上线完成。

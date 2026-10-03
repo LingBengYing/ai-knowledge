@@ -3,14 +3,18 @@ package com.evidence.rag.config;
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IndexingTaskProcessor;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.EnumerablePropertySource;
 
@@ -41,6 +45,8 @@ public class IndexingConfiguration {
   }
 
   @Bean
+  @Conditional(LegacyTextCondition.class)
+  @Primary
   IndexTarget indexingTarget(TextAdapterSettings settings) {
     try (var models = new OpenAiCompatibleModels(settings.models())) {
       return new IndexTarget(
@@ -52,6 +58,7 @@ public class IndexingConfiguration {
   }
 
   @Bean
+  @Conditional(LegacyTextCondition.class)
   IndexingTaskProcessor indexingTaskProcessor(
       IndexingService authority,
       RagProperties properties,
@@ -68,7 +75,13 @@ public class IndexingConfiguration {
   }
 
   @Bean(destroyMethod = "close")
-  IndexingJob indexingJob(IndexingTaskProcessor processor) {
-    return new IndexingJob(processor);
+  @ConditionalOnProperty(
+      prefix = "rag.model-configuration",
+      name = "enabled",
+      havingValue = "false",
+      matchIfMissing = true)
+  IndexingJob indexingJob(
+      IndexingTaskProcessor processor, ObjectProvider<LibraryOperationGate> operations) {
+    return new IndexingJob(processor, operations.getIfAvailable());
   }
 }

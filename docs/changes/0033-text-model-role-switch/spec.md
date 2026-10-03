@@ -1,0 +1,33 @@
+# Spec：稳定索引身份与实际问答角色
+
+状态：CONTRACT_FROZEN_IMPLEMENTATION。0032路由、DTO、管理员权限、草稿版本与实际维护窗口保持；只扩展可以证明兼容的角色切换。
+
+## 索引锚点
+
+新增不可变TextIndexAnchor，保存原实际索引配置的非秘密endpoint/model元数据、originatingVersion及精确IndexTarget。锚点不含密钥，不接受浏览器自由提交；只能从真实已保存active完整配置和实际运行快照精确重算形成。首次应用由候选配置形成。不得扫描publication/job选择一个revision并宣称兼容。
+
+锚定的embedding endpoint/model/显式revision/dimensions和projection identity必须与当前候选实际配置完全一致。任一变化、无法证明的旧modelRevision或完整目标冲突仍model_rebuild_required，旧active/anchor保持。完整检查所有未墓碑indexing_jobs、当前publication及已登记legacy尝试，不过滤不兼容项。
+
+私有配置文件持久保存active与锚点，保留原0600、NOFOLLOW、原子替换、CAS及fsync。保存草稿不修改锚点；应用顺序为取得实际maintenance lease、离线构造、权威全集兼容检查、同次原子持久active与anchor、swap。任一步失败不安装候选。锚点及元数据不进入正文SQLite或公开HTTP响应。
+
+旧私有文件v1只能从其实际saved active和当前受信服务器配置精确推导；仍须精确核验全部旧目标。新文件恢复必须重新计算锚点revision，核对嵌入、维度、投影及受信endpoint。缺失或损坏锚点、服务器漂移不得从数据库补猜，不调用远端。具体内部文件形状由实现接口记录，旧v1读取及旧公共构造保持。
+
+## 一次操作的两种身份
+
+publication、queued job、v3 IndexProtocol、receipt与来源仍使用完整锚定IndexTarget；不改任何旧row、历史trace、publication sidecar或migration v1..v23。索引子进程以锚点原生成/重排非秘密配置及当前嵌入凭据构造专用索引配置：它只调用实际嵌入，原完整revision由真实配置自然计算，不能用假revision wrapper冒充新模型。
+
+问答与重排使用实际当前角色配置及其真实完整models.revision。新answered/abstained trace记录实际执行模型，不能把旧锚定revision写作新生成模型。权威scope、source、hash、publication及完整selected-set复验仍基于锚定索引目标。普通构造的严格revision检查保持；新增显式的受校验binding，不接受任意布尔开关跳过检查。
+
+每次实际操作只捕获一个immutable bundle；在途实际body尚未退出仍configuration_busy。旧queued任务可以在切换后以同一索引目标运行。连续角色切换与重启不得丢失原锚点或混合不同配置。
+
+legacy媒体仍与实际完整运行profile比较，不能仅因索引锚点等于legacy就宣称旧媒体图已更新。独立声音、图片向量、音频向量和原视频模块不扩展配置功能。
+
+## 操作及验收
+
+仅生成或重排角色变更时，已索引资料无需重建即可明确应用。主动查询仍会进行查询嵌入；“不重新嵌入”指应用不重建已存资料。连接测试仍逐角色有界请求，不自动测试或重试。原件及历史答案来源继续完整校验版本和SHA。
+
+真实本机正常链须证明：首次设置并建索引；generation-only切换在旧代码产生真实409业务RED；修复后实际新generation请求和新trace；rerank-only切换实际新rerank；无索引写入、旧publication/job/trace字节不变；旧来源可读；连续切换重启后继续可用。另验证旧queued真实子进程完成、在途busy、密钥更新、身份/投影/维度漂移与未知旧revision拒绝。
+
+0032旧HTTP负例仅改变generation却预期409，与本切新合同冲突。先保留该实际历史源码及新正常链RED；之后仅将旧负例输入演进为真实embedding revision变化，原409/error_code/旧active/来源和其他全部断言、用例身份保持。新增generation成功链承担新合同，不直接把旧409断言放宽为200。
+
+本机HTTP/DOM/替身结果不代表真实服务、浏览器或部署验收；不新增真实provider调用。

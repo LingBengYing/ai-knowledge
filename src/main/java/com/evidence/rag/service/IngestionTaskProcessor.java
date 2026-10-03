@@ -5,6 +5,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.IngestionClaim;
+import com.evidence.rag.model.domain.PdfOcrOptions;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.tool.parser.ImageInput;
@@ -12,7 +13,9 @@ import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.parser.ProcessImageParser;
 import com.evidence.rag.worker.parser.ProcessTextParser;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 /** One parsing use case; authority transactions finish before the isolated worker is entered. */
@@ -25,6 +28,8 @@ public final class IngestionTaskProcessor {
   private final VisionModels vision;
   private final AudioCompilationService audio;
   private final VideoCompilationService video;
+  private final PdfOcrOptions pdfs;
+  private LegacyTextProfileGuard legacyText;
 
   public IngestionTaskProcessor(IngestionService authority, String workspace, Duration deadline) {
     this(authority, workspace, deadline, ProcessTextParser::new);
@@ -63,6 +68,33 @@ public final class IngestionTaskProcessor {
       AudioCompilationService audio,
       VideoCompilationService video) {
     this(authority, workspace, deadline, ProcessTextParser::new, images, vision, audio, video);
+  }
+
+  public IngestionTaskProcessor(
+      IngestionService authority,
+      String workspace,
+      Duration deadline,
+      ImageOcrOptions images,
+      VisionModels vision,
+      AudioCompilationService audio,
+      VideoCompilationService video,
+      PdfOcrOptions pdfs) {
+    this(
+        authority, workspace, deadline, ProcessTextParser::new, images, vision, audio, video, pdfs);
+  }
+
+  public IngestionTaskProcessor(
+      IngestionService authority,
+      String workspace,
+      Duration deadline,
+      ImageOcrOptions images,
+      VisionModels vision,
+      AudioCompilationService audio,
+      VideoCompilationService video,
+      PdfOcrOptions pdfs,
+      LegacyTextProfileGuard legacyText) {
+    this(authority, workspace, deadline, images, vision, audio, video, pdfs);
+    this.legacyText = legacyText;
   }
 
   // Production and controlled real child processes are the two Adapters at this internal Seam.
@@ -113,6 +145,19 @@ public final class IngestionTaskProcessor {
       VisionModels vision,
       AudioCompilationService audio,
       VideoCompilationService video) {
+    this(authority, workspace, deadline, parsers, images, vision, audio, video, null);
+  }
+
+  private IngestionTaskProcessor(
+      IngestionService authority,
+      String workspace,
+      Duration deadline,
+      Function<Duration, ProcessTextParser> parsers,
+      ImageOcrOptions images,
+      VisionModels vision,
+      AudioCompilationService audio,
+      VideoCompilationService video,
+      PdfOcrOptions pdfs) {
     this.authority = authority;
     this.workspace = workspace;
     this.deadline = deadline;
@@ -121,6 +166,7 @@ public final class IngestionTaskProcessor {
     this.vision = vision;
     this.audio = audio;
     this.video = video;
+    this.pdfs = pdfs;
   }
 
   public Optional<IngestionClaim> claim() {
@@ -140,6 +186,9 @@ public final class IngestionTaskProcessor {
           || claim.parserRevision().startsWith("java-video-compiler-v1:")
           || claim.parserRevision().startsWith("java-video-compiler-v2:")
           || claim.parserRevision().startsWith("java-video-compiler-v3:")) {
+        if (legacyText != null) {
+          legacyText.requireCompatible();
+        }
         if (video == null || !video.revision().equals(claim.parserRevision())) {
           throw new TextParser.Failure("parser_invalid_output");
         }
@@ -170,6 +219,9 @@ public final class IngestionTaskProcessor {
           && new VisualIngestionOptions(vision.revision())
               .parserRevision()
               .equals(claim.parserRevision())) {
+        if (legacyText != null) {
+          legacyText.requireCompatible();
+        }
         String revision = vision.revision();
         ImageInput.validateEnvelope(claim.filename(), claim.mimeType(), claim.content());
         ImageInput.inspect(claim.content());
@@ -196,6 +248,22 @@ public final class IngestionTaskProcessor {
         }
         return;
       }
+      if ("application/pdf".equals(claim.mimeType())
+          || claim.filename().toLowerCase(Locale.ROOT).endsWith(".pdf")
+          || claim.parserRevision().startsWith("java-pdf-ocr-v1:")) {
+        String expectedRevision = pdfs == null ? TextParser.REVISION : pdfs.parserRevision();
+        if (!"application/pdf".equals(claim.mimeType())
+            || !claim.filename().toLowerCase(Locale.ROOT).endsWith(".pdf")
+            || !expectedRevision.equals(claim.parserRevision())) {
+          throw new TextParser.Failure("parser_invalid_output");
+        }
+        try (var parser =
+            pdfs == null ? parsers.apply(deadline) : new ProcessTextParser(deadline, pdfs)) {
+          var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
+          authority.completeIngestion(claim, parsed);
+        }
+        return;
+      }
       try (var parser = parsers.apply(deadline)) {
         var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
         authority.completeIngestion(claim, parsed);
@@ -210,6 +278,13 @@ public final class IngestionTaskProcessor {
             case "parser_invalid_output" -> "parser_output_invalid";
             default -> "parser_failed";
           });
+    } catch (ApplicationException failure) {
+      if (Set.of("text_configuration_required", "media_text_configuration_mismatch")
+          .contains(failure.code())) {
+        fail(claim, failure.code());
+      } else {
+        failUnexpected(claim);
+      }
     } catch (RuntimeException failure) {
       failUnexpected(claim);
     }

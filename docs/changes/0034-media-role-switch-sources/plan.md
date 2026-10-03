@@ -1,0 +1,13 @@
+# Plan：角色切换后的媒体边界单条主线
+
+状态：LOCAL_VERIFIED。root保留0033公开源码和完整执行输入；C新增合成真实HTTP业务RED，根统一执行并保留。编译/工具错误不计业务RED；RED执行后才实施产品。实际相关66/full3075/六Native及前端431通过，交接审计与冻结另按实际manifest记录。
+
+B ownership：AnswerService、RuntimeConfiguration、LibraryOperationFilter及新增对应测试。纯来源保留closed检查，cap绑定实际source资格；过滤器仅移除纯来源provider匹配。LegacyTextProfileGuard原完整执行兼容合同、处理route和operation lease不改，不新增索引相等的来源假门禁。
+
+A ownership：前端app.js的旧视觉来源能力回调及新增对应测试已RED→GREEN，完整回归通过。视觉来源只要求实际visual_sources，不因visual_answers关闭拒绝原图。实际HTTP推翻早期漏看LibraryOperationFilter的旧POST静态误报，取消尚未实施的三个服务/config guard；A转为独立审查现有处理边界及B实施。legacy公开构造、形状/认证/预算保持，不修另一条retrieval-only范围主线。
+
+C ownership：一个新增真实Spring HTTP主线测试及必要新合成fixture，不修改旧测试/fixture/断言或产品。root ownership：正式合同、共享构建/Spotless/target、快照/证据、操作指南与当前入口；没有真实provider/浏览器/服务器/Git写。
+
+ownership变更由root明确协调，不并发编辑同文件。旧失败/RED与冻结包只读。
+
+下一已发现但不并行实现的基础缺口：retrieval-only配置下单选/多选资料范围入口仍绑answers能力，静态证据见新basic-mainline-audit报告。通用重建和版本更新依原正式范围待后续，不宣称完成。

@@ -1,0 +1,11 @@
+# Interfaces：既有来源接口不改形状
+
+状态：LOCAL_VERIFIED。无新route、DTO、凭据、schema或模型协议。
+
+- LegacyTextProfileGuard原compatible/requireCompatible完整modelRevision检查保持；不新增来源provider资格门禁。
+- RuntimeConfiguration分开source与模型cap。视觉需要现存VisualAnswerService；视频纯读使用managed AnswerService/EvidenceService和现有路由开关，不能因缺decoder/proposal而隐藏真正可执行来源。
+- LibraryOperationFilter保留实际operation lease与所有媒体处理的legacyRoute；仅GET visual/video sources路径跳过provider资格匹配。所有POST保持原匹配；认证、Controller和EvidenceService继续检查读取资格。
+- VisualAnswerService、VisualConfiguration、QueryAttachmentConfiguration原装配和构造保持。本切实际HTTP证实现有过滤器已在provider/decoder之前拦住旧POST，不新增重复执行guard。
+- AnswerService三个video read方法在已有明确managed九参构造及非null受信anchor的bundle只需实例open；无anchor legacy构造保持原requireVideo合同。证据与字节校验照原EvidenceService；三个video answer方法仍requireVideo。没有新boolean许可或模型证明保证。
+
+source URL、Range、内容上限、no-store和SHA形状保持；前端不制造来源或跳过校验。具体方法命名最终按实际实现更新。

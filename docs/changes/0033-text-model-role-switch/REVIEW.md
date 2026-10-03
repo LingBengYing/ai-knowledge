@@ -1,0 +1,11 @@
+# Review：角色切换的最小身份分离
+
+状态：CONTRACT_FROZEN_IMPLEMENTATION，尚未实施通过。
+
+独立只读审查A确认完整modelRevision目前同时承担索引与问答身份，单放宽activate或保留旧target会在索引协议、scope或trace产生错误。支持由实际saved active形成持久TextIndexAnchor；专用索引配置自然算出原revision，实际问答使用当前完整revision。
+
+审查重点：锚点起源可精确证明；v1只能按真实active推导，v2恢复重算；未知旧target不能认领；activate失败旧active/anchor保留；queued兼容而在途仍busy；新trace记录新执行模型，旧来源保持完整目标与ACL校验；legacy媒体不能因anchor误判实际模型已更新。
+
+这项修复来自用户对基本模型配置的明确优先要求，是现有授权内的可逆开发，不另设用户确认。通用嵌入重建、新召回算法、多供应商、真实质量和部署后置。实现独立审查与实际执行证据需随后补充，不能将方案审查写成通过。
+
+0033五份正式工件已由A独立实际读取；2026-10-03限定合同审查无阻断。实现仍未通过，等待C的真实HTTP业务RED和后续整合。

@@ -5,11 +5,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Authorized complete context may veto a quote, but never supplies unquoted supporting evidence.
  */
 final class EvidenceConflicts {
+  private static final Pattern NUMERIC_SEQUENCE =
+      Pattern.compile("(?<!\\p{Nd})\\p{Nd}++(?:[ \\t]*+[,，][ \\t]*+\\p{Nd}++)++");
+  private static final Pattern GROUPED_INTEGER = Pattern.compile("[0-9]{1,3}(?:,[0-9]{3})++");
+
   private EvidenceConflicts() {}
 
   static boolean present(List<QuestionFacts.Fact> facts, List<GroundingText> candidates) {
@@ -61,8 +66,18 @@ final class EvidenceConflicts {
               && TruthContext.unsafe(context, field, fields))) {
         continue;
       }
-      // Only numeric grouping punctuation is presentation. Signs, decimals, units and words remain.
-      values.add(value.replaceAll("(?<=\\d),(?=\\d{3}(?:\\D|$))", ""));
+      // Only a whole legitimate grouping token is presentation. A mixed sequence such as
+      // 7,3,921 must never become the different literal sequence 7,3921.
+      values.add(
+          NUMERIC_SEQUENCE
+              .matcher(value)
+              .replaceAll(
+                  match -> {
+                    String token = match.group();
+                    return GROUPED_INTEGER.matcher(token).matches()
+                        ? token.replace(",", "")
+                        : token;
+                  }));
     }
     return List.copyOf(values);
   }

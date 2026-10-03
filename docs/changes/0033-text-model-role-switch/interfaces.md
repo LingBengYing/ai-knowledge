@@ -1,0 +1,17 @@
+# Interfaces：索引锚点及角色快照
+
+状态：CONTRACT_FROZEN_IMPLEMENTATION。只描述0033内部协作接口，公共HTTP沿0032完整形状。
+
+- TextIndexAnchor：originatingVersion、providerBaseUrl、embeddingModel、embeddingRevision、dimensions、rerankModel、generationModel、exact IndexTarget。字段只含实际非秘密元数据，toString脱敏；不得含任何key。
+- ModelConfigurationState：新增nullable indexAnchor，保留原构造；私有文件v1读取anchor为null，不自行从DB推测。
+- ModelConfigurationRepository.activate(version, anchor)：同次原子保存active与anchor；已有anchor必须完全沿用。首次起源与此前saved active或首次draft精确一致。旧activate(version)保留未锚定v1路线，在已有v2 anchor时拒绝，不能擦除anchor。save保留既有anchor。
+- ManagedTextRuntime.anchored(store, AnchoredSnapshotFactory)：具名入口，避免null函数式构造歧义。原SnapshotFactory/build及构造保持。新prepare(version, configuration, anchor)给工厂同一候选的固定anchor，不能通过latest闭包读取各阶段不同状态。
+- TextRuntimeSnapshot：固定anchor、索引target和实际modelsRevision；原构造保持target==fullrevision。新显式受校验锚定构造核target、projection、AnswerService和IndexingTaskProcessor来自同一身份绑定。
+- AnswerService：实际执行revision单独绑定并核models.revision，新的answered/abstained trace使用它；scope/source仍完整anchor target。原构造保持严格旧行为。新锚定构造只核精确target与运行revision，TextModels接口不能独立证明内部嵌入配置；其前置条件由唯一受信Config装配入口完成，不能拿用户提供或随意构造的anchor直接装配。
+- ManagedTextRuntime.currentAnchor/currentModelsRevision：只提供当前不可变快照身份；legacy媒体guard核实际fullprofile，不能仅靠anchor相同。
+
+锚点起源、严格复算和私有文件形状由A与B实现共同校验。构建专用index配置时，嵌入endpoint/model/revision/dims与当前配置相同，原gen/rerank元数据保持；凭据采用当前受控配置。索引不会调用这些旧gen/rerank角色，revision由真实完整配置自然产生。
+
+v1私有JSON保持原format/version/draft/active_version/active五字段，读取anchor=null；v2增加index_anchor，有active时不可缺失。originatingVersion及原非秘密角色basis由repository检查，精确revision/受信endpoint/projection由装配复算。旧文件启动推导不隐式重写，下一明确应用原子保存锚点。
+
+实际唯一生产路径为ModelConfigurationConfiguration调用ManagedTextSettings.indexAdapters：先核当前provider/embedding model/显式revision/dims，再以原角色真实配置重算完整四元target，然后构造worker与AnswerService。不存在接受HTTP anchor的路径。低层接口的此项受信前置条件是维护边界，不能写成构造器自身证明了嵌入兼容。

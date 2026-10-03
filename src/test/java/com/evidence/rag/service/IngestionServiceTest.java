@@ -492,8 +492,10 @@ class IngestionServiceTest {
               "DELETE FROM corpus_pages",
               "DELETE FROM corpus_segments",
               "DELETE FROM ingestion_jobs",
-              "INSERT INTO corpus_pages VALUES('" + claim.revisionId() + "',2,'later','hash')",
-              "INSERT INTO corpus_segments VALUES('new','"
+              "INSERT INTO corpus_pages(revision_id,page_number,text,text_sha256) VALUES('"
+                  + claim.revisionId()
+                  + "',2,'later','hash')",
+              "INSERT INTO corpus_segments(id,revision_id,ordinal,page_number,start_offset,end_offset,text,text_sha256) VALUES('new','"
                   + claim.revisionId()
                   + "',1,1,0,1,'s','hash')")) {
         assertThrows(SQLException.class, () -> sql(statement), statement);

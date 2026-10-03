@@ -9,8 +9,7 @@ import java.util.regex.Pattern;
 /** Exact source ranges are retained separately from any question-matching normalization. */
 final class SourceFields {
   private static final Pattern BOUNDARY =
-      Pattern.compile(
-          "[。！？!?；;\\r\\n]+|\\.(?=\\s+[A-Z\\p{IsHan}]|\\s*$)|，|(?<!\\d),|(?<=\\d),(?!\\d{3}(?:\\D|$))");
+      Pattern.compile("[。！？!?；;\\r\\n]+|\\.(?=\\s+[A-Z\\p{IsHan}]|\\s*$)|[,，]");
   private static final Pattern SENTENCE_BOUNDARY =
       Pattern.compile("[。！？!?；;\\r\\n]+|\\.(?=\\s+[A-Z\\p{IsHan}]|\\s*$)");
   private static final Pattern CONNECTOR = Pattern.compile("并且|同时|以及|还有|然后");
@@ -41,6 +40,9 @@ final class SourceFields {
     var boundaries = (clauses ? BOUNDARY : SENTENCE_BOUNDARY).matcher(text);
     while (boundaries.find()) {
       checkInterrupted();
+      if (clauses && numericComma(text, boundaries.start(), boundaries.end())) {
+        continue;
+      }
       if (clauses) {
         splitAssignments(fields, text, start, boundaries.start());
       } else {
@@ -55,6 +57,28 @@ final class SourceFields {
     }
     checkInterrupted();
     return List.copyOf(fields);
+  }
+
+  private static boolean numericComma(String text, int start, int end) {
+    if (end != start + 1 || ",，".indexOf(text.charAt(start)) < 0) {
+      return false;
+    }
+    int left = start - 1;
+    int right = end;
+    while (left >= 0 && (text.charAt(left) == ' ' || text.charAt(left) == '\t')) {
+      checkInterrupted();
+      left--;
+    }
+    while (right < text.length() && (text.charAt(right) == ' ' || text.charAt(right) == '\t')) {
+      checkInterrupted();
+      right++;
+    }
+    // Numeric punctuation and horizontal space remain in the original range. Newlines and a
+    // following named assignment are still boundaries; no source text or number is rewritten.
+    return left >= 0
+        && right < text.length()
+        && Character.isDigit(text.codePointBefore(left + 1))
+        && Character.isDigit(text.codePointAt(right));
   }
 
   static boolean hasNestedAssignment(String field) {

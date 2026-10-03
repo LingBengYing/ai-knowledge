@@ -1,0 +1,13 @@
+# 开工审查
+
+状态：VERIFIED_LOCAL_NOT_DEPLOYED。A/B/C分工实现，root统一实际门禁；完整结果见[verification](verification.md)。以下保留开工和实现审查历史，历史“尚未验证”不表示当前状态。
+
+准备审计A scope-and-wire-a.md与B backend-gap-b.md核对批准工件和实际接口，确认新原视频参考闭环缺口；旧选帧manifest不适配，新路径可复用0029decoder/model/proof。原PRD未定位的证据边界已记入intent。C前端/trace审计确认v20没有query准备身份、旧query表FK不适配；两表sidecar和严格新envelope为独立增量。
+
+root确定一次完整编译全批先合格、明确缺模态整体拒答、全部窗口召回不抽样、有界统一预算、hash-only失败输入与原库内证明保持。A/B/C文件ownership见plan；开工无用户追加批准项，沿已授权开发目标推进。实际peer反馈、findings/修复、旧行为保留及执行门禁将在本文件/verification追加，不把准备建议或静态检查说成PASS。
+
+A指出DTO不能反向依赖Tool；root已明确DTO纯domain约束、mapper及compiler各自核完整VideoInput envelope，不改层次门禁。C指出旧canUseAttachments回调不能开启新路；新独立canUseVideoAvAttachments默认false，可保留旧拒绝断言。v21必需的旧fresh-version/restore-fixture预期及新cap false→true适配由root逐项记录，保留用例身份，不删旧回归。准备trace绑定media identity和embedding/profile，不宣称vector完成；完整调用由实际可观察验证核对。
+
+后续静态反馈：A进一步核到Web也禁止直接Tool依赖；root纠正合同为mapper→compiler.validateQueryInput→Tool，保持原L01/G02门禁。root要求逐件完成编译后立即累计资源/缺模态，超限不再解码后续输入，仍保存全请求not_prepared身份及0provider；B已修正。B自查query侧车Number.intValue可能截断损坏的REAL计数，决定仅新query读取严格Integer/Long及范围校验，旧AuthorityRows不变，增损坏拒读行为验证。上述尚未执行门禁，不将静态发现或编译问题当成产品RED。前端缺模态措辞已明确整批未完成，370/check复验通过。
+
+最终实际2640 Java/894格式/原双80%门禁、370前端/syntax、73 Node和六Native各1 PASS；910/57输入无变化，668完整生产class与最终JAR一致。真实feature404 RED及5个严格整数损坏RED均保留到GREEN。root首次Native夹具顺序失误已只移动新增问答块，保留旧索引断言并重跑PASS。B/C旧测试身份、A49文件G02/v20/24旧guard与完整输入/class独立审计据实际报告；新冻结制品以handoff manifest/validation及审计为准。本切未部署、网页用户验收、0新增真实模型调用、Git/部署归原责任方、目标active。

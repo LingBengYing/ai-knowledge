@@ -1,5 +1,21 @@
 # HTTP API：资料管理、文本摄取、索引与可选问答
 
+2026-10-03当前基础修复0033：已有文字索引后，仅更换生成或重排模型可以保存、单独测试并明确应用；嵌入配置及投影不变时不重建资料索引。实际新角色与新trace、原索引/旧来源、连续切换及重启均已本机验证；真正嵌入或投影变化仍拒绝，legacy媒体按实际完整profile判定。最终3058 Java、1013格式、原LINE/BRANCH双80与架构、六Native各1通过；1029后端输入相同、761生产class稳定。前端64及后端18 Node/static输入字节不变，430/check与73明确复用此前实跑证据。新交接.tools/model-role-switch-handoff以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收、真实ASR未宣称修复，目标active。历史记录保留。
+
+0032新增认证精确GET/PUT `/v1/model-configuration`、POST同路径`/test`及`/activate`，能力`model_configuration`；模型管理员显式保存完整三角色草稿、逐角色单次合成连接测试与原子应用，安全GET不回显密钥。POST `/v1/retrieval-tests`在`retrieval_test`实际能力下使用完整问题/完整范围，返回真实片段、文件/页码/码点和排序分，不调用生成、不创建答案trace。配置、字段、状态码和操作步骤见[MODEL_SETUP_AND_RETRIEVAL](MODEL_SETUP_AND_RETRIEVAL.md)与[0032合同](changes/0032-model-setup-retrieval-test/spec.md)。
+
+0028新增独立声音知识库：`POST /v1/sound-documents`只保存原声音；认证精确GET/POST `/v1/documents/{id}/sound-index`读取或显式建立全部PCM窗口，`POST /v1/sound-answers`与`POST /v1/sound-query-answers`分别接受文字或参考声音问题，typed声音来源和原文件走`/v1/sound-sources/{answer_id}/{ordinal}`及`/content`。完整范围缺索引前置409、零provider；声音事实由实际库内窗口独立证明。五项实际装配能力、配置、字段和边界见[SOUND_LIBRARY](SOUND_LIBRARY.md)。默认关闭，原音频转录接口保持。
+
+0027新增认证精确GET/POST `/v1/documents/{id}/audio-vector`（均无query/body）：reader读取当前十字段状态，当前editor显式构建全部可引用speech spans，完整当前receipt幂等不重复调用。能力`audio_vector_retrieval`仅实际完整装配时开放。完整字段、profile、独立预算及状态码见[AUDIO_VECTOR_RETRIEVAL](AUDIO_VECTOR_RETRIEVAL.md)；AUDIO携参考音频沿既有附件问答，完整范围缺receipt明确`audio_vector_required`，原转录证明及来源合同保持。
+
+0025新增认证的精确POST `/v1/voice-questions`，无query，JSON只含filename/media_type/content_base64单音频。成功为完整transcript、两个SHA、三种处理版本、duration_ms及固定policy_revision共八字段；不返回答案或引用、不入库。独立voice_questions能力及默认关闭的本地配置、20MiB音频/28MiB JSON、65536字节预览和稳定状态码见[语音提问](VOICE_QUESTIONS.md)。用户确认文字后调用原问答端点，完整资料范围与服务器来源校验保持。
+
+0024新增当前保存摘要的标签建议：GET /v1/documents/{id}/tag-suggestions（无body/query）与POST /v1/documents/{id}/tag-suggestions/apply（精确JSON suggestion_fingerprint/ordinals）。当前reader可预览，owner/editor确认后原子合并最新标签，成功为既有DocumentResponse；不触发模型。能力tag_suggestions随已有效装配的摘要启用。完整字段与409/404/422合同见[TAG_SUGGESTIONS](TAG_SUGGESTIONS.md)和[0024 spec](changes/0024-tag-suggestions/spec.md)。
+
+0023扫描PDF不新增资料/答案/来源API。摄取及独立PDF OCR启用时config增加pdf_ocr_upload；上传仍原octet-stream PDF合同。解析版本java-pdf-ocr-v1加profile SHA256，引用页码和CP来自整页OCR持久文本；原PDF通过既有document original metadata及pinned内容回读。配置和边界见[PDF_OCR](PDF_OCR.md)。
+
+0021新增独立原文件读取：`GET /v1/documents/{documentId}/original` 返回八字段metadata（`document_id/revision_id/filename/document_type/media_type/source_sha256/size_bytes/content_url`），版本固定为保存原文件的initial revision。内容仅走 `GET /v1/documents/{documentId}/revisions/{revisionId}/content`：当前组织/ACL、未撤回状态、注册版本/原版本及保存SHA/大小和实际字节SHA均核对，1..20MiB、保存MIME、private no-store/nosniff；拒绝query/body。所有管理配置声明`document_originals`，不依赖解析、索引或问答，也不回退其他文件/版本。详见[规格](changes/0021-document-originals/spec.md)和[验证](changes/0021-document-originals/verification.md)。
+
 0017新增默认关闭的`POST /v1/attachment-answers`：原文字问题、明确库内模式及最多3个临时图片/音频/视频附件，在完整授权范围内辅助检索；结果是原typed答案和安全处理说明的包络。28 MiB JSON/20 MiB decoded有界接收，不启用multipart、附件不入库/不作引用；配置、完整JSON及模式映射见[查询附件](QUERY_ATTACHMENTS.md)。旧四种JSON问答入口不改，来源仍走原路径。真实合成媒体HTTP链已验证，不代表前端或生产上线。
 
 0014新增独立默认关闭的[视频上传与完整索引](VIDEO_PUBLICATION.md)：原`POST /v1/documents?filename=...`接受显式`video/mp4`、`video/quicktime`、`video/webm`、`video/x-matroska`原始请求体；旧octet-stream行为不变。202只表示请求类型已冻结并排队，真实流型在后台完整编译中核实；parsed后仍需原索引接口。video与answers同时开启时提供显式问答、typed来源、原帧和原视频单Range；原`visual/transcript/joint`保持，新增独立`ocr`模式消费[选中原帧OCR](VIDEO_OCR.md)，已完成[本机冻结验证](changes/0014-video-library/ocr-verification.md)。见下方“视频问答与来源”和[完整视频问答合同](VIDEO_ANSWERS.md)。`video_upload/video_index`本身不代表问答已启用或任意问题可回答；后文旧“上传只接受octet-stream”说明仅指原文本/图片/音频合同。本机模型协议替身不代表真实模型质量、网页或生产验收。
@@ -53,12 +69,12 @@ X-Principal-Id: owner
   "workspace_id": "org-main",
   "edition": "java",
   "migration_stage": "management_slice",
-  "capabilities": ["management", "folders", "metadata", "batch_move", "batch_tag"],
+  "capabilities": ["management", "folders", "metadata", "batch_move", "batch_tag", "document_originals"],
   "unavailable": ["answers", "sources", "reindex", "document_delete", "upload", "ingestions", "text_index", "indexings"]
 }
 ```
 
-capabilities/unavailable是能力名称数组，不是布尔字段。管理五项能力始终保留；摄取启用时加入`text_upload/ingestions`并移除`upload/ingestions`不可用项；索引启用时加入`text_index/indexings`并移除对应不可用项。问答关闭时，原stage优先级保持`text_indexing`、`text_ingestion`、`management_slice`；问答启用时另加入`answers/sources`、移除对应不可用项，stage为`text_answers`，不隐式开启摄取或索引。`reindex/document_delete`继续不可用，readiness始终503。能力开关不代表网页已经接线或任何具体资料可直接回答。
+capabilities/unavailable是能力名称数组，不是布尔字段。管理五项能力和`document_originals`始终保留；摄取启用时加入`text_upload/ingestions`并移除`upload/ingestions`不可用项；索引启用时加入`text_index/indexings`并移除对应不可用项。问答关闭时，原stage优先级保持`text_indexing`、`text_ingestion`、`management_slice`；问答启用时另加入`answers/sources`、移除对应不可用项，stage为`text_answers`，不隐式开启摄取或索引。`reindex/document_delete`继续不可用，readiness始终503。能力开关不代表网页已经接线或任何具体资料可直接回答。
 
 视频开启且摄取/索引各自开启时分别声明`video_upload`/`video_index`；视频与问答同时开启才声明`video_answers/video_sources`，不改变上述stage或readiness。视频装配仍要求摄取开启、development/test及字面loopback，不能仅设置两个问答开关而省略原视频配置。
 
@@ -343,7 +359,7 @@ OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null
 
 用户能看到自己拥有的目录，或含其可见资料的目录；`document_count` 只计可见资料，目录改名/删除要求目录所有者。删除必须真实为空（含当前用户不可见的资料也不能留下），否则 409 `folder_not_empty`。不会连带删除或移动资料。
 
-标签列表只来自当前用户可见资料，排序去重；没有全局标签编辑或自动打标签端点。
+标签列表只来自当前用户可见资料，排序去重；没有全局标签编辑。摘要建议及确认合并使用0024独立端点，见本文顶部。
 
 ## 批量操作与 partial failure
 
@@ -412,7 +428,7 @@ OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null
 
 ## 明确不存在的业务端点
 
-当前没有streaming、独立候选检索、任意来源页预览/自由原文件下载、物理删除完成/已发布版本重索引、摘要、自动标签或独立嵌入/重排/Milvus管理API。显式图片、音频和视频问答及其授权来源端点见本文与对应专项文档；它们不是通用来源浏览器。摄取、索引、问答/引用以及0008撤下仅在各自开关启用时提供路由。
+当前没有streaming、独立候选检索、任意来源页预览/自由文件路径下载、物理删除完成/已发布版本重索引、独立嵌入/重排/Milvus管理API。资料原文件只通过0021的当前授权metadata和pinned内容读取。显式图片、音频和视频问答及其授权来源端点见本文与对应专项文档；它们不是通用来源浏览器。摄取、索引、问答/引用以及0008撤下仅在各自开关启用时提供路由。
 
 `TextParser.parse(...)`、`TextModels.rerank/extract`和`RetrievalProjection.search`仍是Java库Interface，没有独立HTTP端点；问答由上述受授权用例编排调用。未来端点应先在版本化变更工件中明确范围和验收，再更新本文及HTTP测试。完整问答、selected-set、来源、多模态和生产目标见[ROADMAP](ROADMAP.md)，局部HTTP通过不缩减或完成这些目标。
 

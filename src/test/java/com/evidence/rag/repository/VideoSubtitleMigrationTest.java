@@ -40,8 +40,8 @@ class VideoSubtitleMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(16, store.count("PRAGMA user_version"));
-            assertEquals(16, store.count("SELECT version FROM format_info"));
+            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(24, store.count("SELECT version FROM format_info"));
             for (String table :
                 List.of(
                     "video_subtitle_compilations",
@@ -136,7 +136,7 @@ class VideoSubtitleMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(16, store.count("PRAGMA user_version"));
+              assertEquals(24, store.count("PRAGMA user_version"));
               assertEquals(
                   expected,
                   new SynopsisRepository(store).findSynopsis("available-history").orElseThrow());
@@ -146,7 +146,18 @@ class VideoSubtitleMigrationTest {
               assertEquals(
                   18,
                   store.count(
-                      "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND tbl_name IN ('synopsis_tasks','synopsis_input_evidence','synopsis_entries','synopsis_references')"));
+                      "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name NOT GLOB 'cleanup_*' AND tbl_name IN ('synopsis_tasks','synopsis_input_evidence','synopsis_entries','synopsis_references')"));
+              assertEquals(
+                  List.of(
+                      "cleanup_synopsis_entries_insert",
+                      "cleanup_synopsis_entries_purge",
+                      "cleanup_synopsis_entries_replace"),
+                  store
+                      .rows(
+                          "SELECT name FROM sqlite_master WHERE type='trigger' AND name GLOB 'cleanup_*' AND tbl_name IN ('synopsis_tasks','synopsis_input_evidence','synopsis_entries','synopsis_references') ORDER BY name")
+                      .stream()
+                      .map(row -> row.get("name"))
+                      .toList());
               assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
               return null;
             });
@@ -214,7 +225,7 @@ class VideoSubtitleMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(16, store.count("PRAGMA user_version"));
+            assertEquals(24, store.count("PRAGMA user_version"));
             assertEquals(5, store.count("SELECT COUNT(*) FROM video_subtitle_cues"));
             assertEquals(
                 expected.subtitles(),

@@ -1,0 +1,9 @@
+# Review
+
+实现前只读交叉复核：现有图片索引只是recallText→TextModels.embed，queryImages仅在重排匹配时使用；原图embedding尚未参与首轮召回。不能用新image target替换完整scope的旧文字target。旧jobExists/active拒绝和document唯一约束使直接再建旧索引任务不成立；旧generation同physicalID重试还会暴露晚写覆盖风险。
+
+采用单独显式构建与不可变receipt，所有尝试独立generation；保留旧publication及active，新增dense-only查询模式而不复制Milvus客户端，authority映射后继续旧原图事实证明/来源。模型协议已核对官方资料，单原图调用不会混入caption或自动截断。实现后按具名范围复核和实际红绿证据完成验证。
+
+实现后交叉复核：backend_originals只读核对pdf_config的配置/能力/HTTP，pdf_ingestion核对独立build/protocol与root真实Spring/native夹具，pdf_config核对前端Session/app/代理。配置与构建合同无实际阻塞；前端停止等待时“尚未建立”的文案缺陷已用实际DOM RED→GREEN修正为未知状态并仅允许刷新确认。pdf_ingestion补测后再次只读检查IV07–09及前端模式、reason和生命周期，未发现实际主线缺陷。
+
+首次完整回归1892项全部通过，但原80%分支门禁在79.6621%失败；未降低阈值。三代理只补本轮新测试共21项，针对协议回执重放/错误代次、完整候选授权映射与配置预算/profile漂移；生产与旧测试有效断言不改。实际门禁和证据见verification.md。真实模型质量、ASR及生产/页面不在本机结论中。

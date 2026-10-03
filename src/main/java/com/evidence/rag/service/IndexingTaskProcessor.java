@@ -17,8 +17,14 @@ public final class IndexingTaskProcessor {
   private final IndexingService authority;
   private final String workspace;
   private final IndexTarget target;
+
+  IndexTarget runtimeTarget() {
+    return target;
+  }
+
   private final Duration timeout;
   private final Function<Duration, ProcessTextIndexer> workers;
+  private MilvusRestProjection.Settings cleanupProjection;
 
   public IndexingTaskProcessor(
       IndexingService authority,
@@ -33,6 +39,7 @@ public final class IndexingTaskProcessor {
         target,
         timeout,
         deadline -> new ProcessTextIndexer(models, projection, deadline));
+    this.cleanupProjection = projection;
   }
 
   // Real worker and controlled real executable share this package-private test Seam.
@@ -51,6 +58,10 @@ public final class IndexingTaskProcessor {
 
   public TaskResult create(Actor actor, String documentId) {
     return authority.createIndexing(actor, documentId, target);
+  }
+
+  public TaskResult reindex(Actor actor, String documentId, String basePublicationId) {
+    return authority.createReindexing(actor, documentId, basePublicationId, target);
   }
 
   public TaskResult retry(Actor actor, String taskId) {
@@ -73,6 +84,11 @@ public final class IndexingTaskProcessor {
       }
       if (!authority.isIndexingClaimCurrent(claim)) {
         fail(claim, "indexing_failed");
+        return;
+      }
+      if (cleanupProjection != null
+          && !authority.registerProjectionWrite(claim, cleanupProjection)) {
+        fail(claim, "authorization_changed");
         return;
       }
       try (var worker = workers.apply(timeout)) {

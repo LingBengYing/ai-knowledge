@@ -5,17 +5,21 @@ import static com.evidence.rag.model.domain.ModelValues.invalid;
 import static com.evidence.rag.model.domain.ModelValues.notFound;
 import static com.evidence.rag.model.domain.ModelValues.sha256;
 
+import com.evidence.rag.client.vector.MilvusProjectionCleanup;
+import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.ProjectionAttempt;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.IndexPublicationEntity;
 import com.evidence.rag.model.entity.TaskEntity;
+import com.evidence.rag.repository.DocumentCleanupRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
@@ -92,6 +96,59 @@ public final class IndexingService {
         });
   }
 
+  /** Explicitly rebuild the current saved source without displacing its active publication. */
+  public TaskResult createReindexing(
+      Actor actor, String documentId, String basePublicationId, IndexTarget target) {
+    if (actor == null || target == null) {
+      throw invalid();
+    }
+    identifier(documentId, 100);
+    identifier(basePublicationId, 100);
+    return store.transaction(
+        () -> {
+          permissions.require(management.currentRole(actor, documentId), true);
+          var base = indexing.activePublication(documentId).orElse(null);
+          var revision = indexing.parsedRevision(documentId).orElse(null);
+          if (base == null
+              || !base.id().equals(basePublicationId)
+              || revision == null
+              || !indexing.canReindex(documentId)) {
+            throw indexConflict();
+          }
+          if (!base.target().equals(target)) {
+            throw new ApplicationException(
+                FailureKind.CONFLICT, "index_configuration_changed", "当前索引配置与已发布索引不一致。");
+          }
+          String jobId = UUID.randomUUID().toString(), now = Instant.now().toString();
+          indexing.insertRebuildJob(
+              jobId,
+              documentId,
+              revision,
+              target,
+              actor.principalId(),
+              basePublicationId,
+              indexing.nextRebuildSequence(documentId),
+              now);
+          var internal = indexing.findInternalTask(jobId).orElseThrow();
+          if (!indexing.sourceCurrent(internal)) {
+            throw indexConflict();
+          }
+          audit(
+              actor,
+              documentId,
+              "indexing_rebuild_queued",
+              values("publication_id", basePublicationId),
+              values("revision_id", revision.id(), "state", "queued"),
+              Set.of("publication_id", "revision_id", "state"));
+          var task = authorizedTask(actor, jobId, false);
+          return TaskResults.from(
+              task,
+              permissions.canEdit(task.currentRole()),
+              true,
+              indexing.publicationId(task.id()));
+        });
+  }
+
   public Optional<IndexClaim> claimIndexing(String workspaceId) {
     Actor worker = new Actor(workspaceId, "system:indexing");
     return store.transaction(
@@ -151,12 +208,16 @@ public final class IndexingService {
       IndexClaim claim, Map<String, String> entryDigests, VerifiedRevision verified) {
     return store.transaction(
         () -> {
-          var task = currentClaim(claim);
+          var task = claimedTask(claim);
           if (task == null) {
             return false;
           }
           if (!creatorCanWrite(task)) {
             finishFailed(task, "authorization_changed");
+            return false;
+          }
+          if (!indexing.sourceCurrent(task)) {
+            finishFailed(task, "indexing_output_invalid");
             return false;
           }
           var authoritative = indexing.projectionItems(claim.revisionId());
@@ -234,13 +295,46 @@ public final class IndexingService {
         });
   }
 
+  /** Persist the exact remote target and generation before the first possible worker write. */
+  public boolean registerProjectionWrite(
+      IndexClaim claim, MilvusRestProjection.Settings projection) {
+    if (projection == null
+        || claim == null
+        || !projection.identity().equals(claim.target().projectionIdentity())
+        || !projection.workspaceId().equals(claim.workspaceId())
+        || !projection.embeddingIdentity().equals(claim.target().embeddingIdentity())
+        || projection.dimension() != claim.target().dimensions()) {
+      throw invalid();
+    }
+    return store.transaction(
+        () -> {
+          var task = currentClaim(claim);
+          if (task == null || !creatorCanWrite(task)) {
+            return false;
+          }
+          var registry = new DocumentCleanupRepository(store);
+          registry.registerProjectionAttempt(
+              new ProjectionAttempt(
+                  claim.documentId(),
+                  claim.workspaceId(),
+                  claim.revisionId(),
+                  claim.sourceSha256(),
+                  claim.projectionGenerationId(),
+                  "legacy",
+                  MilvusProjectionCleanup.qualified(projection),
+                  false));
+          registry.markProjectionWriteIssued(claim.projectionGenerationId(), "legacy");
+          return true;
+        });
+  }
+
   public boolean failIndexing(IndexClaim claim, String safeCode) {
     if (safeCode == null || !ERRORS.contains(safeCode)) {
       throw invalid();
     }
     return store.transaction(
         () -> {
-          var task = currentClaim(claim);
+          var task = claimedTask(claim);
           if (task == null) {
             return false;
           }
@@ -308,7 +402,7 @@ public final class IndexingService {
             throw new ApplicationException(
                 FailureKind.CONFLICT, "authorization_changed", "任务创建者已无当前写权限。");
           }
-          if (!indexing.sourceCurrent(internal)) {
+          if (indexing.hasPending(task.documentId()) || !indexing.sourceCurrent(internal)) {
             throw indexConflict();
           }
           indexing.markQueued(jobId, task.attempt() + 1, Instant.now().toString());
@@ -357,6 +451,12 @@ public final class IndexingService {
   }
 
   private TaskEntity currentClaim(IndexClaim claim) {
+    var task = claimedTask(claim);
+    return task != null && indexing.sourceCurrent(task) ? task : null;
+  }
+
+  /** Exact current worker identity; source eligibility is required separately for publication. */
+  private TaskEntity claimedTask(IndexClaim claim) {
     if (claim == null || claim.token() == null || claim.token().length() != 72) {
       return null;
     }
@@ -375,7 +475,6 @@ public final class IndexingService {
             sha256(claim.token().getBytes(StandardCharsets.UTF_8))
                 .getBytes(StandardCharsets.US_ASCII),
             task.claimTokenSha256().getBytes(StandardCharsets.US_ASCII))
-        || !indexing.sourceCurrent(task)
         || !indexing.attemptExists(claim.jobId(), claim.attempt(), claim.projectionGenerationId())
         || !claim.items().equals(indexing.projectionItems(claim.revisionId()))) {
       return null;

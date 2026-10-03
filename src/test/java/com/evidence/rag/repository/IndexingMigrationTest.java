@@ -28,8 +28,8 @@ class IndexingMigrationTest {
   void v2UpgradeBacksUpConsistentParsedEvidenceAndPreservesAllOldConstraints() throws Exception {
     String document = versionTwo(directory);
     try (var authority = new AuthorityTestContext(directory)) {
-      assertEquals(16, scalar(directory, "PRAGMA user_version"));
-      assertEquals(16, scalar(directory, "SELECT version FROM format_info"));
+      assertEquals(24, scalar(directory, "PRAGMA user_version"));
+      assertEquals(24, scalar(directory, "SELECT version FROM format_info"));
       assertEquals(1, authority.parsedEvidence(owner, document).segments().size());
       assertEquals(0, scalar(directory, "SELECT COUNT(*) FROM active_corpus_publications"));
       assertEquals(

@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -447,7 +448,10 @@ class ProcessTextParserTest {
   public static final class ProcessFixture {
     public static void main(String[] args) throws Exception {
       if (args[0].equals("hang")) {
-        Files.writeString(Path.of(args[1]), Long.toString(ProcessHandle.current().pid()));
+        Path marker = Path.of(args[1]);
+        Path pending = marker.resolveSibling(marker.getFileName() + ".pending");
+        Files.writeString(pending, Long.toString(ProcessHandle.current().pid()));
+        Files.move(pending, marker, StandardCopyOption.ATOMIC_MOVE);
         new CountDownLatch(1).await();
       } else if (args[0].equals("environment")) {
         boolean environment =

@@ -20,11 +20,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 /** Explicit local video composition, independent of audio and visual answer switches. */
 @Configuration(proxyBeanMethods = false)
+@Conditional(LegacyTextCondition.class)
 @ConditionalOnProperty(prefix = "rag.video", name = "enabled", havingValue = "true")
 public class VideoConfiguration {
   @Bean(destroyMethod = "close")

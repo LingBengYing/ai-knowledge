@@ -1,0 +1,29 @@
+{
+  "policyRevision": "java-text-grounding-v6-numeric-sequences",
+  "buildInputScope": "all src/main and src/test Java, packaged src/main/resources, pom.xml",
+  "buildInputCount": 600,
+  "buildInputSha256": "b31a8efd878d465896bd86ff67d923f0ee00e582f83a9b07f320cd9732379bdf",
+  "beforeAfterBuildInputsIdentical": true,
+  "ownedFiles": {
+    "src/main/java/com/evidence/rag/tool/answer/EvidenceConflicts.java": "fc83e45965ca1e3f7c3bf55280494557031338bfbf41fa1e95de452307ecc91d",
+    "src/main/java/com/evidence/rag/tool/answer/QuestionFacts.java": "67982493263c56cb5f86581d26c98d5925171a66329ef3203c1ba31949baec2f",
+    "src/main/java/com/evidence/rag/tool/answer/SourceFields.java": "e13ef923aa97522c15481b38c9fb3bf757717c7fca0e0b098138d0e46d6dca3f",
+    "src/main/java/com/evidence/rag/tool/answer/TextGrounding.java": "f0148e54c9e07d6bfd53443c2c7e3822eab6773bb5ecfa9fd692eb910412ea44",
+    "src/test/java/com/evidence/rag/service/AudioNumericSequenceAnswerTest.java": "3dab45f66996cb15a330dc64c35ee748a8c157768db490c0d75c2ac9e307acc1",
+    "src/test/java/com/evidence/rag/tool/answer/TextGroundingNumericSequenceTest.java": "d84940a02c6c1de36c21499727bcfddb50758e816f6e37cc8ab540c7de71f8fc"
+  },
+  "jar": {
+    "path": "target/rag-java-0.1.0-SNAPSHOT.jar",
+    "sha256": "879714e0e967734eeed9ad1c359da274d5ae08ad58c275350aa1b8b7f35ba543",
+    "sizeBytes": 38711206
+  },
+  "verification": {
+    "tests": 611,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "spotlessJavaFiles": 592,
+    "realProviderRetest": "NOT_RUN",
+    "newProviderCalls": 0
+  }
+}

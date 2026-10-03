@@ -1,0 +1,7 @@
+# Review
+
+实施前依据为工作区non-speech-audio-preparation的后端/前端缺口与Google两份官方协议研究。旧AudioCompilation、speech receipt、ASR quote不能容纳纯声音；选独立source/publication/trace，复用documents整理、真实AudioDecoder/AudioWaveform、授权projection与原文件Range。纯声音上传不调用ASR，完整原声独立证明，旧链保持。新source删除和封存guards必须核验；完整scope/每路所有candidate与终态未引用资料复验保持。本轮无真实模型或部署授权。
+
+原声问答冲突策略（root明确批准）：对全部候选窗口分别执行完整问题draft及独立verify，只有complete且全部facts支持的单窗口合格。合格facts集合不同一律conflicting_evidence，同义改写也可能保守拒答，不增加模型或文本同义推断；最终只引用RRF排序最强的完整单窗口，不能拼接半问题，不能因为首个支持就跳过尾部候选。SoundProofIdentity以length-prefixed UTF8绑定问题SHA、workspace/document/publication/source/PCM/sample、profile/decoder、canonical facts JSON SHA、model/policy。描述不进入证明。
+
+首次统一related执行的ArchitectureRulesTest指出Repository依赖Tool，已按原架构门禁修复分层：无I/O的digest/matches/UTF8 SHA移入SoundProofIdentity Domain；事实指令检测留在Tool.SoundProofBinding，create先检测后委托Domain身份算法。Repository只复验Domain canonical facts与已生成proof hash，不复制算法、不将工具指令策略搬入Domain。该修改保持证明字节算法及既有行为断言，等待root统一复验。

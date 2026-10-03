@@ -3,11 +3,9 @@ package com.evidence.rag.web;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
-import com.evidence.rag.model.dto.QueryAnswerMode;
+import com.evidence.rag.model.domain.LibraryOperationGate;
+import com.evidence.rag.model.domain.LibraryWorkContext;
 import com.evidence.rag.security.web.AuthenticatedActor;
-import com.evidence.rag.service.AnswerService;
-import com.evidence.rag.service.VisualAnswerService;
-import com.evidence.rag.web.converter.QueryAttachmentRequestMapper;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
@@ -26,40 +24,46 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.Semaphore;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Bounded ephemeral query transport; the service owns scope, compilation and proof. */
-public final class QueryAttachmentServlet extends HttpServlet {
+/** Bounded ephemeral media transport shared by explicit request handlers. */
+public final class BoundedMediaQueryServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
-  private final transient AnswerService answers;
-  private final transient VisualAnswerService visual;
+  private final transient Handler handler;
+  private final int maxRequestBytes;
   private final int receiveTimeoutMs;
-  private final int answerTimeoutMs;
+  private final int processingTimeoutMs;
   private final Semaphore admission;
   private final JsonMapper json;
   private final transient ProblemHandler errors;
   private final transient ExecutorService waiters =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("query-attachment-http-", 0).factory());
+      Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("media-query-http-", 0).factory());
 
-  public QueryAttachmentServlet(
-      AnswerService answers,
-      VisualAnswerService visual,
+  @FunctionalInterface
+  public interface Handler {
+    Object handle(Actor actor, byte[] body);
+  }
+
+  public BoundedMediaQueryServlet(
+      Handler handler,
+      int maxRequestBytes,
       int receiveTimeoutMs,
-      int answerTimeoutMs,
+      int processingTimeoutMs,
       int maxConcurrent,
       JsonMapper json,
       ProblemHandler errors) {
-    if (receiveTimeoutMs < 10
+    if (maxRequestBytes < 1
+        || maxRequestBytes > 28 * 1024 * 1024
+        || receiveTimeoutMs < 10
         || receiveTimeoutMs > 60000
-        || answerTimeoutMs < 10
-        || answerTimeoutMs > 600000
+        || processingTimeoutMs < 10
+        || processingTimeoutMs > 600000
         || maxConcurrent < 1
         || maxConcurrent > 8) {
-      throw new IllegalArgumentException("Invalid query attachment transport limits");
+      throw new IllegalArgumentException("Invalid media query transport limits");
     }
-    this.answers = Objects.requireNonNull(answers);
-    this.visual = visual;
+    this.handler = Objects.requireNonNull(handler);
+    this.maxRequestBytes = maxRequestBytes;
     this.receiveTimeoutMs = receiveTimeoutMs;
-    this.answerTimeoutMs = answerTimeoutMs;
+    this.processingTimeoutMs = processingTimeoutMs;
     this.admission = new Semaphore(maxConcurrent);
     this.json = Objects.requireNonNull(json);
     this.errors = Objects.requireNonNull(errors);
@@ -71,7 +75,7 @@ public final class QueryAttachmentServlet extends HttpServlet {
     try {
       if (!"POST".equals(request.getMethod())) {
         throw new ApplicationException(
-            FailureKind.METHOD_NOT_ALLOWED, "method_not_allowed", "附件提问仅支持POST。");
+            FailureKind.METHOD_NOT_ALLOWED, "method_not_allowed", "媒体输入仅支持POST。");
       }
       Actor actor = AuthenticatedActor.require(request);
       if (request.getQueryString() != null) {
@@ -83,14 +87,14 @@ public final class QueryAttachmentServlet extends HttpServlet {
               || "application/json;charset=utf-8"
                   .equalsIgnoreCase(contentTypes.getFirst().replace(" ", "")))) {
         throw new ApplicationException(
-            FailureKind.UNSUPPORTED_MEDIA, "unsupported_media_type", "附件提问需要JSON内容。");
+            FailureKind.UNSUPPORTED_MEDIA, "unsupported_media_type", "媒体输入需要JSON内容。");
       }
-      if (request.getContentLengthLong() > QueryAttachmentRequestMapper.MAX_REQUEST_BYTES) {
+      if (request.getContentLengthLong() > maxRequestBytes) {
         throw tooLarge();
       }
       if (!admission.tryAcquire()) {
         throw new ApplicationException(
-            FailureKind.CAPACITY_EXCEEDED, "query_attachment_busy", "附件提问正在处理中，请稍后重试。");
+            FailureKind.CAPACITY_EXCEEDED, "query_attachment_busy", "媒体输入正在处理中，请稍后重试。");
       }
       Receiver receiver = null;
       try {
@@ -122,6 +126,7 @@ public final class QueryAttachmentServlet extends HttpServlet {
     private final HttpServletResponse response;
     private final AsyncContext async;
     private final Actor actor;
+    private final LibraryOperationGate.ReservedOperation operation;
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     private final long receiveDeadline = System.nanoTime() + receiveTimeoutMs * 1_000_000L;
     private boolean done;
@@ -134,6 +139,8 @@ public final class QueryAttachmentServlet extends HttpServlet {
       this.response = response;
       this.async = async;
       this.actor = actor;
+      this.operation =
+          LibraryWorkContext.currentGate().map(LibraryOperationGate::reserve).orElse(null);
     }
 
     @Override
@@ -152,7 +159,7 @@ public final class QueryAttachmentServlet extends HttpServlet {
         if (count < 0) {
           break;
         }
-        if (bytes.size() > QueryAttachmentRequestMapper.MAX_REQUEST_BYTES - count) {
+        if (bytes.size() > maxRequestBytes - count) {
           fail(tooLarge());
           return;
         }
@@ -173,7 +180,7 @@ public final class QueryAttachmentServlet extends HttpServlet {
         }
         byte[] body = bytes.toByteArray();
         bytes.reset();
-        async.setTimeout(answerTimeoutMs + 1000L);
+        async.setTimeout(processingTimeoutMs + 1000L);
         task =
             new FutureTask<>(
                 () -> {
@@ -192,17 +199,8 @@ public final class QueryAttachmentServlet extends HttpServlet {
 
     private void process(byte[] body) {
       waitingThread = Thread.currentThread();
-      try {
-        var command = QueryAttachmentRequestMapper.command(body);
-        Object result;
-        if (command.mode() == QueryAnswerMode.IMAGE) {
-          if (visual == null) {
-            throw unavailable();
-          }
-          result = visual.answerAttached(actor, command.answer(), command.attachments());
-        } else {
-          result = answers.answerAttached(actor, command);
-        }
+      try (var lease = operation == null ? null : operation.begin()) {
+        Object result = handler.handle(actor, body);
         finish(200, result, false);
       } catch (ApplicationException problem) {
         safeFail(problem);
@@ -239,6 +237,10 @@ public final class QueryAttachmentServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         response.getOutputStream().write(json.writeValueAsBytes(body));
       } finally {
+        bytes.reset();
+        if (operation != null) {
+          operation.close();
+        }
         admission.release();
         async.complete();
       }
@@ -277,6 +279,10 @@ public final class QueryAttachmentServlet extends HttpServlet {
         if (waiter != null) {
           waiter.cancel(true);
         }
+        bytes.reset();
+        if (operation != null) {
+          operation.close();
+        }
         admission.release();
       }
     }
@@ -294,25 +300,25 @@ public final class QueryAttachmentServlet extends HttpServlet {
   }
 
   private static ApplicationException invalid() {
-    return new ApplicationException(FailureKind.INVALID_INPUT, "invalid_request", "附件提问请求无效。");
+    return new ApplicationException(FailureKind.INVALID_INPUT, "invalid_request", "媒体输入请求无效。");
   }
 
   private static ApplicationException tooLarge() {
     return new ApplicationException(
-        FailureKind.PAYLOAD_TOO_LARGE, "query_request_too_large", "附件请求超过接收限额。");
+        FailureKind.PAYLOAD_TOO_LARGE, "query_request_too_large", "媒体输入超过接收限额。");
   }
 
   private static ApplicationException timeout() {
-    return new ApplicationException(FailureKind.TIMEOUT, "query_attachment_timeout", "附件提问处理超时。");
+    return new ApplicationException(FailureKind.TIMEOUT, "query_attachment_timeout", "媒体输入处理超时。");
   }
 
   private static ApplicationException interrupted() {
     return new ApplicationException(
-        FailureKind.INVALID_REQUEST, "query_attachment_interrupted", "附件提问已中断。");
+        FailureKind.INVALID_REQUEST, "query_attachment_interrupted", "媒体输入已中断。");
   }
 
   private static ApplicationException unavailable() {
     return new ApplicationException(
-        FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
+        FailureKind.UNAVAILABLE, "query_attachment_unavailable", "媒体输入暂不可用。");
   }
 }

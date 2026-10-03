@@ -13,13 +13,15 @@ import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.VideoAnswerProposalService;
 import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 /** Explicit local answer composition; authorization precedes every query preparation. */
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
+@ConditionalOnExpression("${rag.answers.enabled:false} || ${rag.model-configuration.enabled:false}")
 public class AnswersConfiguration {
   @Bean
   EvidenceRepository evidenceRepository(SqliteAuthorityStore store) {
@@ -36,6 +38,8 @@ public class AnswersConfiguration {
   }
 
   @Bean(destroyMethod = "close")
+  @ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
+  @Conditional(LegacyTextCondition.class)
   AnswerService answerService(
       EvidenceService evidence,
       TextModels models,

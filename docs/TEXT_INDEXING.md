@@ -1,5 +1,7 @@
 # Text Indexing · 0004
 
+当前0035已经提供精确`POST /v1/documents/{id}/reindex`和真实`text_reindex/can_reindex`，同target保存材料的新任务/新generation完整验证后原子切换。合同及实际验收见[0035](changes/0035-saved-source-reindex/verification.md)。下方v3、不可重建和尚未接问答等内容为0004当时的历史设计。
+
 当前状态为IMPLEMENTATION。0004把已解析真实文本连接到embedding与独立Java Milvus投影，完整revision验证后才发布权威active。它不提供检索、重排、最终回答、来源或多模态API。0003发布基线bc82a7a的190项Java/42项Node与Java21 CI是历史记录；当前源码、独立审查、浏览器、真实provider/Milvus及生产验收分别以[VERIFICATION](VERIFICATION.md)为准，旧manifest不认证新增源码。
 
 ## 启用与任务入口

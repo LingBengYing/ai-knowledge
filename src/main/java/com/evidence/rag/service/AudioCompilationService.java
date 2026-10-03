@@ -2,11 +2,17 @@ package com.evidence.rag.service;
 
 import com.evidence.rag.client.model.AudioModels;
 import com.evidence.rag.model.domain.AudioCompilation;
+import com.evidence.rag.model.domain.AudioPreparedCompilation;
+import com.evidence.rag.model.domain.AudioWaveform;
+import com.evidence.rag.model.domain.DecodedAudio;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.parser.AudioDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /** Decode and transcribe a complete source; callers retain publication and current authority. */
@@ -18,6 +24,7 @@ public final class AudioCompilationService {
   private final String decoderRevision;
   private final String modelRevision;
   private final String compilerRevision;
+  private final int chunkBytes;
 
   public AudioCompilationService(
       AudioDecoder decoder, AudioModels models, int chunkSeconds, Duration budget) {
@@ -32,6 +39,7 @@ public final class AudioCompilationService {
     }
     this.decoder = decoder;
     this.models = models;
+    chunkBytes = chunkSeconds * DecodedAudio.BYTES_PER_SECOND;
     decoderRevision = ModelValues.identifier(decoder.revision(), 200);
     modelRevision = ModelValues.identifier(models.revision(), 200);
     budgetNanos = budget.toNanos();
@@ -54,6 +62,22 @@ public final class AudioCompilationService {
 
   public AudioCompilation compile(
       String filename, String mime, byte[] source, BooleanSupplier current) {
+    return compile(filename, mime, source, current, null);
+  }
+
+  public AudioPreparedCompilation compileWithWaveforms(
+      String filename, String mime, byte[] source, BooleanSupplier current) {
+    var waveforms = new ArrayList<AudioWaveform>();
+    var compilation = compile(filename, mime, source, current, waveforms);
+    return new AudioPreparedCompilation(compilation, waveforms);
+  }
+
+  private AudioCompilation compile(
+      String filename,
+      String mime,
+      byte[] source,
+      BooleanSupplier current,
+      List<AudioWaveform> waveforms) {
     long started = System.nanoTime();
     if (current == null) {
       throw ModelValues.invalid();
@@ -80,6 +104,21 @@ public final class AudioCompilationService {
             });
     if (transcript.spans().stream().allMatch(span -> span.text().isBlank())) {
       throw new TextParser.Failure("audio_no_speech");
+    }
+    if (waveforms != null) {
+      byte[] pcm = decoded.pcm();
+      for (int offset = 0; offset < pcm.length; offset += chunkBytes) {
+        check(current, started);
+        int end = Math.min(pcm.length, offset + chunkBytes);
+        waveforms.add(
+            new AudioWaveform(
+                sourceSha,
+                decoderRevision,
+                offset / 2L,
+                end / 2L,
+                Arrays.copyOfRange(pcm, offset, end)));
+      }
+      check(current, started);
     }
     return new AudioCompilation(
         sourceSha,

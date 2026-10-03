@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Enumeration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -22,13 +23,23 @@ import org.springframework.web.util.UrlPathHelper;
 public final class AuthenticationFilter extends OncePerRequestFilter {
   private final RequestAuthenticator authentication;
   private final HandlerExceptionResolver errors;
+  private final ExternalEntryPolicy externalEntry;
   private final UrlPathHelper paths = new UrlPathHelper();
 
   public AuthenticationFilter(
       RequestAuthenticator authentication,
       @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors) {
+    this(authentication, errors, ExternalEntryPolicy.disabled());
+  }
+
+  @Autowired
+  public AuthenticationFilter(
+      RequestAuthenticator authentication,
+      @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors,
+      ExternalEntryPolicy externalEntry) {
     this.authentication = authentication;
     this.errors = errors;
+    this.externalEntry = externalEntry;
   }
 
   @Override
@@ -43,7 +54,8 @@ public final class AuthenticationFilter extends OncePerRequestFilter {
     try {
       validateMutationOrigin(request);
       if (!("GET".equals(request.getMethod()) && path.equals("/v1/config"))
-          && !path.equals("/v1/session")) {
+          && !(path.equals("/v1/session")
+              && ("POST".equals(request.getMethod()) || "DELETE".equals(request.getMethod())))) {
         AuthenticatedActor.attach(request, authentication.authenticate(request));
       }
     } catch (ApplicationException problem) {
@@ -58,7 +70,7 @@ public final class AuthenticationFilter extends OncePerRequestFilter {
     chain.doFilter(request, response);
   }
 
-  private static void validateMutationOrigin(HttpServletRequest request) {
+  private void validateMutationOrigin(HttpServletRequest request) {
     if ("GET".equals(request.getMethod())
         || "HEAD".equals(request.getMethod())
         || "OPTIONS".equals(request.getMethod())) {
@@ -66,11 +78,20 @@ public final class AuthenticationFilter extends OncePerRequestFilter {
     }
     Enumeration<String> origins = request.getHeaders("Origin");
     if (origins == null || !origins.hasMoreElements()) {
+      if (externalEntry.enabled()) {
+        throw crossOrigin();
+      }
       return;
     }
     String origin = origins.nextElement();
     if (origins.hasMoreElements()) {
       throw crossOrigin();
+    }
+    if (externalEntry.enabled()) {
+      if (!externalEntry.accepts(request, origin)) {
+        throw crossOrigin();
+      }
+      return;
     }
     try {
       URI uri = URI.create(origin);

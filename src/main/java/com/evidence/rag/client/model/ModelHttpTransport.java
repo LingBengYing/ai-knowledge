@@ -71,15 +71,37 @@ final class ModelHttpTransport implements AutoCloseable {
   }
 
   JsonNode post(Endpoint endpoint, String path, Map<String, Object> payload) {
-    return post(endpoint, path, () -> JSON.writeValueAsBytes(payload), "application/json");
+    return post(endpoint, path, () -> JSON.writeValueAsBytes(payload), "application/json", false);
   }
 
   JsonNode post(Endpoint endpoint, String path, byte[] payload, String contentType) {
-    return post(endpoint, path, () -> payload, contentType);
+    return post(endpoint, path, () -> payload, contentType, false);
+  }
+
+  JsonNode postGoogleEmbedding(Endpoint endpoint, Map<String, Object> payload) {
+    return post(
+        endpoint,
+        "v1beta/models/" + endpoint.model() + ":embedContent",
+        () -> JSON.writeValueAsBytes(payload),
+        "application/json",
+        true);
+  }
+
+  JsonNode postGoogleSound(Endpoint endpoint, Map<String, Object> payload) {
+    return post(
+        endpoint,
+        "v1beta/interactions",
+        () -> JSON.writeValueAsBytes(payload),
+        "application/json",
+        true);
   }
 
   private JsonNode post(
-      Endpoint endpoint, String path, Supplier<byte[]> payload, String contentType) {
+      Endpoint endpoint,
+      String path,
+      Supplier<byte[]> payload,
+      String contentType,
+      boolean googleEmbedding) {
     if (closed) {
       throw new Failure("model_closed");
     }
@@ -100,7 +122,9 @@ final class ModelHttpTransport implements AutoCloseable {
               .timeout(deadline)
               .header("Content-Type", contentType)
               .header("Accept", "application/json")
-              .header("Authorization", "Bearer " + endpoint.apiKey())
+              .header(
+                  googleEmbedding ? "x-goog-api-key" : "Authorization",
+                  googleEmbedding ? endpoint.apiKey() : "Bearer " + endpoint.apiKey())
               .POST(HttpRequest.BodyPublishers.ofByteArray(requestBytes))
               .build();
       exchange =
@@ -108,7 +132,7 @@ final class ModelHttpTransport implements AutoCloseable {
               request,
               info -> {
                 if (info.statusCode() != 200) {
-                  body.fail(new Failure("model_http_failed"));
+                  body.fail(new Failure("model_http_failed", info.statusCode()));
                 } else if (!info.headers()
                     .firstValue("Content-Type")
                     .orElse("")

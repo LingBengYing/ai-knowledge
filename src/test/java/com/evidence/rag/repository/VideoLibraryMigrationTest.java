@@ -29,8 +29,8 @@ class VideoLibraryMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(16, store.count("PRAGMA user_version"));
-            assertEquals(16, store.count("SELECT version FROM format_info"));
+            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(24, store.count("SELECT version FROM format_info"));
             assertEquals(
                 6,
                 store.count(

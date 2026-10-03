@@ -42,14 +42,25 @@ public interface TextModels {
   final class Failure extends RuntimeException {
     private static final long serialVersionUID = 1L;
     private final String code;
+    private final Integer httpStatus;
 
     public Failure(String code) {
+      this(code, null);
+    }
+
+    public Failure(String code, Integer httpStatus) {
       super("模型调用或配置未通过安全校验。", null, false, true);
       this.code = code;
+      this.httpStatus =
+          httpStatus != null && httpStatus >= 100 && httpStatus <= 599 ? httpStatus : null;
     }
 
     public String code() {
       return code;
+    }
+
+    public Integer httpStatus() {
+      return httpStatus;
     }
   }
 }

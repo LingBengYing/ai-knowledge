@@ -54,7 +54,14 @@ public final class IngestionRepository {
 
   public long storedBytes(String workspaceId) {
     return store.count(
-        "SELECT COALESCE(SUM(d.size_bytes),0) FROM documents d JOIN corpus_documents c ON c.document_id=d.id WHERE d.workspace_id=?",
+        """
+        SELECT COALESCE(SUM(resident_bytes),0) FROM (
+          SELECT length(c.original_blob) resident_bytes FROM corpus_documents c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
+          UNION ALL SELECT length(c.original_blob) FROM sound_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
+          UNION ALL SELECT length(c.original_blob) FROM video_av_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?)
+        """,
+        workspaceId,
+        workspaceId,
         workspaceId);
   }
 
@@ -143,7 +150,7 @@ public final class IngestionRepository {
 
   public void insertPage(String revisionId, TextPage page, String textHash) {
     store.execute(
-        "INSERT INTO corpus_pages VALUES(?,?,?,?)",
+        "INSERT INTO corpus_pages(revision_id,page_number,text,text_sha256) VALUES(?,?,?,?)",
         revisionId,
         page.number(),
         page.text(),
@@ -153,7 +160,7 @@ public final class IngestionRepository {
   public void insertSegment(
       String segmentId, String revisionId, TextSegment segment, String textHash) {
     store.execute(
-        "INSERT INTO corpus_segments VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO corpus_segments(id,revision_id,ordinal,page_number,start_offset,end_offset,text,text_sha256) VALUES(?,?,?,?,?,?,?,?)",
         segmentId,
         revisionId,
         segment.ordinal(),

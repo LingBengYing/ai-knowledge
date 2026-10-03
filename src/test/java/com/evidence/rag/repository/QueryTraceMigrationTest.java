@@ -33,8 +33,8 @@ class QueryTraceMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(16, store.count("PRAGMA user_version"));
-            assertEquals(16, store.count("SELECT version FROM format_info"));
+            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(24, store.count("SELECT version FROM format_info"));
             for (String table : TABLES) {
               assertEquals(
                   1,
@@ -74,7 +74,7 @@ class QueryTraceMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(16, store.count("PRAGMA user_version"));
+              assertEquals(24, store.count("PRAGMA user_version"));
               assertEquals(
                   1,
                   store.count(
@@ -109,7 +109,7 @@ class QueryTraceMigrationTest {
     try (var store = new SqliteAuthorityStore(restored)) {
       store.transaction(
           () -> {
-            assertEquals(16, store.count("PRAGMA user_version"));
+            assertEquals(24, store.count("PRAGMA user_version"));
             assertEquals(1, store.count("SELECT COUNT(*) FROM query_traces WHERE id='legacy'"));
             return null;
           });
@@ -191,6 +191,7 @@ class QueryTraceMigrationTest {
 
   /** Test-only downgrade refuses nonempty query sidecars instead of deleting audit history. */
   static void restoreVersionFifteen(Path directory) throws SQLException {
+    AudioVectorMigrationTest.restoreVersionSeventeen(directory);
     try (var connection =
             DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
         var statement = connection.createStatement()) {
@@ -202,7 +203,11 @@ class QueryTraceMigrationTest {
       if (current <= 15) {
         return;
       }
-      assertEquals(16, current);
+      assertEquals(17, current);
+      try (var rows = statement.executeQuery("SELECT COUNT(*) FROM image_vector_publications")) {
+        assertTrue(rows.next());
+        assertEquals(0, rows.getInt(1), "Cannot discard image vector publication history");
+      }
       statement.execute("PRAGMA foreign_keys=ON");
       connection.setAutoCommit(false);
       for (String table : TABLES) {
@@ -211,6 +216,7 @@ class QueryTraceMigrationTest {
           assertEquals(0, rows.getInt(1), "Cannot discard query attachment trace history");
         }
       }
+      statement.execute("DROP TABLE image_vector_publications");
       statement.execute("DROP TRIGGER query_traces_query_preparation_complete");
       for (String table : TABLES) {
         statement.execute("DROP TABLE " + table);

@@ -1,0 +1,39 @@
+# Verification：已有索引后的角色切换
+
+状态：LOCAL_VERIFIED / HANDOFF_PENDING。0033实际本机完整门禁及六Native已通过；冻结以最终manifest/VALIDATION为准，尚未部署。
+
+## 比较基线
+
+0032交付包已冻结并独立实际核验：1505公开源、246改动副本、8605支持证据及补丁/JAR共10358绑定路径；旧0030全部4475绑定保持。其实际3011 Java、430前端、73 Node及六Native通过，759生产class与JAR一致。该版本仅本机验证、未部署、无真实provider调用，页面用户验收。0033不得改写该包或其失败记录。
+
+本切另留1020后端和64前端执行输入基线。正式五工件已由A实际读取并完成限定合同审查；此结论仅指方案无阻断。
+
+## 实际HTTP业务RED
+
+root统一格式后，只新增ManagedTextRoleSwitchMainlineHttpTest，原1020执行输入全部不变；1021输入在本次执行前后完全相同。Maven离线运行该用例：实际1测试、1失败、0错误、0跳过，exit 1。
+
+失败前已完成空配置启动、保存并逐角色测试、应用v1、合成TXT上传、实际解析及索引、召回、回答、旧来源回读和索引/旧trace保存。仅换generation的v2已保存并单独测试；明确activate要求200，实际返回409 model_rebuild_required。这是待修复的真实业务阻断，非编译或命令错误。
+
+原始日志SHA256为7a58b513fa6ce4b10e610cd695b6e74d0e352741265921f7e3972f4519857461。格式后实际测试源码SHA256为cc07163929be70006e4f5d605e93d3cd2ae99b9a650265c52e165b8eac34017d。完整日志、XML、txt、执行输入、测试副本与分析留于工作区.tools/model-role-switch-preparation；不得覆盖或只保留GREEN。
+
+RED尝试中generation切换之后的断言未执行，随后修复后的相关回归已实际完成，见下方；不能用GREEN改写RED原记录。
+
+## 实际相关GREEN及独立限定审查
+
+root统一格式后运行新HTTP正常链、新锚点/持久化/运行/恢复测试、原设置/召回/问答及原ArchitectureRules：实际156测试、0失败、0错误、0跳过，exit 0。1029输入前后完全相同，日志SHA256为d2c316df32e1be2dd5a9b127ef96521f34247304f26dcf25d00888bab0622277，完整XML/txt已独立保留。
+
+新HTTP实际完成generation与rerank连续切换，主动请求的model字段及新trace均对应实际新角色；五个索引表和旧trace三表全部原样、upsert数量不变。旧来源及原件完整字节/SHA可回读；重启无provider调用，之后实际召回/回答继续可用；嵌入版本变更维持409和旧active。新配置测试还执行旧queued任务的实际ProcessTextIndexer、未知target及服务器身份漂移拒绝；实际busy与持久失败保留旧active。
+
+A独立只读限定审查SCOPED_STATIC_PASS，无当前生产HTTP路径阻断；绑定29个生产源，19个原目标/协议/worker/来源/schema/存储等与0032冻结字节一致。JSON报告SHA3814e7305fb61aa68283464f6bd45c24ec302ff5e186f75e702417615a1d73f2。嵌入兼容由唯一受信Config的精确复算证明，低层锚定构造自身不承担此证明；见interfaces维护前置条件。
+
+## 必要合同演进及未验证项
+
+旧ManagedTextMainlineHttpTest中的generation-only拒绝输入与0033新合同冲突。原文件SHA6e34931b58379f95a50ceb417a8829c0096a8c7c48c37631aac5d500a084f635及完整副本已保留。仅允许把该负例改为真实embedding revision变化，原409、错误码、旧active、旧来源和所有其他断言保持；新增正常链承担generation成功行为。精确diff及实际回归随后记录。
+
+完整clean verify实际3058测试、0失败、0错误、0跳过，1013 Java格式、原ArchitectureRules及原双80%全部通过；1029执行输入前后相同。LINE30545 covered/2448 missed=92.580244294%，BRANCH16113/3945=80.332037092%。日志SHAf3ace678651e12f0161c780cd39310394a0f294d1c41ec849cf745e048087e1d，全部401 suite XML、txt及原JaCoCo XML/CSV/exec另存。
+
+六个Native各1实际通过、无跳过：SoundLibrary、AudioVectorRetrieval、VideoAvLibrary、VoiceQuestion、ImageVectorRetrieval及QueryAttachmentLibrary。1029输入与761完整生产class在执行前后均相同；日志SHA6215049dbcd85d143e69f03026c1e4ca24d6300300e075c5f68d2b257aaa1bf3。最终JAR SHA9a68d0b6ba7caa6a2b1935e0b8071d3371e1adfdaeda7decbb1a07bb3808b3e2，39619876字节；完整class/JAR、旧3011 case多重性和新交接由最终独立审计核验。
+
+前端64执行输入和后端18 Node/static输入与先前实际通过版本逐字节相同，复用430/check和73原始日志并明确NOT_RERUN，不把复用写成新执行。读取旧前端证据时root首次错用model-configuration-preparation路径（实际在document-cleanup-verification），这是只读元数据路径错误；实际错误及修正已另存，未修改源码或重跑产品。首次独立审计器的目录判定错误也在0032最终审计外部目录保留，未改旧冻结包。
+
+旧HTTP负例原39条断言起始行保持相同；仅合同明确的embedding revision负例输入和helper演进，完整diff及原文件保留。真实模型、现网分支适配、部署与用户页面验收均未运行；新增真实provider调用为0，目标保持active。

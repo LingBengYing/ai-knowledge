@@ -3,6 +3,8 @@ package com.evidence.rag.web;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.LibraryOperationGate;
+import com.evidence.rag.model.domain.LibraryWorkContext;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.web.converter.TaskResponseMapper;
@@ -104,6 +106,7 @@ public final class UploadServlet extends HttpServlet {
     private final HttpServletResponse response;
     private final AsyncContext async;
     private final Actor actor;
+    private final LibraryOperationGate.ReservedOperation operation;
     private final String filename;
     private final String mime;
     private final long deadline;
@@ -122,6 +125,8 @@ public final class UploadServlet extends HttpServlet {
       this.response = response;
       this.async = async;
       this.actor = actor;
+      this.operation =
+          LibraryWorkContext.currentGate().map(LibraryOperationGate::reserve).orElse(null);
       this.filename = filename;
       this.mime = mime;
       this.deadline = deadline;
@@ -160,7 +165,7 @@ public final class UploadServlet extends HttpServlet {
         fail(timeout());
         return;
       }
-      try {
+      try (var lease = operation == null ? null : operation.begin()) {
         var task = authority.uploadDocument(actor, filename, mime, bytes.toByteArray());
         finish(202, TaskResponseMapper.from(task));
       } catch (ApplicationException problem) {
@@ -194,6 +199,10 @@ public final class UploadServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         response.getOutputStream().write(json.writeValueAsBytes(body));
       } finally {
+        bytes.reset();
+        if (operation != null) {
+          operation.close();
+        }
         uploads.release();
         async.complete();
       }
@@ -227,6 +236,10 @@ public final class UploadServlet extends HttpServlet {
     public synchronized void onComplete(AsyncEvent event) {
       if (!done) {
         done = true;
+        bytes.reset();
+        if (operation != null) {
+          operation.close();
+        }
         uploads.release();
       }
     }

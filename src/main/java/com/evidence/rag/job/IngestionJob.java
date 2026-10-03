@@ -1,6 +1,7 @@
 package com.evidence.rag.job;
 
 import com.evidence.rag.model.domain.IngestionClaim;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.service.IngestionTaskProcessor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -11,6 +12,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class IngestionJob implements AutoCloseable {
   private final IngestionTaskProcessor processor;
+  private final LibraryOperationGate operations;
   private final ScheduledExecutorService scheduler =
       Executors.newScheduledThreadPool(2, Thread.ofPlatform().name("ingestion-job-", 0).factory());
   private final Object lock = new Object();
@@ -19,12 +21,31 @@ public final class IngestionJob implements AutoCloseable {
   private boolean closed;
 
   public IngestionJob(IngestionTaskProcessor processor) {
+    this(processor, null);
+  }
+
+  public IngestionJob(IngestionTaskProcessor processor, LibraryOperationGate operations) {
+    this.operations = operations;
     this.processor = processor;
     scheduler.scheduleWithFixedDelay(this::processNext, 100, 250, TimeUnit.MILLISECONDS);
     scheduler.scheduleWithFixedDelay(this::cancelStale, 100, 100, TimeUnit.MILLISECONDS);
   }
 
   private void processNext() {
+    if (operations == null) {
+      processWithinOperation();
+      return;
+    }
+    var reservation = operations.tryOperation();
+    if (reservation.isEmpty()) {
+      return;
+    }
+    try (var operation = reservation.orElseThrow()) {
+      processWithinOperation();
+    }
+  }
+
+  private void processWithinOperation() {
     IngestionClaim claim = null;
     try {
       synchronized (lock) {

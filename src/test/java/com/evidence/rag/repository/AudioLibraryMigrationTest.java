@@ -35,8 +35,8 @@ class AudioLibraryMigrationTest {
     try (var ignored = new SqliteAuthorityStore(directory)) {
       // The public Store must apply its full, versioned migration chain.
     }
-    assertEquals(16, scalar(database(), "PRAGMA user_version"));
-    assertEquals(16, scalar(database(), "SELECT version FROM format_info"));
+    assertEquals(24, scalar(database(), "PRAGMA user_version"));
+    assertEquals(24, scalar(database(), "SELECT version FROM format_info"));
     assertEquals(
         3,
         scalar(
@@ -88,7 +88,7 @@ class AudioLibraryMigrationTest {
                 .snapshot(actor, DocumentSelection.allDocuments(), PublishedCorpusFixture.TARGET)
                 .publications());
       }
-      assertEquals(16, scalar(database(), "PRAGMA user_version"));
+      assertEquals(24, scalar(database(), "PRAGMA user_version"));
     }
     List<Path> backups;
     try (var files = Files.list(directory)) {

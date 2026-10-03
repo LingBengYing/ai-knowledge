@@ -178,6 +178,8 @@ class AnswerServiceTest {
                             fixture.owner, command("星港项目的识别码是什么？", List.of(document))))
                 .kind());
         assertTrue(entered.await(1, TimeUnit.SECONDS));
+        assertFalse(fixture.authority.store().operationGate().isIdle());
+        assertTrue(fixture.authority.store().operationGate().tryMaintenance().isEmpty());
         assertEquals(
             FailureKind.CAPACITY_EXCEEDED,
             assertThrows(
@@ -185,6 +187,7 @@ class AnswerServiceTest {
                     () -> fixture.answers.answer(fixture.owner, command("未入库的事实？", List.of())))
                 .kind());
         assertEquals(List.of("embed"), fixture.models.calls);
+        assertTrue(fixture.authority.store().operationGate().tryMaintenance().isEmpty());
       } finally {
         release.countDown();
       }

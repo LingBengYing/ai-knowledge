@@ -60,17 +60,43 @@ public final class TextParser {
         }
         pages.add(new TextPage(1, text));
       }
-      var segments = new ArrayList<TextSegment>();
-      for (var page : pages) {
-        chunk(page, segments);
-      }
-      if (segments.isEmpty()) {
-        throw invalid();
-      }
-      return new ParsedText(pages, segments);
+      return compilePages(pages);
     } catch (IOException | IllegalArgumentException error) {
       throw invalid();
     }
+  }
+
+  /** Compiles all original page numbers with the same normalization and source offsets. */
+  public static ParsedText compilePages(List<TextPage> input) {
+    if (input == null || input.isEmpty() || input.size() > 500) {
+      throw invalid();
+    }
+    var pages = new ArrayList<TextPage>(input.size());
+    var segments = new ArrayList<TextSegment>();
+    long points = 0;
+    for (var page : input) {
+      if (Thread.currentThread().isInterrupted()) {
+        throw new Failure("parser_interrupted");
+      }
+      if (page == null || page.number() != pages.size() + 1 || page.text() == null) {
+        throw invalid();
+      }
+      String text = normalize(page.text());
+      points += text.codePointCount(0, text.length());
+      if (points > 1_000_000) {
+        throw invalid();
+      }
+      var normalized = new TextPage(page.number(), text);
+      pages.add(normalized);
+      chunk(normalized, segments);
+      if (segments.size() > 4096) {
+        throw invalid();
+      }
+    }
+    if (segments.isEmpty()) {
+      throw invalid();
+    }
+    return new ParsedText(pages, segments);
   }
 
   public static void validateEnvelope(String filename, String mime, byte[] content) {

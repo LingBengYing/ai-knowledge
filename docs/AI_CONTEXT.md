@@ -1,5 +1,25 @@
 # AI Context：从这里理解仓库
 
+2026-10-03当前0035：[保存材料重建](changes/0035-saved-source-reindex/verification.md)。已发布资料可明确重建保存的完整文本索引，处理期间旧索引可用，成功才切换；失败、取消和重启中断保留旧版本。入口核对真实能力及当前资格，成功后提示重新查询，保留问题、范围与整理草稿。模型配置、逐角色测试、明确应用和召回测试继续沿既有流程。首切不支持已有独立图片/音频向量的资料及真正嵌入/投影迁移；后续receipt迁移与原文件版本替换继续保留。未部署，页面用户验收，0新增真实provider调用，完整目标ACTIVE。
+
+当前0034已本机修复文字角色切换后的旧图片、视频/OCR/字幕来源回读，来源cap与新问答分开；已有媒体POST门禁保持。实际3075 Java、431前端及六Native各1和原门禁通过，详情见[验证](changes/0034-media-role-switch-sources/verification.md)。交接以工作区`.tools/media-role-switch-handoff`实际manifest为准，未部署、真实模型未验、页面用户验收，目标active。下一切继续基础召回范围入口；通用重建、嵌入迁移及同资料版本更新仍依原范围待完成。下方为历史记录。
+
+2026-10-03当前基础修复0033：已有文字索引后，仅更换生成或重排模型可以保存、单独测试并明确应用；嵌入配置及投影不变时不重建资料索引。实际新角色与新trace、原索引/旧来源、连续切换及重启均已本机验证；真正嵌入或投影变化仍拒绝，legacy媒体按实际完整profile判定。最终3058 Java、1013格式、原LINE/BRANCH双80与架构、六Native各1通过；1029后端输入相同、761生产class稳定。前端64及后端18 Node/static输入字节不变，430/check与73明确复用此前实跑证据。新交接.tools/model-role-switch-handoff以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收、真实ASR未宣称修复，目标active。历史记录保留。
+
+2026-10-03当前本机主线：[模型配置与召回测试](MODEL_SETUP_AND_RETRIEVAL.md)已接通保存草稿、逐角色连接测试、明确应用、完整范围召回预览与同版本来源；无模型可启动，应用丢响应后显式读取能恢复索引/召回入口。资料清理及取消后清理恢复一并整合。实际3011 Java、1004格式、原LINE/BRANCH双80%、430前端/check、73后端Node及六Native各1通过；1020/64执行输入相同，759完整生产class与最终JAR一致，旧2640/370用例身份多重性保留。详见[0032验证](changes/0032-model-setup-retrieval-test/verification.md)。交接工作区`.tools/model-setup-handoff`以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收，原ASR质量未宣称解决，目标active、usage/计费取消。下方保留历史记录。
+
+当前本机稳定增量[0027原声向量检索](changes/0027-audio-vector-retrieval/verification.md)：独立GoogleAudio完整PCM embedding、显式全部speech spans构建、v18 immutable receipt、新generation以及完整scope dense召回已实现。查询沿同次解码/ASR保留全部PCM声段，向量仅用于召回，原转录、SHA及typed时间来源继续作证。2042 Java、299前端、73后端Node、4项单列native与原格式/覆盖门禁通过；732/46输入不变、529 native生产类与最终JAR一致。配置见[AUDIO_VECTOR_RETRIEVAL](AUDIO_VECTOR_RETRIEVAL.md)。未部署、无真实模型调用、网页由用户验收；下一主线为非语音声音证据，真实ASR旧失败保留。下方为历史记录。
+
+当前本机主线[0026原图向量检索](changes/0026-image-vector-retrieval/spec.md)：当前已发布原PNG/JPEG→编辑者显式独立build→receipt绑定旧publication/source与独立profile/generation→参考图片dense召回→完整authority映射→旧库内原图证明及来源。无参考图继续旧路；完整scope缺当前向量明确image_vector_required。前端0015配套，默认关闭，配置见[IMAGE_VECTOR_RETRIEVAL](IMAGE_VECTOR_RETRIEVAL.md)，验证见[0026](changes/0026-image-vector-retrieval/verification.md)。本切未部署；实际voice-tags已部署含标签/语音，部署报告与只读入口结果核对，完整网页用户验收及真实ASR/provider仍开放。下方为历史记录。
+
+0025[语音输入](VOICE_QUESTIONS.md)只准备用户问题：复用AudioCompilationService完整解码和ASR，逐ordinal原文以LF连接后返回全字节SHA与版本，用户核对确认后沿旧AnswerSession/AnswerCommand。与查询附件辅助检索分开，不借空问题绕过其合同。独立默认关闭能力和有界transport，不增加数据库/模型协议或真实调用；当前实际部署为20261003-scanned-pdf，标签和语音未发布，页面用户验收。下方阶段状态为历史记录。
+
+当前本机增量[0024摘要建议标签](changes/0024-tag-suggestions/spec.md)：纯Tool从当前available FileSynopsis生成最多8个完整短条目，Service单事务读取/确认合并并复用Management审计。候选fingerprint绑定完整摘要/publication但不含可变tags，确认期间新增标签保留。前端0013以明确选择保存；没有新模型调用/配置/迁移。验证见[0024记录](changes/0024-tag-suggestions/verification.md)，现网仍待本包发布。
+
+当前本机主线为[0023扫描PDF](changes/0023-scanned-pdf/spec.md)：独立PdfOcrOptions/Configuration→摄取profile→隔离PdfOcrCompiler/父子进程生命周期→原ParsedText与索引/问答。全页OCR、完整结果或失败，原parser protocol v1保持。来源沿原服务器页码/CP/SHA，前端0012追加原PDF按页回看。实际证据见[verification](changes/0023-scanned-pdf/verification.md)，配置见[PDF_OCR](PDF_OCR.md)；不把本机native当网页、云质量或生产。
+
+2026-10-03当前源码入口：[0021原文件详情](changes/0021-document-originals/verification.md)与[0022数字序列完整性](changes/0022-audio-numeric-sequences/verification.md)。原文件当前ACL/initial revision/完整SHA读取已接通，前端0009与0021已在独立免登录发布版外部验证；PDF内嵌像素未验。0022只改共享字段/冲突/最小负序列边界与明确policy v6，611项相关回归、592文件格式及构建通过，独立音频交接已冻结但尚未发布。Cedar→Car的ASR与数字识别失败保留，真实复验NOT_RUN；不以本机替身或完整原文件播放认证识别质量。新增usage/计费功能已被用户取消，未产生该项代码/迁移/验证/发布，不继续追加。下方0019等为历史入口及额度，不是当前生产计数或自动追加调用授权。
+
 2026-09-22 17:39:50当前：第二组具名2次诊断获准并完成，累计6/20、未使用14。原/full真正证明均命中SourceInstructions.INSTRUCTION的instruction_in_field；转录SHA与诊断01相同，规范化731=true/AU=false。具体字符不猜测，安全规则不放宽。下一步核对ASR配置/候选而不是重做证明规则；613输入不变、无重试、视频未开始，真实质量与生产未通过。见[台账](changes/0019-audio-video-provider-eval/provider-run.md)，下方2/12等仅为历史。
 
 2026-09-22当前执行终态：[0019本批台账](changes/0019-audio-video-provider-eval/provider-run.md)记录真实LiveIT的`eval_audio_not_grounded`失败，ASR与摘录各1次，2/12后停止，视频0次。未使用10次不得自动转作诊断/重试，后续云调用须另行明确授权。原始响应未记录，不能据同名安全码推断根因；613输入未改，不重跑本机冻结或放宽证明。真实质量与生产未完成，全部既有范围边界保持。下方未授权/NOT_RUN表述为历史快照。

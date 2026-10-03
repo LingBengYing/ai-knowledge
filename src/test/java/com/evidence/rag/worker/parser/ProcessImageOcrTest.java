@@ -13,6 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -147,7 +148,10 @@ class ProcessImageOcrTest {
         System.exit(3);
       }
       if (args.length == 3) {
-        Files.writeString(Path.of(args[2]), Long.toString(ProcessHandle.current().pid()));
+        Path marker = Path.of(args[2]);
+        Path pending = marker.resolveSibling(marker.getFileName() + ".pending");
+        Files.writeString(pending, Long.toString(ProcessHandle.current().pid()));
+        Files.move(pending, marker, StandardCopyOption.ATOMIC_MOVE);
       }
       if (args[0].equals("sleep")) {
         Thread.sleep(30_000);

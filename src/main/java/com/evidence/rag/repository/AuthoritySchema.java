@@ -1,6 +1,8 @@
 package com.evidence.rag.repository;
 
+import com.evidence.rag.model.domain.ModelValues;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -34,7 +36,7 @@ final class AuthoritySchema {
   void verifyFormat() {
     long version = count("PRAGMA user_version");
     if (count("PRAGMA application_id") != 1163280711
-        || (version < 1 || version > 16)
+        || (version < 1 || version > 21)
         || count("SELECT COUNT(*) FROM format_info WHERE format=? AND version=?", FORMAT, version)
             != 1) {
       throw new IllegalStateException("Unsupported Java database format");
@@ -144,6 +146,1377 @@ final class AuthoritySchema {
     }
     if (version >= 16) {
       verifyQueryTraceFormat();
+    }
+    if (version >= 17) {
+      verifyImageVectorFormat();
+    }
+    if (version >= 18) {
+      verifyAudioVectorFormat();
+    }
+    if (version >= 19) {
+      verifySoundFormat();
+    }
+    if (version >= 20) {
+      verifyVideoAvFormat();
+    }
+    if (version >= 21) {
+      verifyVideoAvQueryFormat();
+    }
+  }
+
+  /** v24 permits explicit same-source rebuilds without mutating an earlier indexed task. */
+  void migrateVersionTwentyFour() {
+    transaction(
+        () -> {
+          verifyVersionTwentyThree();
+          String original = schemaSql("table", "indexing_jobs");
+          String uniqueDocument =
+              "document_id TEXT NOT NULL UNIQUE REFERENCES corpus_documents(document_id)";
+          String columnsEnd = "updated_at TEXT NOT NULL,FOREIGN KEY";
+          if (!original.contains(uniqueDocument) || !original.contains(columnsEnd)) {
+            throw new IllegalStateException("Unexpected indexing schema before rebuild migration");
+          }
+          var objects =
+              store.rows(
+                  "SELECT type,name,sql FROM sqlite_master WHERE tbl_name='indexing_jobs' AND type IN ('index','trigger') AND sql IS NOT NULL ORDER BY type,name");
+          String columns =
+              String.join(
+                  ",",
+                  store
+                      .rows("SELECT name FROM pragma_table_info('indexing_jobs') ORDER BY cid")
+                      .stream()
+                      .map(row -> (String) row.get("name"))
+                      .toList());
+          String updated =
+              original
+                  .replace(
+                      uniqueDocument,
+                      "document_id TEXT NOT NULL REFERENCES corpus_documents(document_id)")
+                  .replace(
+                      columnsEnd,
+                      "updated_at TEXT NOT NULL,rebuild_sequence INTEGER NOT NULL DEFAULT 0 CHECK(typeof(rebuild_sequence)='integer' AND rebuild_sequence BETWEEN 0 AND 2147483647),base_publication_id TEXT,UNIQUE(document_id,rebuild_sequence),CHECK((rebuild_sequence=0 AND base_publication_id IS NULL) OR (rebuild_sequence>0 AND base_publication_id IS NOT NULL)),FOREIGN KEY(base_publication_id,document_id,revision_id) REFERENCES index_publications(id,document_id,revision_id) ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,FOREIGN KEY");
+          execute(
+              updated.replaceFirst(
+                  "CREATE TABLE \"?indexing_jobs\"?\\(", "CREATE TABLE indexing_jobs_v24("));
+          execute(
+              "INSERT INTO indexing_jobs_v24("
+                  + columns
+                  + ") SELECT "
+                  + columns
+                  + " FROM indexing_jobs");
+          if (count("SELECT COUNT(*) FROM indexing_jobs")
+                  != count("SELECT COUNT(*) FROM indexing_jobs_v24")
+              || count(
+                      "SELECT COUNT(*) FROM (SELECT "
+                          + columns
+                          + " FROM indexing_jobs EXCEPT SELECT "
+                          + columns
+                          + " FROM indexing_jobs_v24)")
+                  != 0
+              || count(
+                      "SELECT COUNT(*) FROM (SELECT "
+                          + columns
+                          + " FROM indexing_jobs_v24 EXCEPT SELECT "
+                          + columns
+                          + " FROM indexing_jobs)")
+                  != 0) {
+            throw new IllegalStateException("Rebuild migration changed indexing history");
+          }
+          execute("DROP TABLE indexing_jobs");
+          execute("ALTER TABLE indexing_jobs_v24 RENAME TO indexing_jobs");
+          for (var object : objects) {
+            String sql = (String) object.get("sql");
+            if ("indexing_identity".equals(object.get("name"))) {
+              sql =
+                  sql.replace(
+                      "created_by,created_at ON indexing_jobs",
+                      "created_by,created_at,rebuild_sequence,base_publication_id ON indexing_jobs");
+            }
+            execute(sql);
+          }
+          execute(
+              "CREATE UNIQUE INDEX indexing_one_pending ON indexing_jobs(document_id) WHERE state IN ('queued','processing')");
+          execute(
+              """
+              CREATE TRIGGER indexing_rebuild_identity BEFORE INSERT ON indexing_jobs
+              WHEN NEW.rebuild_sequence>0 AND (NEW.state!='queued' OR NEW.attempt!=1 OR (
+                  NEW.rebuild_sequence!=(SELECT COALESCE(MAX(rebuild_sequence),0)+1 FROM indexing_jobs WHERE document_id=NEW.document_id)
+                  OR NOT EXISTS(SELECT 1 FROM active_corpus_publications a
+                    JOIN index_publications p ON p.id=a.publication_id AND p.document_id=a.document_id AND p.revision_id=a.revision_id
+                    JOIN indexing_jobs prior ON prior.id=p.job_id AND prior.state='indexed'
+                    JOIN corpus_documents c ON c.document_id=a.document_id AND c.parsed_revision_id=a.revision_id
+                    JOIN corpus_revisions r ON r.id=c.parsed_revision_id AND r.document_id=c.document_id AND r.parsed_at IS NOT NULL
+                    JOIN documents d ON d.id=c.document_id AND d.source_sha256=r.source_sha256
+                    JOIN ingestion_jobs parsed ON parsed.document_id=c.document_id AND parsed.revision_id=r.id AND parsed.state='parsed'
+                    WHERE a.document_id=NEW.document_id AND a.publication_id=NEW.base_publication_id
+                      AND p.revision_id=NEW.revision_id AND p.source_sha256=NEW.source_sha256 AND p.parser_revision=NEW.parser_revision
+                      AND p.embedding_identity=NEW.embedding_identity AND p.projection_identity=NEW.projection_identity
+                      AND p.model_revision=NEW.model_revision AND p.dimensions=NEW.dimensions
+                      AND r.source_sha256=NEW.source_sha256 AND r.parser_revision=NEW.parser_revision)
+                  OR EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=NEW.base_publication_id)
+                  OR EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=NEW.base_publication_id)
+                  OR EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=NEW.document_id)))
+              BEGIN SELECT RAISE(ABORT,'invalid rebuild identity'); END
+              """);
+          String complete = schemaSql("trigger", "active_corpus_publication_complete");
+          if (!complete.contains("BEFORE INSERT ON active_corpus_publications")) {
+            throw new IllegalStateException("Unexpected active publication completeness guard");
+          }
+          execute(
+              complete
+                  .replace(
+                      "active_corpus_publication_complete",
+                      "active_corpus_publication_rebuild_complete")
+                  .replace(
+                      "BEFORE INSERT ON active_corpus_publications",
+                      "BEFORE UPDATE ON active_corpus_publications"));
+          execute("DROP TRIGGER active_corpus_publications_no_update");
+          execute(
+              """
+              CREATE TRIGGER active_corpus_publications_no_update BEFORE UPDATE ON active_corpus_publications
+              WHEN NEW.document_id IS NOT OLD.document_id OR NEW.revision_id IS NOT OLD.revision_id
+                OR NOT EXISTS(SELECT 1 FROM index_publications p
+                  JOIN indexing_jobs j ON j.id=p.job_id AND j.state='processing'
+                    AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id
+                  JOIN index_publications base ON base.id=OLD.publication_id AND base.document_id=OLD.document_id AND base.revision_id=OLD.revision_id
+                  WHERE p.id=NEW.publication_id AND p.document_id=NEW.document_id AND p.revision_id=NEW.revision_id
+                    AND j.rebuild_sequence>0 AND j.base_publication_id=OLD.publication_id
+                    AND p.id!=base.id AND p.projection_generation_id!=base.projection_generation_id
+                    AND p.source_sha256=base.source_sha256 AND p.parser_revision=base.parser_revision
+                    AND p.embedding_identity=base.embedding_identity AND p.projection_identity=base.projection_identity
+                    AND p.model_revision=base.model_revision AND p.dimensions=base.dimensions
+                    AND NOT EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=NEW.document_id)
+                    AND NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=OLD.publication_id)
+                    AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=OLD.publication_id))
+              BEGIN SELECT RAISE(ABORT,'immutable index publication'); END
+              """);
+          execute(
+              """
+              CREATE TRIGGER active_corpus_publication_initial BEFORE INSERT ON active_corpus_publications
+              WHEN EXISTS(SELECT 1 FROM active_corpus_publications WHERE document_id=NEW.document_id)
+                OR NOT EXISTS(SELECT 1 FROM index_publications p JOIN indexing_jobs j ON j.id=p.job_id
+                  WHERE p.id=NEW.publication_id AND j.rebuild_sequence=0 AND j.base_publication_id IS NULL)
+              BEGIN SELECT RAISE(ABORT,'invalid initial active publication'); END
+              """);
+          String inventoryGuard = schemaSql("trigger", "cleanup_schema_objects_no_update");
+          execute("DROP TRIGGER cleanup_schema_objects_no_update");
+          for (var row :
+              store.rows(
+                  "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+            String name = (String) row.get("name");
+            String type = (String) row.get("type");
+            String digest =
+                ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
+            if (count(
+                    "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=? AND object_type=?",
+                    name,
+                    type)
+                == 0) {
+              execute(
+                  "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
+                  name,
+                  type,
+                  digest);
+            } else if (List.of(
+                    "indexing_jobs", "indexing_identity", "active_corpus_publications_no_update")
+                .contains(name)) {
+              execute(
+                  "UPDATE cleanup_schema_objects SET sql_sha256=? WHERE name=? AND object_type=?",
+                  digest,
+                  name,
+                  type);
+            }
+          }
+          execute(inventoryGuard);
+          execute("UPDATE format_info SET version=24 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=24");
+          verifyVersionTwentyFour();
+          return null;
+        });
+  }
+
+  private String schemaSql(String type, String name) {
+    var rows = store.rows("SELECT sql FROM sqlite_master WHERE type=? AND name=?", type, name);
+    if (rows.size() != 1 || !(rows.getFirst().get("sql") instanceof String value)) {
+      throw new IllegalStateException("Missing authority schema object");
+    }
+    return value;
+  }
+
+  void verifyVersionTwentyFour() {
+    if (count("PRAGMA user_version") != 24
+        || count("SELECT COUNT(*) FROM format_info WHERE version=24 AND format=?", FORMAT) != 1
+        || count("PRAGMA application_id") != 1163280711
+        || count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0
+        || count(
+                "SELECT COUNT(*) FROM pragma_table_info('indexing_jobs') WHERE name IN ('rebuild_sequence','base_publication_id')")
+            != 2
+        || count(
+                "SELECT COUNT(*) FROM indexing_jobs WHERE (rebuild_sequence=0)!=(base_publication_id IS NULL)")
+            != 0
+        || count(
+                "SELECT COUNT(*) FROM indexing_jobs j WHERE j.rebuild_sequence>0 AND NOT EXISTS(SELECT 1 FROM index_publications p WHERE p.id=j.base_publication_id AND p.document_id=j.document_id AND p.revision_id=j.revision_id AND p.source_sha256=j.source_sha256 AND p.parser_revision=j.parser_revision AND p.embedding_identity=j.embedding_identity AND p.projection_identity=j.projection_identity AND p.model_revision=j.model_revision AND p.dimensions=j.dimensions)")
+            != 0) {
+      throw new IllegalStateException("Unsupported rebuild authority format");
+    }
+    var expected = new LinkedHashMap<String, String>();
+    var actual = new LinkedHashMap<String, String>();
+    for (var row :
+        store.rows(
+            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+      actual.put(
+          row.get("type") + ":" + row.get("name"),
+          ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8)));
+    }
+    for (var row : store.rows("SELECT name,object_type,sql_sha256 FROM cleanup_schema_objects")) {
+      expected.put(row.get("object_type") + ":" + row.get("name"), (String) row.get("sql_sha256"));
+    }
+    if (!actual.equals(expected)) {
+      throw new IllegalStateException("Changed rebuild authority guards");
+    }
+    new DocumentCleanupRepository(store).verifyPurgedRows();
+  }
+
+  /** v23 extends only the persisted ingestion failure vocabulary for managed text configuration. */
+  void migrateVersionTwentyThree() {
+    transaction(
+        () -> {
+          new DocumentCleanupSchema(store).verify();
+          String oldCheck =
+              "error_code TEXT CHECK(error_code IN ('unsupported_document','parser_failed','parser_timeout','parser_output_invalid','worker_interrupted'))";
+          String newCheck =
+              "error_code TEXT CHECK(error_code IN ('unsupported_document','parser_failed','parser_timeout','parser_output_invalid','worker_interrupted','text_configuration_required','media_text_configuration_mismatch'))";
+          String original =
+              (String)
+                  store
+                      .rows(
+                          "SELECT sql FROM sqlite_master WHERE type='table' AND name='ingestion_jobs'")
+                      .getFirst()
+                      .get("sql");
+          if (!original.contains(oldCheck)
+              || original.indexOf(oldCheck) != original.lastIndexOf(oldCheck)
+              || !(original.startsWith("CREATE TABLE ingestion_jobs(")
+                  || original.startsWith("CREATE TABLE \"ingestion_jobs\"("))) {
+            throw new IllegalStateException(
+                "Unexpected ingestion schema before managed configuration migration");
+          }
+          var objects =
+              store.rows(
+                  "SELECT type,name,sql FROM sqlite_master WHERE tbl_name='ingestion_jobs' AND type IN ('index','trigger') AND sql IS NOT NULL ORDER BY type,name");
+          String columns =
+              String.join(
+                  ",",
+                  store
+                      .rows("SELECT name FROM pragma_table_info('ingestion_jobs') ORDER BY cid")
+                      .stream()
+                      .map(row -> (String) row.get("name"))
+                      .toList());
+          execute(
+              original
+                  .replace(oldCheck, newCheck)
+                  .replaceFirst(
+                      "CREATE TABLE \"?ingestion_jobs\"?\\(", "CREATE TABLE ingestion_jobs_v23("));
+          execute(
+              "INSERT INTO ingestion_jobs_v23("
+                  + columns
+                  + ") SELECT "
+                  + columns
+                  + " FROM ingestion_jobs");
+          if (count("SELECT COUNT(*) FROM ingestion_jobs")
+                  != count("SELECT COUNT(*) FROM ingestion_jobs_v23")
+              || count(
+                      "SELECT COUNT(*) FROM (SELECT "
+                          + columns
+                          + " FROM ingestion_jobs EXCEPT SELECT "
+                          + columns
+                          + " FROM ingestion_jobs_v23)")
+                  != 0
+              || count(
+                      "SELECT COUNT(*) FROM (SELECT "
+                          + columns
+                          + " FROM ingestion_jobs_v23 EXCEPT SELECT "
+                          + columns
+                          + " FROM ingestion_jobs)")
+                  != 0) {
+            throw new IllegalStateException("Ingestion migration changed task history");
+          }
+          execute("DROP TABLE ingestion_jobs");
+          execute("ALTER TABLE ingestion_jobs_v23 RENAME TO ingestion_jobs");
+          for (var object : objects) {
+            execute((String) object.get("sql"));
+          }
+          String immutableGuard =
+              (String)
+                  store
+                      .rows(
+                          "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='cleanup_schema_objects_no_update'")
+                      .getFirst()
+                      .get("sql");
+          String updated =
+              (String)
+                  store
+                      .rows(
+                          "SELECT sql FROM sqlite_master WHERE type='table' AND name='ingestion_jobs'")
+                      .getFirst()
+                      .get("sql");
+          execute("DROP TRIGGER cleanup_schema_objects_no_update");
+          execute(
+              "UPDATE cleanup_schema_objects SET sql_sha256=? WHERE name='ingestion_jobs' AND object_type='table'",
+              ModelValues.sha256(updated.getBytes(StandardCharsets.UTF_8)));
+          execute(immutableGuard);
+          execute("UPDATE format_info SET version=23 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=23");
+          verifyVersionTwentyThree();
+          return null;
+        });
+  }
+
+  /** Keeps the v22 complete schema inventory and purge verification in force after v23. */
+  void verifyVersionTwentyThree() {
+    if (count("PRAGMA user_version") != 23
+        || count("SELECT COUNT(*) FROM format_info WHERE version=23 AND format=?", FORMAT) != 1
+        || count("PRAGMA application_id") != 1163280711
+        || count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0) {
+      throw new IllegalStateException("Unsupported managed text authority format");
+    }
+    var expected = new LinkedHashMap<String, String>();
+    var actual = new LinkedHashMap<String, String>();
+    for (var row :
+        store.rows(
+            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+      actual.put(
+          row.get("type") + ":" + row.get("name"),
+          ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8)));
+    }
+    for (var row : store.rows("SELECT name,object_type,sql_sha256 FROM cleanup_schema_objects")) {
+      expected.put(row.get("object_type") + ":" + row.get("name"), (String) row.get("sql_sha256"));
+    }
+    if (!actual.equals(expected)) {
+      throw new IllegalStateException("Changed managed text authority guards");
+    }
+    new DocumentCleanupRepository(store).verifyPurgedRows();
+  }
+
+  /** Adds immutable hash-only query preparation sidecars without rewriting v20 authority. */
+  void migrateVersionTwentyOne() {
+    transaction(
+        () -> {
+          execute(
+              """
+        CREATE TABLE video_av_query_preparations(
+          trace_id TEXT PRIMARY KEY NOT NULL REFERENCES video_av_traces(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          attachment_count INTEGER NOT NULL CHECK(typeof(attachment_count)='integer' AND attachment_count BETWEEN 1 AND 3),
+          mode TEXT NOT NULL CHECK(mode IN ('VISUAL','AUDIO','JOINT')),
+          question_sha256 TEXT NOT NULL CHECK(length(question_sha256)=64 AND question_sha256 NOT GLOB '*[^a-f0-9]*'),
+          profile_fingerprint TEXT NOT NULL CHECK(length(profile_fingerprint)=64 AND profile_fingerprint NOT GLOB '*[^a-f0-9]*'),
+          embedding_revision TEXT NOT NULL CHECK(length(embedding_revision) BETWEEN 1 AND 200),
+          preparation_revision TEXT NOT NULL CHECK(preparation_revision='java-video-av-query-preparation-v1'),
+          manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256 NOT GLOB '*[^a-f0-9]*'))
+        """);
+          execute(
+              """
+        CREATE TABLE video_av_query_attachments(
+          trace_id TEXT NOT NULL REFERENCES video_av_query_preparations(trace_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          ordinal INTEGER NOT NULL CHECK(typeof(ordinal)='integer' AND ordinal BETWEEN 0 AND 2),
+          source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          media_kind TEXT NOT NULL CHECK(media_kind='video'),
+          compiler_revision TEXT NOT NULL CHECK(length(compiler_revision) BETWEEN 1 AND 200),
+          content_sha256 TEXT,window_count INTEGER,visual_window_count INTEGER,audio_window_count INTEGER,audio_present INTEGER,
+          used_mode TEXT NOT NULL CHECK(used_mode IN ('VISUAL','AUDIO','JOINT')),
+          status TEXT NOT NULL CHECK(status IN ('prepared','not_prepared')),
+          PRIMARY KEY(trace_id,ordinal),
+          CHECK((status='not_prepared' AND content_sha256 IS NULL AND window_count IS NULL
+            AND visual_window_count IS NULL AND audio_window_count IS NULL AND audio_present IS NULL)
+            OR (status='prepared' AND content_sha256 IS NOT NULL AND length(content_sha256)=64
+            AND content_sha256 NOT GLOB '*[^a-f0-9]*' AND window_count IS NOT NULL AND typeof(window_count)='integer' AND window_count BETWEEN 1 AND 1201
+            AND visual_window_count IS NOT NULL AND typeof(visual_window_count)='integer' AND visual_window_count BETWEEN 1 AND window_count
+            AND audio_window_count IS NOT NULL AND typeof(audio_window_count)='integer' AND audio_window_count BETWEEN 0 AND window_count
+            AND visual_window_count+audio_window_count>=window_count
+            AND audio_present IS NOT NULL AND typeof(audio_present)='integer' AND audio_present IN (0,1) AND audio_present=(audio_window_count>0)
+            AND (used_mode='VISUAL' OR audio_window_count>0))))
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_query_preparations_complete BEFORE INSERT ON video_av_query_preparations
+        WHEN EXISTS(SELECT 1 FROM video_av_traces WHERE id=NEW.trace_id)
+          OR NEW.attachment_count!=(SELECT COUNT(*) FROM video_av_query_attachments WHERE trace_id=NEW.trace_id)
+          OR (SELECT MIN(ordinal) FROM video_av_query_attachments WHERE trace_id=NEW.trace_id)!=0
+          OR (SELECT MAX(ordinal) FROM video_av_query_attachments WHERE trace_id=NEW.trace_id)!=NEW.attachment_count-1
+          OR (SELECT COUNT(DISTINCT status) FROM video_av_query_attachments WHERE trace_id=NEW.trace_id)!=1
+          OR (SELECT COUNT(DISTINCT compiler_revision) FROM video_av_query_attachments WHERE trace_id=NEW.trace_id)!=1
+          OR EXISTS(SELECT 1 FROM video_av_query_attachments WHERE trace_id=NEW.trace_id AND used_mode!=NEW.mode)
+          OR (SELECT SUM(window_count) FROM video_av_query_attachments WHERE trace_id=NEW.trace_id)>1201
+        BEGIN SELECT RAISE(ABORT,'incomplete video query preparation'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_query_preparations_no_replace BEFORE INSERT ON video_av_query_preparations
+        WHEN EXISTS(SELECT 1 FROM video_av_query_preparations WHERE trace_id=NEW.trace_id)
+        BEGIN SELECT RAISE(ABORT,'immutable video query preparation'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_query_attachments_sealed BEFORE INSERT ON video_av_query_attachments
+        WHEN EXISTS(SELECT 1 FROM video_av_query_preparations WHERE trace_id=NEW.trace_id)
+          OR EXISTS(SELECT 1 FROM video_av_traces WHERE id=NEW.trace_id)
+        BEGIN SELECT RAISE(ABORT,'sealed video query preparation'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_query_attachments_no_replace BEFORE INSERT ON video_av_query_attachments
+        WHEN EXISTS(SELECT 1 FROM video_av_query_attachments WHERE trace_id=NEW.trace_id AND ordinal=NEW.ordinal)
+        BEGIN SELECT RAISE(ABORT,'immutable video query attachment'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_query_parent_complete BEFORE INSERT ON video_av_traces
+        WHEN (EXISTS(SELECT 1 FROM video_av_query_attachments WHERE trace_id=NEW.id)
+          AND NOT EXISTS(SELECT 1 FROM video_av_query_preparations WHERE trace_id=NEW.id))
+          OR EXISTS(SELECT 1 FROM video_av_query_preparations q WHERE q.trace_id=NEW.id
+            AND (q.mode!=NEW.mode OR q.question_sha256!=NEW.question_sha256
+              OR (NEW.status='answered' AND EXISTS(SELECT 1 FROM video_av_query_attachments a
+                WHERE a.trace_id=NEW.id AND a.status!='prepared'))
+              OR EXISTS(SELECT 1 FROM video_av_trace_documents d JOIN video_av_publications p ON p.id=d.publication_id
+                WHERE d.trace_id=NEW.id AND (p.profile_fingerprint!=q.profile_fingerprint
+                  OR p.visual_embedding_identity!=q.embedding_revision OR p.audio_embedding_identity!=q.embedding_revision))))
+        BEGIN SELECT RAISE(ABORT,'inconsistent video query trace'); END
+        """);
+          for (String table :
+              List.of("video_av_query_preparations", "video_av_query_attachments")) {
+            for (String operation : List.of("UPDATE", "DELETE")) {
+              execute(
+                  "CREATE TRIGGER "
+                      + table
+                      + "_no_"
+                      + operation.toLowerCase(java.util.Locale.ROOT)
+                      + " BEFORE "
+                      + operation
+                      + " ON "
+                      + table
+                      + " BEGIN SELECT RAISE(ABORT,'immutable video query authority'); END");
+            }
+          }
+          verifyVideoAvQueryFormat();
+          if (count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0) {
+            throw new IllegalStateException("Video query migration changed foreign keys");
+          }
+          execute("UPDATE format_info SET version=21 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=21");
+          return null;
+        });
+  }
+
+  private void verifyVideoAvQueryFormat() {
+    if (count(
+                "SELECT COUNT(*) FROM pragma_table_info('video_av_query_preparations') WHERE name IN ('trace_id','attachment_count','mode','question_sha256','profile_fingerprint','embedding_revision','preparation_revision','manifest_sha256')")
+            != 8
+        || count("SELECT COUNT(*) FROM pragma_table_info('video_av_query_preparations')") != 8
+        || count(
+                "SELECT COUNT(*) FROM pragma_table_info('video_av_query_attachments') WHERE name IN ('trace_id','ordinal','source_sha256','media_kind','compiler_revision','content_sha256','window_count','visual_window_count','audio_window_count','audio_present','used_mode','status')")
+            != 12
+        || count("SELECT COUNT(*) FROM pragma_table_info('video_av_query_attachments')") != 12
+        || count(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('video_av_query_preparations_complete','video_av_query_preparations_no_replace','video_av_query_preparations_no_update','video_av_query_preparations_no_delete','video_av_query_attachments_sealed','video_av_query_attachments_no_replace','video_av_query_attachments_no_update','video_av_query_attachments_no_delete','video_av_query_parent_complete')")
+            != 9) {
+      throw new IllegalStateException("Unsupported Java video query preparation schema");
+    }
+  }
+
+  /**
+   * Adds independent raw-video audiovisual authority without changing speech or historical trace
+   * semantics.
+   */
+  void migrateVersionTwenty() {
+    transaction(
+        () -> {
+          execute(
+              """
+        CREATE TABLE video_av_originals(
+          document_id TEXT PRIMARY KEY NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,
+          source_revision_id TEXT NOT NULL UNIQUE,
+          source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          filename TEXT NOT NULL,media_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520),
+          original_blob BLOB NOT NULL CHECK(length(original_blob)=0 OR length(original_blob)=size_bytes),
+          created_at TEXT NOT NULL)
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_originals_identity BEFORE INSERT ON video_av_originals
+        WHEN length(NEW.original_blob)!=NEW.size_bytes OR NOT EXISTS(SELECT 1 FROM documents d
+          WHERE d.id=NEW.document_id AND d.active_revision_id=NEW.source_revision_id
+            AND d.source_sha256=NEW.source_sha256 AND d.filename=NEW.filename
+            AND d.document_type='video' AND d.mime_type=NEW.media_type AND d.size_bytes=NEW.size_bytes
+            AND d.mime_type IN ('video/mp4','video/quicktime','video/webm','video/x-matroska')
+            AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))
+        BEGIN SELECT RAISE(ABORT,'invalid video audiovisual original identity'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_originals_no_replace BEFORE INSERT ON video_av_originals
+        WHEN EXISTS(SELECT 1 FROM video_av_originals WHERE document_id=NEW.document_id OR source_revision_id=NEW.source_revision_id)
+        BEGIN SELECT RAISE(ABORT,'immutable video audiovisual original'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_originals_no_update BEFORE UPDATE ON video_av_originals
+        WHEN NEW.document_id IS NOT OLD.document_id OR NEW.source_revision_id IS NOT OLD.source_revision_id
+          OR NEW.source_sha256 IS NOT OLD.source_sha256 OR NEW.filename IS NOT OLD.filename
+          OR NEW.media_type IS NOT OLD.media_type OR NEW.size_bytes IS NOT OLD.size_bytes
+          OR NEW.created_at IS NOT OLD.created_at
+          OR (NEW.original_blob IS NOT OLD.original_blob AND NOT(length(NEW.original_blob)=0
+            AND EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=OLD.document_id)))
+        BEGIN SELECT RAISE(ABORT,'immutable video audiovisual original'); END
+        """);
+          execute(
+              "CREATE TRIGGER video_av_originals_no_delete BEFORE DELETE ON video_av_originals BEGIN SELECT RAISE(ABORT,'immutable video audiovisual original'); END");
+          execute(
+              """
+        CREATE TABLE video_av_publications(
+          id TEXT PRIMARY KEY NOT NULL CHECK(length(id)=36),workspace_id TEXT NOT NULL,
+          document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,
+          source_revision_id TEXT NOT NULL,source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          filename TEXT NOT NULL,media_type TEXT NOT NULL,size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520),
+          source_first_pts INTEGER NOT NULL,source_time_base_num INTEGER NOT NULL CHECK(source_time_base_num>0),
+          source_time_base_den INTEGER NOT NULL CHECK(source_time_base_den>0),ticks_per_second INTEGER NOT NULL CHECK(ticks_per_second>0 AND ticks_per_second%16000=0),
+          duration_tick INTEGER NOT NULL CHECK(duration_tick>0 AND duration_tick/ticks_per_second<=600),has_audio INTEGER NOT NULL CHECK(has_audio IN(0,1)),
+          decoder_revision TEXT NOT NULL,analysis_model_revision TEXT NOT NULL,
+          profile_fingerprint TEXT NOT NULL CHECK(length(profile_fingerprint)=64 AND profile_fingerprint NOT GLOB '*[^a-f0-9]*'),
+          visual_embedding_identity TEXT NOT NULL,visual_projection_identity TEXT NOT NULL CHECK(length(visual_projection_identity)=64 AND visual_projection_identity NOT GLOB '*[^a-f0-9]*'),
+          visual_model_revision TEXT NOT NULL,visual_dimensions INTEGER NOT NULL CHECK(visual_dimensions BETWEEN 2 AND 3072),
+          audio_embedding_identity TEXT NOT NULL,audio_projection_identity TEXT NOT NULL CHECK(length(audio_projection_identity)=64 AND audio_projection_identity NOT GLOB '*[^a-f0-9]*'),
+          audio_model_revision TEXT NOT NULL,audio_dimensions INTEGER NOT NULL CHECK(audio_dimensions BETWEEN 2 AND 3072),
+          chunk_seconds INTEGER NOT NULL CHECK(chunk_seconds BETWEEN 1 AND 30),window_count INTEGER NOT NULL CHECK(window_count BETWEEN 1 AND 1201),
+          window_manifest_sha256 TEXT NOT NULL CHECK(length(window_manifest_sha256)=64 AND window_manifest_sha256 NOT GLOB '*[^a-f0-9]*'),
+          visual_entry_count INTEGER NOT NULL CHECK(visual_entry_count BETWEEN 1 AND 1201),visual_manifest_sha256 TEXT NOT NULL CHECK(length(visual_manifest_sha256)=64 AND visual_manifest_sha256 NOT GLOB '*[^a-f0-9]*'),
+          audio_entry_count INTEGER NOT NULL CHECK(audio_entry_count BETWEEN 0 AND 1201),audio_manifest_sha256 TEXT NOT NULL CHECK(length(audio_manifest_sha256)=64 AND audio_manifest_sha256 NOT GLOB '*[^a-f0-9]*'),
+          created_at_ms INTEGER NOT NULL CHECK(created_at_ms>0),
+          CHECK(visual_embedding_identity=audio_embedding_identity AND visual_model_revision=audio_model_revision AND visual_embedding_identity=visual_model_revision AND visual_dimensions=audio_dimensions AND visual_projection_identity!=audio_projection_identity),
+          UNIQUE(document_id,source_revision_id,profile_fingerprint))
+        """);
+          execute(
+              """
+        CREATE TABLE video_av_windows(
+          publication_id TEXT NOT NULL REFERENCES video_av_publications(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          id TEXT NOT NULL CHECK(length(id)=67 AND substr(id,1,3)='av-' AND substr(id,4) NOT GLOB '*[^a-f0-9]*'),
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 1200),start_tick INTEGER NOT NULL CHECK(start_tick>=0),end_tick INTEGER NOT NULL CHECK(end_tick>start_tick),
+          clip_sha256 TEXT,frame_count INTEGER,frames_manifest_sha256 TEXT,first_local_tick INTEGER,end_local_tick INTEGER,
+          pcm_sha256 TEXT,wav_sha256 TEXT,audio_start_sample INTEGER,audio_end_sample INTEGER,sample_rate INTEGER,
+          visual_physical_id TEXT UNIQUE,visual_entry_sha256 TEXT,audio_physical_id TEXT UNIQUE,audio_entry_sha256 TEXT,
+          CHECK((clip_sha256 IS NULL AND frame_count IS NULL AND frames_manifest_sha256 IS NULL AND first_local_tick IS NULL AND end_local_tick IS NULL AND visual_physical_id IS NULL AND visual_entry_sha256 IS NULL)
+            OR (clip_sha256 IS NOT NULL AND length(clip_sha256)=64 AND clip_sha256 NOT GLOB '*[^a-f0-9]*' AND frame_count IS NOT NULL AND frame_count>0 AND frames_manifest_sha256 IS NOT NULL AND length(frames_manifest_sha256)=64 AND frames_manifest_sha256 NOT GLOB '*[^a-f0-9]*'
+              AND first_local_tick IS NOT NULL AND end_local_tick IS NOT NULL AND first_local_tick>=0 AND end_local_tick>first_local_tick AND end_local_tick<=end_tick-start_tick AND visual_physical_id IS NOT NULL AND length(visual_physical_id)=68 AND substr(visual_physical_id,1,4)='seg-' AND substr(visual_physical_id,5) NOT GLOB '*[^a-f0-9]*' AND visual_entry_sha256 IS NOT NULL AND length(visual_entry_sha256)=64 AND visual_entry_sha256 NOT GLOB '*[^a-f0-9]*')),
+          CHECK((pcm_sha256 IS NULL AND wav_sha256 IS NULL AND audio_start_sample IS NULL AND audio_end_sample IS NULL AND sample_rate IS NULL AND audio_physical_id IS NULL AND audio_entry_sha256 IS NULL)
+            OR (pcm_sha256 IS NOT NULL AND length(pcm_sha256)=64 AND pcm_sha256 NOT GLOB '*[^a-f0-9]*' AND wav_sha256 IS NOT NULL AND length(wav_sha256)=64 AND wav_sha256 NOT GLOB '*[^a-f0-9]*' AND audio_start_sample IS NOT NULL AND audio_end_sample IS NOT NULL AND sample_rate IS NOT NULL AND audio_start_sample>=0 AND audio_end_sample>audio_start_sample AND audio_end_sample<=9600000 AND audio_end_sample-audio_start_sample<=480000 AND sample_rate=16000
+              AND audio_physical_id IS NOT NULL AND length(audio_physical_id)=68 AND substr(audio_physical_id,1,4)='seg-' AND substr(audio_physical_id,5) NOT GLOB '*[^a-f0-9]*' AND audio_entry_sha256 IS NOT NULL AND length(audio_entry_sha256)=64 AND audio_entry_sha256 NOT GLOB '*[^a-f0-9]*')),
+          CHECK(clip_sha256 IS NOT NULL OR pcm_sha256 IS NOT NULL),CHECK(visual_physical_id IS NULL OR audio_physical_id IS NULL OR visual_physical_id!=audio_physical_id),
+          PRIMARY KEY(publication_id,id),UNIQUE(publication_id,ordinal))
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_publications_identity BEFORE INSERT ON video_av_publications
+        WHEN NOT EXISTS(SELECT 1 FROM documents d WHERE d.id=NEW.document_id AND d.workspace_id=NEW.workspace_id
+          AND d.active_revision_id=NEW.source_revision_id AND d.source_sha256=NEW.source_sha256
+          AND d.filename=NEW.filename AND d.mime_type=NEW.media_type AND d.size_bytes=NEW.size_bytes AND d.document_type='video'
+          AND d.mime_type IN ('video/mp4','video/quicktime','video/webm','video/x-matroska')
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+          AND (EXISTS(SELECT 1 FROM video_av_originals o WHERE o.document_id=d.id AND o.source_revision_id=NEW.source_revision_id
+            AND o.source_sha256=NEW.source_sha256 AND length(o.original_blob)=NEW.size_bytes)
+            OR EXISTS(SELECT 1 FROM corpus_documents c JOIN corpus_revisions r ON r.id=c.initial_revision_id AND r.document_id=c.document_id
+              WHERE c.document_id=d.id AND c.initial_revision_id=NEW.source_revision_id AND r.source_sha256=NEW.source_sha256 AND length(c.original_blob)=NEW.size_bytes)))
+          OR NEW.duration_tick/NEW.ticks_per_second>600 OR (NEW.duration_tick/NEW.ticks_per_second=600 AND NEW.duration_tick%NEW.ticks_per_second!=0)
+          OR NEW.window_count!=(SELECT COUNT(*) FROM video_av_windows WHERE publication_id=NEW.id)
+          OR NEW.visual_entry_count!=(SELECT COUNT(*) FROM video_av_windows WHERE publication_id=NEW.id AND clip_sha256 IS NOT NULL)
+          OR NEW.audio_entry_count!=(SELECT COUNT(*) FROM video_av_windows WHERE publication_id=NEW.id AND pcm_sha256 IS NOT NULL)
+          OR NEW.has_audio!=(NEW.audio_entry_count>0)
+          OR NOT EXISTS(SELECT 1 FROM video_av_windows WHERE publication_id=NEW.id AND ordinal=0 AND start_tick=0)
+          OR NOT EXISTS(SELECT 1 FROM video_av_windows WHERE publication_id=NEW.id AND ordinal=NEW.window_count-1 AND end_tick=NEW.duration_tick)
+          OR EXISTS(SELECT 1 FROM video_av_windows w WHERE w.publication_id=NEW.id
+            AND (w.ordinal>=NEW.window_count OR w.end_tick-w.start_tick>NEW.chunk_seconds*NEW.ticks_per_second
+              OR (w.ordinal>0 AND NOT EXISTS(SELECT 1 FROM video_av_windows previous WHERE previous.publication_id=NEW.id AND previous.ordinal=w.ordinal-1 AND previous.end_tick=w.start_tick))
+              OR (w.pcm_sha256 IS NOT NULL AND (w.audio_start_sample!=w.start_tick/(NEW.ticks_per_second/16000) OR w.audio_end_sample>w.end_tick/(NEW.ticks_per_second/16000)
+                OR (w.audio_start_sample>0 AND NOT EXISTS(SELECT 1 FROM video_av_windows previous WHERE previous.publication_id=NEW.id AND previous.ordinal=w.ordinal-1 AND previous.audio_end_sample=w.audio_start_sample))))))
+        BEGIN SELECT RAISE(ABORT,'incomplete video audiovisual publication'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_publications_no_replace BEFORE INSERT ON video_av_publications
+        WHEN EXISTS(SELECT 1 FROM video_av_publications WHERE id=NEW.id
+          OR (document_id=NEW.document_id AND source_revision_id=NEW.source_revision_id AND profile_fingerprint=NEW.profile_fingerprint))
+        BEGIN SELECT RAISE(ABORT,'immutable video audiovisual publication'); END
+        """);
+          execute(
+              "CREATE TRIGGER video_av_windows_sealed BEFORE INSERT ON video_av_windows WHEN EXISTS(SELECT 1 FROM video_av_publications WHERE id=NEW.publication_id) BEGIN SELECT RAISE(ABORT,'sealed video audiovisual publication'); END");
+          execute(
+              "CREATE TRIGGER video_av_windows_no_replace BEFORE INSERT ON video_av_windows WHEN EXISTS(SELECT 1 FROM video_av_windows WHERE (NEW.visual_physical_id IS NOT NULL AND visual_physical_id=NEW.visual_physical_id) OR (NEW.audio_physical_id IS NOT NULL AND (audio_physical_id=NEW.audio_physical_id OR visual_physical_id=NEW.audio_physical_id)) OR (NEW.visual_physical_id IS NOT NULL AND audio_physical_id=NEW.visual_physical_id) OR (publication_id=NEW.publication_id AND (id=NEW.id OR ordinal=NEW.ordinal))) BEGIN SELECT RAISE(ABORT,'immutable video audiovisual window'); END");
+          execute(
+              """
+        CREATE TABLE video_av_traces(
+          id TEXT PRIMARY KEY NOT NULL,workspace_id TEXT NOT NULL,actor_id TEXT NOT NULL,
+          selection_all INTEGER NOT NULL CHECK(selection_all IN (0,1)),scope_count INTEGER NOT NULL CHECK(scope_count BETWEEN 0 AND 128),
+          citation_count INTEGER NOT NULL CHECK(citation_count BETWEEN 0 AND 32),mode TEXT NOT NULL CHECK(mode IN('VISUAL','AUDIO','JOINT')),
+          question_sha256 TEXT NOT NULL CHECK(length(question_sha256)=64 AND question_sha256 NOT GLOB '*[^a-f0-9]*'),
+          answer_sha256 TEXT CHECK(answer_sha256 IS NULL OR (length(answer_sha256)=64 AND answer_sha256 NOT GLOB '*[^a-f0-9]*')),
+          status TEXT NOT NULL CHECK(status IN ('answered','abstained')),reason_code TEXT,model_revision TEXT NOT NULL,
+          policy_revision TEXT NOT NULL CHECK(policy_revision='java-video-av-answer-v1'),created_at TEXT NOT NULL,
+          CHECK((status='answered' AND answer_sha256 IS NOT NULL AND reason_code IS NULL AND citation_count>0)
+            OR (status='abstained' AND answer_sha256 IS NULL AND reason_code IS NOT NULL AND length(reason_code)>0 AND citation_count=0)))
+        """);
+          execute(
+              """
+        CREATE TABLE video_av_trace_documents(
+          trace_id TEXT NOT NULL REFERENCES video_av_traces(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 127),publication_id TEXT NOT NULL REFERENCES video_av_publications(id) ON DELETE RESTRICT,
+          PRIMARY KEY(trace_id,ordinal),UNIQUE(trace_id,publication_id))
+        """);
+          execute(
+              """
+        CREATE TABLE video_av_trace_evidence(
+          trace_id TEXT NOT NULL REFERENCES video_av_traces(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 1 AND 32),publication_id TEXT NOT NULL,window_id TEXT NOT NULL,
+          facts_json TEXT NOT NULL CHECK(json_valid(facts_json) AND json_type(facts_json)='array' AND json_array_length(facts_json) BETWEEN 1 AND 16 AND length(CAST(facts_json AS BLOB))<=65536),
+          facts_sha256 TEXT NOT NULL CHECK(length(facts_sha256)=64 AND facts_sha256 NOT GLOB '*[^a-f0-9]*'),
+          proof_sha256 TEXT NOT NULL CHECK(length(proof_sha256)=64 AND proof_sha256 NOT GLOB '*[^a-f0-9]*'),
+          PRIMARY KEY(trace_id,ordinal),FOREIGN KEY(publication_id,window_id) REFERENCES video_av_windows(publication_id,id) ON DELETE RESTRICT)
+        """);
+          execute(
+              """
+        CREATE TRIGGER video_av_traces_complete BEFORE INSERT ON video_av_traces
+        WHEN NEW.scope_count!=(SELECT COUNT(*) FROM video_av_trace_documents WHERE trace_id=NEW.id)
+          OR (NEW.selection_all=1 AND NEW.scope_count!=(SELECT COUNT(*) FROM documents d
+            JOIN document_acl a ON a.document_id=d.id WHERE d.workspace_id=NEW.workspace_id
+              AND a.principal_id=NEW.actor_id AND a.role IN ('owner','editor','reader') AND d.document_type='video'
+              AND (EXISTS(SELECT 1 FROM video_av_originals s WHERE s.document_id=d.id)
+                OR EXISTS(SELECT 1 FROM corpus_documents c WHERE c.document_id=d.id))
+              AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)))
+          OR (NEW.scope_count>0 AND ((SELECT MIN(ordinal) FROM video_av_trace_documents WHERE trace_id=NEW.id)!=0
+            OR (SELECT MAX(ordinal) FROM video_av_trace_documents WHERE trace_id=NEW.id)!=NEW.scope_count-1))
+          OR NEW.citation_count!=(SELECT COUNT(*) FROM video_av_trace_evidence WHERE trace_id=NEW.id)
+          OR (NEW.citation_count>0 AND ((SELECT MIN(ordinal) FROM video_av_trace_evidence WHERE trace_id=NEW.id)!=1
+            OR (SELECT MAX(ordinal) FROM video_av_trace_evidence WHERE trace_id=NEW.id)!=NEW.citation_count))
+          OR EXISTS(SELECT 1 FROM video_av_trace_documents e JOIN video_av_publications p ON p.id=e.publication_id
+            WHERE e.trace_id=NEW.id AND (p.workspace_id!=NEW.workspace_id OR p.analysis_model_revision!=NEW.model_revision
+              OR NOT EXISTS(SELECT 1 FROM documents d JOIN document_acl a ON a.document_id=d.id
+                WHERE d.id=p.document_id AND d.workspace_id=NEW.workspace_id AND a.principal_id=NEW.actor_id AND a.role IN ('owner','editor','reader')
+                  AND d.active_revision_id=p.source_revision_id AND d.source_sha256=p.source_sha256
+                  AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))))
+          OR EXISTS(SELECT 1 FROM video_av_trace_evidence e WHERE e.trace_id=NEW.id AND NOT EXISTS(
+            SELECT 1 FROM video_av_trace_documents d WHERE d.trace_id=NEW.id AND d.publication_id=e.publication_id))
+        BEGIN SELECT RAISE(ABORT,'incomplete video audiovisual trace'); END
+        """);
+          execute(
+              "CREATE TRIGGER video_av_traces_no_replace BEFORE INSERT ON video_av_traces WHEN EXISTS(SELECT 1 FROM video_av_traces WHERE id=NEW.id) BEGIN SELECT RAISE(ABORT,'immutable video audiovisual trace'); END");
+          for (String table : List.of("video_av_trace_documents", "video_av_trace_evidence")) {
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_sealed BEFORE INSERT ON "
+                    + table
+                    + " WHEN EXISTS(SELECT 1 FROM video_av_traces WHERE id=NEW.trace_id) BEGIN SELECT RAISE(ABORT,'sealed video audiovisual trace'); END");
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_no_replace BEFORE INSERT ON "
+                    + table
+                    + " WHEN EXISTS(SELECT 1 FROM "
+                    + table
+                    + " WHERE trace_id=NEW.trace_id AND ordinal=NEW.ordinal) BEGIN SELECT RAISE(ABORT,'immutable video audiovisual trace child'); END");
+          }
+          for (String table :
+              List.of(
+                  "video_av_publications",
+                  "video_av_windows",
+                  "video_av_traces",
+                  "video_av_trace_documents",
+                  "video_av_trace_evidence")) {
+            for (String operation : List.of("UPDATE", "DELETE")) {
+              execute(
+                  "CREATE TRIGGER "
+                      + table
+                      + "_no_"
+                      + operation.toLowerCase(java.util.Locale.ROOT)
+                      + " BEFORE "
+                      + operation
+                      + " ON "
+                      + table
+                      + " BEGIN SELECT RAISE(ABORT,'immutable video audiovisual authority'); END");
+            }
+          }
+          verifyVideoAvFormat();
+          if (count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0) {
+            throw new IllegalStateException("Video audiovisual migration changed foreign keys");
+          }
+          execute("UPDATE format_info SET version=20 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=20");
+          return null;
+        });
+  }
+
+  private void verifyVideoAvFormat() {
+    String[][] columns = {
+      {
+        "video_av_originals",
+        "document_id",
+        "source_revision_id",
+        "source_sha256",
+        "filename",
+        "media_type",
+        "size_bytes",
+        "original_blob",
+        "created_at"
+      },
+      {
+        "video_av_publications",
+        "id",
+        "workspace_id",
+        "document_id",
+        "source_revision_id",
+        "source_sha256",
+        "filename",
+        "media_type",
+        "size_bytes",
+        "source_first_pts",
+        "source_time_base_num",
+        "source_time_base_den",
+        "ticks_per_second",
+        "duration_tick",
+        "has_audio",
+        "decoder_revision",
+        "analysis_model_revision",
+        "profile_fingerprint",
+        "visual_embedding_identity",
+        "visual_projection_identity",
+        "visual_model_revision",
+        "visual_dimensions",
+        "audio_embedding_identity",
+        "audio_projection_identity",
+        "audio_model_revision",
+        "audio_dimensions",
+        "chunk_seconds",
+        "window_count",
+        "window_manifest_sha256",
+        "visual_entry_count",
+        "visual_manifest_sha256",
+        "audio_entry_count",
+        "audio_manifest_sha256",
+        "created_at_ms"
+      },
+      {
+        "video_av_windows",
+        "publication_id",
+        "id",
+        "ordinal",
+        "start_tick",
+        "end_tick",
+        "clip_sha256",
+        "frame_count",
+        "frames_manifest_sha256",
+        "first_local_tick",
+        "end_local_tick",
+        "pcm_sha256",
+        "wav_sha256",
+        "audio_start_sample",
+        "audio_end_sample",
+        "sample_rate",
+        "visual_physical_id",
+        "visual_entry_sha256",
+        "audio_physical_id",
+        "audio_entry_sha256"
+      },
+      {
+        "video_av_traces",
+        "id",
+        "workspace_id",
+        "actor_id",
+        "selection_all",
+        "scope_count",
+        "citation_count",
+        "mode",
+        "question_sha256",
+        "answer_sha256",
+        "status",
+        "reason_code",
+        "model_revision",
+        "policy_revision",
+        "created_at"
+      },
+      {"video_av_trace_documents", "trace_id", "ordinal", "publication_id"},
+      {
+        "video_av_trace_evidence",
+        "trace_id",
+        "ordinal",
+        "publication_id",
+        "window_id",
+        "facts_json",
+        "facts_sha256",
+        "proof_sha256"
+      }
+    };
+    for (String[] table : columns) {
+      var wanted =
+          new java.util.HashSet<String>(java.util.Arrays.asList(table).subList(1, table.length));
+      var actual =
+          store.rows("PRAGMA table_info('" + table[0] + "')").stream()
+              .map(row -> (String) row.get("name"))
+              .collect(java.util.stream.Collectors.toSet());
+      if (!wanted.equals(actual)) {
+        throw new IllegalStateException("Unsupported Java video audiovisual schema");
+      }
+      for (String op : List.of("no_update", "no_delete", "no_replace")) {
+        if (count(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name=?",
+                table[0] + "_" + op)
+            != 1) {
+          throw new IllegalStateException("Unsupported Java video audiovisual guards");
+        }
+      }
+    }
+    for (String guard :
+        List.of(
+            "video_av_originals_identity",
+            "video_av_publications_identity",
+            "video_av_windows_sealed",
+            "video_av_traces_complete",
+            "video_av_trace_documents_sealed",
+            "video_av_trace_evidence_sealed")) {
+      if (count("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name=?", guard) != 1) {
+        throw new IllegalStateException("Unsupported Java video audiovisual guards");
+      }
+    }
+  }
+
+  /** Adds independent raw-sound authority without changing speech or historical trace semantics. */
+  void migrateVersionNineteen() {
+    transaction(
+        () -> {
+          execute(
+              """
+        CREATE TABLE sound_originals(
+          document_id TEXT PRIMARY KEY NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,
+          source_revision_id TEXT NOT NULL UNIQUE,
+          source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          filename TEXT NOT NULL,media_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520),
+          original_blob BLOB NOT NULL CHECK(length(original_blob)=0 OR length(original_blob)=size_bytes),
+          created_at TEXT NOT NULL)
+        """);
+          execute(
+              """
+        CREATE TRIGGER sound_originals_identity BEFORE INSERT ON sound_originals
+        WHEN length(NEW.original_blob)!=NEW.size_bytes OR NOT EXISTS(SELECT 1 FROM documents d
+          WHERE d.id=NEW.document_id AND d.active_revision_id=NEW.source_revision_id
+            AND d.source_sha256=NEW.source_sha256 AND d.filename=NEW.filename
+            AND d.document_type='audio' AND d.mime_type=NEW.media_type AND d.size_bytes=NEW.size_bytes
+            AND d.mime_type IN ('audio/wav','audio/mpeg','audio/flac','audio/ogg','audio/mp4','audio/webm')
+            AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))
+        BEGIN SELECT RAISE(ABORT,'invalid sound original identity'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER sound_originals_no_replace BEFORE INSERT ON sound_originals
+        WHEN EXISTS(SELECT 1 FROM sound_originals WHERE document_id=NEW.document_id OR source_revision_id=NEW.source_revision_id)
+        BEGIN SELECT RAISE(ABORT,'immutable sound original'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER sound_originals_no_update BEFORE UPDATE ON sound_originals
+        WHEN NEW.document_id IS NOT OLD.document_id OR NEW.source_revision_id IS NOT OLD.source_revision_id
+          OR NEW.source_sha256 IS NOT OLD.source_sha256 OR NEW.filename IS NOT OLD.filename
+          OR NEW.media_type IS NOT OLD.media_type OR NEW.size_bytes IS NOT OLD.size_bytes
+          OR NEW.created_at IS NOT OLD.created_at
+          OR (NEW.original_blob IS NOT OLD.original_blob AND NOT(length(NEW.original_blob)=0
+            AND EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=OLD.document_id)))
+        BEGIN SELECT RAISE(ABORT,'immutable sound original'); END
+        """);
+          execute(
+              "CREATE TRIGGER sound_originals_no_delete BEFORE DELETE ON sound_originals BEGIN SELECT RAISE(ABORT,'immutable sound original'); END");
+          execute(
+              """
+        CREATE TABLE sound_publications(
+          id TEXT PRIMARY KEY NOT NULL CHECK(length(id) BETWEEN 1 AND 128),workspace_id TEXT NOT NULL,
+          document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE RESTRICT,
+          source_revision_id TEXT NOT NULL,source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          filename TEXT NOT NULL,media_type TEXT NOT NULL,size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520),
+          generation_id TEXT NOT NULL UNIQUE CHECK(length(generation_id)=36),
+          embedding_identity TEXT NOT NULL,projection_identity TEXT NOT NULL CHECK(length(projection_identity)=64 AND projection_identity NOT GLOB '*[^a-f0-9]*'),
+          embedding_model_revision TEXT NOT NULL,dimensions INTEGER NOT NULL CHECK(dimensions BETWEEN 2 AND 3072),
+          sound_model_revision TEXT NOT NULL,decoder_revision TEXT NOT NULL,chunk_seconds INTEGER NOT NULL CHECK(chunk_seconds BETWEEN 1 AND 30),
+          sample_count INTEGER NOT NULL CHECK(sample_count BETWEEN 1 AND 9600000),span_count INTEGER NOT NULL CHECK(span_count BETWEEN 1 AND 600),
+          manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256 NOT GLOB '*[^a-f0-9]*'),
+          profile_fingerprint TEXT NOT NULL CHECK(length(profile_fingerprint)=64 AND profile_fingerprint NOT GLOB '*[^a-f0-9]*'),created_at TEXT NOT NULL,
+          UNIQUE(document_id,source_revision_id,profile_fingerprint))
+        """);
+          execute(
+              """
+        CREATE TABLE sound_spans(
+          publication_id TEXT NOT NULL REFERENCES sound_publications(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          id TEXT NOT NULL CHECK(length(id)=70 AND substr(id,1,6)='sound-' AND substr(id,7) NOT GLOB '*[^a-f0-9]*'),
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 599),start_sample INTEGER NOT NULL CHECK(start_sample>=0),
+          end_sample INTEGER NOT NULL CHECK(end_sample>start_sample AND end_sample<=9600000 AND end_sample-start_sample<=480000),
+          pcm_sha256 TEXT NOT NULL CHECK(length(pcm_sha256)=64 AND pcm_sha256 NOT GLOB '*[^a-f0-9]*'),
+          recall_text TEXT NOT NULL CHECK(length(CAST(recall_text AS BLOB))<=8192),
+          physical_segment_id TEXT NOT NULL UNIQUE CHECK(length(physical_segment_id)=68 AND substr(physical_segment_id,1,4)='seg-' AND substr(physical_segment_id,5) NOT GLOB '*[^a-f0-9]*'),
+          entry_sha256 TEXT NOT NULL CHECK(length(entry_sha256)=64 AND entry_sha256 NOT GLOB '*[^a-f0-9]*'),
+          PRIMARY KEY(publication_id,id),UNIQUE(publication_id,ordinal))
+        """);
+          execute(
+              """
+        CREATE TRIGGER sound_publications_identity BEFORE INSERT ON sound_publications
+        WHEN NOT EXISTS(SELECT 1 FROM documents d WHERE d.id=NEW.document_id AND d.workspace_id=NEW.workspace_id
+          AND d.active_revision_id=NEW.source_revision_id AND d.source_sha256=NEW.source_sha256
+          AND d.filename=NEW.filename AND d.mime_type=NEW.media_type AND d.size_bytes=NEW.size_bytes AND d.document_type='audio'
+          AND d.mime_type IN ('audio/wav','audio/mpeg','audio/flac','audio/ogg','audio/mp4','audio/webm')
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+          AND (EXISTS(SELECT 1 FROM sound_originals o WHERE o.document_id=d.id AND o.source_revision_id=NEW.source_revision_id
+            AND o.source_sha256=NEW.source_sha256 AND length(o.original_blob)=NEW.size_bytes)
+            OR EXISTS(SELECT 1 FROM corpus_documents c JOIN corpus_revisions r ON r.id=c.initial_revision_id AND r.document_id=c.document_id
+              WHERE c.document_id=d.id AND c.initial_revision_id=NEW.source_revision_id AND r.source_sha256=NEW.source_sha256
+                AND length(c.original_blob)=NEW.size_bytes)))
+          OR NEW.span_count!=(SELECT COUNT(*) FROM sound_spans WHERE publication_id=NEW.id)
+          OR NOT EXISTS(SELECT 1 FROM sound_spans WHERE publication_id=NEW.id AND ordinal=0 AND start_sample=0)
+          OR NOT EXISTS(SELECT 1 FROM sound_spans WHERE publication_id=NEW.id AND ordinal=NEW.span_count-1 AND end_sample=NEW.sample_count)
+          OR EXISTS(SELECT 1 FROM sound_spans s WHERE s.publication_id=NEW.id
+            AND (s.ordinal>=NEW.span_count OR s.end_sample-s.start_sample>NEW.chunk_seconds*16000
+              OR (s.ordinal<NEW.span_count-1 AND s.end_sample-s.start_sample!=NEW.chunk_seconds*16000)
+              OR (s.ordinal>0 AND NOT EXISTS(SELECT 1 FROM sound_spans previous WHERE previous.publication_id=NEW.id
+                AND previous.ordinal=s.ordinal-1 AND previous.end_sample=s.start_sample))))
+        BEGIN SELECT RAISE(ABORT,'incomplete sound publication'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER sound_publications_no_replace BEFORE INSERT ON sound_publications
+        WHEN EXISTS(SELECT 1 FROM sound_publications WHERE id=NEW.id OR generation_id=NEW.generation_id
+          OR (document_id=NEW.document_id AND source_revision_id=NEW.source_revision_id AND profile_fingerprint=NEW.profile_fingerprint))
+        BEGIN SELECT RAISE(ABORT,'immutable sound publication'); END
+        """);
+          execute(
+              "CREATE TRIGGER sound_spans_sealed BEFORE INSERT ON sound_spans WHEN EXISTS(SELECT 1 FROM sound_publications WHERE id=NEW.publication_id) BEGIN SELECT RAISE(ABORT,'sealed sound publication'); END");
+          execute(
+              "CREATE TRIGGER sound_spans_no_replace BEFORE INSERT ON sound_spans WHEN EXISTS(SELECT 1 FROM sound_spans WHERE physical_segment_id=NEW.physical_segment_id OR (publication_id=NEW.publication_id AND (id=NEW.id OR ordinal=NEW.ordinal))) BEGIN SELECT RAISE(ABORT,'immutable sound span'); END");
+          execute(
+              """
+        CREATE TABLE sound_traces(
+          id TEXT PRIMARY KEY NOT NULL,workspace_id TEXT NOT NULL,actor_id TEXT NOT NULL,
+          selection_all INTEGER NOT NULL CHECK(selection_all IN (0,1)),scope_count INTEGER NOT NULL CHECK(scope_count BETWEEN 0 AND 128),
+          citation_count INTEGER NOT NULL CHECK(citation_count BETWEEN 0 AND 32),
+          question_sha256 TEXT NOT NULL CHECK(length(question_sha256)=64 AND question_sha256 NOT GLOB '*[^a-f0-9]*'),
+          answer_sha256 TEXT CHECK(answer_sha256 IS NULL OR (length(answer_sha256)=64 AND answer_sha256 NOT GLOB '*[^a-f0-9]*')),
+          status TEXT NOT NULL CHECK(status IN ('answered','abstained')),reason_code TEXT,model_revision TEXT NOT NULL,
+          policy_revision TEXT NOT NULL CHECK(policy_revision='java-sound-answer-v1'),created_at TEXT NOT NULL,
+          CHECK((status='answered' AND answer_sha256 IS NOT NULL AND reason_code IS NULL AND citation_count>0)
+            OR (status='abstained' AND answer_sha256 IS NULL AND reason_code IS NOT NULL AND length(reason_code)>0 AND citation_count=0)))
+        """);
+          execute(
+              """
+        CREATE TABLE sound_trace_documents(
+          trace_id TEXT NOT NULL REFERENCES sound_traces(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 127),publication_id TEXT NOT NULL REFERENCES sound_publications(id) ON DELETE RESTRICT,
+          PRIMARY KEY(trace_id,ordinal),UNIQUE(trace_id,publication_id))
+        """);
+          execute(
+              """
+        CREATE TABLE sound_trace_evidence(
+          trace_id TEXT NOT NULL REFERENCES sound_traces(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 1 AND 32),publication_id TEXT NOT NULL,span_id TEXT NOT NULL,
+          facts_json TEXT NOT NULL CHECK(json_valid(facts_json) AND json_type(facts_json)='array' AND json_array_length(facts_json) BETWEEN 1 AND 16 AND length(CAST(facts_json AS BLOB))<=32768),
+          facts_sha256 TEXT NOT NULL CHECK(length(facts_sha256)=64 AND facts_sha256 NOT GLOB '*[^a-f0-9]*'),
+          proof_sha256 TEXT NOT NULL CHECK(length(proof_sha256)=64 AND proof_sha256 NOT GLOB '*[^a-f0-9]*'),
+          PRIMARY KEY(trace_id,ordinal),FOREIGN KEY(publication_id,span_id) REFERENCES sound_spans(publication_id,id) ON DELETE RESTRICT)
+        """);
+          execute(
+              """
+        CREATE TRIGGER sound_traces_complete BEFORE INSERT ON sound_traces
+        WHEN NEW.scope_count!=(SELECT COUNT(*) FROM sound_trace_documents WHERE trace_id=NEW.id)
+          OR (NEW.selection_all=1 AND NEW.scope_count!=(SELECT COUNT(*) FROM documents d
+            JOIN document_acl a ON a.document_id=d.id WHERE d.workspace_id=NEW.workspace_id
+              AND a.principal_id=NEW.actor_id AND a.role IN ('owner','editor','reader') AND d.document_type='audio'
+              AND (EXISTS(SELECT 1 FROM sound_originals s WHERE s.document_id=d.id)
+                OR EXISTS(SELECT 1 FROM corpus_documents c WHERE c.document_id=d.id))
+              AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)))
+          OR (NEW.scope_count>0 AND ((SELECT MIN(ordinal) FROM sound_trace_documents WHERE trace_id=NEW.id)!=0
+            OR (SELECT MAX(ordinal) FROM sound_trace_documents WHERE trace_id=NEW.id)!=NEW.scope_count-1))
+          OR NEW.citation_count!=(SELECT COUNT(*) FROM sound_trace_evidence WHERE trace_id=NEW.id)
+          OR (NEW.citation_count>0 AND ((SELECT MIN(ordinal) FROM sound_trace_evidence WHERE trace_id=NEW.id)!=1
+            OR (SELECT MAX(ordinal) FROM sound_trace_evidence WHERE trace_id=NEW.id)!=NEW.citation_count))
+          OR EXISTS(SELECT 1 FROM sound_trace_documents e JOIN sound_publications p ON p.id=e.publication_id
+            WHERE e.trace_id=NEW.id AND (p.workspace_id!=NEW.workspace_id OR p.sound_model_revision!=NEW.model_revision
+              OR NOT EXISTS(SELECT 1 FROM documents d JOIN document_acl a ON a.document_id=d.id
+                WHERE d.id=p.document_id AND d.workspace_id=NEW.workspace_id AND a.principal_id=NEW.actor_id AND a.role IN ('owner','editor','reader')
+                  AND d.active_revision_id=p.source_revision_id AND d.source_sha256=p.source_sha256
+                  AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))))
+          OR EXISTS(SELECT 1 FROM sound_trace_evidence e WHERE e.trace_id=NEW.id AND NOT EXISTS(
+            SELECT 1 FROM sound_trace_documents d WHERE d.trace_id=NEW.id AND d.publication_id=e.publication_id))
+        BEGIN SELECT RAISE(ABORT,'incomplete sound trace'); END
+        """);
+          execute(
+              "CREATE TRIGGER sound_traces_no_replace BEFORE INSERT ON sound_traces WHEN EXISTS(SELECT 1 FROM sound_traces WHERE id=NEW.id) BEGIN SELECT RAISE(ABORT,'immutable sound trace'); END");
+          for (String table : List.of("sound_trace_documents", "sound_trace_evidence")) {
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_sealed BEFORE INSERT ON "
+                    + table
+                    + " WHEN EXISTS(SELECT 1 FROM sound_traces WHERE id=NEW.trace_id) BEGIN SELECT RAISE(ABORT,'sealed sound trace'); END");
+            execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_no_replace BEFORE INSERT ON "
+                    + table
+                    + " WHEN EXISTS(SELECT 1 FROM "
+                    + table
+                    + " WHERE trace_id=NEW.trace_id AND ordinal=NEW.ordinal) BEGIN SELECT RAISE(ABORT,'immutable sound trace child'); END");
+          }
+          for (String table :
+              List.of(
+                  "sound_publications",
+                  "sound_spans",
+                  "sound_traces",
+                  "sound_trace_documents",
+                  "sound_trace_evidence")) {
+            for (String operation : List.of("UPDATE", "DELETE")) {
+              execute(
+                  "CREATE TRIGGER "
+                      + table
+                      + "_no_"
+                      + operation.toLowerCase(java.util.Locale.ROOT)
+                      + " BEFORE "
+                      + operation
+                      + " ON "
+                      + table
+                      + " BEGIN SELECT RAISE(ABORT,'immutable sound authority'); END");
+            }
+          }
+          verifySoundFormat();
+          if (count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0) {
+            throw new IllegalStateException("Sound migration changed foreign keys");
+          }
+          execute("UPDATE format_info SET version=19 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=19");
+          return null;
+        });
+  }
+
+  private void verifySoundFormat() {
+    String[][] columns = {
+      {
+        "sound_originals",
+        "document_id",
+        "source_revision_id",
+        "source_sha256",
+        "filename",
+        "media_type",
+        "size_bytes",
+        "original_blob",
+        "created_at"
+      },
+      {
+        "sound_publications",
+        "id",
+        "workspace_id",
+        "document_id",
+        "source_revision_id",
+        "source_sha256",
+        "filename",
+        "media_type",
+        "size_bytes",
+        "generation_id",
+        "embedding_identity",
+        "projection_identity",
+        "embedding_model_revision",
+        "dimensions",
+        "sound_model_revision",
+        "decoder_revision",
+        "chunk_seconds",
+        "sample_count",
+        "span_count",
+        "manifest_sha256",
+        "profile_fingerprint",
+        "created_at"
+      },
+      {
+        "sound_spans",
+        "publication_id",
+        "id",
+        "ordinal",
+        "start_sample",
+        "end_sample",
+        "pcm_sha256",
+        "recall_text",
+        "physical_segment_id",
+        "entry_sha256"
+      },
+      {
+        "sound_traces",
+        "id",
+        "workspace_id",
+        "actor_id",
+        "selection_all",
+        "scope_count",
+        "citation_count",
+        "question_sha256",
+        "answer_sha256",
+        "status",
+        "reason_code",
+        "model_revision",
+        "policy_revision",
+        "created_at"
+      },
+      {"sound_trace_documents", "trace_id", "ordinal", "publication_id"},
+      {
+        "sound_trace_evidence",
+        "trace_id",
+        "ordinal",
+        "publication_id",
+        "span_id",
+        "facts_json",
+        "facts_sha256",
+        "proof_sha256"
+      }
+    };
+    for (String[] table : columns) {
+      var wanted =
+          new java.util.HashSet<String>(java.util.Arrays.asList(table).subList(1, table.length));
+      var actual =
+          store.rows("PRAGMA table_info('" + table[0] + "')").stream()
+              .map(row -> (String) row.get("name"))
+              .collect(java.util.stream.Collectors.toSet());
+      if (!wanted.equals(actual)) {
+        throw new IllegalStateException("Unsupported Java sound schema");
+      }
+    }
+    List<String> guards =
+        List.of(
+            "sound_originals_identity",
+            "sound_originals_no_replace",
+            "sound_originals_no_update",
+            "sound_originals_no_delete",
+            "sound_publications_identity",
+            "sound_publications_no_replace",
+            "sound_publications_no_update",
+            "sound_publications_no_delete",
+            "sound_spans_sealed",
+            "sound_spans_no_replace",
+            "sound_spans_no_update",
+            "sound_spans_no_delete",
+            "sound_traces_complete",
+            "sound_traces_no_replace",
+            "sound_traces_no_update",
+            "sound_traces_no_delete",
+            "sound_trace_documents_sealed",
+            "sound_trace_documents_no_replace",
+            "sound_trace_documents_no_update",
+            "sound_trace_documents_no_delete",
+            "sound_trace_evidence_sealed",
+            "sound_trace_evidence_no_replace",
+            "sound_trace_evidence_no_update",
+            "sound_trace_evidence_no_delete");
+    for (String guard : guards) {
+      if (count("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name=?", guard) != 1) {
+        throw new IllegalStateException("Unsupported Java sound guards");
+      }
+    }
+  }
+
+  /**
+   * Appends complete immutable audio-vector receipts; no PCM, transcript or coordinates persist.
+   */
+  void migrateVersionEighteen() {
+    transaction(
+        () -> {
+          execute(
+              """
+        CREATE TABLE audio_vector_publications(
+          id TEXT PRIMARY KEY NOT NULL CHECK(length(id) BETWEEN 1 AND 128),
+          publication_id TEXT NOT NULL,
+          document_id TEXT NOT NULL,
+          source_revision_id TEXT NOT NULL,
+          source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          vector_generation_id TEXT NOT NULL CHECK(length(vector_generation_id)=36),
+          embedding_identity TEXT NOT NULL CHECK(length(embedding_identity) BETWEEN 1 AND 128),
+          projection_identity TEXT NOT NULL CHECK(length(projection_identity)=64 AND projection_identity NOT GLOB '*[^a-f0-9]*'),
+          model_revision TEXT NOT NULL CHECK(length(model_revision) BETWEEN 1 AND 160),
+          dimensions INTEGER NOT NULL CHECK(dimensions BETWEEN 2 AND 3072),
+          decoder_revision TEXT NOT NULL CHECK(length(decoder_revision) BETWEEN 1 AND 200),
+          manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256 NOT GLOB '*[^a-f0-9]*'),
+          segment_count INTEGER NOT NULL CHECK(segment_count BETWEEN 1 AND 600),
+          created_at TEXT NOT NULL,
+          FOREIGN KEY(publication_id,document_id,source_revision_id) REFERENCES index_publications(id,document_id,revision_id) ON DELETE RESTRICT,
+          UNIQUE(publication_id,embedding_identity,projection_identity,model_revision,dimensions,decoder_revision))
+        """);
+          execute(
+              """
+        CREATE TABLE audio_vector_entries(
+          audio_vector_publication_id TEXT NOT NULL REFERENCES audio_vector_publications(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+          audio_evidence_id TEXT NOT NULL REFERENCES audio_spans(id) ON DELETE RESTRICT,
+          base_physical_segment_id TEXT NOT NULL CHECK(length(base_physical_segment_id) BETWEEN 1 AND 128),
+          vector_physical_segment_id TEXT NOT NULL UNIQUE CHECK(length(vector_physical_segment_id) BETWEEN 1 AND 128),
+          ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 599),
+          start_sample INTEGER NOT NULL CHECK(start_sample>=0),
+          end_sample INTEGER NOT NULL CHECK(end_sample>start_sample AND end_sample<=9600000 AND end_sample-start_sample<=480000),
+          pcm_sha256 TEXT NOT NULL CHECK(length(pcm_sha256)=64 AND pcm_sha256 NOT GLOB '*[^a-f0-9]*'),
+          entry_sha256 TEXT NOT NULL CHECK(length(entry_sha256)=64 AND entry_sha256 NOT GLOB '*[^a-f0-9]*'),
+          CHECK(base_physical_segment_id!=vector_physical_segment_id),
+          PRIMARY KEY(audio_vector_publication_id,audio_evidence_id),
+          UNIQUE(audio_vector_publication_id,ordinal),UNIQUE(audio_vector_publication_id,base_physical_segment_id))
+        """);
+          execute(
+              """
+        CREATE TRIGGER audio_vector_publications_identity BEFORE INSERT ON audio_vector_publications
+        WHEN NOT EXISTS(SELECT 1 FROM index_publications p
+          JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
+          JOIN audio_compilations h ON h.revision_id=p.revision_id AND h.source_sha256=p.source_sha256 AND h.compiler_revision=p.parser_revision
+          JOIN corpus_documents c ON c.document_id=p.document_id AND c.initial_revision_id=p.revision_id AND c.parsed_revision_id=p.revision_id
+          JOIN documents d ON d.id=p.document_id AND d.source_sha256=p.source_sha256
+          WHERE p.id=NEW.publication_id AND p.document_id=NEW.document_id AND p.revision_id=NEW.source_revision_id
+            AND p.source_sha256=NEW.source_sha256 AND p.projection_generation_id!=NEW.vector_generation_id
+            AND h.decoder_revision=NEW.decoder_revision AND h.projection_count=NEW.segment_count AND p.segment_count=NEW.segment_count
+            AND d.document_type='audio' AND d.mime_type IN ('audio/wav','audio/mpeg','audio/flac','audio/ogg','audio/mp4','audio/webm')
+            AND length(c.original_blob) BETWEEN 1 AND 20971520
+            AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+            AND NEW.segment_count=(SELECT COUNT(*) FROM audio_publication_entries e WHERE e.publication_id=p.id)
+            AND NEW.segment_count=(SELECT COUNT(*) FROM audio_vector_entries v WHERE v.audio_vector_publication_id=NEW.id)
+            AND NEW.segment_count=(SELECT COUNT(*) FROM audio_vector_entries v
+              JOIN audio_spans s ON s.id=v.audio_evidence_id AND s.revision_id=p.revision_id AND s.index_ordinal IS NOT NULL
+              JOIN audio_publication_entries e ON e.publication_id=p.id AND e.audio_span_id=s.id AND e.physical_segment_id=v.base_physical_segment_id
+              WHERE v.audio_vector_publication_id=NEW.id AND v.ordinal=s.ordinal AND v.start_sample=s.start_ms*16
+                AND ((s.ordinal<h.span_count-1 AND v.end_sample=s.end_ms*16)
+                  OR (s.ordinal=h.span_count-1 AND v.end_sample>(s.end_ms-1)*16 AND v.end_sample<=s.end_ms*16))))
+        BEGIN SELECT RAISE(ABORT,'incomplete audio vector identity'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER audio_vector_publications_no_replace BEFORE INSERT ON audio_vector_publications
+        WHEN EXISTS(SELECT 1 FROM audio_vector_publications WHERE id=NEW.id OR vector_generation_id=NEW.vector_generation_id
+          OR (publication_id=NEW.publication_id AND embedding_identity=NEW.embedding_identity AND projection_identity=NEW.projection_identity AND model_revision=NEW.model_revision AND dimensions=NEW.dimensions AND decoder_revision=NEW.decoder_revision))
+        BEGIN SELECT RAISE(ABORT,'immutable audio vector publication'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER audio_vector_entries_sealed BEFORE INSERT ON audio_vector_entries
+        WHEN EXISTS(SELECT 1 FROM audio_vector_publications WHERE id=NEW.audio_vector_publication_id)
+        BEGIN SELECT RAISE(ABORT,'sealed audio vector publication'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER audio_vector_entries_no_replace BEFORE INSERT ON audio_vector_entries
+        WHEN EXISTS(SELECT 1 FROM audio_vector_entries WHERE vector_physical_segment_id=NEW.vector_physical_segment_id
+          OR (audio_vector_publication_id=NEW.audio_vector_publication_id AND (audio_evidence_id=NEW.audio_evidence_id OR ordinal=NEW.ordinal OR base_physical_segment_id=NEW.base_physical_segment_id)))
+        BEGIN SELECT RAISE(ABORT,'immutable audio vector entry'); END
+        """);
+          for (String table : List.of("audio_vector_publications", "audio_vector_entries")) {
+            for (String operation : List.of("UPDATE", "DELETE")) {
+              execute(
+                  "CREATE TRIGGER "
+                      + table
+                      + "_no_"
+                      + operation.toLowerCase(java.util.Locale.ROOT)
+                      + " BEFORE "
+                      + operation
+                      + " ON "
+                      + table
+                      + " BEGIN SELECT RAISE(ABORT,'immutable audio vector publication'); END");
+            }
+          }
+          verifyAudioVectorFormat();
+          if (count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0) {
+            throw new IllegalStateException("Audio vector migration changed foreign keys");
+          }
+          execute("UPDATE format_info SET version=18 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=18");
+          return null;
+        });
+  }
+
+  private void verifyAudioVectorFormat() {
+    if (count(
+                "SELECT COUNT(*) FROM pragma_table_info('audio_vector_publications') WHERE name IN ('id','publication_id','document_id','source_revision_id','source_sha256','vector_generation_id','embedding_identity','projection_identity','model_revision','dimensions','decoder_revision','manifest_sha256','segment_count','created_at')")
+            != 14
+        || count(
+                "SELECT COUNT(*) FROM pragma_table_info('audio_vector_entries') WHERE name IN ('audio_vector_publication_id','audio_evidence_id','base_physical_segment_id','vector_physical_segment_id','ordinal','start_sample','end_sample','pcm_sha256','entry_sha256')")
+            != 9
+        || count(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('audio_vector_publications_identity','audio_vector_publications_no_replace','audio_vector_publications_no_update','audio_vector_publications_no_delete','audio_vector_entries_sealed','audio_vector_entries_no_replace','audio_vector_entries_no_update','audio_vector_entries_no_delete')")
+            != 8) {
+      throw new IllegalStateException("Unsupported Java audio vector publication schema");
+    }
+  }
+
+  /** Appends independent image-vector receipts without rewriting base publications or sources. */
+  void migrateVersionSeventeen() {
+    transaction(
+        () -> {
+          execute(
+              """
+        CREATE TABLE image_vector_publications(
+          id TEXT PRIMARY KEY NOT NULL CHECK(length(id) BETWEEN 1 AND 128),
+          publication_id TEXT NOT NULL,
+          document_id TEXT NOT NULL,
+          source_revision_id TEXT NOT NULL,
+          source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^a-f0-9]*'),
+          image_evidence_id TEXT NOT NULL,
+          base_physical_segment_id TEXT NOT NULL CHECK(length(base_physical_segment_id) BETWEEN 1 AND 128),
+          vector_generation_id TEXT NOT NULL CHECK(length(vector_generation_id)=36),
+          vector_physical_segment_id TEXT NOT NULL UNIQUE CHECK(length(vector_physical_segment_id) BETWEEN 1 AND 128),
+          embedding_identity TEXT NOT NULL CHECK(length(embedding_identity) BETWEEN 1 AND 128),
+          projection_identity TEXT NOT NULL CHECK(length(projection_identity)=64 AND projection_identity NOT GLOB '*[^a-f0-9]*'),
+          model_revision TEXT NOT NULL CHECK(length(model_revision) BETWEEN 1 AND 160),
+          dimensions INTEGER NOT NULL CHECK(dimensions BETWEEN 2 AND 8192),
+          entry_sha256 TEXT NOT NULL CHECK(length(entry_sha256)=64 AND entry_sha256 NOT GLOB '*[^a-f0-9]*'),
+          manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256 NOT GLOB '*[^a-f0-9]*'),
+          created_at TEXT NOT NULL,
+          FOREIGN KEY(publication_id,document_id,source_revision_id) REFERENCES index_publications(id,document_id,revision_id) ON DELETE RESTRICT,
+          FOREIGN KEY(publication_id,image_evidence_id) REFERENCES image_publication_entries(publication_id,image_evidence_id) ON DELETE RESTRICT,
+          UNIQUE(publication_id,embedding_identity,projection_identity,model_revision,dimensions))
+        """);
+          execute(
+              """
+        CREATE TRIGGER image_vector_publications_identity BEFORE INSERT ON image_vector_publications
+        WHEN NOT EXISTS(SELECT 1 FROM index_publications p
+          JOIN image_publication_entries e ON e.publication_id=p.id
+          JOIN image_evidence i ON i.id=e.image_evidence_id AND i.revision_id=p.revision_id
+          JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
+          JOIN corpus_documents c ON c.document_id=p.document_id AND c.initial_revision_id=p.revision_id AND c.parsed_revision_id=p.revision_id
+          JOIN documents d ON d.id=p.document_id AND d.source_sha256=p.source_sha256
+          WHERE p.id=NEW.publication_id AND p.document_id=NEW.document_id AND p.revision_id=NEW.source_revision_id
+            AND p.source_sha256=NEW.source_sha256 AND e.image_evidence_id=NEW.image_evidence_id
+            AND e.physical_segment_id=NEW.base_physical_segment_id AND d.document_type='image'
+            AND d.mime_type IN ('image/png','image/jpeg') AND length(c.original_blob) BETWEEN 1 AND 10485760
+            AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))
+        BEGIN SELECT RAISE(ABORT,'invalid image vector identity'); END
+        """);
+          execute(
+              """
+        CREATE TRIGGER image_vector_publications_no_replace BEFORE INSERT ON image_vector_publications
+        WHEN EXISTS(SELECT 1 FROM image_vector_publications WHERE id=NEW.id OR vector_physical_segment_id=NEW.vector_physical_segment_id
+          OR (publication_id=NEW.publication_id AND embedding_identity=NEW.embedding_identity AND projection_identity=NEW.projection_identity AND model_revision=NEW.model_revision AND dimensions=NEW.dimensions))
+        BEGIN SELECT RAISE(ABORT,'immutable image vector publication'); END
+        """);
+          for (String operation : List.of("UPDATE", "DELETE")) {
+            execute(
+                "CREATE TRIGGER image_vector_publications_no_"
+                    + operation.toLowerCase(java.util.Locale.ROOT)
+                    + " BEFORE "
+                    + operation
+                    + " ON image_vector_publications BEGIN SELECT RAISE(ABORT,'immutable image vector publication'); END");
+          }
+          verifyImageVectorFormat();
+          if (count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0) {
+            throw new IllegalStateException("Image vector migration changed foreign keys");
+          }
+          execute("UPDATE format_info SET version=17 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=17");
+          return null;
+        });
+  }
+
+  private void verifyImageVectorFormat() {
+    if (count(
+                "SELECT COUNT(*) FROM pragma_table_info('image_vector_publications') WHERE name IN ('id','publication_id','document_id','source_revision_id','source_sha256','image_evidence_id','base_physical_segment_id','vector_generation_id','vector_physical_segment_id','embedding_identity','projection_identity','model_revision','dimensions','entry_sha256','manifest_sha256','created_at')")
+            != 16
+        || count(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('image_vector_publications_identity','image_vector_publications_no_replace','image_vector_publications_no_update','image_vector_publications_no_delete')")
+            != 4) {
+      throw new IllegalStateException("Unsupported Java image vector publication schema");
     }
   }
 

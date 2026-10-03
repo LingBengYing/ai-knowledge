@@ -1,6 +1,7 @@
 package com.evidence.rag.repository;
 
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.DocumentEntity;
@@ -64,6 +65,100 @@ public final class ManagementRepository {
     return rows.stream().findFirst().map(AuthorityRows::document);
   }
 
+  public Optional<DocumentOriginal> findDocumentOriginal(Actor actor, String id) {
+    var videoAv =
+        store.rows(
+            """
+        SELECT d.id,d.filename,d.document_type,d.mime_type,d.source_sha256,d.size_bytes,
+          s.source_revision_id,s.original_blob
+        FROM documents d JOIN document_acl a ON a.document_id=d.id
+        JOIN video_av_originals s ON s.document_id=d.id AND s.source_revision_id=d.active_revision_id
+          AND s.source_sha256=d.source_sha256 AND s.filename=d.filename
+          AND s.media_type=d.mime_type AND s.size_bytes=d.size_bytes
+        WHERE d.id=? AND d.workspace_id=? AND a.principal_id=?
+          AND a.role IN ('owner','editor','reader') AND d.document_type='video'
+          AND length(s.original_blob)=d.size_bytes AND d.size_bytes BETWEEN 1 AND 20971520
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+        """,
+            id,
+            actor.workspaceId(),
+            actor.principalId());
+    if (!videoAv.isEmpty()) {
+      var row = videoAv.getFirst();
+      return Optional.of(
+          new DocumentOriginal(
+              AuthorityRows.text(row, "id"),
+              AuthorityRows.text(row, "source_revision_id"),
+              AuthorityRows.text(row, "filename"),
+              AuthorityRows.text(row, "document_type"),
+              AuthorityRows.text(row, "mime_type"),
+              AuthorityRows.text(row, "source_sha256"),
+              AuthorityRows.number(row, "size_bytes"),
+              (byte[]) row.get("original_blob")));
+    }
+    var sound =
+        store.rows(
+            """
+        SELECT d.id,d.filename,d.document_type,d.mime_type,d.source_sha256,d.size_bytes,
+          s.source_revision_id,s.original_blob
+        FROM documents d JOIN document_acl a ON a.document_id=d.id
+        JOIN sound_originals s ON s.document_id=d.id AND s.source_revision_id=d.active_revision_id
+          AND s.source_sha256=d.source_sha256 AND s.filename=d.filename
+          AND s.media_type=d.mime_type AND s.size_bytes=d.size_bytes
+        WHERE d.id=? AND d.workspace_id=? AND a.principal_id=?
+          AND a.role IN ('owner','editor','reader') AND d.document_type='audio'
+          AND length(s.original_blob)=d.size_bytes AND d.size_bytes BETWEEN 1 AND 20971520
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+        """,
+            id,
+            actor.workspaceId(),
+            actor.principalId());
+    if (!sound.isEmpty()) {
+      var row = sound.getFirst();
+      return Optional.of(
+          new DocumentOriginal(
+              AuthorityRows.text(row, "id"),
+              AuthorityRows.text(row, "source_revision_id"),
+              AuthorityRows.text(row, "filename"),
+              AuthorityRows.text(row, "document_type"),
+              AuthorityRows.text(row, "mime_type"),
+              AuthorityRows.text(row, "source_sha256"),
+              AuthorityRows.number(row, "size_bytes"),
+              (byte[]) row.get("original_blob")));
+    }
+    return store
+        .rows(
+            """
+        SELECT d.id,d.filename,d.document_type,d.mime_type,d.source_sha256,d.size_bytes,
+          c.initial_revision_id,c.original_blob
+        FROM documents d JOIN document_acl acl ON acl.document_id=d.id
+        JOIN corpus_documents c ON c.document_id=d.id AND c.initial_revision_id=d.active_revision_id
+        JOIN corpus_revisions r ON r.id=c.initial_revision_id AND r.document_id=d.id
+          AND r.source_sha256=d.source_sha256
+        WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=?
+          AND acl.role IN ('owner','editor','reader')
+          AND LENGTH(c.original_blob) BETWEEN 1 AND 20971520
+          AND LENGTH(c.original_blob)=d.size_bytes
+          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+        """,
+            id,
+            actor.workspaceId(),
+            actor.principalId())
+        .stream()
+        .findFirst()
+        .map(
+            row ->
+                new DocumentOriginal(
+                    AuthorityRows.text(row, "id"),
+                    AuthorityRows.text(row, "initial_revision_id"),
+                    AuthorityRows.text(row, "filename"),
+                    AuthorityRows.text(row, "document_type"),
+                    AuthorityRows.text(row, "mime_type"),
+                    AuthorityRows.text(row, "source_sha256"),
+                    AuthorityRows.number(row, "size_bytes"),
+                    (byte[]) row.get("original_blob")));
+  }
+
   public long countDocuments(Actor actor, DocumentQuery query) {
     var filter = filter(actor, query);
     return store.count("SELECT COUNT(*)" + DOCUMENT_FROM + filter.sql(), filter.args().toArray());
@@ -118,7 +213,8 @@ public final class ManagementRepository {
       args.add(query.type());
     }
     if (query.status() != null) {
-      predicate.append(" AND COALESCE(j.state,'ready')=?");
+      predicate.append(
+          " AND COALESCE(j.state,CASE WHEN EXISTS(SELECT 1 FROM sound_originals so JOIN sound_publications sp ON sp.document_id=so.document_id AND sp.source_revision_id=so.source_revision_id AND sp.source_sha256=so.source_sha256 WHERE so.document_id=d.id) OR EXISTS(SELECT 1 FROM video_av_originals vo JOIN video_av_publications vp ON vp.document_id=vo.document_id AND vp.source_revision_id=vo.source_revision_id AND vp.source_sha256=vo.source_sha256 WHERE vo.document_id=d.id) THEN 'parsed' ELSE 'ready' END)=?");
       args.add(query.status());
     }
     if ("unfiled".equals(query.folderId())) {

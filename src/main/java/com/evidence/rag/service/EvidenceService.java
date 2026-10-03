@@ -1,13 +1,20 @@
 package com.evidence.rag.service;
 
+import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AnswerEligibility;
+import com.evidence.rag.model.domain.AudioEvidence;
 import com.evidence.rag.model.domain.AudioSourceEvidence;
+import com.evidence.rag.model.domain.AudioVectorPublication;
+import com.evidence.rag.model.domain.AudioVectorScope;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.EvidenceScope;
+import com.evidence.rag.model.domain.ImageVectorPublication;
+import com.evidence.rag.model.domain.ImageVectorScope;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublicationVersion;
 import com.evidence.rag.model.domain.PublishedAudioEvidence;
@@ -37,7 +44,10 @@ import com.evidence.rag.model.entity.TraceImageCitationEntity;
 import com.evidence.rag.model.entity.TraceVideoCitationEntity;
 import com.evidence.rag.model.entity.TraceVideoOcrCitationEntity;
 import com.evidence.rag.model.entity.TraceVideoSubtitleCitationEntity;
+import com.evidence.rag.repository.AudioVectorRepository;
 import com.evidence.rag.repository.EvidenceRepository;
+import com.evidence.rag.repository.ImageVectorRepository;
+import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
@@ -51,7 +61,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 
@@ -460,6 +472,9 @@ public final class EvidenceService {
   private static final long MAX_PAGE_BYTES = 8L * 1024 * 1024;
   private final SqliteAuthorityStore store;
   private final EvidenceRepository evidence;
+  private final ImageVectorRepository imageVectors;
+  private final AudioVectorRepository audioVectors;
+  private final IngestionRepository ingestion;
   private final ManagementRepository management;
   private final DocumentPermissionPolicy permissions;
 
@@ -470,8 +485,15 @@ public final class EvidenceService {
       DocumentPermissionPolicy permissions) {
     this.store = store;
     this.evidence = evidence;
+    this.imageVectors = new ImageVectorRepository(store);
+    this.audioVectors = new AudioVectorRepository(store);
+    this.ingestion = new IngestionRepository(store);
     this.management = management;
     this.permissions = permissions;
+  }
+
+  public LibraryOperationGate operationGate() {
+    return store.operationGate();
   }
 
   public EvidenceScope snapshot(Actor actor, DocumentSelection selection, IndexTarget target) {
@@ -497,6 +519,45 @@ public final class EvidenceService {
             }
           }
           return new EvidenceScope(actor, selection, publications);
+        });
+  }
+
+  /**
+   * Final read-only decision: re-read the original complete selection and all candidate metadata.
+   */
+  public List<PublishedEvidence> finishRetrieval(
+      EvidenceScope scope,
+      List<String> physicalIds,
+      IndexTarget target,
+      BooleanSupplier configurationCurrent) {
+    requireScope(scope);
+    if (target == null || configurationCurrent == null) {
+      throw ModelValues.invalid();
+    }
+    var ids = candidateIds(physicalIds);
+    return store.transaction(
+        () -> {
+          if (!configurationCurrent.getAsBoolean()) {
+            throw new ApplicationException(
+                FailureKind.CONFLICT, "configuration_changed", "文字模型配置发生变化，请重新检索。");
+          }
+          var publications = evidence.findActivePublications(scope.actor(), scope.selection());
+          if (!new HashSet<>(publications).equals(new HashSet<>(scope.publications()))) {
+            throw changed();
+          }
+          for (var publication : publications) {
+            if (!permissions.canRead(
+                    management.currentRole(scope.actor(), publication.documentId()))
+                || !publication.target().equals(target)) {
+              throw changed();
+            }
+          }
+          var material = hydrated(scope, ids);
+          if (!configurationCurrent.getAsBoolean()) {
+            throw new ApplicationException(
+                FailureKind.CONFLICT, "configuration_changed", "文字模型配置发生变化，请重新检索。");
+          }
+          return material;
         });
   }
 
@@ -621,6 +682,244 @@ public final class EvidenceService {
         });
   }
 
+  public AudioVectorScope audioVectorScope(
+      EvidenceScope scope, IndexTarget audioTarget, String decoderRevision) {
+    requireScope(scope);
+    if (audioTarget == null) {
+      throw ModelValues.invalid();
+    }
+    ModelValues.identifier(decoderRevision, 200);
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return new AudioVectorScope(
+              scope,
+              audioTarget,
+              decoderRevision,
+              verifiedAudioVectors(scope, audioTarget, decoderRevision));
+        });
+  }
+
+  public List<PublishedAudioEvidence> hydrateAudioVectors(
+      AudioVectorScope scope, List<String> vectorIds) {
+    if (scope == null) {
+      throw ModelValues.invalid();
+    }
+    var ids = candidateIds(vectorIds);
+    return store.transaction(
+        () -> {
+          if (!current(scope.base())) {
+            throw changed();
+          }
+          if (!audioVectorsCurrent(scope)) {
+            throw audioVectorRequired();
+          }
+          var byId = new HashMap<String, String>();
+          for (var publication : scope.publications()) {
+            for (var entry : publication.entries()) {
+              byId.put(entry.vectorPhysicalSegmentId(), entry.basePhysicalSegmentId());
+            }
+          }
+          var baseIds = new ArrayList<String>();
+          for (String id : ids) {
+            String baseId = byId.get(id);
+            if (baseId == null) {
+              throw ModelValues.invalid();
+            }
+            baseIds.add(baseId);
+          }
+          return hydratedAudio(scope.base(), baseIds);
+        });
+  }
+
+  private List<AudioVectorPublication> verifiedAudioVectors(
+      EvidenceScope scope, IndexTarget audioTarget, String decoderRevision) {
+    var publications = evidence.findAudioPublications(scope);
+    if (!scope.publications().containsAll(publications)) {
+      throw ModelValues.invalid();
+    }
+    var vectors =
+        audioVectors.findPublications(scope.actor().workspaceId(), publications, audioTarget);
+    if (vectors.size() != publications.size()
+        || !new HashSet<>(vectors.stream().map(AudioVectorPublication::basePublication).toList())
+            .equals(new HashSet<>(publications))) {
+      throw audioVectorRequired();
+    }
+    for (var vector : vectors) {
+      var base = vector.basePublication();
+      var compilation =
+          ingestion
+              .findAudioCompilation(base.sourceRevisionId())
+              .orElseThrow(EvidenceService::audioVectorRequired);
+      if (!compilation.sourceSha256().equals(base.sourceSha256())
+          || !compilation.compilerRevision().equals(base.parserRevision())
+          || !compilation.decoderRevision().equals(decoderRevision)
+          || !vector.decoderRevision().equals(decoderRevision)
+          || !vector.target().equals(audioTarget)) {
+        throw audioVectorRequired();
+      }
+      var expected =
+          AudioEvidence.fromCompilation(base.sourceRevisionId(), compilation).stream()
+              .filter(span -> span.indexOrdinal() != null)
+              .toList();
+      if (expected.size() != vector.entries().size()) {
+        throw audioVectorRequired();
+      }
+      var digests = new HashMap<String, String>();
+      var ids = new ArrayList<String>();
+      for (int index = 0; index < expected.size(); index++) {
+        var span = expected.get(index);
+        var entry = vector.entries().get(index);
+        boolean last = span.ordinal() == compilation.spans().size() - 1;
+        if (!entry.audioEvidenceId().equals(span.id())
+            || entry.ordinal() != span.ordinal()
+            || entry.startSample() != span.startMs() * 16
+            || (entry.endSample() + 15) / 16 != span.endMs()
+            || (!last && entry.endSample() != span.endMs() * 16)
+            || !entry
+                .basePhysicalSegmentId()
+                .equals(
+                    RetrievalProjection.physicalSegmentId(base.projectionGenerationId(), span.id()))
+            || !entry
+                .vectorPhysicalSegmentId()
+                .equals(
+                    RetrievalProjection.physicalSegmentId(
+                        vector.vectorGenerationId(), span.id()))) {
+          throw audioVectorRequired();
+        }
+        ids.add(entry.basePhysicalSegmentId());
+        digests.put(entry.vectorPhysicalSegmentId(), entry.entrySha256());
+      }
+      var manifest =
+          new RetrievalProjection.RevisionManifest(
+              scope.actor().workspaceId(), base.documentId(), vector.vectorGenerationId(), digests);
+      if (!manifest.sha256().equals(vector.manifestSha256())) {
+        throw audioVectorRequired();
+      }
+      var material = hydratedAudio(scope, ids);
+      for (int index = 0; index < expected.size(); index++) {
+        if (!material.get(index).publication().equals(base)
+            || !material.get(index).span().equals(expected.get(index))) {
+          throw audioVectorRequired();
+        }
+      }
+    }
+    return vectors;
+  }
+
+  private boolean audioVectorsCurrent(AudioVectorScope scope) {
+    try {
+      return new HashSet<>(
+              verifiedAudioVectors(scope.base(), scope.target(), scope.decoderRevision()))
+          .equals(new HashSet<>(scope.publications()));
+    } catch (RuntimeException unavailable) {
+      return false;
+    }
+  }
+
+  private static ApplicationException audioVectorRequired() {
+    return new ApplicationException(
+        FailureKind.CONFLICT, "audio_vector_required", "请为当前范围的全部音频建立完整原声向量。");
+  }
+
+  public ImageVectorScope imageVectorScope(EvidenceScope scope, IndexTarget imageTarget) {
+    requireScope(scope);
+    if (imageTarget == null) {
+      throw ModelValues.invalid();
+    }
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return new ImageVectorScope(scope, imageTarget, verifiedImageVectors(scope, imageTarget));
+        });
+  }
+
+  public List<PublishedImageEvidence> hydrateImageVectors(
+      ImageVectorScope scope, List<String> vectorIds) {
+    if (scope == null) {
+      throw ModelValues.invalid();
+    }
+    var ids = candidateIds(vectorIds);
+    return store.transaction(
+        () -> {
+          if (!current(scope.authority())) {
+            throw changed();
+          }
+          if (!imageVectorsCurrent(scope)) {
+            throw imageVectorRequired();
+          }
+          var byId = new HashMap<String, String>();
+          for (var publication : scope.publications()) {
+            byId.put(publication.vectorPhysicalSegmentId(), publication.basePhysicalSegmentId());
+          }
+          var baseIds = new ArrayList<String>();
+          for (String id : ids) {
+            String baseId = byId.get(id);
+            if (baseId == null) {
+              throw ModelValues.invalid();
+            }
+            baseIds.add(baseId);
+          }
+          return hydratedImages(scope.authority(), baseIds);
+        });
+  }
+
+  private List<ImageVectorPublication> verifiedImageVectors(
+      EvidenceScope scope, IndexTarget imageTarget) {
+    var publications = evidence.findImagePublications(scope);
+    if (!scope.publications().containsAll(publications)) {
+      throw ModelValues.invalid();
+    }
+    var vectors =
+        imageVectors.findPublications(scope.actor().workspaceId(), publications, imageTarget);
+    if (vectors.size() != publications.size()
+        || !new HashSet<>(vectors.stream().map(ImageVectorPublication::basePublication).toList())
+            .equals(new HashSet<>(publications))) {
+      throw imageVectorRequired();
+    }
+    var bases =
+        hydratedImages(
+            scope, vectors.stream().map(ImageVectorPublication::basePhysicalSegmentId).toList());
+    for (int index = 0; index < vectors.size(); index++) {
+      var vector = vectors.get(index);
+      var base = bases.get(index);
+      var manifest =
+          new RetrievalProjection.RevisionManifest(
+              scope.actor().workspaceId(),
+              vector.basePublication().documentId(),
+              vector.vectorGenerationId(),
+              Map.of(vector.vectorPhysicalSegmentId(), vector.entrySha256()));
+      if (!vector.basePublication().equals(base.publication())
+          || !vector.imageEvidenceId().equals(base.image().id())
+          || !vector.target().equals(imageTarget)
+          || !RetrievalProjection.physicalSegmentId(
+                  vector.vectorGenerationId(), vector.imageEvidenceId())
+              .equals(vector.vectorPhysicalSegmentId())
+          || !manifest.sha256().equals(vector.manifestSha256())) {
+        throw imageVectorRequired();
+      }
+    }
+    return vectors;
+  }
+
+  private boolean imageVectorsCurrent(ImageVectorScope scope) {
+    try {
+      return new HashSet<>(verifiedImageVectors(scope.authority(), scope.imageTarget()))
+          .equals(new HashSet<>(scope.publications()));
+    } catch (RuntimeException unavailable) {
+      return false;
+    }
+  }
+
+  private static ApplicationException imageVectorRequired() {
+    return new ApplicationException(
+        FailureKind.CONFLICT, "image_vector_required", "请为当前范围的全部图片建立原图向量。");
+  }
+
   public List<PublishedImageEvidence> hydrateImages(
       EvidenceScope snapshot, List<String> physicalIds) {
     requireScope(snapshot);
@@ -679,8 +978,28 @@ public final class EvidenceService {
 
   public TraceReceipt finish(
       EvidenceScope snapshot, TraceDraft draft, Supplier<AnswerEligibility> eligibility) {
+    return finish(snapshot, draft, eligibility, null);
+  }
+
+  public TraceReceipt finish(
+      EvidenceScope snapshot,
+      TraceDraft draft,
+      Supplier<AnswerEligibility> eligibility,
+      ImageVectorScope imageVectorScope) {
+    return finish(snapshot, draft, eligibility, imageVectorScope, null);
+  }
+
+  public TraceReceipt finish(
+      EvidenceScope snapshot,
+      TraceDraft draft,
+      Supplier<AnswerEligibility> eligibility,
+      ImageVectorScope imageVectorScope,
+      AudioVectorScope audioVectorScope) {
     requireScope(snapshot);
-    if (draft == null || eligibility == null) {
+    if (draft == null
+        || eligibility == null
+        || (audioVectorScope != null && !snapshot.equals(audioVectorScope.base()))
+        || (imageVectorScope != null && !snapshot.equals(imageVectorScope.authority()))) {
       throw ModelValues.invalid();
     }
     return store.transaction(
@@ -701,6 +1020,14 @@ public final class EvidenceService {
           TraceDraft decision = eligibleDraft(draft, firstCheck);
           if (firstCheck == AnswerEligibility.ELIGIBLE && !current(snapshot)) {
             decision = refused(draft, "scope_changed");
+          } else if (firstCheck == AnswerEligibility.ELIGIBLE
+              && imageVectorScope != null
+              && !imageVectorsCurrent(imageVectorScope)) {
+            decision = refused(draft, "image_vector_required");
+          } else if (firstCheck == AnswerEligibility.ELIGIBLE
+              && audioVectorScope != null
+              && !audioVectorsCurrent(audioVectorScope)) {
+            decision = refused(draft, "audio_vector_required");
           }
           var citations = new ArrayList<TraceCitationEntity>();
           var imageCitations = new ArrayList<TraceImageCitationEntity>();
@@ -822,6 +1149,28 @@ public final class EvidenceService {
             ocrCitations.clear();
             subtitleCitations.clear();
           }
+          if ("answered".equals(decision.outcome())
+              && imageVectorScope != null
+              && !imageVectorsCurrent(imageVectorScope)) {
+            decision = refused(draft, "image_vector_required");
+            citations.clear();
+            imageCitations.clear();
+            audioCitations.clear();
+            videoCitations.clear();
+            ocrCitations.clear();
+            subtitleCitations.clear();
+          }
+          if ("answered".equals(decision.outcome())
+              && audioVectorScope != null
+              && !audioVectorsCurrent(audioVectorScope)) {
+            decision = refused(draft, "audio_vector_required");
+            citations.clear();
+            imageCitations.clear();
+            audioCitations.clear();
+            videoCitations.clear();
+            ocrCitations.clear();
+            subtitleCitations.clear();
+          }
           String traceId = UUID.randomUUID().toString();
           evidence.insertTrace(
               traceId,
@@ -839,6 +1188,19 @@ public final class EvidenceService {
   }
 
   public SourceEvidence source(Actor actor, String traceId, int citationOrdinal) {
+    return sourceWithTarget(actor, traceId, citationOrdinal, null);
+  }
+
+  public SourceEvidence source(
+      Actor actor, String traceId, int citationOrdinal, IndexTarget requiredTarget) {
+    if (requiredTarget == null) {
+      throw ModelValues.invalid();
+    }
+    return sourceWithTarget(actor, traceId, citationOrdinal, requiredTarget);
+  }
+
+  private SourceEvidence sourceWithTarget(
+      Actor actor, String traceId, int citationOrdinal, IndexTarget requiredTarget) {
     if (actor == null) {
       throw ModelValues.invalid();
     }
@@ -850,6 +1212,10 @@ public final class EvidenceService {
         () -> {
           var scope = evidence.findTraceScope(actor, traceId);
           if (scope == null || !current(scope)) {
+            throw ModelValues.notFound();
+          }
+          if (requiredTarget != null
+              && scope.publications().stream().anyMatch(p -> !p.target().equals(requiredTarget))) {
             throw ModelValues.notFound();
           }
           var saved = evidence.findTraceCitation(actor, traceId, citationOrdinal);

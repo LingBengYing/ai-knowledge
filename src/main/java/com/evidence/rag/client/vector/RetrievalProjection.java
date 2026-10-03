@@ -188,11 +188,21 @@ public interface RetrievalProjection {
     }
   }
 
-  record Query(String text, List<Double> vector, AuthorizedScope scope, int limit) {
+  enum SearchMode {
+    HYBRID,
+    DENSE_ONLY
+  }
+
+  record Query(
+      String text, List<Double> vector, AuthorizedScope scope, int limit, SearchMode mode) {
+    public Query(String text, List<Double> vector, AuthorizedScope scope, int limit) {
+      this(text, vector, scope, limit, SearchMode.HYBRID);
+    }
+
     public Query {
       requireText(text, MAX_QUERY_BYTES);
       vector = immutableVector(vector);
-      if (scope == null || limit < 1 || limit > MAX_TOP_K) {
+      if (scope == null || limit < 1 || limit > MAX_TOP_K || mode == null) {
         throw invalid();
       }
     }

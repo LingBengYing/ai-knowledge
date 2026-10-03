@@ -15,11 +15,13 @@ import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 /** Explicit local opt-in. Creates clients but never submits model or index requests at startup. */
 @Configuration(proxyBeanMethods = false)
+@Conditional(LegacyTextCondition.class)
 @ConditionalOnProperty(prefix = "rag.visual", name = "enabled", havingValue = "true")
 public class VisualConfiguration {
   @Bean(destroyMethod = "close")

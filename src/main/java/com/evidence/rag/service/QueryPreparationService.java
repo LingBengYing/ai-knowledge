@@ -2,6 +2,7 @@ package com.evidence.rag.service;
 
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
+import com.evidence.rag.model.domain.AudioWaveform;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
@@ -36,6 +37,7 @@ public final class QueryPreparationService {
   private final String imageCompilerRevision;
   private final String preparationRevision;
   private final long budgetNanos;
+  private final boolean retainAudio;
 
   public QueryPreparationService(
       VisionModels imageModels,
@@ -43,6 +45,16 @@ public final class QueryPreparationService {
       AudioCompilationService audio,
       VideoCompilationService video,
       Duration budget) {
+    this(imageModels, imageOcr, audio, video, budget, false);
+  }
+
+  public QueryPreparationService(
+      VisionModels imageModels,
+      ImageOcr imageOcr,
+      AudioCompilationService audio,
+      VideoCompilationService video,
+      Duration budget,
+      boolean retainAudio) {
     if (imageModels == null
         || imageOcr == null
         || audio == null
@@ -56,6 +68,7 @@ public final class QueryPreparationService {
     this.imageOcr = imageOcr;
     this.audio = audio;
     this.video = video;
+    this.retainAudio = retainAudio;
     imageModelRevision = ModelValues.identifier(imageModels.revision(), 200);
     ocrRevision = ModelValues.identifier(imageOcr.revision(), 200);
     audioRevision = ModelValues.identifier(audio.revision(), 200);
@@ -66,13 +79,15 @@ public final class QueryPreparationService {
                 List.of(
                     imageModelRevision, ocrRevision, "original-pixels+complete-ocr+description"));
     preparationRevision =
-        "java-query-preparation-v1:"
+        (retainAudio ? "java-query-preparation-v2:" : "java-query-preparation-v1:")
             + hash(
                 List.of(
                     imageCompilerRevision,
                     audioRevision,
                     videoRevision,
-                    "complete-text-8192cp+unique-global-first-middle-last-3"));
+                    retainAudio
+                        ? "complete-text-8192cp+unique-global-first-middle-last-3+all-original-pcm16k-mono-s16le"
+                        : "complete-text-8192cp+unique-global-first-middle-last-3"));
     budgetNanos = budget.toNanos();
   }
 
@@ -123,6 +138,7 @@ public final class QueryPreparationService {
       var compiled = new ArrayList<CompiledAttachment>();
       var retrieval = new StringBuilder(question);
       var unique = new LinkedHashMap<String, VisualImage>();
+      var waveforms = new ArrayList<AudioWaveform>();
       BooleanSupplier active =
           () -> {
             check(current, started);
@@ -145,6 +161,7 @@ public final class QueryPreparationService {
           throw new TextParser.Failure("query_text_limit");
         }
         result.images().forEach(image -> unique.putIfAbsent(image.sha256(), image));
+        waveforms.addAll(result.waveforms());
       }
       var images = List.copyOf(unique.values());
       var selected =
@@ -172,7 +189,7 @@ public final class QueryPreparationService {
       }
       check(current, started);
       return new PreparedQuery(
-          question, retrieval.toString(), selected, manifests, preparationRevision);
+          question, retrieval.toString(), selected, manifests, preparationRevision, waveforms);
     } catch (TextParser.Failure failure) {
       throw failure;
     } catch (RuntimeException invalidOutput) {
@@ -223,7 +240,15 @@ public final class QueryPreparationService {
   }
 
   private CompiledAttachment audio(QueryAttachment input, BooleanSupplier current) {
-    var result = audio.compile(input.filename(), input.mediaType(), input.content(), current);
+    var prepared =
+        retainAudio
+            ? audio.compileWithWaveforms(
+                input.filename(), input.mediaType(), input.content(), current)
+            : null;
+    var result =
+        prepared == null
+            ? audio.compile(input.filename(), input.mediaType(), input.content(), current)
+            : prepared.compilation();
     if (!input.sha256().equals(result.sourceSha256())
         || !audioRevision.equals(result.compilerRevision())) {
       throw new TextParser.Failure("parser_invalid_output");
@@ -242,7 +267,8 @@ public final class QueryPreparationService {
         audioRevision,
         join(result.spans().stream().map(AudioTranscriptSpan::text).toList()),
         List.of(),
-        hash(parts));
+        hash(parts),
+        prepared == null ? List.of() : prepared.waveforms());
   }
 
   private CompiledAttachment video(QueryAttachment input, BooleanSupplier current) {
@@ -365,9 +391,19 @@ public final class QueryPreparationService {
   }
 
   private record CompiledAttachment(
-      String compilerRevision, String text, List<VisualImage> images, String contentSha256) {
+      String compilerRevision,
+      String text,
+      List<VisualImage> images,
+      String contentSha256,
+      List<AudioWaveform> waveforms) {
+    private CompiledAttachment(
+        String compilerRevision, String text, List<VisualImage> images, String contentSha256) {
+      this(compilerRevision, text, images, contentSha256, List.of());
+    }
+
     private CompiledAttachment {
       images = List.copyOf(images);
+      waveforms = List.copyOf(waveforms);
     }
 
     @Override

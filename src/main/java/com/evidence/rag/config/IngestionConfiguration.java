@@ -2,9 +2,11 @@ package com.evidence.rag.config;
 
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.job.IngestionJob;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.IngestionTaskProcessor;
+import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.web.ProblemHandler;
 import com.evidence.rag.web.UploadServlet;
@@ -20,7 +22,6 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "rag.ingestion", name = "enabled", havingValue = "true")
 public class IngestionConfiguration {
-  @Bean
   IngestionTaskProcessor ingestionTaskProcessor(
       IngestionService authority,
       RagProperties properties,
@@ -40,12 +41,40 @@ public class IngestionConfiguration {
         ImageOcrConfiguration.options(environment),
         vision.getIfAvailable(),
         audio.getIfAvailable(),
-        video.getIfAvailable());
+        video.getIfAvailable(),
+        PdfOcrConfiguration.options(environment));
+  }
+
+  @Bean(name = "ingestionTaskProcessor")
+  IngestionTaskProcessor configuredIngestionTaskProcessor(
+      IngestionService authority,
+      RagProperties properties,
+      IngestionSettings settings,
+      Environment environment,
+      ObjectProvider<VisionModels> vision,
+      ObjectProvider<AudioCompilationService> audio,
+      ObjectProvider<VideoCompilationService> video,
+      ObjectProvider<LegacyTextProfileGuard> legacyText) {
+    String bind = environment.getProperty("server.address");
+    if (!("127.0.0.1".equals(bind) || "::1".equals(bind))) {
+      throw new IllegalArgumentException("Development ingestion requires literal loopback binding");
+    }
+    return new IngestionTaskProcessor(
+        authority,
+        properties.workspaceId(),
+        Duration.ofMillis(settings.parseTimeoutMs()),
+        ImageOcrConfiguration.options(environment),
+        vision.getIfAvailable(),
+        audio.getIfAvailable(),
+        video.getIfAvailable(),
+        PdfOcrConfiguration.options(environment),
+        legacyText.getIfAvailable());
   }
 
   @Bean(destroyMethod = "close")
-  IngestionJob ingestionJob(IngestionTaskProcessor processor) {
-    return new IngestionJob(processor);
+  IngestionJob ingestionJob(
+      IngestionTaskProcessor processor, ObjectProvider<LibraryOperationGate> operations) {
+    return new IngestionJob(processor, operations.getIfAvailable());
   }
 
   @Bean

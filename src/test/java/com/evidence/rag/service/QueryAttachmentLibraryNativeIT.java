@@ -14,15 +14,19 @@ import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.config.RagProperties;
 import com.evidence.rag.config.TextAdapterSettings;
+import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.VerifiedRevision;
+import com.evidence.rag.model.dto.QueryAnswerMode;
 import com.evidence.rag.support.AnswerProtocolServer;
 import com.evidence.rag.tool.parser.TextParser;
+import com.evidence.rag.web.BoundedMediaQueryServlet;
 import com.evidence.rag.web.ProblemHandler;
-import com.evidence.rag.web.QueryAttachmentServlet;
+import com.evidence.rag.web.converter.QueryAttachmentRequestMapper;
 import com.evidence.rag.worker.parser.ProcessAudioDecoder;
 import com.evidence.rag.worker.parser.ProcessImageParser;
 import com.evidence.rag.worker.parser.ProcessVideoDecoder;
@@ -452,11 +456,25 @@ class QueryAttachmentLibraryNativeIT {
     }
 
     @Bean
-    ServletRegistrationBean<QueryAttachmentServlet> nativeAttachmentServlet(
+    ServletRegistrationBean<BoundedMediaQueryServlet> nativeAttachmentServlet(
         AnswerService answers, JsonMapper json, ProblemHandler errors) {
       var registration =
           new ServletRegistrationBean<>(
-              new QueryAttachmentServlet(answers, null, 5000, 60000, 2, json, errors),
+              new BoundedMediaQueryServlet(
+                  (actor, body) -> {
+                    var command = QueryAttachmentRequestMapper.command(body);
+                    if (command.mode() == QueryAnswerMode.IMAGE) {
+                      throw new ApplicationException(
+                          FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
+                    }
+                    return answers.answerAttached(actor, command);
+                  },
+                  QueryAttachmentRequestMapper.MAX_REQUEST_BYTES,
+                  5000,
+                  60000,
+                  2,
+                  json,
+                  errors),
               "/v1/attachment-answers");
       registration.setAsyncSupported(true);
       return registration;

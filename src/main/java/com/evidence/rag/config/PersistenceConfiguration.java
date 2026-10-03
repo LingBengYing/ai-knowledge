@@ -2,11 +2,15 @@ package com.evidence.rag.config;
 
 import com.evidence.rag.bootstrap.DemoFixtures;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
+import com.evidence.rag.repository.AudioVectorRepository;
+import com.evidence.rag.repository.ImageVectorRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
+import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.SynopsisRepository;
+import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.IndexingService;
@@ -70,6 +74,26 @@ public class PersistenceConfiguration {
   }
 
   @Bean
+  ImageVectorRepository imageVectorRepository(SqliteAuthorityStore store) {
+    return new ImageVectorRepository(store);
+  }
+
+  @Bean
+  AudioVectorRepository audioVectorRepository(SqliteAuthorityStore store) {
+    return new AudioVectorRepository(store);
+  }
+
+  @Bean
+  VideoAvRepository videoAvRepository(SqliteAuthorityStore store) {
+    return new VideoAvRepository(store);
+  }
+
+  @Bean
+  SoundRepository soundRepository(SqliteAuthorityStore store) {
+    return new SoundRepository(store);
+  }
+
+  @Bean
   DocumentPermissionPolicy documentPermissionPolicy() {
     return new DocumentPermissionPolicy();
   }
@@ -80,8 +104,10 @@ public class PersistenceConfiguration {
       ManagementRepository management,
       IngestionRepository ingestion,
       IndexingRepository indexing,
-      DocumentPermissionPolicy permissions) {
-    return new ManagementService(store, management, ingestion, indexing, permissions);
+      DocumentPermissionPolicy permissions,
+      IndexingSettings indexingSettings) {
+    return new ManagementService(
+        store, management, ingestion, indexing, permissions, indexingSettings.enabled());
   }
 
   @Bean
@@ -106,7 +132,8 @@ public class PersistenceConfiguration {
             visual.getIfAvailable(),
             compiler == null ? null : compiler.revision(),
             videoCompiler == null ? null : videoCompiler.revision(),
-            videoCompiler != null && videoCompiler.ocrEnabled());
+            videoCompiler != null && videoCompiler.ocrEnabled(),
+            PdfOcrConfiguration.options(environment));
     service.recoverIngestions();
     return service;
   }

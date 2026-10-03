@@ -153,6 +153,64 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
     return settings.identity();
   }
 
+  /**
+   * Deletes only a qualified document's logical rows. No collection creation, compaction, GC or
+   * remote-write termination is implied by this operation.
+   */
+  public void deleteDocument(String workspaceId, String documentId, List<String> generations) {
+    if (!settings.workspaceId().equals(workspaceId)
+        || documentId == null
+        || !documentId.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,99}")
+        || generations == null
+        || generations.size() > 10_000
+        || generations.stream()
+            .anyMatch(g -> g == null || !g.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}"))) {
+      throw new ProjectionException("projection_invalid_input");
+    }
+    long until = deadline();
+    withinOperation(
+        until,
+        () -> {
+          JsonNode has = post("collections/has", base(), until).path("has");
+          responseCheck(has.isBoolean());
+          if (!has.booleanValue()) {
+            return null;
+          }
+          schema.validate(post("collections/describe", base(), until));
+          for (String generation : new HashSet<>(generations)) {
+            JsonNode rows =
+                post(
+                    "entities/query",
+                    queryRequest("revision_id == \"" + generation + "\"", 1, false),
+                    until);
+            responseCheck(rows.isArray() && rows.size() <= 1);
+            for (JsonNode row : rows) {
+              responseCheck(
+                  workspaceId.equals(responseText(row, "workspace_id"))
+                      && documentId.equals(responseText(row, "document_id"))
+                      && generation.equals(responseText(row, "revision_id")));
+            }
+          }
+          String filter =
+              "workspace_id == \"" + workspaceId + "\" && document_id == \"" + documentId + "\"";
+          var deletion = base();
+          deletion.put("filter", filter);
+          // REST v2 accepts code=0/data={}; deleteCount is not a required response member.
+          responseCheck(post("entities/delete", deletion, until).isObject());
+          JsonNode remaining = post("entities/query", queryRequest(filter, 1, false), until);
+          responseCheck(remaining.isArray() && remaining.isEmpty());
+          for (String generation : new HashSet<>(generations)) {
+            JsonNode rows =
+                post(
+                    "entities/query",
+                    queryRequest("revision_id == \"" + generation + "\"", 1, false),
+                    until);
+            responseCheck(rows.isArray() && rows.isEmpty());
+          }
+          return null;
+        });
+  }
+
   @Override
   public VerifiedRevision verify(RevisionManifest manifest) {
     long deadline = deadline();
@@ -401,7 +459,10 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
         searchRoute(
             "dense", List.of(query.vector()), "COSINE", query, filter, identities, deadline);
     List<Hit> sparse =
-        searchRoute("sparse", List.of(query.text()), "BM25", query, filter, identities, deadline);
+        query.mode() == SearchMode.HYBRID
+            ? searchRoute(
+                "sparse", List.of(query.text()), "BM25", query, filter, identities, deadline)
+            : List.of();
     var scores = new HashMap<String, Double>();
     for (List<Hit> route : List.of(dense, sparse)) {
       for (int index = 0; index < route.size(); index++) {

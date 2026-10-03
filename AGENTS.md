@@ -1,5 +1,35 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-03当前0035：[保存材料重建](docs/changes/0035-saved-source-reindex/verification.md)。已发布资料可明确重建保存的完整文本索引，处理期间旧索引可用，成功才切换；失败、取消和重启中断保留旧版本。入口核对真实能力及当前资格，成功后提示重新查询，保留问题、范围与整理草稿。模型配置、逐角色测试、明确应用和召回测试继续沿既有流程。首切不支持已有独立图片/音频向量的资料及真正嵌入/投影迁移；后续receipt迁移与原文件版本替换继续保留。未部署，页面用户验收，0新增真实provider调用，完整目标ACTIVE。
+
+2026-10-03当前0034/前端0022已本机验证角色切换后的旧媒体来源回读，见[验证](docs/changes/0034-media-role-switch-sources/verification.md)。仅三处后端及一个前端回调；实际HTTP证明现有Filter早已保护旧POST，撤回早期静态漏看Filter的误报，未新增重复guard。3075 Java/431前端及六Native各1通过，原POM/测试/架构与双80%保持。旧包及失败只读，交接以`.tools/media-role-switch-handoff`实际manifest为准；Git、Maven/target、部署及真实provider边界不变。未部署，页面用户验收，目标active；继续retrieval-only范围入口与原重建/版本更新范围。下方保留历史记录。
+
+2026-10-03当前基础修复0033：已有文字索引后，仅更换生成或重排模型可以保存、单独测试并明确应用；嵌入配置及投影不变时不重建资料索引。实际新角色与新trace、原索引/旧来源、连续切换及重启均已本机验证；真正嵌入或投影变化仍拒绝，legacy媒体按实际完整profile判定。最终3058 Java、1013格式、原LINE/BRANCH双80与架构、六Native各1通过；1029后端输入相同、761生产class稳定。前端64及后端18 Node/static输入字节不变，430/check与73明确复用此前实跑证据。新交接.tools/model-role-switch-handoff以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收、真实ASR未宣称修复，目标active。历史记录保留。
+
+2026-10-03当前本机主线：[模型配置与召回测试](docs/MODEL_SETUP_AND_RETRIEVAL.md)已接通保存草稿、逐角色连接测试、明确应用、完整范围召回预览与同版本来源；无模型可启动，应用丢响应后显式读取能恢复索引/召回入口。资料清理及取消后清理恢复一并整合。实际3011 Java、1004格式、原LINE/BRANCH双80%、430前端/check、73后端Node及六Native各1通过；1020/64执行输入相同，759完整生产class与最终JAR一致，旧2640/370用例身份多重性保留。详见[0032验证](docs/changes/0032-model-setup-retrieval-test/verification.md)。交接工作区`.tools/model-setup-handoff`以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收，原ASR质量未宣称解决，目标active、usage/计费取消。下方保留历史记录。
+
+2026-10-03本机增量：[0030原视频参考问答](docs/changes/0030-video-av-query/verification.md)与前端0019：严格新route/真实cap、最多三参考全窗两路召回、整批预算及模态拒答、库内完整问题证明、v21 hash-only准备侧车和重启来源通过。2640 Java/894格式/原双80%、370前端/syntax、73 Node及六Native各1 PASS；910/57输入无变，668完整生产class与target/JAR一致，旧2567/344case身份多重性保留。新交接`.tools/video-av-query-handoff`仅据实际manifest/validation/审计认定冻结。Maven/Spotless/target仅root串行；旧冻结包只读、无真实模型/Git/服务器/旧数据写，页面用户验收、部署归原责任方、usage/计费取消、目标active。下方为历史记录。
+
+2026-10-03本机门禁通过：[0029原视频音画](docs/changes/0029-video-audiovisual/verification.md)与前端0018。原件上传/整理、显式连续MP4及完整原PCM双路索引、VISUAL/AUDIO/JOINT完整文字问题证明和typed原视频时间来源已接通。最终2567 Java、878格式、原LINE/BRANCH双80%门禁、344前端/syntax、73 Node与六项Native各1 PASS；894/55输入执行前后不变，660完整Native生产class与最终target/JAR一致，旧2268/324用例身份多重性保留。交接入口工作区`.tools/video-audiovisual-handoff`，冻结/独立审计只以实际manifest/validation/sidecar为准。无真实模型调用，未部署，网页用户验收，Git/部署归原责任方，usage/计费取消，完整目标active。下方为历史记录。
+
+2026-10-03当前本机稳定增量：[0028独立声音知识库](docs/changes/0028-sound-library/verification.md)与前端0017。三代理分工、root统一整合验证：2268 Java/787格式/原双80%门禁、324前端/73 Node及5项Native通过，803/49输入无变、586生产class与最终JAR一致；2042旧默认与299旧前端身份多重性保持。sound默认关闭、原上传0ASR、完整PCM显式索引、文字/原声分路召回、单窗口完整问题证明和时间来源回读。交接入口为工作区`.tools/sound-library-handoff`，冻结/独立审计以实际manifest/validation/sidecar为准，不据准备脚本推定通过。真实声音/ASR/网页/部署仍未验，用户页面验收；随后原视频音画检索。共享Maven/Spotless仅root串行，源码先协调；旧冻结包只读、Git/部署归原责任方，目标active，usage/计费取消。
+
+2026-10-03当前本机稳定增量：[0027原声向量检索](docs/changes/0027-audio-vector-retrieval/verification.md)。三代理完成独立默认关闭原声模型、完整speech-span构建/独立generation/v18 immutable receipts和完整scope原PCM dense召回，root接前端0016/实际Spring与FFmpeg合成正常链并统一验证。最终2042 Java/716格式/原双80%门禁、299前端/73 Node、4单列native通过，732/46输入无变、529生产类与JAR一致。原声向量只召回，保存转录和原音频SHA/时间来源继续作证；非语音事实与真实ASR仍未完成。新切未部署，页面由用户验收、Git/部署归原责任方、无真实模型调用、usage/计费取消。
+
+2026-10-03当前增量：[0026原图向量检索](docs/changes/0026-image-vector-retrieval/spec.md)。独立ImageEmbeddingModels、显式构建/新generation、v17不可变receipt与DENSE_ONLY召回；旧文字IndexProtocol/任务/publication保持。完整图片scope所有receipt先合格，每路candidate完整authority映射后融合，原图事实证明和typed来源保持；默认关闭，不自动调用。三代理分工已完成，根代理统一门禁/绑定/冻结，实际证据见[verification](docs/changes/0026-image-vector-retrieval/verification.md)。新image未部署；现网20261003-voice-tags已含标签/语音（报告只读核对），真实ASR失败保留。用户页面验收，Git/部署归原责任方，无新真实模型调用；usage/计费取消。下方为历史快照。
+
+2026-10-03当前增量：[0025语音提问](docs/changes/0025-voice-questions/spec.md)。单音频→完整ASR文字→用户编辑确认→旧完整scope问答/库内来源；输入准备不读库、不入库或trace。共享BoundedMediaQueryServlet替代QueryAttachmentServlet并保留旧附件分派/预算，交接须记录旧文件删除，不能恢复兼容壳。默认关闭，独立audio/ingestion/answers及local依赖，无新增provider/凭据/真实调用。页面用户验收，Git/部署由原责任方处理，usage/计费取消。当前实际已部署20261003-scanned-pdf，标签/语音尚未发布；下方为历史快照。
+
+2026-10-03当前增量：[0024摘要建议标签](docs/changes/0024-tag-suggestions/spec.md)。从当前有效保存摘要取完整短术语/主题→用户选择→单authority事务复验摘要/指纹/编辑ACL后合并最新标签→列表筛选，前端0013配套。无新模型/凭据/表/任务，原20标签与hash-only审计保持；空候选不截断或猜词。0023/前端0012已冻结，旧handoff不改。实际回归与发布状态见[验证记录](docs/changes/0024-tag-suggestions/verification.md)。用户页面验收、无真实模型调用、不改Git/部署/旧数据以及usage/计费取消边界保持。
+
+2026-10-03当前主线：[0023扫描PDF](docs/changes/0023-scanned-pdf/spec.md)。默认关闭的独立PDF OCR逐页渲染整页，保留空白页和原页码，沿原ParsedText/完整索引/文字问答/同版本原PDF回读；配置变化不接受旧profile任务。前端0012已接PDF引用按页打开。真实合成Tesseract与完整验证见[验证记录](docs/changes/0023-scanned-pdf/verification.md)，真实中文/网页/生产另验。用户授权多实现代理分工，仍不发云请求、不改Git索引/部署或旧数据；usage/计费取消。此前0022已独立发布，本切尚未发布。 最终1778 Java/605格式/双80%与后端Node73、前端245通过；621构建输入未变，交接为工作区`.tools/scanned-pdf-handoff`。下一纵切按原ROADMAP推进自动标签，先冻结具体交互合同；不是重跑已完成的PDF诊断。
+
+2026-10-03最新：[0022数字序列完整性](docs/changes/0022-audio-numeric-sequences/verification.md)已本机冻结，四个共享证明文件与611项相关回归、592文件格式和package通过，policy为java-text-grounding-v6-numeric-sequences。旧ASR文字与失败不改写，真实识别复验NOT_RUN、新增模型调用0；不得将数字证明修复说成ASR已解决。此前0021/前端0009已由独立部署任务发布并通过原文件与导航外部复测，PDF内嵌像素未验。新usage/计费开发已被用户明确取消，只做过只读方案检查，未产生代码/迁移/验证/发布；不得继续追加。音频交接在工作区`.tools/audio-numeric-sequences-handoff`，其发布仍待现有部署任务；不覆盖冻结工件或免登录副本，Git写入归专门任务。
+
+2026-10-03当前本机稳定点：[0021原文件详情](docs/changes/0021-document-originals/verification.md)。资料原文件metadata/pinned内容、当前ACL与完整原字节SHA已接通，66项相关Java回归/590文件格式/构建及前端185项、五种原文件HTTP贯通通过。0020 Policy移至security.web并由既有配置装配，原架构规则未放宽。新交接`.tools/document-originals-handoff`供独立部署任务局部合入，保留其免登录调整；尚不代表公网复验或真实音频识别通过。下方记录为对应历史稳定点，付费、Git与部署权限边界持续有效。
+
+2026-10-02当前整合入口：[0020外部入口](docs/changes/0020-external-entry/intent.md)。协调方授权主线任务小范围合入已验证隔离补丁，配合独立前端图片/音视频主线；Java28项针对性/构建/Spotless及当前JWT入口四类本机正常链通过。未做Git写入、云调用、服务器或旧数据操作，production/readiness门禁保持。下方0019和历史禁止前端/生产Java改动记录按当时范围解释；0019真实失败台账与付费限制仍有效。
+
 2026-09-22 17:39:50最新进展：又一组具名2次细粒度诊断获准并完成，累计6/20、未使用14；见[台账](docs/changes/0019-audio-video-provider-eval/provider-run.md)。原/full真实证明均命中instruction_in_field，转录SHA与诊断01相同，编号规范化731=true/AU=false。已定位同字段指令路径；不猜具体错字、不删样本/金标或放宽安全规则。下一步只读核对ASR配置后形成具名候选实验，不自动消耗余量。613输入不变、无重试、视频未开始、生产未完成。下方2/12等为历史，不是当前计数。
 
 2026-09-22 13:54:22当前终态：0019获批最多12次及本批使用原密钥后，具名真实LiveIT在第2次请求后因`eval_audio_not_grounded`失败停止；ASR/摘录各1次、视频0次，10次未使用。先读[执行台账](docs/changes/0019-audio-video-provider-eval/provider-run.md)；不要重复运行或用余额追加诊断，后续模型诊断/复验须另行明确授权。当前仅知原文证明不支持，不能归因ASR或摘录，也不能套用9/21替身同名故障原因。613输入未改；本机冻结与真实失败分开，前端、旧服务/数据、Git写入/部署边界不变。下方9/21 NOT_RUN等属于历史快照。

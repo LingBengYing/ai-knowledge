@@ -38,6 +38,7 @@ public final class IndexingTestServer implements AutoCloseable {
   private final Map<String, JsonNode> rows = new ConcurrentHashMap<>();
   private final int dimensions;
   private final int maxResponseBytes;
+  private final URI modelEndpoint;
   public final List<Request> requests = new CopyOnWriteArrayList<>();
   public final CountDownLatch embeddingStarted = new CountDownLatch(1);
   public final CountDownLatch releaseEmbedding = new CountDownLatch(1);
@@ -55,6 +56,12 @@ public final class IndexingTestServer implements AutoCloseable {
   }
 
   public IndexingTestServer(int dimensions, int maxResponseBytes) throws IOException {
+    this(dimensions, maxResponseBytes, null);
+  }
+
+  public IndexingTestServer(int dimensions, int maxResponseBytes, URI modelEndpoint)
+      throws IOException {
+    this.modelEndpoint = modelEndpoint;
     this.dimensions = dimensions;
     this.maxResponseBytes = maxResponseBytes;
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -70,7 +77,9 @@ public final class IndexingTestServer implements AutoCloseable {
   public TextAdapterSettings settings() {
     var env = new LinkedHashMap<String, String>();
     for (String kind : List.of("EMBEDDING", "RERANK", "GENERATION")) {
-      env.put("RAG_" + kind + "_BASE_URL", endpoint().toString());
+      env.put(
+          "RAG_" + kind + "_BASE_URL",
+          (modelEndpoint == null ? endpoint() : modelEndpoint).toString());
       env.put("RAG_" + kind + "_MODEL", "fixture-model");
       env.put("RAG_" + kind + "_API_KEY", "synthetic-model-credential");
     }

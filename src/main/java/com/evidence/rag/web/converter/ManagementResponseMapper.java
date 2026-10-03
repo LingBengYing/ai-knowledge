@@ -1,6 +1,7 @@
 package com.evidence.rag.web.converter;
 
 import com.evidence.rag.model.dto.DocumentActionResult;
+import com.evidence.rag.model.dto.DocumentOriginalResult;
 import com.evidence.rag.model.dto.DocumentPageResult;
 import com.evidence.rag.model.dto.DocumentResult;
 import com.evidence.rag.model.dto.FolderListResult;
@@ -8,6 +9,7 @@ import com.evidence.rag.model.dto.FolderResult;
 import com.evidence.rag.model.vo.DocumentActionReceipt;
 import com.evidence.rag.model.vo.DocumentActionResponse;
 import com.evidence.rag.model.vo.DocumentActionsResponse;
+import com.evidence.rag.model.vo.DocumentOriginalResponse;
 import com.evidence.rag.model.vo.DocumentPageResponse;
 import com.evidence.rag.model.vo.DocumentResponse;
 import com.evidence.rag.model.vo.MediaInfoResponse;
@@ -17,6 +19,18 @@ import java.util.List;
 /** Serializes the established HTTP contract without leaking persistence entities. */
 public final class ManagementResponseMapper {
   private ManagementResponseMapper() {}
+
+  public static DocumentOriginalResponse original(DocumentOriginalResult r) {
+    return new DocumentOriginalResponse(
+        r.documentId(),
+        r.revisionId(),
+        r.filename(),
+        r.documentType(),
+        r.mediaType(),
+        r.sourceSha256(),
+        r.sizeBytes(),
+        "/v1/documents/" + r.documentId() + "/revisions/" + r.revisionId() + "/content");
+  }
 
   public static DocumentPageResponse page(DocumentPageResult r) {
     return new DocumentPageResponse(
@@ -45,7 +59,7 @@ public final class ManagementResponseMapper {
         r.currentRole(),
         r.canEdit(),
         false,
-        false,
+        r.canReindex(),
         false,
         r.indexStatus(),
         r.latestIndexJob() == null ? null : TaskResponseMapper.from(r.latestIndexJob()),

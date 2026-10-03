@@ -1,5 +1,6 @@
 package com.evidence.rag.repository;
 
+import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioEvidence;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
@@ -16,6 +17,7 @@ import com.evidence.rag.model.domain.VideoTranscriptEvidence;
 import com.evidence.rag.model.entity.IndexPublicationEntity;
 import com.evidence.rag.model.entity.RevisionEntity;
 import com.evidence.rag.model.entity.TaskEntity;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -87,6 +89,168 @@ public final class IndexingRepository {
         now);
   }
 
+  /** Current active metadata, never inferred from whichever task happens to be latest. */
+  public Optional<IndexPublicationEntity> activePublication(String documentId) {
+    return store
+        .rows(
+            "SELECT p.* FROM active_corpus_publications a JOIN index_publications p ON p.id=a.publication_id AND p.document_id=a.document_id AND p.revision_id=a.revision_id WHERE a.document_id=?",
+            documentId)
+        .stream()
+        .findFirst()
+        .map(
+            row ->
+                new IndexPublicationEntity(
+                    AuthorityRows.text(row, "id"),
+                    AuthorityRows.text(row, "job_id"),
+                    AuthorityRows.text(row, "document_id"),
+                    AuthorityRows.text(row, "revision_id"),
+                    AuthorityRows.integer(row, "attempt"),
+                    AuthorityRows.text(row, "projection_generation_id"),
+                    AuthorityRows.text(row, "source_sha256"),
+                    AuthorityRows.text(row, "parser_revision"),
+                    new IndexTarget(
+                        AuthorityRows.text(row, "embedding_identity"),
+                        AuthorityRows.text(row, "projection_identity"),
+                        AuthorityRows.text(row, "model_revision"),
+                        AuthorityRows.integer(row, "dimensions")),
+                    AuthorityRows.text(row, "manifest_sha256"),
+                    AuthorityRows.integer(row, "segment_count"),
+                    AuthorityRows.text(row, "created_at")));
+  }
+
+  /** Authority-only eligibility. Actor permission, capability and runtime target are separate. */
+  public boolean canReindex(String documentId) {
+    try {
+      var publication = activePublication(documentId);
+      return publication.isPresent()
+          && !hasPending(documentId)
+          && !hasBaseVectorReceipt(publication.get().id())
+          && publicationCurrent(publication.get());
+    } catch (ApplicationException corrupt) {
+      return false;
+    }
+  }
+
+  private boolean publicationCurrent(IndexPublicationEntity publication) {
+    try {
+      if (store.count(
+              "SELECT COUNT(*) FROM indexing_jobs j WHERE j.id=? AND j.document_id=? AND j.revision_id=? AND j.state='indexed' AND j.attempt=? AND j.projection_generation_id=? AND j.source_sha256=? AND j.parser_revision=? AND j.embedding_identity=? AND j.projection_identity=? AND j.model_revision=? AND j.dimensions=?",
+              publication.jobId(),
+              publication.documentId(),
+              publication.revisionId(),
+              publication.attempt(),
+              publication.projectionGenerationId(),
+              publication.sourceSha256(),
+              publication.parserRevision(),
+              publication.target().embeddingIdentity(),
+              publication.target().projectionIdentity(),
+              publication.target().modelRevision(),
+              publication.target().dimensions())
+          != 1) {
+        return false;
+      }
+      var revision = parsedRevision(publication.documentId());
+      if (revision.isEmpty()
+          || !revision.get().id().equals(publication.revisionId())
+          || !revision.get().sourceSha256().equals(publication.sourceSha256())
+          || !revision.get().parserRevision().equals(publication.parserRevision())
+          || publication.segmentCount() < 1
+          || publication.segmentCount() > 4096) {
+        return false;
+      }
+      var original =
+          store.rows(
+              "SELECT c.original_blob,d.size_bytes,d.source_sha256 FROM corpus_documents c JOIN documents d ON d.id=c.document_id WHERE c.document_id=?",
+              publication.documentId());
+      if (original.size() != 1
+          || !(original.getFirst().get("original_blob") instanceof byte[] content)
+          || content.length < 1
+          || content.length > 20 * 1024 * 1024
+          || AuthorityRows.number(original.getFirst(), "size_bytes") != content.length
+          || !publication
+              .sourceSha256()
+              .equals(AuthorityRows.text(original.getFirst(), "source_sha256"))
+          || !publication.sourceSha256().equals(ModelValues.sha256(content))) {
+        return false;
+      }
+      if (projectionItems(publication.revisionId()).size() != publication.segmentCount()) {
+        return false;
+      }
+      return store.count(
+              "SELECT (SELECT COUNT(*) FROM index_publication_entries WHERE publication_id=?)+(SELECT COUNT(*) FROM image_publication_entries WHERE publication_id=?)+(SELECT COUNT(*) FROM audio_publication_entries WHERE publication_id=?)+(SELECT COUNT(*) FROM video_frame_publication_entries WHERE publication_id=?)+(SELECT COUNT(*) FROM video_transcript_publication_entries WHERE publication_id=?)+(SELECT COUNT(*) FROM video_ocr_publication_entries WHERE publication_id=?)+(SELECT COUNT(*) FROM video_subtitle_publication_entries WHERE publication_id=?)",
+              publication.id(),
+              publication.id(),
+              publication.id(),
+              publication.id(),
+              publication.id(),
+              publication.id(),
+              publication.id())
+          == publication.segmentCount();
+    } catch (ApplicationException corrupt) {
+      return false;
+    }
+  }
+
+  public boolean hasPending(String documentId) {
+    return store.count(
+            "SELECT COUNT(*) FROM indexing_jobs WHERE document_id=? AND state IN ('queued','processing')",
+            documentId)
+        != 0;
+  }
+
+  public int nextRebuildSequence(String documentId) {
+    long sequence =
+        store.count(
+            "SELECT COALESCE(MAX(rebuild_sequence),0)+1 FROM indexing_jobs WHERE document_id=?",
+            documentId);
+    if (sequence < 1 || sequence > Integer.MAX_VALUE) {
+      throw ModelValues.invalid();
+    }
+    return (int) sequence;
+  }
+
+  public Optional<String> basePublicationId(String jobId) {
+    return store.rows("SELECT base_publication_id FROM indexing_jobs WHERE id=?", jobId).stream()
+        .map(row -> AuthorityRows.text(row, "base_publication_id"))
+        .filter(Objects::nonNull)
+        .findFirst();
+  }
+
+  public boolean hasBaseVectorReceipt(String publicationId) {
+    return store.count(
+            "SELECT (SELECT COUNT(*) FROM image_vector_publications WHERE publication_id=?)+(SELECT COUNT(*) FROM audio_vector_publications WHERE publication_id=?)",
+            publicationId,
+            publicationId)
+        > 0;
+  }
+
+  public void insertRebuildJob(
+      String jobId,
+      String documentId,
+      RevisionEntity revision,
+      IndexTarget target,
+      String creator,
+      String basePublicationId,
+      int sequence,
+      String now) {
+    store.execute(
+        "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?)",
+        jobId,
+        documentId,
+        revision.id(),
+        revision.sourceSha256(),
+        revision.parserRevision(),
+        target.embeddingIdentity(),
+        target.projectionIdentity(),
+        target.modelRevision(),
+        target.dimensions(),
+        creator,
+        now,
+        now,
+        sequence,
+        basePublicationId);
+  }
+
   public boolean hasProcessing() {
     return store.count(
             "SELECT COUNT(*) FROM indexing_jobs j WHERE state='processing' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=j.document_id)")
@@ -127,15 +291,29 @@ public final class IndexingRepository {
   }
 
   public boolean sourceCurrent(TaskEntity job) {
-    return store.count(
-            "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND "
-                + PROJECTION_COUNT
-                + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
-            job.documentId(),
-            job.revisionId(),
-            job.sourceSha256(),
-            job.parserRevision())
-        == 1;
+    boolean metadataCurrent =
+        store.count(
+                "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND "
+                    + PROJECTION_COUNT
+                    + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND EXISTS(SELECT 1 FROM indexing_jobs j WHERE j.id=? AND j.document_id=c.document_id AND ((j.rebuild_sequence=0 AND j.base_publication_id IS NULL AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id)) OR (j.rebuild_sequence>0 AND EXISTS(SELECT 1 FROM active_corpus_publications a JOIN index_publications base ON base.id=a.publication_id WHERE a.document_id=d.id AND a.publication_id=j.base_publication_id AND a.revision_id=r.id AND base.source_sha256=r.source_sha256 AND base.parser_revision=r.parser_revision AND base.embedding_identity=j.embedding_identity AND base.projection_identity=j.projection_identity AND base.model_revision=j.model_revision AND base.dimensions=j.dimensions AND NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=a.publication_id))))) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
+                job.documentId(),
+                job.revisionId(),
+                job.sourceSha256(),
+                job.parserRevision(),
+                job.id())
+            == 1;
+    if (!metadataCurrent) {
+      return false;
+    }
+    var base = basePublicationId(job.id());
+    if (base.isEmpty()) {
+      return true;
+    }
+    var publication = activePublication(job.documentId());
+    return publication.isPresent()
+        && publication.get().id().equals(base.get())
+        && publication.get().target().equals(job.target())
+        && publicationCurrent(publication.get());
   }
 
   /** Complete recall snapshot; text locations are validated before leaving their source type. */
@@ -396,11 +574,38 @@ public final class IndexingRepository {
   }
 
   public void activatePublication(String documentId, String publicationId, String revisionId) {
-    store.execute(
-        "INSERT INTO active_corpus_publications(document_id,publication_id,revision_id) VALUES(?,?,?)",
-        documentId,
-        publicationId,
-        revisionId);
+    var base =
+        store.rows(
+            "SELECT j.base_publication_id FROM index_publications p JOIN indexing_jobs j ON j.id=p.job_id WHERE p.id=? AND p.document_id=? AND p.revision_id=?",
+            publicationId,
+            documentId,
+            revisionId);
+    if (base.size() != 1) {
+      throw ModelValues.invalid();
+    }
+    String previous = AuthorityRows.text(base.getFirst(), "base_publication_id");
+    if (previous == null) {
+      store.execute(
+          "INSERT INTO active_corpus_publications(document_id,publication_id,revision_id) VALUES(?,?,?)",
+          documentId,
+          publicationId,
+          revisionId);
+    } else {
+      store.execute(
+          "UPDATE active_corpus_publications SET publication_id=? WHERE document_id=? AND publication_id=? AND revision_id=?",
+          publicationId,
+          documentId,
+          previous,
+          revisionId);
+      if (store.count("SELECT changes()") != 1) {
+        throw ModelValues.invalid();
+      }
+      store.execute(
+          "UPDATE synopsis_tasks SET state='unavailable',error_code='source_changed',claim_token_sha256=NULL,updated_at=? WHERE publication_id=? AND document_id=? AND state IN ('queued','processing')",
+          Instant.now().toString(),
+          previous,
+          documentId);
+    }
   }
 
   public void markIndexed(String jobId, String now) {
@@ -439,7 +644,11 @@ public final class IndexingRepository {
   }
 
   public Optional<String> documentJobId(String documentId) {
-    return store.rows("SELECT id FROM indexing_jobs WHERE document_id=?", documentId).stream()
+    return store
+        .rows(
+            "SELECT id FROM indexing_jobs WHERE document_id=? ORDER BY rebuild_sequence DESC,id DESC LIMIT 1",
+            documentId)
+        .stream()
         .findFirst()
         .map(row -> AuthorityRows.text(row, "id"));
   }

@@ -13,7 +13,17 @@ public record PreparedQuery(
     String retrievalText,
     List<VisualImage> queryImages,
     List<QueryAttachmentManifest> attachments,
-    String preparationRevision) {
+    String preparationRevision,
+    List<AudioWaveform> queryAudio) {
+  public PreparedQuery(
+      String originalQuestion,
+      String retrievalText,
+      List<VisualImage> queryImages,
+      List<QueryAttachmentManifest> attachments,
+      String preparationRevision) {
+    this(originalQuestion, retrievalText, queryImages, attachments, preparationRevision, List.of());
+  }
+
   public PreparedQuery {
     if (originalQuestion == null
         || originalQuestion.isBlank()
@@ -36,8 +46,12 @@ public record PreparedQuery(
         || queryImages.size() > 3
         || attachments == null
         || attachments.size() > 3
+        || queryAudio == null
+        || queryAudio.size() > 1800
         || (attachments.isEmpty()
-            && (!originalQuestion.equals(retrievalText) || !queryImages.isEmpty()))) {
+            && (!originalQuestion.equals(retrievalText)
+                || !queryImages.isEmpty()
+                || !queryAudio.isEmpty()))) {
       throw ModelValues.invalid();
     }
     ModelValues.identifier(preparationRevision, 200);
@@ -58,8 +72,42 @@ public record PreparedQuery(
     if (!images.equals(selected)) {
       throw ModelValues.invalid();
     }
+    if (!queryAudio.isEmpty()) {
+      int index = 0;
+      String decoder = null;
+      for (var attachment : attachments) {
+        if (attachment.mediaKind() != QueryAttachment.Kind.AUDIO) {
+          continue;
+        }
+        long end = 0;
+        int first = index;
+        do {
+          if (index >= queryAudio.size()) {
+            throw ModelValues.invalid();
+          }
+          var waveform = queryAudio.get(index++);
+          if (waveform == null
+              || !attachment.sourceSha256().equals(waveform.sourceSha256())
+              || waveform.startSample() != end
+              || (decoder != null && !decoder.equals(waveform.decoderRevision()))) {
+            throw ModelValues.invalid();
+          }
+          decoder = waveform.decoderRevision();
+          end = waveform.endSample();
+        } while (index < queryAudio.size()
+            && queryAudio.get(index) != null
+            && queryAudio.get(index).startSample() != 0);
+        if (index - first > 600) {
+          throw ModelValues.invalid();
+        }
+      }
+      if (index != queryAudio.size()) {
+        throw ModelValues.invalid();
+      }
+    }
     queryImages = List.copyOf(queryImages);
     attachments = List.copyOf(attachments);
+    queryAudio = List.copyOf(queryAudio);
   }
 
   public static PreparedQuery text(String question) {
@@ -86,6 +134,17 @@ public record PreparedQuery(
       values.add(Boolean.toString(item.visualSampled()));
       values.add(Integer.toString(item.selectedImageSha256().size()));
       values.addAll(item.selectedImageSha256());
+    }
+    if (!queryAudio.isEmpty()) {
+      values.add("prepared-query-waveforms-v1");
+      values.add(Integer.toString(queryAudio.size()));
+      for (var waveform : queryAudio) {
+        values.add(waveform.sourceSha256());
+        values.add(waveform.decoderRevision());
+        values.add(Long.toString(waveform.startSample()));
+        values.add(Long.toString(waveform.endSample()));
+        values.add(waveform.pcmSha256());
+      }
     }
     var encoded = new StringBuilder();
     for (String value : values) {

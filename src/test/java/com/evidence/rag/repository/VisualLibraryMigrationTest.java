@@ -21,7 +21,7 @@ class VisualLibraryMigrationTest {
         var statement = database.createStatement()) {
       try (var version = statement.executeQuery("PRAGMA user_version")) {
         assertTrue(version.next());
-        assertEquals(16, version.getInt(1));
+        assertEquals(24, version.getInt(1));
       }
       try (var tables =
           statement.executeQuery(

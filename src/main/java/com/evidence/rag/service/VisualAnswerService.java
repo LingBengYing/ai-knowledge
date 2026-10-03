@@ -9,6 +9,7 @@ import com.evidence.rag.exception.ProjectionException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.EvidenceScope;
+import com.evidence.rag.model.domain.ImageVectorScope;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
@@ -132,7 +133,9 @@ public final class VisualAnswerService implements AutoCloseable {
       throw unavailable();
     }
     var processing = new Processing(!inputs.isEmpty());
+    var reservation = evidence.operationGate().reserve();
     if (!admission.tryAcquire()) {
+      reservation.close();
       throw new ApplicationException(
           FailureKind.CAPACITY_EXCEEDED, "answer_capacity_exceeded", "问答任务已达并发上限。");
     }
@@ -140,20 +143,28 @@ public final class VisualAnswerService implements AutoCloseable {
     try {
       executor.execute(
           () -> {
-            processing.thread.set(Thread.currentThread());
-            try {
-              result.complete(execute(actor, command, inputs, processing));
-            } catch (RuntimeException | Error failure) {
-              result.completeExceptionally(failure);
-            } finally {
-              processing.thread.set(null);
-              admission.release();
+            try (var operation = reservation.begin()) {
+              processing.thread.set(Thread.currentThread());
+              try {
+                result.complete(execute(actor, command, inputs, processing));
+              } catch (RuntimeException | Error failure) {
+                result.completeExceptionally(failure);
+              } finally {
+                processing.thread.set(null);
+                admission.release();
+              }
             }
           });
     } catch (RejectedExecutionException rejected) {
+      reservation.close();
       admission.release();
       throw unavailable();
+    } catch (RuntimeException | Error failedSubmission) {
+      reservation.close();
+      admission.release();
+      throw failedSubmission;
     }
+
     try {
       var value = result.get(Math.max(0, processing.remaining()), TimeUnit.NANOSECONDS);
       processing.check();
@@ -205,7 +216,13 @@ public final class VisualAnswerService implements AutoCloseable {
       proposed = refused(command.question(), "upstream_invalid");
     } catch (ApplicationException invalid) {
       proposed =
-          refused(command.question(), processing.active() ? "scope_changed" : "processing_timeout");
+          refused(
+              command.question(),
+              !processing.active()
+                  ? "processing_timeout"
+                  : "image_vector_required".equals(invalid.code())
+                      ? invalid.code()
+                      : "scope_changed");
     } catch (RuntimeException invalid) {
       proposed = refused(command.question(), "upstream_invalid");
     }
@@ -214,12 +231,17 @@ public final class VisualAnswerService implements AutoCloseable {
     }
     var trace = proposed.trace().withQueryTrace(queryTrace);
     // Persistence failure must escape: no authoritative receipt means no answer is released.
-    var receipt = evidence.finish(scope, trace, () -> eligibility(processing));
+    var receipt =
+        evidence.finish(scope, trace, () -> eligibility(processing), processing.imageVectorScope);
     if (!"answered".equals(receipt.outcome()) || proposed.source() == null) {
       return AttachmentAnswerResult.from(
           "image",
           new VisualAnswerResult(
-              receipt.traceId(), "abstained", REFUSAL, receipt.reasonCode(), List.of()),
+              receipt.traceId(),
+              "abstained",
+              "image_vector_required".equals(receipt.reasonCode()) ? "请为当前范围的全部图片建立原图向量。" : REFUSAL,
+              receipt.reasonCode(),
+              List.of()),
           queryTrace);
     }
     return AttachmentAnswerResult.from(
@@ -262,14 +284,38 @@ public final class VisualAnswerService implements AutoCloseable {
     publications.forEach(p -> generations.put(p.documentId(), p.projectionGenerationId()));
     var authorized =
         new RetrievalProjection.AuthorizedScope(scope.actor().workspaceId(), generations);
-    var candidates =
-        query.attachments().isEmpty()
-            ? search(scope, question, authorized, processing)
-            : queries.search(
-                query,
-                authorized,
-                () -> current(scope, processing),
-                ids -> evidence.hydrateImages(scope, ids));
+    List<RetrievalProjection.Candidate> candidates;
+    if (!query.queryImages().isEmpty() && queries != null && queries.imageTarget() != null) {
+      processing.imageVectorScope = evidence.imageVectorScope(scope, queries.imageTarget());
+      generations.clear();
+      processing
+          .imageVectorScope
+          .publications()
+          .forEach(
+              value ->
+                  generations.put(
+                      value.basePublication().documentId(), value.vectorGenerationId()));
+      var vectorAuthorized =
+          new RetrievalProjection.AuthorizedScope(scope.actor().workspaceId(), generations);
+      candidates =
+          queries.searchImages(
+              query,
+              vectorAuthorized,
+              () -> current(scope, processing),
+              ids ->
+                  evidence.hydrateImageVectors(processing.imageVectorScope, ids).stream()
+                      .map(PublishedImageEvidence::physicalSegmentId)
+                      .toList());
+    } else {
+      candidates =
+          query.attachments().isEmpty()
+              ? search(scope, question, authorized, processing)
+              : queries.search(
+                  query,
+                  authorized,
+                  () -> current(scope, processing),
+                  ids -> evidence.hydrateImages(scope, ids));
+    }
     current(scope, processing);
     if (candidates == null || candidates.size() > 64) {
       throw rejected("upstream_invalid");
@@ -425,7 +471,11 @@ public final class VisualAnswerService implements AutoCloseable {
     if (!configurationCurrent(processing)) {
       throw rejected("configuration_changed");
     }
-    evidence.hydrateImages(scope, List.of());
+    if (processing.imageVectorScope == null) {
+      evidence.hydrateImages(scope, List.of());
+    } else {
+      evidence.hydrateImageVectors(processing.imageVectorScope, List.of());
+    }
     processing.check();
   }
 
@@ -436,7 +486,9 @@ public final class VisualAnswerService implements AutoCloseable {
   }
 
   private boolean configurationCurrent(Processing processing) {
-    return configurationCurrent() && (!processing.attached || queries.configurationCurrent());
+    return configurationCurrent()
+        && (!processing.attached || queries.configurationCurrent())
+        && (processing.imageVectorScope == null || queries.imageConfigurationCurrent());
   }
 
   private AnswerEligibility eligibility(Processing processing) {
@@ -537,6 +589,7 @@ public final class VisualAnswerService implements AutoCloseable {
 
   private final class Processing {
     private final boolean attached;
+    private ImageVectorScope imageVectorScope;
     private final long started = System.nanoTime();
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private final AtomicReference<Thread> thread = new AtomicReference<>();
