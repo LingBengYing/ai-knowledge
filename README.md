@@ -1,6 +1,36 @@
 # AI Knowledge · Java Edition
 
-2026-10-04当前主线：网页可保存嵌入/重排/生成配置、手动连接测试、明确应用及召回预览；逐角色provider、生成/重排切换、嵌入模型全库重建、同资料原文件更新、已配置媒体接网页有效文字配置及当前页批量文本重建已实现。最新交付为工作区`.tools/batch-text-reindex-mainline`，01:32:29 +08仅后端skiptests package成功，未运行测试/检查、未部署，页面由用户验收。使用[模型配置](docs/MODEL_SETUP_AND_RETRIEVAL.md)、[媒体配置](docs/MANAGED_MEDIA_SETUP.md)和[批量重建](docs/BATCH_TEXT_REINDEX.md)；下方历史测试结果不认证新增源码。
+面向单组织的 Java / Spring AI 知识库，使用 Milvus 和可配置模型服务，以库内原始证据回答问题并回读来源；独立前端见 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web)。当前代码包含文本、图片、音频、视频、字幕、文件摘要和多模态查询入口，不是只有资料列表，也不是仅做文件摘要。
+
+## 最新入口：新版独立前端联调（0047）
+
+已增加 `bash run-workspace.sh` 本机入口，使用JDK21+、独立 `.data/workspace`、后端18084，配合独立前端 `npm start` 的18085；默认本机身份与模型管理员为 `owner`。无需先配置模型即可管理资料、主动上传真实文本并查看解析任务；未应用模型/Milvus配置时不宣称索引、召回或问答可用。普通 `run-dev.sh` 与JWT默认不变，不复制独立前端资源。完整步骤见[新版前端运行说明](docs/WORKSPACE_FRONTEND.md)。
+
+[0047](docs/changes/0047-management-workspace-integration/spec.md)已配合独立文字召回页：全库候选只含真实text/OCR材料，完整scope/ACL/配置复验保持；显式所选资料仍完整验证，不静默丢弃无文字资料。14:09:01 +08仅跳过全部测试package成功4.951秒；14:10:59真实Java在独立目录正常监听18084，经已有18085同源代理连通。实际HTTP已走通合成TXT上传202→解析parsed/1片段→列表/任务/原文件回读→显示名和两个手工标签整理200，原文件名、SHA、版本及任务不变；记录时服务保持运行，用户可打开18085、设置本机身份 `owner` 查看“青榆工作台 · 联调资料”。模型状态仍unconfigured、version0、active为空、三个has_key=false、projection未配置，索引/召回/问答未开放。
+
+Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操作；全库混合文字召回只完成源码适配与构建，真实检索/生成及RAG acceptance未运行。详见[0047实际记录](docs/changes/0047-management-workspace-integration/REVIEW.md)。本切云调用0，不推送或部署；全部自动化测试、检查及审计继续停止，以下0046结果完整保留且不认证0047改动。
+
+## 当前交付与继续开发边界（2026-10-04）
+
+网页已实现模型草稿、逐角色服务商及连接测试、明确应用、召回预览；生成/重排切换不重建旧索引，更换嵌入模型走明确的全库重建。同资料原文件更新、媒体接当前有效文字配置、选中资料批量文本重建均已实现。入口说明见[模型配置](docs/MODEL_SETUP_AND_RETRIEVAL.md)、[媒体配置](docs/MANAGED_MEDIA_SETUP.md)、[原件更新](docs/DOCUMENT_UPDATES.md)和[批量重建](docs/BATCH_TEXT_REINDEX.md)。
+
+仓库已有的10/04交付记录：后端 `20261004-video-answer` 于08:46:07 +08部署，包含0042主体/分行字段证明、0043视频摄取安全失败日志、0044普通启动日期证明及[0045视频问答安全失败日志](docs/changes/0045-video-answer-diagnostics/REVIEW.md)；08:44:46仅跳过全部测试的生产代码package成功。前端0032来源说明已部署，0033准确的 `model_failure` 提示已冻结。已有页面记录覆盖合成TXT三个事实、PDF预算及页引用、图片问答及原图、音频启动日期及时间来源/播放、视频画面回答及原帧/时间来源。这些是[AGENTS](AGENTS.md)记录的此前验收，不是本轮重新运行的模型质量评测。
+
+本轮拉取到后端 `3a5f6ef` 后，root先只读页面确认模型设置已应用v2、10份资料列表、合成TXT原文件回读和批量文本重建确认/取消后选择保留，没有提交重建。随后负责人明确批准最多2次普通视频页面提问，现已完成2/2、剩余0次，无重试或其他模型操作。第1次“这个视频的背景是什么颜色？”拒答 `unsupported_question`，不是旧 `model_failure` 重现，也不能把整请求记为零模型调用。已定位单主体中文颜色问句语法缺口，并最小修改QuestionFacts；QuestionPlanning升级为 `java-question-planning-v2-single-colors`、TextGrounding升级为 `java-text-grounding-v9-single-colors`，完整范围和逐事实证明保持。见[0046续验](docs/changes/0046-video-page-followup/spec.md)及[本轮调用台账](docs/changes/0046-video-page-followup/provider-run.md)。
+
+12:45:42 +08仅 `-Dmaven.test.skip=true package` 构建生产JAR成功，用时4.677秒，未编译或运行测试。负责人另行批准仅更新既有后端JAR并重启，保留前端、配置、数据及旧包回滚；运行包SHA-256为 `8682c2e965bac14a1df60e8ab0c20c2898ff68c66d420c097f43e60e5337829e`，12:47:43新后端正常启动。短暂502来自原入口服务的后端依赖：入口随后端停止而退出，仅重新启动原入口即恢复访问，未改前端文件或配置。
+
+12:51 +08第2次以同一 `sample.mp4`、完整单份scope、视频画面模式和原问题提交，无语音或附件，页面成功显示“有据回答”：白色是这个视频的背景颜色。回答 `61a3dea1-2fa0-4d9b-8cb5-aaa78821707b` 的引用为 `0:00.000–0:00.040`、原版本 `90149f4f-dd40-4340-8949-2a4e22db1820`；来源只读回读重新校验通过，类型为 `machine_vlm/group_interval`，原帧截图目视确认为白色背景，原SHA为 `5a864fd106866cdfffc7c82cf944d5b78ab34aad71dfa0676b037417989d74bf`。来源回读没有新增模型调用。这一普通中文问法→有据回答→原帧/时间来源的局部闭环已通过，不等于全共享语义或生产验收。
+
+全部自动化测试、检查及审计继续停止，共享语义旧回归未运行，不能宣称冻结或全量回归通过。历史测试结果不认证后续新增代码，旧调用余额不自动复用。
+
+已部署不等于生产验收完成。视频初次 `parser_failed` 与两次 `model_failure` 的具体原因仍未定位；后续一次成功没有证明间歇问题已修复。ASR保存的 `budget`→`But` 错识别未改写，不能据启动日期回答通过宣称ASR整体质量通过。PDF Blob打开被页面工具策略拒绝，未绕过，也未认证完整PDF预览。完整多模态质量、同镜像staging/运维及生产gate继续保留，目标仍ACTIVE。此前 `.tools` 交接路径仅表示原工作区证据位置，不代表当前克隆包含这些未跟踪文件。
+
+当前能力见[能力表](#当前能力)，后续主线及门禁见[ROADMAP](docs/ROADMAP.md)；版本化 `intent/spec/plan/REVIEW` 与最新[AGENTS](AGENTS.md)优先于下方历史摘要。
+
+## 历史交付记录
+
+下方日期、测试数、未部署及“当前/下一步”只描述各自历史版本，不作为当前任务入口或新增调用/测试授权。
 
 2026-10-03当前0035：[保存材料重建](docs/changes/0035-saved-source-reindex/verification.md)。已发布资料可明确重建保存的完整文本索引，处理期间旧索引可用，成功才切换；失败、取消和重启中断保留旧版本。入口核对真实能力及当前资格，成功后提示重新查询，保留问题、范围与整理草稿。模型配置、逐角色测试、明确应用和召回测试继续沿既有流程。首切不支持已有独立图片/音频向量的资料及真正嵌入/投影迁移；后续receipt迁移与原文件版本替换继续保留。未部署，页面用户验收，0新增真实provider调用，完整目标ACTIVE。
 
@@ -82,25 +112,29 @@
 | 目录、改名、手工标签、批量移动/加标签 | 可运行 | 整理不会修改原文件身份或触发模型 |
 | JWT / HttpOnly 会话 / 文档角色 | 可运行 | owner、editor、reader；开发身份仅限显式 loopback |
 | SQLite 持久化与哈希审计 | 可运行 | 单写入者；重启保留；独立数据目录 |
-| PDF / TXT / Markdown 文本解析 | 本地验收通过 | 受限独立Java进程、Unicode code point定位；不是OS沙箱，不可对公网文件使用 |
+| PDF / TXT / Markdown 文本解析与扫描PDF OCR | 已实现；已有局部页面记录 | 独立Java进程、原页码/code point定位；扫描PDF开关独立，完整PDF Blob预览未认证；不是OS沙箱 |
 | Milvus写入与完整revision验证 | 隔离真实集成通过 | Java专用collection、完整ID与正文/float32摘要回读；4096短正文/4维边界通过，非一般容量验收 |
 | Milvus dense + BM25查询 | 已接0007后端，本机替身已测 | 范围前置、RRF、权威正文回读；查询只验证现有集合，不创建/加载/写入 |
-| 嵌入、重排、原文摘取 | 后端已接；实际provider部分通过 | SiliconFlow嵌入/重排合成smoke通过，摘录超时未通过；rerank为provider扩展，最终答案仍须服务端验证 |
+| 嵌入、重排、原文摘取 | 已实现；实际质量按场景记录 | 网页配置与逐角色provider接线；rerank为provider扩展，最终答案仍须服务端验证；不把早期smoke或后续局部页面回答扩大为总体质量 |
+| 模型配置、手动连接测试、应用与召回预览 | 已实现；本轮只读确认应用v2 | 逐角色服务商；生成/重排切换保留索引，嵌入变化走明确全库重建；手动连接测试会调用外部服务，不自动执行 |
 | 上传、持久任务、取消/重试、版本化解析证据 | 本地验收通过 | 默认关闭；显式启用且loopback；解析完成标为parsed，保留原文件 |
 | 摄取后台当前授权与撤权取消 | 0006 本地验收通过 | 领取/执行前/提交复验原创建者当前写权限；取消审计原子提交；重试需恢复创建者权限 |
-| 显式索引任务与active发布 | 0004实现中 | 默认关闭；每attempt独立generation、完整物理manifest与映射台账；父存活/跨JVM lease和晚写隔离仍按当前验证记录验收 |
-| 有证问答与来源 | 0007开发实现，默认关闭 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；范围/配置复验和trace同事务，独立网页已接入口，当前页面与真实provider效果待验收 |
+| 显式索引任务与active发布 | 已实现 | 每attempt独立generation、完整物理manifest与映射台账；实际能力取决于运行配置，不将parsed当indexed |
+| 有证问答与来源 | 已实现；10/04已有局部页面记录 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；完整范围/配置复验和trace同事务；0042/0044支持正常字段/启动日期表达，不改原文 |
 | 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，默认关闭 | DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending；当前受控清理和逐项状态见0031，不代表同步清理完成 |
 | PNG/JPEG文字识别、索引问答、词框与原图引用回读 | 0010本机后端验收通过 | 实际Tesseract合成英文PNG；模型/Milvus为协议替身，非真实图片检索质量；见[图片入口](docs/IMAGE_EVIDENCE.md) |
-| 原图视觉模型通信、库内索引、逐事实问答与整图引用 | 0012本机后端验收通过 | 独立image证据，caption仅用于召回；模型/Milvus为协议替身，未验云质量/网页 |
-| 音频解码、ASR协议、索引、问答与原文件Range | 0013本机后端已接线 | [接口及验证边界](docs/AUDIO_COMPILATION.md)；时间为真实分段，不假报词级对齐或真实识别质量 |
+| 原图视觉模型通信、库内索引、逐事实问答与整图引用 | 已实现；10/04已有图片页面记录 | 独立image证据，caption仅用于召回；局部实际回答/原图回读不认证所有图片质量 |
+| 音频解码、ASR协议、索引、问答与原文件Range | 已实现；10/04已有日期/播放记录 | [接口及验证边界](docs/AUDIO_COMPILATION.md)；时间为真实分段，保存转录错字保留，不假报词级对齐或ASR质量已解决 |
 | 视频上传、原帧/完整音轨/时间组与完整索引 | 0014本机后端验收通过 | [显式视频MIME合同](docs/VIDEO_PUBLICATION.md)，真实FFmpeg/HTTP/SQLite/索引进程；描述仅供召回，模型/Milvus为协议替身 |
-| 视频三模式问答、typed时间/原帧/原视频Range | 0014本机后端验收通过 | [接口合同](docs/VIDEO_ANSWERS.md)；同组逐事实证明、完整scope与v11 trace，服务端为本机模型/向量协议替身 |
+| 视频三模式问答、typed时间/原帧/原视频Range | 已实现；10/04已有画面页面记录 | [接口合同](docs/VIDEO_ANSWERS.md)；同组逐事实证明及完整scope；原帧时间不等于逐词对齐，间歇model_failure原因仍开放 |
 | 视频选中原帧OCR、文字问答与像素词框 | 0014本机后端验收通过 | [独立OCR合同](docs/VIDEO_OCR.md)及[验证记录](docs/changes/0014-video-library/ocr-verification.md)，默认关闭；真实帧显示时间，非全视频字幕或中文识别质量结论 |
 | 独立视频字幕轨、完整索引、文字问答与时间来源 | 0016本机后端已接 | [配置与接口](docs/VIDEO_SUBTITLES.md)，默认关闭；完整同轨上下文，字幕不是ASR或画面OCR |
 | 短/长文件摘要、完整材料与持久原始来源 | 0015/0016本机后端已接 | [文件摘要](docs/FILE_SYNOPSIS.md)，包含字幕第八类原始材料；摘要不替代事实证据 |
-| 多模态查询附件 | 本机后端已验收 | PNG/WAV/MP4临时辅助检索，最终只用库内证据；前端/真实质量/生产另验 |
-| 生产部署、迁移与真实性能对比 | 未验收 | 不声称 Java 版本已比 Python 更快 |
+| 多模态查询附件与原视频参考提问 | 已实现；整体实际质量待验 | PNG/WAV/MP4及一至三参考视频辅助召回，最终只用库内证据；附件不入库、不作事实来源 |
+| 原图/原声向量、独立声音与原视频音画 | 已实现；真实语义质量待验 | 独立可选能力、显式构建及原始材料召回；向量不能替代逐事实证明 |
+| 语音输入与摘要建议标签 | 已实现 | 音频完整转录须用户确认；摘要建议标签由保存材料生成且用户勾选，不额外调用模型 |
+| 受控清理、保存材料重建、同资料原件更新与模型重建 | 已实现；本轮只读确认批量入口 | 保留ID与整理信息，旧发布成功后才切换；未在本轮提交重建或更新 |
+| 部署、生产验收与真实性能对比 | 有开发部署记录；生产未验收 | 当前readiness gate不解除，完整质量/备份迁移回滚/负载仍待验，不声称 Java 已比 Python 更快 |
 
 ## 技术栈
 
@@ -113,6 +147,8 @@ Java 21 编译目标、Spring Boot 4.1.1、Maven、SQLite JDBC、PDFBox 3.0.8；
 ## 快速开始
 
 需要 **JDK 21+、Maven 3.6.3+**；Node 22+ 用于前端测试与敏感文件检查。命令在本仓库根目录执行。
+
+当前10/03停测指令仍生效：下方通用 `verify` 及测试/检查命令不是本轮执行授权；继续开发只按最新[AGENTS](AGENTS.md)构建跳过全部测试的运行包或进行获准的实际页面操作，不据未运行命令写成通过。
 
 ```bash
 mvn -s .mvn/settings.xml -gs .mvn/settings.xml verify
@@ -174,6 +210,8 @@ JWT 模式缺少 secret 会拒绝启动。浏览器通过 `POST /v1/session` 换
 **不要提交 API key、JWT secret、SSH 私钥、`.env`、数据库或运行日志。** [.gitignore](.gitignore) 与 [敏感信息检查](scripts/check-secrets.mjs) 是双层防护；完整处理流程见 [SECURITY.md](SECURITY.md)。若密钥曾被贴入聊天或日志，应在对应平台轮换，而不是只删除代码里的字符串。
 
 ## 测试与工程方式
+
+以下为恢复自动化验证后的通用工程门禁说明；当前暂停执行，不以历史结果认证0042以后源码。
 
 ```bash
 mvn -s .mvn/settings.xml -gs .mvn/settings.xml spotless:apply

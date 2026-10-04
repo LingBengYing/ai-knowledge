@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-04当前0047：[新版管理工作台后端配合](docs/changes/0047-management-workspace-integration/REVIEW.md)已适配前端0034/0035：全库文字召回只检真实text/OCR候选，完整scope复验和显式selected规则保持；新增显式本机workspace启动配置。14:09:01仅skip-all-tests package成功4.951秒，14:10:59真实Java启动后，经独立前端代理完成合成TXT上传/解析任务/原件回读/整理保存。Chrome以ERR_BLOCKED_BY_CLIENT阻止本机页面，本轮没有浏览器交互验收；模型未配置，真实召回及RAG acceptance未执行。自动化测试、检查和审计继续停止；未提交/推送或远端部署，0046颜色修复和前端本地改版完整保留。源码合同与运行边界见0047，不把下方历史结果认证为当前新增源码通过。
+
 2026-10-04当前交付与页面验收：后端 `20261004-video-answer` 已于08:46:07 +08实际部署，含0045安全视频失败阶段日志；前端0033准确model_failure文案已冻结。08:44:46 +08仅skip-all-tests package成功，用时3.796秒。前端0032静态于08:36:04 +08部署，reload后audio、visual、text、video-visual四种单份入口及完整1份scope实际正确。
 
 root按用户授权使用新合成资料验收：0042中文TXT三个事实及PDF预算回答、来源回读，图片视觉回答及原图回读，0044音频启动日期回答与0–6815ms来源、播放通过。视频第2次解析及索引、此前视觉回答与原帧及0–40ms播放通过；期间同视频两次model_failure真实失败已记录，原因未定位，不宣称模型服务已修复。最新唯一新VIDEO_VISUAL请求 `b9b5d6bf-240f-4665-a9b5-8e276f0c7e0a` 已答“The background is white”，对应原版本 `90149f4f-dd40-4340-8949-2a4e22db1820`、0–40ms；新来源及0032实际提示回读通过，明确提示“视频画面引用定位到原始解码帧及服务器画面区间，请结合下方原帧核对。”原SHA `5a864fd106866cdfffc7c82cf944d5b78ab34aad71dfa0676b037417989d74bf`、原帧、machine_vlm/group_interval及0–40ms一致；root已保存实际页面截图page-proof.jpg并完成RESULTS结论。

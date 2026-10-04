@@ -1,5 +1,33 @@
 # Roadmap：按可验收纵切推进
 
+## 最新主线：新版管理工作台联调（0047）
+
+负责人要求新版独立前端配合真实Java后端，当前只推进导入→解析任务→资料详情/原件→整理的正常闭环，并配合既有独立文字召回页。[0047合同](changes/0047-management-workspace-integration/spec.md)保持原HTTP字段：全库只取text/OCR候选但完整scope/ACL/配置复验不变，显式所选资料不能被静默过滤；全库无文字材料返回原empty/no_matches，不伪造结果或调用模型。新本机 `run-workspace.sh` 配独立18085前端，使用独立数据、owner身份及managed模型设置；[运行说明](WORKSPACE_FRONTEND.md)。不新增聊天历史、全库任务API或分段编辑。
+
+14:09:01 +08仅跳过全部测试package成功4.951秒，14:10:59真实Java在新隔离目录监听18084并通过已有18085同源代理连通。实际HTTP正常链已通过：14:12:00合成TXT上传202，14:12:01 parsed/1片段；列表、解析任务、原件metadata及原字节回读成功，显示名和两个手工标签PATCH200，源文件名/SHA/版本/解析任务保持。模型设置实际为unconfigured、version0、active为空、三个has_key=false、projection未配置，因此管理/解析通过不等于索引、召回或问答可用。服务在记录时保持运行，用户可在18085以本机 `owner` 查看“青榆工作台 · 联调资料”；[实际记录](changes/0047-management-workspace-integration/REVIEW.md)。
+
+浏览器仍受 `ERR_BLOCKED_BY_CLIENT` 限制，未绕过、未认证新版DOM/布局交互。全库混合文字召回已源码适配和构建，但未运行真实检索、混合媒体运行态回归或RAG acceptance；后续页面证据与获准的模型质量分别验收。本切云0、不推送部署，自动化测试/检查/审计仍停止。下方0046页面成功、调用额度及部署结论保留为此前记录，不认证0047或授权新的模型调用。
+
+## 当前交付与下一主线（2026-10-04）
+
+常用正常链已实现：模型配置→逐角色手动连接测试→明确应用→导入/整理→索引/召回→有证问答→同版本来源；已有文本、扫描PDF、原图、音频、视频/字幕、摘要、参考媒体、独立图片/声音向量、原件更新及显式模型重建入口。不要重新开发下方旧阶段标为“下一步”的已实现能力，也不重新开启已取消的usage/计费工作。
+
+按最新[AGENTS](../AGENTS.md)中的已有10/04记录，后端 `20261004-video-answer` 于08:46:07 +08部署，包含0042主体/分行字段、0043摄取诊断、0044启动日期和[0045问答诊断](changes/0045-video-answer-diagnostics/REVIEW.md)。已有页面记录通过合成TXT/PDF正常事实及来源、图片回答/原图、音频日期回答/时间播放、视频画面回答/原帧时间来源；前端0032来源说明已部署，0033准确model_failure提示已冻结。08:44:46仅跳过全部测试的package成功，不是测试通过。此前未跟踪的 `.tools` 证据和交接包由原工作区维护，本轮不把其路径当成本机已具备制品。
+
+本轮同步至后端 `3a5f6ef` 后，root先只读确认模型应用v2、10份资料列表、合成TXT原文件回读和批量重建确认/取消后选择保留，没有提交实际重建。随后负责人批准最多2次普通视频页面提问，现已完成2/2、剩余0次，无重试或其他模型操作。第1次普通中文背景颜色问题拒答 `unsupported_question`，不是旧model_failure重现，也不是整请求零模型调用。[0046](changes/0046-video-page-followup/spec.md)已定位并最小修复单主体颜色语法，QuestionPlanning/TextGrounding明确升版，完整范围、逐事实证明和原问题保持。
+
+12:45:42 +08仅 `-Dmaven.test.skip=true package` 构建生产JAR成功，用时4.677秒。获负责人另行明确批准后，root仅更新既有后端JAR并重启，前端、配置、数据与旧包回滚保留；运行包SHA-256为 `8682c2e965bac14a1df60e8ab0c20c2898ff68c66d420c097f43e60e5337829e`，12:47:43新后端正常启动。短暂502来自原入口的后端依赖停止，仅启动原入口服务即恢复访问，未改前端文件或配置。
+
+12:51 +08第2次普通页面提交保持 `sample.mp4` 完整单份scope、视频画面模式和相同问题，无语音或附件，成功得到“白色是这个视频的背景颜色”。回答 `61a3dea1-2fa0-4d9b-8cb5-aaa78821707b` 引用原版本 `90149f4f-dd40-4340-8949-2a4e22db1820` 的 `0:00.000–0:00.040`；只读原帧来源重新校验通过，`machine_vlm/group_interval` 与SHA `5a864fd106866cdfffc7c82cf944d5b78ab34aad71dfa0676b037417989d74bf` 保持，截图目视为白色背景。来源回读不产生新模型调用。本切普通中文问法→有据回答→原帧/时间来源已通过，授权已用完，不继续提交、不自动重试或重新索引/ASR。
+
+全部自动化测试、检查、审计继续停止，共享语义旧回归未运行，不宣称冻结或全量回归通过；历史门禁不得据此重新启动或认证新增源码。调用单位是页面提交，不冒充底层模型HTTP请求数，实际进度见[本轮台账](changes/0046-video-page-followup/provider-run.md)。
+
+下一主线是完成当前实际产品链的剩余质量与交付证据，而非扩展异常/权限架构：视频初次parser_failed及两次model_failure的具体原因仍未定位；0043/0045只增加安全失败阶段日志，最后一次画面回答成功不等于修复间歇问题。ASR错识别保留，PDF Blob打开受页面工具策略限制，不绕过、不报告完整预览通过。新的真实模型复验应明确授权范围、样本和调用预算，不能自动花费旧额度。完整多模态质量、同镜像staging、备份迁移/回滚、负载与生产验收继续保留，目标ACTIVE、readiness gate不解除。
+
+## 历史进度记录
+
+下方日期、测试数、未部署及“当前/下一步”只说明对应历史阶段；当前能力以本节、能力表及最新版本化工件为准，不构成测试、云调用、Git写入或部署授权。
+
 2026-10-04当前0041/前端0030完成[选中资料批量文本重建](BATCH_TEXT_REINDEX.md)：原document-actions reindex已接当前实际processor，逐项排队/失败和原任务进度，旧发布在处理中保持，成功才单项切换。01:32:29 +08仅skiptests package成功，未测试、调用真实模型或部署。交付 `.tools/batch-text-reindex-mainline` 已包含此前模型配置/provider、原文件更新、嵌入模型全库重建及媒体装配。常用主线已实现，当前需要实际部署版本及用户页面验收；不再为主线增加测试支线或扩展功能。下方保留历史状态。
 
 2026-10-04当前0040/前端0029完成[网页文字配置接媒体模块](MANAGED_MEDIA_SETUP.md)：已配置媒体资源不再要求重复旧文字密钥，视觉/视频/附件文字图及独立向量操作读取实际网页有效配置。01:21:20 +08仅跳过全部测试package成功，未测试或部署，页面用户验收。交付 `.tools/managed-media-mainline`；下一开发为已选资料批量重新索引，真实模型效果及部署仍由对应验收处理。
@@ -73,27 +101,32 @@
 | 资料列表、筛选、分页、显示名、目录、手工标签 | Implemented | 合成或真实上传资料；服务端ACL、事务，整理不改源身份；见[ManagementService](../src/main/java/com/evidence/rag/service/ManagementService.java) |
 | 批量移动、追加标签 | Implemented | 逐项回执/部分失败，不是整批原子提交 |
 | JWT / 本机开发身份、Cookie 会话 | Implemented | 无 SSO、用户管理、签发/刷新服务；生产配置被 gate 拒绝 |
-| PDF / TXT / MD文本解析与code point分块 | 0003 locally verified | TextParser通过独立ProcessTextParser子进程连接持久证据，不是OS沙箱 |
+| PDF / TXT / MD文本解析与扫描PDF OCR | Implemented；10/04已有局部页面记录 | 独立解析进程、原页码与code point定位；完整PDF Blob预览受工具策略限制，不是OS沙箱 |
 | 上传、持久任务、取消/重试与崩溃恢复 | 0003 locally verified | 显式loopback opt-in，v2备份迁移，parsed状态与实际分块；见[TEXT_INGESTION](TEXT_INGESTION.md) |
 | Spring职责分层与架构约束 | 0005 locally verified | Controller / Service / Repository / Model / Security明确分离，替代旧万能实现；持续执行项目规范 |
 | 摄取创建者当前授权复验 | 0006 locally verified | 领取/执行/提交及恢复撤权取消，系统审计同事务，重试权限交集；新增14项负例先红后绿 |
-| active revision索引发布 | 0004 IMPLEMENTATION | 每claim独立generation、完整物理manifest、不可变attempt与source→physical→digest台账；active保留source revision；见[TEXT_INDEXING](TEXT_INDEXING.md) |
-| OpenAI-compatible embedding / extraction、provider reranker Adapter | 0007 backend wired / locally tested | 索引只调用embedding；问答接embedding/rerank/extract；rerank为provider extension，摘取不等于事实证明，真实provider尚待验收 |
-| Milvus写入与full revision verification | 0004 IMPLEMENTATION | 固定Java collection、N+1 metadata/精确ID/float32摘要、前后Strong/schema/index校验；真实版本一致性尚待验收 |
-| Milvus dense + sparse / BM25 hybrid retrieval | 0007 backend wired / locally tested | 只读prepareSearch、完整范围前置、确定性合并及权威hydrate；不create/load/upsert，无独立候选检索端点，真实Milvus尚待验收 |
-| 有据问答、选中文档范围、来源引用、拒答 | 0007 IMPLEMENTATION / local tests passed | POST answers与GET source已接线，完整scope/资格复验及v4 trace同事务；完整语义、网页和实际质量未验收 |
+| active revision索引发布 | Implemented | 每claim独立generation、完整物理manifest、不可变attempt与source→physical→digest台账；active保留source revision；见[TEXT_INDEXING](TEXT_INDEXING.md) |
+| OpenAI-compatible embedding / extraction、provider reranker Adapter | Implemented；实际质量按场景验收 | 索引embedding、问答embedding/rerank/extract；rerank为provider extension，摘取不等于事实证明 |
+| 模型草稿、逐角色provider/测试、应用与召回预览 | Implemented；本轮只读确认应用v2 | 0032/0037；完整资料范围，独立召回预览，不生成答案；手动连接测试有外部调用，不自动执行 |
+| Milvus写入与full revision verification | Implemented；隔离真实集成有历史证据 | 固定Java collection、完整ID/float32摘要及前后校验；历史边界集成不认证当前一般容量/生产一致性 |
+| Milvus dense + sparse / BM25 hybrid retrieval | Implemented | 只读prepareSearch、完整范围前置、确定性合并及权威hydrate；正常查询不create/load/upsert，当前语义质量另验 |
+| 有据问答、选中文档范围、来源引用、拒答 | Implemented；10/04已有局部页面记录 | 完整scope/资格复验及trace同事务；0042主体/分行字段和0044启动日期已接，局部实际回答不代替完整语义/质量验收 |
 | 文档撤下、在途取消与历史来源失效 | 0008 IMPLEMENTATION | 默认关闭；DELETE返回deleting/pending，当前服务面过滤，审计及原文保留，不等于物理删除 |
-| 受控清理、重新索引与原件版本更新 | 已实现正常入口，待当前部署/页面验收 | 0031受控逐项清理、0038同资料原件更新、0039模型索引迁移、0041选中文本重建；原action=delete仍拒绝，批量清理由document-cleanups处理 |
+| 受控清理、重新索引与原件版本更新 | Implemented；本轮只读确认批量重建入口 | 0031受控逐项清理、0038同资料原件更新、0039模型索引迁移、0041选中文本重建；原action=delete仍拒绝，批量清理由document-cleanups处理；本轮未提交重建 |
 | 独立PNG/JPEG文字OCR及原图引用 | 0009 local backend verified | 真实Tesseract固定英文图HTTP闭环；图片模型/Milvus真实质量与网页未验收 |
-| 图片区域/vision、音频转写及视频音画联合 | 本机后端已接并分切验证 | 0010/0012/0013/0014；来源分别为词框/整图/真实音频分段/视频group与原帧，不等于真实模型质量或网页验收 |
+| 图片区域/vision、音频转写及视频音画联合 | Implemented；10/04已有图片/音频/视频画面页面记录 | 来源分别为词框/整图/真实音频分段/视频group与原帧；ASR错误、视频间歇model_failure根因及联合模式整体质量仍未认证 |
 | 视频选中原帧OCR与真实文字定位 | 0014 local backend verified | [独立模式与v12合同](VIDEO_OCR.md)及[本机验证](changes/0014-video-library/ocr-verification.md)；默认关闭、原像素词框、frame interval，不代表全视频字幕 |
 | 独立视频字幕轨检索、问答、typed时间来源 | 0016本机后端已接 | [字幕合同](VIDEO_SUBTITLES.md)，v15完整authority与同轨全文证明；云质量/前端另验 |
 | 完整短/长文件摘要与原始来源 | 0015/0016本机后端已接 | 八类原始材料，分层候选不作原证据；默认关闭 |
-| 查询附件、扫描PDF与视觉/声音向量 | 后续多模态主线 | 下一条为查询附件；不用查询图片替代库内文本事实证明 |
-| 自动标签与真实多模态评测 | Planned | 不能由界面占位或模型替身推定已完成 |
+| 查询附件与一至三参考视频问答 | Implemented；完整实际质量待验 | 0017/0030；临时媒体辅助召回，库内原证据证明完整问题，不用查询图片替代文本事实证明 |
+| 原图/原声向量、独立声音与原视频音画 | Implemented；完整实际质量待验 | 0026–0029；默认关闭/显式构建及完整scope，向量只召回，原始材料继续作证 |
+| 语音提问与摘要建议标签 | Implemented | 0025语音完整转录后人工确认；0024从保存摘要建议短条目、人工勾选追加，不等于无摘要自由分类 |
+| 真实多模态质量 | 部分正常页面链已有记录，整体未验收 | ASR错识别未修复；视频摄取/问答间歇失败未定位；0043/0045仅安全诊断，新实验需明确调用授权 |
 | 生产发布与性能结论 | Blocked by gates | readiness 为 503；没有全链路真实 provider/Milvus、运维、负载与生产验收证据 |
 
-## 后续范围：文本入库到可核验回答
+## 已实现文本链的历史路线与保留验收范围
+
+以下为早期文本纵切的实现顺序，不是要求本轮重建0003–0007或停止使用已接通的前端。完整语义、实际质量及生产门禁仍保留，验证暂停以当前授权为准。
 
 完整目标在明确blocked后重新启用，并收到继续完整目标的请求；当前已恢复0007文本问答IMPLEMENTATION。前端详情页仍不改，以下其他路线不是已完成能力；生产gate不解除。当前测试与待修问题见[0007验证](changes/0007-text-answers/verification.md)。
 
@@ -127,6 +160,8 @@
 ## 生产 gate
 
 进入生产前至少需要：
+
+当前停测指令暂停的是执行，不是把下列证据要求判定通过；10/04开发部署及局部页面成功不解除gate。恢复自动化或新增真实模型评测须按最新授权执行。
 
 - 完成目标文本/多模态范围的实现及独立代码审查，所有 relevant acceptance 可重放。
 - 完整 Java/浏览器测试、格式/静态检查、覆盖率门禁；实际结果与源码版本绑定。修改共享语义规则后重跑完整相关测试，不能仅跑新增用例。

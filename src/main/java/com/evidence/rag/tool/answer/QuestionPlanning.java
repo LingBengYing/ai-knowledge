@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /** Complete bounded question planning; unsupported grammar has no partial successful plan. */
 public final class QuestionPlanning {
-  public static final String VERSION = "java-question-planning-v1";
+  public static final String VERSION = "java-question-planning-v2-single-colors";
   private static final Pattern UNSUPPORTED_CONTEXT =
       Pattern.compile(
           "[,，:：]|如果|假如|除非|仅当|仅在|只有|期间|(?:开机|关机|运行|启动|复位|重启|审批|批准)(?:时|前|后)"

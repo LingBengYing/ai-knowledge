@@ -17,6 +17,17 @@ import java.util.regex.Pattern;
 final class QuestionFacts {
   private static final int MAX_FACTS = 8;
   private static final Pattern SHARED_COLOR = Pattern.compile("^(.+?)(?:分别|各自)(?:是|为)?什么颜色$");
+  private static final Pattern SINGLE_COLOR = Pattern.compile("^(.+?)(?:是|为)什么颜色$");
+  private static final Pattern UNSUPPORTED_SINGLE_COLOR_SUBJECT =
+      Pattern.compile(
+          "以及|同时|还有|并且|[和与及、,，:：]|分别|各自"
+              + "|如果|假如|假设|除非|仅当|仅在|只有|一旦|倘若|(?:^|\\s)(?:若|当)"
+              + "|期间|时候|之前|之后|以前|以后|起初|最初|最后|开头|结尾"
+              + "|(?:开机|关机|运行|启动|复位|重启|审批|批准|播放|暂停|开始|结束|切换)(?:时|前|后)"
+              + "|[0-9零一二两三四五六七八九十百]+(?:毫秒|秒|分钟|小时|帧)"
+              + "|为什么|为何|如何|怎么|是否|能否|可否|多少|什么|谁"
+              + "|\\b(?:if|when|unless|during|before|after|while|provided|subject\\s+to)\\b",
+          Pattern.CASE_INSENSITIVE);
   private static final Pattern COLOR =
       Pattern.compile("^(?:(?:深|浅)?(?:红|蓝|绿|黄|黑|白|灰|紫|橙|棕|褐|粉|青|金|银)色|透明|#[0-9a-fA-F]{3,8})$");
   private static final Pattern PERMISSION_QUESTION =
@@ -103,6 +114,7 @@ final class QuestionFacts {
         continue;
       }
       var color = SHARED_COLOR.matcher(stem);
+      var singleColor = SINGLE_COLOR.matcher(stem);
       if (color.matches()) {
         for (String subject : color.group(1).split("以及|[和与及、]")) {
           if (subject.isBlank()) {
@@ -110,6 +122,13 @@ final class QuestionFacts {
           }
           facts.add(new ColorFact(subject.strip()));
         }
+      } else if (singleColor.matches()) {
+        String subject = singleColor.group(1).strip();
+        // Keep the complete owner/subject; this branch cannot collapse a joint or timed question.
+        if (subject.length() < 2 || UNSUPPORTED_SINGLE_COLOR_SUBJECT.matcher(subject).find()) {
+          return List.of();
+        }
+        facts.add(new ColorFact(subject));
       } else {
         boolean individually = stem.contains("分别") || stem.contains("各自");
         stem =

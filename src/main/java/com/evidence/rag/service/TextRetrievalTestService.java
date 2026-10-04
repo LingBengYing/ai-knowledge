@@ -139,13 +139,18 @@ public final class TextRetrievalTestService implements AutoCloseable {
     var scope = evidence.snapshot(actor, command.answer().selection(), snapshot.target());
     current(snapshot, progress);
     var texts = evidence.textPublications(scope);
-    if (!new HashSet<>(texts).equals(new HashSet<>(scope.publications()))) {
+    if (!scope.selection().all()
+        && !new HashSet<>(texts).equals(new HashSet<>(scope.publications()))) {
       throw ModelValues.notFound();
     }
     finish(scope, List.of(), snapshot, progress);
     String testId = UUID.randomUUID().toString();
     if (scope.publications().isEmpty()) {
       return empty(testId, snapshot, scope, "empty_scope");
+    }
+    // Narrow only search candidates; finish() continues to validate the complete authority scope.
+    if (texts.isEmpty()) {
+      return empty(testId, snapshot, scope, "no_matches");
     }
     stage(
         "retrieval_search_failed",
