@@ -13,6 +13,8 @@ public record VideoCompilation(
     AudioTranscription audio,
     VideoOcrCompilation ocr,
     VideoSubtitleCompilation subtitles) {
+  public static final String TEXT_EVIDENCE_COMPILER_PREFIX = "java-video-compiler-v4:";
+
   public VideoCompilation(
       String sourceSha256,
       String decoderRevision,
@@ -63,6 +65,11 @@ public record VideoCompilation(
         durationUs,
         frames.stream().map(VideoFrameRecall::frame).toList());
     ModelValues.identifier(compilerRevision, 200);
+    boolean textEvidenceOnly = isTextEvidenceOnlyRevision(compilerRevision);
+    if ((compilerRevision.startsWith(TEXT_EVIDENCE_COMPILER_PREFIX) && !textEvidenceOnly)
+        || frames.stream().anyMatch(frame -> textEvidenceOnly != (frame.recall() == null))) {
+      throw ModelValues.invalid();
+    }
     frames = List.copyOf(frames);
     DecodedVideo.validateSubtitles(subtitles, timelineOriginUs, durationUs);
     if (audio != null
@@ -85,6 +92,14 @@ public record VideoCompilation(
         }
       }
     }
+  }
+
+  public static boolean isTextEvidenceOnlyRevision(String revision) {
+    return revision != null && revision.matches("java-video-compiler-v4:[a-f0-9]{64}");
+  }
+
+  public boolean textEvidenceOnly() {
+    return isTextEvidenceOnlyRevision(compilerRevision);
   }
 
   @Override

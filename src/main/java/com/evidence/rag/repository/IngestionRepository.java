@@ -266,11 +266,13 @@ public final class IngestionRepository {
   public void insertVideoCompilation(String revisionId, VideoCompilation compilation, String now) {
     var evidence = VideoEvidence.fromCompilation(revisionId, compilation);
     boolean subtitleCompiler = compilation.compilerRevision().startsWith("java-video-compiler-v3:");
-    if (subtitleCompiler != (compilation.subtitles() != null)) {
+    if (!compilation.textEvidenceOnly() && subtitleCompiler != (compilation.subtitles() != null)) {
       throw ModelValues.invalid();
     }
     var subtitles =
-        subtitleCompiler ? VideoSubtitleEvidence.fromCompilation(revisionId, compilation) : null;
+        compilation.subtitles() == null
+            ? null
+            : VideoSubtitleEvidence.fromCompilation(revisionId, compilation);
     var audio = compilation.audio();
     store.execute(
         "INSERT INTO video_compilations(revision_id,source_sha256,decoder_revision,compiler_revision,timeline_origin_us,duration_us,frame_count,span_count,group_count,projection_count,frame_bytes,manifest_sha256,audio_model_revision,audio_transcription_revision,audio_sample_count,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -305,9 +307,9 @@ public final class IngestionRepository {
           frame.image().sha256(),
           frame.width(),
           frame.height(),
-          recall.recallText(),
-          ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8)),
-          recall.modelRevision());
+          recall == null ? null : recall.recallText(),
+          recall == null ? null : ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8)),
+          recall == null ? null : recall.modelRevision());
     }
     for (var entry : evidence.spans()) {
       var span = entry.span();
@@ -475,15 +477,21 @@ public final class IngestionRepository {
         store.rows("SELECT * FROM video_frames WHERE revision_id=? ORDER BY ordinal", revisionId)) {
       var image =
           new VisualImage(AuthorityRows.text(row, "media_type"), (byte[]) row.get("frame_blob"));
-      var recall =
-          new ImageRecall(
-              AuthorityRows.text(row, "recall_text"),
-              AuthorityRows.text(row, "description_revision"));
+      boolean textOnly = VideoCompilation.isTextEvidenceOnlyRevision(
+          AuthorityRows.text(header, "compiler_revision"));
+      if (textOnly != (row.get("recall_text") == null)
+          || textOnly != (row.get("recall_sha256") == null)
+          || textOnly != (row.get("description_revision") == null)) {
+        throw ModelValues.invalid();
+      }
+      var recall = textOnly ? null : new ImageRecall(
+          AuthorityRows.text(row, "recall_text"),
+          AuthorityRows.text(row, "description_revision"));
       int ordinal = AuthorityRows.integer(row, "ordinal");
       if (!VideoEvidence.frameIdentity(revisionId, ordinal).equals(AuthorityRows.text(row, "id"))
           || !image.sha256().equals(AuthorityRows.text(row, "frame_sha256"))
-          || !ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8))
-              .equals(AuthorityRows.text(row, "recall_sha256"))) {
+          || (recall != null && !ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8))
+              .equals(AuthorityRows.text(row, "recall_sha256")))) {
         throw ModelValues.invalid();
       }
       frames.add(
@@ -568,8 +576,9 @@ public final class IngestionRepository {
         throw ModelValues.invalid();
       }
     }
-    if (compilation.compilerRevision().startsWith("java-video-compiler-v3:")
-        != (subtitles != null)) {
+    if (!compilation.textEvidenceOnly()
+        && compilation.compilerRevision().startsWith("java-video-compiler-v3:")
+            != (subtitles != null)) {
       throw ModelValues.invalid();
     }
     if (subtitles != null) {

@@ -385,7 +385,7 @@ public final class EvidenceRepository {
         AND r.parser_revision=p.parser_revision
         AND r.segment_count+(SELECT COUNT(*) FROM image_evidence i WHERE i.revision_id=r.id)
           +(SELECT COUNT(*) FROM audio_spans s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)
-          +(SELECT COUNT(*) FROM video_frames f WHERE f.revision_id=r.id)
+          +(SELECT COUNT(*) FROM video_frames f WHERE f.revision_id=r.id AND f.recall_text IS NOT NULL)
           +(SELECT COUNT(*) FROM video_transcript_spans s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)
           +(SELECT COUNT(*) FROM video_ocr_segments s WHERE s.revision_id=r.id)
           +(SELECT COUNT(*) FROM video_subtitle_cues s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)=p.segment_count
@@ -480,6 +480,44 @@ public final class EvidenceRepository {
         .stream()
         .map(EvidenceRepository::publication)
         .toList();
+  }
+
+  /** Published videos with actual textual material; a caption alone is not eligible. */
+  public List<PublicationVersion> findVideoTextPublications(EvidenceScope scope) {
+    if (scope.publications().isEmpty()) {
+      return List.of();
+    }
+    return store
+        .rows(
+            "SELECT p.* " + CURRENT_PUBLICATIONS
+                + " AND p.id IN (" + placeholders(scope.publications().size()) + ")"
+                + " AND (EXISTS(SELECT 1 FROM video_transcript_publication_entries e WHERE e.publication_id=p.id)"
+                + " OR EXISTS(SELECT 1 FROM video_ocr_publication_entries e WHERE e.publication_id=p.id)"
+                + " OR EXISTS(SELECT 1 FROM video_subtitle_publication_entries e WHERE e.publication_id=p.id)) ORDER BY d.id",
+            sourceArguments(scope, List.of()))
+        .stream()
+        .map(EvidenceRepository::publication)
+        .toList();
+  }
+
+  /** Called only after the same-transaction publication candidate has been authorized. */
+  public VideoTranscriptEvidence findVideoTranscriptSpan(
+      PublicationVersion publication, String sourceId) {
+    var rows = store.rows(
+        "SELECT * FROM video_transcript_spans WHERE revision_id=? AND id=?",
+        publication.sourceRevisionId(), sourceId);
+    if (rows.size() != 1) {
+      throw ModelValues.invalid();
+    }
+    var row = rows.getFirst();
+    var span = new AudioTranscriptSpan(
+        integer(row, "ordinal"), AuthorityRows.number(row, "start_ms"),
+        AuthorityRows.number(row, "end_ms"), text(row, "text"));
+    if (!span.textSha256().equals(text(row, "text_sha256"))) {
+      throw ModelValues.invalid();
+    }
+    return new VideoTranscriptEvidence(
+        text(row, "id"), publication.sourceRevisionId(), span, nullableInteger(row, "index_ordinal"));
   }
 
   public List<PublishedVideoCandidate> findPublishedVideoCandidates(

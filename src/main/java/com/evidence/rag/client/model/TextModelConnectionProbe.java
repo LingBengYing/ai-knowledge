@@ -77,8 +77,15 @@ public final class TextModelConnectionProbe {
       Projection projection,
       URI deepseekProviderBaseUrl) {
     validateUri(providerBaseUrl, allowLoopbackHttp, false);
-    if (deepseekProviderBaseUrl == null
-        || !TextIndexAnchor.isDeepSeekEndpoint(deepseekProviderBaseUrl.toASCIIString())) {
+    validateUri(deepseekProviderBaseUrl, allowLoopbackHttp, false);
+    boolean localDeepseek =
+        allowLoopbackHttp
+            && "http".equalsIgnoreCase(deepseekProviderBaseUrl.getScheme())
+            && ("127.0.0.1".equals(deepseekProviderBaseUrl.getHost())
+                || "[::1]".equals(deepseekProviderBaseUrl.getHost()))
+            && List.of("", "/", "/v1", "/v1/").contains(deepseekProviderBaseUrl.getRawPath());
+    if (!TextIndexAnchor.isDeepSeekEndpoint(deepseekProviderBaseUrl.toASCIIString())
+        && !localDeepseek) {
       throw new IllegalArgumentException("Invalid trusted DeepSeek endpoint");
     }
     if (deadline == null

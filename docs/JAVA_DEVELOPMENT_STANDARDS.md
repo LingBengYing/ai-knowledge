@@ -159,6 +159,16 @@ G05：普通应用日志用 SLF4J 等门面，只记允许的 request/task/docum
 
 G06：配置集中绑定并验证，缺少必要配置启动失败；真实凭据仅由外部 secret / 环境提供，不提交或写死加密后密文与解密密钥。示例只留非敏感占位值。禁止 `record`/自动日志意外输出配置对象。
 
+### 模型接入：按协议复用，不按模型复制（2026-10-04负责人要求）
+
+AI01：业务Service只依赖能力Interface（如AudioModels、TextModels、VisionModels），不得根据厂商或model字符串分支；Controller、Repository和前端不得拼厂商模型请求。客户端按协议和能力复用，不为每个模型生成一个XxxClient/Service。
+
+AI02：优先使用OpenAI兼容合同：ASR为`POST /v1/audio/transcriptions`的multipart `model`与`file`、JSON `text`；文字嵌入为`/v1/embeddings`；当前生成/视觉为`/v1/chat/completions`。Base URL按现有Client的API根路径约定配置，不重复拼`/v1`。模型名、endpoint、secret、支持的能力、限额和deadline均由Config传入。相同协议更换SenseVoice/星辰等仅改配置，不能修改业务解析逻辑。兼容性仍须真实请求确认，不以名称或免费价格推定成功。
+
+AI03：真正不兼容的协议在`client` Adapter或独立接入网关完成归一化；差异不得传播到业务层。只有确认协议不兼容才新增Adapter，不提前造供应商框架，也不静默换端点、模型或自动重试。第三方响应校验后转为强类型结果，不能伪造缺失字段或时间戳。
+
+AI04：OpenAI兼容不等于所有能力都有统一OpenAI标准。重排`/rerank`是项目明确的扩展协议，单独记录其query/documents/results合同；原生音视频嵌入、强制对齐等同理按实际能力声明，不标成OpenAI标准，也不因不同模型名复制同一协议实现。
+
 G07：线程命名、任务准入有界、执行器/进程必须关闭；平台线程池明确队列、容量与拒绝策略。虚拟线程允许，但仍须限制模型/Milvus/解析并发、队列、字节数和总 deadline；取消不等于上游撤回。ThreadLocal 清理由 finally 保障，锁顺序固定，跨 Service 不能误拆共享锁。
 
 G08：依赖通过 Maven/BOM 统一管理，新增依赖说明用途、版本、兼容性和替代方案；生产依赖禁止未评估的漂移版本。当前开发 SNAPSHOT 不等于生产制品，发布另行固定版本与指纹。禁止因整理规范引入 ORM、映射框架、微服务或事件总线。

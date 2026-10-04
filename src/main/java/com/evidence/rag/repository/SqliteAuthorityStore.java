@@ -137,7 +137,11 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 27) {
+              if (count("PRAGMA user_version") == 29) {
+                schema.verifyVersionTwentyNine();
+              } else if (count("PRAGMA user_version") == 28) {
+                schema.verifyVersionTwentyEight();
+              } else if (count("PRAGMA user_version") == 27) {
                 schema.verifyVersionTwentySeven();
               } else if (count("PRAGMA user_version") == 26) {
                 schema.verifyVersionTwentySix();
@@ -365,9 +369,28 @@ public final class SqliteAuthorityStore implements AutoCloseable {
           rawExecute("PRAGMA foreign_keys=ON");
         }
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 27) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 27, 28);
+        }
+        rawExecute("PRAGMA foreign_keys=OFF");
+        rawExecute("PRAGMA legacy_alter_table=ON");
+        try {
+          schema.migrateVersionTwentyEight();
+        } finally {
+          rawExecute("PRAGMA legacy_alter_table=OFF");
+          rawExecute("PRAGMA foreign_keys=ON");
+        }
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 28) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 28, 29);
+        }
+        schema.migrateVersionTwentyNine();
+      }
       transaction(
           () -> {
-            schema.verifyVersionTwentySeven();
+            schema.verifyVersionTwentyNine();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -594,7 +617,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionTwentySeven();
+            new AuthoritySchema(this).verifyVersionTwentyNine();
             return null;
           });
     } catch (IOException | SQLException failure) {

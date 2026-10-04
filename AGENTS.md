@@ -1,5 +1,23 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-04 23:41 +08 最新0049：双服务商共用计数/显式DeepSeek代理已完成并实际使用；具名6次批次一次页面问答用了4/6，累计12/20，嵌入/两类重排/摘录HTTP200后本地unsupported_question拒答，综合与核验未发。独立后端/模型入口已停止、halted=true，未用2次不能续用。普通产品操作问句、编号原文与主体绑定不被旧字段型证明支持；仅补grammar不能修好，未改共享证明/旧资料/旧测试，不将HTTP200当摘录质量通过。另需保留全部检索上下文参与综合核验，不能直接删除grounding。23:34仅生产源码package成功；无自动化测试/检查/审计。当前停在可构建实现而非业务验收点，根因/停点见[0049实际请求记录](docs/changes/0049-unified-knowledge-answers/provider-run.md)；TODO1/2未完成，Git/部署由获用户授权的专门任务协调，本任务不执行。
+
+2026-10-04 23:06 +08：[0049统一知识问答](docs/changes/0049-unified-knowledge-answers/REVIEW.md)生产源码与v29 trace接线已完成，独立输出skip-all-tests package成功，18086新数据启动、18087页面默认综合问答已实际查看，独立产品帮助导航撤下。新增真实模型调用0；总计8/20仍halted。综合回答、混合来源回读/播放及完整回归未验，不能称生产完成。下一步仅同两份新合成资料具名问答验收；恢复须新授权且生成服务商必须纳入共用计数，不能沿当前只覆盖硅基流动的临时代理漏算DeepSeek。用户停测及旧服务/数据、Git写入/部署边界保持。
+
+本机打包输出：已两次实际遇到target中额外`RagApplication 2.class`使Spring Boot重打包失败。不得删旧产物/改mainClass掩盖问题；构建时可先用`mktemp -d /private/tmp/ai-knowledge-build.XXXXXX`创建独立输出，再传`-Drag.build.directory=<该绝对目录>`和本轮`-Dmaven.test.skip=true package`。默认target行为仍兼容。运行时从成功包复制不可变JAR；失败包不可启动或发布。自动化停测期间不顺带增加扫描/审计。
+
+2026-10-04当前主线[0049统一知识问答](docs/changes/0049-unified-knowledge-answers/intent.md)：负责人明确产品帮助不是独立功能，普通问答应检索文档与视频文字、由LLM综合回复并返回typed引用。0048检索作为内部能力复用，独立导航撤下；OpenAI兼容模型按协议复用、配置选模型，规则见Java规范AI01–AI04。星辰ASR与两份新资料索引已成功，页面查询本地v4候选白名单漏接失败后累计8/20已halted，不复用剩余额度。当前只实现0049代码/skip-all-tests构建/本机页面，自动化测试检查审计仍停止，不改旧服务数据、不提交推送或部署。0048实际历史见provider-run；完整综合回答未验。
+
+2026-10-04 22:38 +08当前0048：用户批准20次及首次失败后剩余18次续作；已实现默认关闭v4文字证据视频模式和v28迁移，ASR/字幕入库不依赖VLM。22:36:19仅skip-all-tests package成功5.206秒，22:37:00独立18086迁移启动；实际能力保留video_upload/video_index/product_help，关闭video_answers/旧附件链。第3次SenseVoice ASR60秒超时后再次停止，总计3/20、剩余17，未重试/索引/检索/播放；不自动使用余额。前端0036配置/导入准备路径已补，PDF parsed，两个视频失败任务保留。详见[请求台账](docs/changes/0048-product-help/provider-run.md)。自动化测试/检查/审计继续停止，旧服务/数据不动，无Git写入或部署，完整目标未完成；下方同日空库记录保留历史。
+
+2026-10-04 0048首版源码/运行包已实现：21:37:42 +08仅skip-all-tests离线package成功4.493秒，21:37:57独立新数据/不可变JAR监听18086，前端0036在18087实际打开。页面导航、两类候选空态、范围/参数控件及模型未配置提示已查看；未提交云查询，实际候选/页码阅读/时间播放与真实质量NOT_RUN。旧target存在重复主类副本，已完整保留在工作区.local后用新target打包；未改POM、旧服务或旧数据。详情见[0048记录](docs/changes/0048-product-help/REVIEW.md)。自动化测试/检查/审计继续停止，无提交/推送/部署，不称生产完成；下条IMPLEMENTATION为本轮开始状态。
+
+2026-10-04当前新增主线：[0048产品使用帮助](docs/changes/0048-product-help/intent.md) intent→spec→plan→REVIEW。用户已批准按产品操作问题同时查找说明文档和使用视频；首版独立原文检索入口，复用BGE/当前managed文字配置与Milvus，视频只已发布ASR/字幕/帧OCR，不将caption或摘要当操作证据。前端0036配套，产品型号版本先沿目录/标签与完整所选范围，不造产品中心；跨类型生成答案及Qwen视觉补充后续推进。当前IMPLEMENTATION，云调用0，不改旧数据、不推送部署。自动化测试/检查/审计继续停止，可skip-all-tests构建并进行实际本机页面观察，结果必须按0048记录，不复用旧门禁认证新增源码。
+
+2026-10-04 19:33 +08新版线上页面已恢复联调：用户可打开页面，旧Chrome连接失效后按文档重连当前会话，已实际查看10份资料、青榆筛选、TXT原件/版本/SHA、详情分区切换保留未保存草稿、任务范围与索引详情、单份及全库召回范围控件。临时草稿已恢复，未保存旧资料、未提交召回/问答/重建，新增云调用0；[0047浏览器记录](docs/changes/0047-management-workspace-integration/REVIEW.md)。详情仍是模态分区而非独立URL。浏览器阻断不再是当前条件；真实混合召回等待具名最多2次调用授权，旧预算不复用，自动化停测与生产gate保持。
+
+2026-10-04 19:04 +08发布同步：独立“提交推送知识库代码”任务已按用户授权发布0046/0047及Web0034/0035。当前线上`20261004-workspace-1441`，Java `a8717b7`、Web `345e8dc`；本轮只读核对服务运行目录、清单commit及JAR摘要一致、live为ok，不重复部署。Chrome打开公网新版也被`ERR_BLOCKED_BY_CLIENT`阻止，未绕过，尚无新版DOM及真实混合召回验收。已提出最多2次现有合成资料页面召回查询请求，尚未获准、未执行；0046旧2次余额为0，自动化测试/检查/审计继续停止，生产gate保持。具体状态见[0047后续发布记录](docs/changes/0047-management-workspace-integration/REVIEW.md)。下方“未提交/部署”是初次开发时的历史事实。
+
 2026-10-04当前0047：[新版管理工作台后端配合](docs/changes/0047-management-workspace-integration/REVIEW.md)已适配前端0034/0035：全库文字召回只检真实text/OCR候选，完整scope复验和显式selected规则保持；新增显式本机workspace启动配置。14:09:01仅skip-all-tests package成功4.951秒，14:10:59真实Java启动后，经独立前端代理完成合成TXT上传/解析任务/原件回读/整理保存。Chrome以ERR_BLOCKED_BY_CLIENT阻止本机页面，本轮没有浏览器交互验收；模型未配置，真实召回及RAG acceptance未执行。自动化测试、检查和审计继续停止；未提交/推送或远端部署，0046颜色修复和前端本地改版完整保留。源码合同与运行边界见0047，不把下方历史结果认证为当前新增源码通过。
 
 2026-10-04当前交付与页面验收：后端 `20261004-video-answer` 已于08:46:07 +08实际部署，含0045安全视频失败阶段日志；前端0033准确model_failure文案已冻结。08:44:46 +08仅skip-all-tests package成功，用时3.796秒。前端0032静态于08:36:04 +08部署，reload后audio、visual、text、video-visual四种单份入口及完整1份scope实际正确。

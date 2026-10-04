@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -45,6 +46,8 @@ public class VideoConfiguration {
       }
       boolean subtitles =
           environment.getProperty("rag.video.subtitles.enabled", Boolean.class, false);
+      boolean textEvidenceOnly =
+          environment.getProperty("rag.video.text-evidence-only", Boolean.class, false);
       decoder =
           new ProcessVideoDecoder(
               Path.of(environment.getRequiredProperty("rag.video.ffmpeg-executable")),
@@ -75,7 +78,8 @@ public class VideoConfiguration {
                   environment.getProperty("rag.video.asr.max-response-bytes", Integer.class, 65536),
                   environment.getProperty(
                       "rag.video.asr.allow-loopback-http", Boolean.class, false)));
-      vision =
+      if (!textEvidenceOnly) {
+        vision =
           new OpenAiCompatibleVisionModels(
               new OpenAiCompatibleVisionModels.Configuration(
                   endpoint(environment, "rag.video.vision"),
@@ -84,6 +88,7 @@ public class VideoConfiguration {
                       "rag.video.vision.max-response-bytes", Integer.class, 262144),
                   environment.getProperty(
                       "rag.video.vision.allow-loopback-http", Boolean.class, false)));
+      }
       Duration budget = duration(environment, "rag.video.compilation-budget-ms", 600000);
       var transcription =
           new AudioTranscriptionService(
@@ -93,7 +98,9 @@ public class VideoConfiguration {
           audio,
           vision,
           ocr,
-          subtitles
+          textEvidenceOnly
+              ? VideoCompilationService.textEvidenceOnly(decoder, transcription, ocr, budget, subtitles)
+              : subtitles
               ? new VideoCompilationService(decoder, transcription, vision, ocr, budget, true)
               : ocr == null
                   ? new VideoCompilationService(decoder, transcription, vision, budget)
@@ -122,6 +129,7 @@ public class VideoConfiguration {
 
   @Bean
   @ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
+  @ConditionalOnExpression("!${rag.video.text-evidence-only:false}")
   @Conditional(LegacyTextCondition.class)
   VideoAnswerProposalService videoAnswerProposalService(
       VideoResources resources,
@@ -189,7 +197,9 @@ public class VideoConfiguration {
         }
       } finally {
         try {
-          vision.close();
+          if (vision != null) {
+            vision.close();
+          }
         } finally {
           try {
             audio.close();

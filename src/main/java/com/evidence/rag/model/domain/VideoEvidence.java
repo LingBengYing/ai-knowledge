@@ -41,7 +41,7 @@ public record VideoEvidence(
     var manifest = new StringBuilder();
     fields(
         manifest,
-        "video-authority-v1",
+        compilation.textEvidenceOnly() ? "video-authority-v2" : "video-authority-v1",
         revisionId,
         compilation.sourceSha256(),
         compilation.decoderRevision(),
@@ -55,7 +55,9 @@ public record VideoEvidence(
       frames.add(evidence);
       bytes += frame.image().content().length;
       var recall = material.recall();
-      recallPoints += recall.recallText().codePointCount(0, recall.recallText().length());
+      if (recall != null) {
+        recallPoints += recall.recallText().codePointCount(0, recall.recallText().length());
+      }
       fields(
           manifest,
           "frame",
@@ -67,8 +69,10 @@ public record VideoEvidence(
           frame.image().sha256(),
           frame.width(),
           frame.height(),
-          ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8)),
-          recall.modelRevision());
+          recall == null
+              ? null
+              : ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8)),
+          recall == null ? null : recall.modelRevision());
     }
     int indexOrdinal = 0;
     var audio = compilation.audio();
@@ -214,7 +218,8 @@ public record VideoEvidence(
   }
 
   public int projectionCount() {
-    return frames.size() + (int) spans.stream().filter(span -> span.indexOrdinal() != null).count();
+    return (int) frames.stream().filter(frame -> frame.material().recall() != null).count()
+        + (int) spans.stream().filter(span -> span.indexOrdinal() != null).count();
   }
 
   @Override

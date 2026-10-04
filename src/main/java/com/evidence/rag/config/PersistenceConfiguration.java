@@ -157,6 +157,7 @@ public class PersistenceConfiguration {
             compiler == null ? null : compiler.revision(),
             videoCompiler == null ? null : videoCompiler.revision(),
             videoCompiler != null && videoCompiler.ocrEnabled(),
+            videoCompiler != null && videoCompiler.subtitlesEnabled(),
             PdfOcrConfiguration.options(environment));
     service.recoverIngestions();
     return service;

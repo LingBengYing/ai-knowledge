@@ -43,6 +43,7 @@ public final class VideoCompilationService {
   private final String compilerRevision;
   private final long budgetNanos;
   private final boolean subtitlesEnabled;
+  private final boolean textEvidenceOnly;
 
   public VideoCompilationService(
       VideoDecoder decoder,
@@ -50,7 +51,7 @@ public final class VideoCompilationService {
       VisionModels models,
       ImageOcr ocr,
       Duration budget) {
-    this(decoder, transcriber, models, ocr, budget, true, false);
+    this(decoder, transcriber, models, ocr, budget, true, false, false);
   }
 
   public VideoCompilationService(
@@ -58,7 +59,7 @@ public final class VideoCompilationService {
       AudioTranscriptionService transcriber,
       VisionModels models,
       Duration budget) {
-    this(decoder, transcriber, models, null, budget, false, false);
+    this(decoder, transcriber, models, null, budget, false, false, false);
   }
 
   public VideoCompilationService(
@@ -68,7 +69,18 @@ public final class VideoCompilationService {
       ImageOcr ocr,
       Duration budget,
       boolean subtitlesEnabled) {
-    this(decoder, transcriber, models, ocr, budget, ocr != null, subtitlesEnabled);
+    this(decoder, transcriber, models, ocr, budget, ocr != null, subtitlesEnabled, false);
+  }
+
+  /** Keeps real frames and textual evidence without requiring or invoking a vision model. */
+  public static VideoCompilationService textEvidenceOnly(
+      VideoDecoder decoder,
+      AudioTranscriptionService transcriber,
+      ImageOcr ocr,
+      Duration budget,
+      boolean subtitlesEnabled) {
+    return new VideoCompilationService(
+        decoder, transcriber, null, ocr, budget, ocr != null, subtitlesEnabled, true);
   }
 
   private VideoCompilationService(
@@ -78,10 +90,11 @@ public final class VideoCompilationService {
       ImageOcr ocr,
       Duration budget,
       boolean ocrEnabled,
-      boolean subtitlesEnabled) {
+      boolean subtitlesEnabled,
+      boolean textEvidenceOnly) {
     if (decoder == null
         || transcriber == null
-        || models == null
+        || (textEvidenceOnly ? models != null : models == null)
         || (ocrEnabled && ocr == null)
         || budget == null
         || budget.compareTo(Duration.ofMillis(10)) < 0
@@ -93,32 +106,56 @@ public final class VideoCompilationService {
     this.models = models;
     this.ocr = ocr;
     this.subtitlesEnabled = subtitlesEnabled;
+    this.textEvidenceOnly = textEvidenceOnly;
     decoderRevision = ModelValues.identifier(decoder.revision(), 200);
     transcriptionRevision = ModelValues.identifier(transcriber.revision(), 200);
-    modelRevision = ModelValues.identifier(models.revision(), 200);
+    modelRevision = textEvidenceOnly ? null : ModelValues.identifier(models.revision(), 200);
     ocrRevision = ocr == null ? null : ModelValues.identifier(ocr.revision(), 200);
     budgetNanos = budget.toNanos();
-    compilerRevision =
-        (subtitlesEnabled
-                ? "java-video-compiler-v3:"
-                : ocr == null ? "java-video-compiler-v1:" : "java-video-compiler-v2:")
-            + ModelValues.sha256(
-                (decoderRevision
-                        + "\0"
-                        + transcriptionRevision
-                        + "\0"
-                        + modelRevision
-                        + "\0actual-frame-pts-png+aligned-pcm16k+recall-only"
-                        + (ocr == null
-                            ? ""
-                            : "\0" + ocrRevision + "\0complete-frame-local-ocr-cp-boxes")
-                        + (subtitlesEnabled
-                            ? "\0subtitles-required\0"
-                                + VideoSubtitleCompilation.TEXT_FORMAT
-                                + "\0all-packets-rational-video-epoch\0ocr-enabled="
-                                + (ocr != null)
-                            : ""))
-                    .getBytes(StandardCharsets.UTF_8));
+    if (textEvidenceOnly) {
+      compilerRevision =
+          VideoCompilation.TEXT_EVIDENCE_COMPILER_PREFIX
+              + ModelValues.sha256(
+                  (decoderRevision
+                          + "\0"
+                          + transcriptionRevision
+                          + "\0actual-frame-pts-png+aligned-pcm16k+text-evidence-only"
+                          + "\0vision-description=absent\0ocr-enabled="
+                          + (ocr != null)
+                          + (ocr == null
+                              ? ""
+                              : "\0" + ocrRevision + "\0complete-frame-local-ocr-cp-boxes")
+                          + "\0subtitles-enabled="
+                          + subtitlesEnabled
+                          + (subtitlesEnabled
+                              ? "\0"
+                                  + VideoSubtitleCompilation.TEXT_FORMAT
+                                  + "\0all-packets-rational-video-epoch"
+                              : ""))
+                      .getBytes(StandardCharsets.UTF_8));
+    } else {
+      compilerRevision =
+          (subtitlesEnabled
+                  ? "java-video-compiler-v3:"
+                  : ocr == null ? "java-video-compiler-v1:" : "java-video-compiler-v2:")
+              + ModelValues.sha256(
+                  (decoderRevision
+                          + "\0"
+                          + transcriptionRevision
+                          + "\0"
+                          + modelRevision
+                          + "\0actual-frame-pts-png+aligned-pcm16k+recall-only"
+                          + (ocr == null
+                              ? ""
+                              : "\0" + ocrRevision + "\0complete-frame-local-ocr-cp-boxes")
+                          + (subtitlesEnabled
+                              ? "\0subtitles-required\0"
+                                  + VideoSubtitleCompilation.TEXT_FORMAT
+                                  + "\0all-packets-rational-video-epoch\0ocr-enabled="
+                                  + (ocr != null)
+                              : ""))
+                      .getBytes(StandardCharsets.UTF_8));
+    }
   }
 
   public String revision() {
@@ -128,6 +165,14 @@ public final class VideoCompilationService {
   /** Configuration contract, not inferred later from a potentially incomplete processing result. */
   public boolean ocrEnabled() {
     return ocr != null;
+  }
+
+  public boolean textEvidenceOnly() {
+    return textEvidenceOnly;
+  }
+
+  public boolean subtitlesEnabled() {
+    return subtitlesEnabled;
   }
 
   public VideoCompilation compile(
@@ -170,9 +215,13 @@ public final class VideoCompilationService {
                   });
       check(current, started);
       var frames = new ArrayList<VideoFrameRecall>();
-      phase = "vision_description";
+      phase = textEvidenceOnly ? "original_frame_preservation" : "vision_description";
       for (var frame : decoded.frames()) {
         check(current, started);
+        if (textEvidenceOnly) {
+          frames.add(new VideoFrameRecall(frame, null));
+          continue;
+        }
         var description = models.describe(frame.image());
         check(current, started);
         if (description == null) {
@@ -316,7 +365,7 @@ public final class VideoCompilationService {
   public boolean configurationCurrent() {
     return decoderRevision.equals(decoder.revision())
         && transcriptionRevision.equals(transcriber.revision())
-        && modelRevision.equals(models.revision())
+        && (textEvidenceOnly || modelRevision.equals(models.revision()))
         && (ocr == null || ocrRevision.equals(ocr.revision()));
   }
 

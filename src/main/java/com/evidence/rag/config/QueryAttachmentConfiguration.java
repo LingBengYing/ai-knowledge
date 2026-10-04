@@ -28,6 +28,7 @@ import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -40,6 +41,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration(proxyBeanMethods = false)
 @Conditional(MediaModulesCondition.class)
 @ConditionalOnProperty(prefix = "rag.query-attachments", name = "enabled", havingValue = "true")
+@ConditionalOnExpression("!${rag.video.text-evidence-only:false}")
 @EnableConfigurationProperties(QueryAttachmentSettings.class)
 public class QueryAttachmentConfiguration {
   @Bean(destroyMethod = "close")

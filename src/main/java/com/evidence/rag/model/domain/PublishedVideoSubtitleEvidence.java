@@ -19,7 +19,7 @@ public record PublishedVideoSubtitleEvidence(
     if (publication == null
         || source == null
         || track == null
-        || !publication.parserRevision().matches("java-video-compiler-v3:[a-f0-9]{64}")
+        || !publication.parserRevision().matches("java-video-compiler-v[34]:[a-f0-9]{64}")
         || !publication.sourceRevisionId().equals(source.revisionId())
         || !publication.sourceRevisionId().equals(track.revisionId())
         || !source.trackId().equals(track.id())

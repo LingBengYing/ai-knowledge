@@ -32,6 +32,7 @@ public record VideoOcrEvidence(List<VideoOcrSegmentEvidence> segments, String ma
     var segments = new ArrayList<VideoOcrSegmentEvidence>();
     long points =
         compilation.frames().stream()
+            .filter(frame -> frame.recall() != null)
             .mapToLong(
                 f -> f.recall().recallText().codePointCount(0, f.recall().recallText().length()))
             .sum();

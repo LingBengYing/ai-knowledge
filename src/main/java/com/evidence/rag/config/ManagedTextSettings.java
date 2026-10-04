@@ -45,6 +45,7 @@ final class ManagedTextSettings {
               "ENABLED",
               "ADMINISTRATORS",
               "PROVIDER_BASE_URL",
+              "DEEPSEEK_BASE_URL",
               "DEADLINE_MS",
               "MAX_RESPONSE_BYTES",
               "ALLOW_LOOPBACK_HTTP",
@@ -65,10 +66,14 @@ final class ManagedTextSettings {
               environment.getProperty(
                   "rag.model-configuration.provider-base-url", "https://api.siliconflow.cn/v1"));
       String legacyGeneration = environment.getProperty("RAG_GENERATION_BASE_URL");
+      String configuredDeepseek =
+          environment.getProperty("rag.model-configuration.deepseek-base-url", "");
       deepseekProvider =
-          TextIndexAnchor.isDeepSeekEndpoint(legacyGeneration)
-              ? URI.create(legacyGeneration)
-              : TextModelConnectionProbe.DEEPSEEK_BASE_URL;
+          !configuredDeepseek.isEmpty()
+              ? URI.create(configuredDeepseek)
+              : TextIndexAnchor.isDeepSeekEndpoint(legacyGeneration)
+                  ? URI.create(legacyGeneration)
+                  : TextModelConnectionProbe.DEEPSEEK_BASE_URL;
       deadline =
           Duration.ofMillis(
               environment.getProperty("rag.model-configuration.deadline-ms", Long.class, 30000L));

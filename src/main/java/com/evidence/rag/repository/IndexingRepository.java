@@ -33,7 +33,7 @@ public final class IndexingRepository {
   private static final String PROJECTION_COUNT =
       "(r.segment_count+(SELECT COUNT(*) FROM image_evidence i WHERE i.revision_id=r.id)"
           + "+(SELECT COUNT(*) FROM audio_spans s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)"
-          + "+(SELECT COUNT(*) FROM video_frames f WHERE f.revision_id=r.id)"
+          + "+(SELECT COUNT(*) FROM video_frames f WHERE f.revision_id=r.id AND f.recall_text IS NOT NULL)"
           + "+(SELECT COUNT(*) FROM video_transcript_spans s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL)"
           + "+(SELECT COUNT(*) FROM video_ocr_segments s WHERE s.revision_id=r.id)"
           + "+(SELECT COUNT(*) FROM video_subtitle_cues s WHERE s.revision_id=r.id AND s.index_ordinal IS NOT NULL))";
@@ -568,7 +568,7 @@ public final class IndexingRepository {
     // Recall does not need the sealed original frame bytes; those remain in video authority.
     for (var row :
         store.rows(
-            "SELECT id,revision_id,ordinal,recall_text,recall_sha256,description_revision FROM video_frames WHERE revision_id=? ORDER BY ordinal",
+            "SELECT id,revision_id,ordinal,recall_text,recall_sha256,description_revision FROM video_frames WHERE revision_id=? AND recall_text IS NOT NULL ORDER BY ordinal",
             revisionId)) {
       String id = AuthorityRows.text(row, "id");
       if (!VideoEvidence.frameIdentity(
@@ -733,7 +733,7 @@ public final class IndexingRepository {
           physicalSegmentId,
           digest);
     } else if (store.count(
-            "SELECT COUNT(*) FROM video_frames f JOIN index_publications p ON p.revision_id=f.revision_id WHERE p.id=? AND f.id=?",
+            "SELECT COUNT(*) FROM video_frames f JOIN index_publications p ON p.revision_id=f.revision_id WHERE p.id=? AND f.id=? AND f.recall_text IS NOT NULL",
             publicationId,
             evidenceId)
         == 1) {

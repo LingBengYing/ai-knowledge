@@ -264,8 +264,12 @@ final class ModelRebuildSchema {
   }
 
   void verify() {
-    if (store.count("PRAGMA user_version")!=27 || store.count("PRAGMA application_id")!=1163280711
-        || store.count("SELECT COUNT(*) FROM format_info WHERE version=27 AND format='evidence-rag-java-management-v1'")!=1
+    verify(27);
+  }
+
+  void verify(int version) {
+    if (store.count("PRAGMA user_version")!=version || store.count("PRAGMA application_id")!=1163280711
+        || store.count("SELECT COUNT(*) FROM format_info WHERE version=? AND format='evidence-rag-java-management-v1'", version)!=1
         || store.count("SELECT COUNT(*) FROM pragma_foreign_key_check")!=0
         || store.count("SELECT COUNT(*) FROM pragma_table_info('indexing_jobs') WHERE name='model_rebuild_id'")!=1
         || store.count("SELECT COUNT(*) FROM text_runtime_selection WHERE id=1")!=1) {

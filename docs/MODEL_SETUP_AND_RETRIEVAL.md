@@ -14,7 +14,9 @@
 
 显式启用 `RAG_MODEL_CONFIGURATION_ENABLED=true`，并将 `RAG_MODEL_CONFIGURATION_ADMINISTRATORS` 设为本组织模型管理员的真实 actor ID，以逗号分隔。资料 owner/editor 不自动成为模型管理员。仅允许 development/test 及字面 loopback 绑定；JWT/会话和独立前端代理沿用原配置。
 
-硅基流动端点由 `RAG_MODEL_CONFIGURATION_PROVIDER_BASE_URL` 配置。DeepSeek 使用官方端点；可信旧环境中的官方根地址或 `/v1` 形式会保留，浏览器不接收 URL。`RAG_MILVUS_ENDPOINT/TOKEN/DATABASE/COLLECTION` 由服务器配置，页面不接收向量库 token。Milvus 缺配置时仍可保存草稿、测试三个文字模型；应用配置和召回需要完整投影设置。保留摄取、索引、问答各自的开关，需要完整文字流程时显式启用 `RAG_INGESTION_ENABLED`、`RAG_INDEXING_ENABLED`、`RAG_ANSWERS_ENABLED`。程序不自动读取 `.env`；[.env.example](../.env.example)仅为变量说明。
+硅基流动端点由 `RAG_MODEL_CONFIGURATION_PROVIDER_BASE_URL` 配置。DeepSeek 默认使用官方端点；未设置或留空 `RAG_MODEL_CONFIGURATION_DEEPSEEK_BASE_URL` 时，可信旧环境中的官方根地址或 `/v1` 形式会保留。服务器可显式设置该变量为官方 HTTPS 根地址或 `/v1`；仅在 `RAG_MODEL_CONFIGURATION_ALLOW_LOOPBACK_HTTP=true` 时，额外允许字面 `127.0.0.1` 或 `[::1]` 的 HTTP 根地址或 `/v1`（均可带末尾斜线），用于本机受控计数代理。浏览器不接收 URL；连接测试与当前生成使用同一地址，不按模型名选择客户端，不改写已有索引 anchor 或嵌入身份。设置地址本身不会发送模型请求，也不代表恢复调用授权。
+
+`RAG_MILVUS_ENDPOINT/TOKEN/DATABASE/COLLECTION` 由服务器配置，页面不接收向量库 token。Milvus 缺配置时仍可保存草稿、测试三个文字模型；应用配置和召回需要完整投影设置。保留摄取、索引、问答各自的开关，需要完整文字流程时显式启用 `RAG_INGESTION_ENABLED`、`RAG_INDEXING_ENABLED`、`RAG_ANSWERS_ENABLED`。程序不自动读取 `.env`；[.env.example](../.env.example)仅为变量说明。
 
 不必先在环境配置三个文字模型。无已应用配置时，管理页面仍能启动并显示设置入口；索引、问答及召回提示先配置。完整旧环境模型可导入为草稿，仍须明确应用。原来的运行方式在本开关关闭时保持有效。
 

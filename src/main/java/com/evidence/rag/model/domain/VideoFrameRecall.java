@@ -1,9 +1,9 @@
 package com.evidence.rag.model.domain;
 
-/** Caption is retrieval data attached to a real frame, never proof of a visible fact. */
+/** Optional caption is recall-only; the enclosing compilation enforces its explicit mode. */
 public record VideoFrameRecall(VideoFrame frame, ImageRecall recall) {
   public VideoFrameRecall {
-    if (frame == null || recall == null) {
+    if (frame == null) {
       throw ModelValues.invalid();
     }
   }

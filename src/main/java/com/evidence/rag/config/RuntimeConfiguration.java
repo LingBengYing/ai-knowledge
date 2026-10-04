@@ -70,8 +70,11 @@ public class RuntimeConfiguration {
                 && cleanupJob.getIfAvailable() != null
                 && operations.getIfAvailable() != null);
     var runtime = managed.getIfAvailable();
+    boolean textEvidenceOnly =
+        environment.getProperty("rag.video.text-evidence-only", Boolean.class, false);
     if (runtime == null) {
-      return new RuntimeService(() -> reindexCapabilities(base.capabilities()));
+      return new RuntimeService(
+          () -> textEvidenceCapabilities(reindexCapabilities(base.capabilities()), textEvidenceOnly));
     }
     var guard = legacy.getIfAvailable();
     var configuredMedia = media.getIfAvailable();
@@ -84,12 +87,25 @@ public class RuntimeConfiguration {
     return new RuntimeService(
         () ->
             managedCapabilities(
-                reindexCapabilities(base.capabilities()),
+                textEvidenceCapabilities(reindexCapabilities(base.capabilities()), textEvidenceOnly),
                 runtime.currentVersion() != null,
                 guard != null && guard.compatible(),
                 visualPresent,
                 videoPresent,
                 attachmentsPresent));
+  }
+
+  private static RuntimeCapabilities textEvidenceCapabilities(
+      RuntimeCapabilities base, boolean textEvidenceOnly) {
+    if (!textEvidenceOnly) {
+      return base;
+    }
+    var enabled = new ArrayList<>(base.capabilities());
+    var unavailable = new ArrayList<>(base.unavailable());
+    disable(enabled, unavailable, List.of(
+        "video_answers", "query_attachments", "image_vector_retrieval", "audio_vector_retrieval"));
+    return new RuntimeCapabilities(
+        base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
   }
 
   private static RuntimeCapabilities reindexCapabilities(RuntimeCapabilities base) {
@@ -128,6 +144,8 @@ public class RuntimeConfiguration {
     enabled.add("model_index_rebuild");
     if (textReady) {
       enabled.add("retrieval_test");
+      enabled.add("product_help");
+      enabled.add("knowledge_answers");
     } else {
       disable(
           enabled,
@@ -145,6 +163,8 @@ public class RuntimeConfiguration {
               "audio_answers",
               "audio_sources"));
       unavailable.add("retrieval_test");
+      unavailable.add("product_help");
+      unavailable.add("knowledge_answers");
     }
     if (!legacyCompatible || !visualPresent) {
       disable(enabled, unavailable, List.of("visual_image_upload", "visual_answers"));

@@ -18,9 +18,12 @@ import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IndexingTaskProcessor;
 import com.evidence.rag.service.LegacyTextProfileGuard;
+import com.evidence.rag.service.KnowledgeAnswerService;
+import com.evidence.rag.service.KnowledgeTraceService;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.ModelConfigurationService;
 import com.evidence.rag.service.ModelRebuildService;
+import com.evidence.rag.service.ProductHelpService;
 import com.evidence.rag.service.ReindexVectorVerifier;
 import com.evidence.rag.service.TextRetrievalTestService;
 import com.evidence.rag.service.TextRuntimeSnapshot;
@@ -290,5 +293,31 @@ public class ModelConfigurationConfiguration {
                 "rag.model-configuration.retrieval-timeout-ms", Long.class, 60000L)),
         environment.getProperty(
             "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2));
+  }
+
+  @Bean(destroyMethod = "close")
+  ProductHelpService productHelpService(
+      EvidenceService evidence, ManagedTextRuntime runtime, ConfigurableEnvironment environment) {
+    return new ProductHelpService(
+        evidence, runtime,
+        Duration.ofMillis(environment.getProperty(
+            "rag.model-configuration.retrieval-timeout-ms", Long.class, 60000L)),
+        environment.getProperty(
+            "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2));
+  }
+
+  @Bean
+  KnowledgeTraceService knowledgeTraceService(
+      SqliteAuthorityStore store, EvidenceService evidence) {
+    return new KnowledgeTraceService(store, evidence);
+  }
+
+  @Bean(destroyMethod = "close")
+  KnowledgeAnswerService knowledgeAnswerService(
+      EvidenceService evidence, ProductHelpService retrieval, ManagedTextRuntime runtime,
+      KnowledgeTraceService traces, AnswersSettings limits) {
+    return new KnowledgeAnswerService(
+        evidence, retrieval, runtime, traces,
+        Duration.ofMillis(limits.timeoutMs()), limits.maxConcurrent());
   }
 }

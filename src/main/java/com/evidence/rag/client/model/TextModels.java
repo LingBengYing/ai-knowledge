@@ -4,11 +4,22 @@ import java.util.List;
 
 /** Model seam. Callers own authorization, factual proof and authoritative source locators. */
 public interface TextModels {
+  String SYNTHESIS_PROMPT_REVISION = "java-text-synthesis-v2";
+
   List<List<Double>> embed(List<String> texts);
 
   List<Ranked> rerank(String query, List<String> texts);
 
   Extraction extract(String query, List<Evidence> evidence);
+
+  default Synthesis synthesize(String question, List<SynthesisEvidence> evidence) {
+    throw new Failure("model_synthesis_unavailable");
+  }
+
+  default boolean verifySynthesis(
+      String question, Synthesis synthesis, List<SynthesisEvidence> evidence) {
+    throw new Failure("model_synthesis_unavailable");
+  }
 
   String revision();
 
@@ -36,6 +47,35 @@ public interface TextModels {
     @Override
     public String toString() {
       return "Extraction[redacted]";
+    }
+  }
+
+  record SynthesisEvidence(String id, String quote, String context) {
+    @Override
+    public String toString() {
+      return "SynthesisEvidence[redacted]";
+    }
+  }
+
+  record Statement(String text, List<String> evidenceIds) {
+    public Statement {
+      evidenceIds = List.copyOf(evidenceIds);
+    }
+
+    @Override
+    public String toString() {
+      return "Statement[redacted]";
+    }
+  }
+
+  record Synthesis(boolean refused, List<Statement> statements) {
+    public Synthesis {
+      statements = List.copyOf(statements);
+    }
+
+    @Override
+    public String toString() {
+      return "Synthesis[redacted]";
     }
   }
 

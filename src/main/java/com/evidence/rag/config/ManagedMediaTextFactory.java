@@ -93,7 +93,7 @@ public final class ManagedMediaTextFactory {
             anchor);
     var videoResources = videos.getIfAvailable();
     VideoAnswerProposalService video = null;
-    if (videoResources != null && limits.enabled()) {
+    if (videoResources != null && videoResources.vision != null && limits.enabled()) {
       if (!(text instanceof FactTextModels facts)) {
         throw new IllegalArgumentException("Video answers require fact-scoped text models");
       }

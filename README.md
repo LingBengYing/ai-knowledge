@@ -2,6 +2,10 @@
 
 面向单组织的 Java / Spring AI 知识库，使用 Milvus 和可配置模型服务，以库内原始证据回答问题并回读来源；独立前端见 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web)。当前代码包含文本、图片、音频、视频、字幕、文件摘要和多模态查询入口，不是只有资料列表，也不是仅做文件摘要。
 
+## 当前增量：知识问答统一综合回答（0049）
+
+产品操作说明是知识问答的一种场景，不单列“产品使用帮助”功能。当前增量把0048文档/视频文字检索作为内部步骤，接原文证明→大模型综合回复→逐段支持核验→可回读的混合引用。普通问答使用同一页面，文档定位到页码，视频定位到真实ASR段/字幕cue/帧OCR时间；不把文字转录称作视觉理解。接口见[KNOWLEDGE_ANSWERS](docs/KNOWLEDGE_ANSWERS.md)，具体实现与未验证范围以[0049记录](docs/changes/0049-unified-knowledge-answers/REVIEW.md)为准，不能以设计文档推定真实模型或生产已验收。
+
 ## 最新入口：新版独立前端联调（0047）
 
 已增加 `bash run-workspace.sh` 本机入口，使用JDK21+、独立 `.data/workspace`、后端18084，配合独立前端 `npm start` 的18085；默认本机身份与模型管理员为 `owner`。无需先配置模型即可管理资料、主动上传真实文本并查看解析任务；未应用模型/Milvus配置时不宣称索引、召回或问答可用。普通 `run-dev.sh` 与JWT默认不变，不复制独立前端资源。完整步骤见[新版前端运行说明](docs/WORKSPACE_FRONTEND.md)。

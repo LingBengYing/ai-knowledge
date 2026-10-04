@@ -47,7 +47,8 @@ public record VideoSubtitleEvidence(
     ModelValues.indexIdentity(revisionId);
     if (compilation == null
         || compilation.subtitles() == null
-        || !compilation.compilerRevision().matches("java-video-compiler-v3:[a-f0-9]{64}")) {
+        || !(compilation.compilerRevision().matches("java-video-compiler-v3:[a-f0-9]{64}")
+            || compilation.textEvidenceOnly())) {
       throw ModelValues.invalid();
     }
     var base = VideoEvidence.fromCompilation(revisionId, compilation);
@@ -73,6 +74,7 @@ public record VideoSubtitleEvidence(
     int indexOrdinal = 0;
     long points =
         compilation.frames().stream()
+            .filter(frame -> frame.recall() != null)
             .mapToLong(
                 frame ->
                     frame

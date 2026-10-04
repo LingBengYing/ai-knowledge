@@ -20,7 +20,7 @@ public record PublishedVideoOcrEvidence(
     if (publication == null
         || source == null
         || frame == null
-        || !publication.parserRevision().matches("java-video-compiler-v[23]:[a-f0-9]{64}")
+        || !publication.parserRevision().matches("java-video-compiler-v[234]:[a-f0-9]{64}")
         || !publication.sourceRevisionId().equals(source.revisionId())
         || !VideoEvidence.frameIdentity(source.revisionId(), frame.frameOrdinal())
             .equals(source.frameId())

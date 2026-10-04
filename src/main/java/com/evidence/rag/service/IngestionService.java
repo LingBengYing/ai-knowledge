@@ -71,6 +71,7 @@ public final class IngestionService {
   private final String audioCompilerRevision;
   private final String videoCompilerRevision;
   private final boolean videoOcrExpected;
+  private final boolean videoSubtitlesExpected;
   private final PdfOcrOptions pdfs;
 
   public IngestionService(
@@ -167,6 +168,33 @@ public final class IngestionService {
       String videoCompilerRevision,
       boolean videoOcrExpected,
       PdfOcrOptions pdfs) {
+    this(
+        store,
+        ingestion,
+        management,
+        permissions,
+        images,
+        visual,
+        audioCompilerRevision,
+        videoCompilerRevision,
+        videoOcrExpected,
+        videoCompilerRevision != null
+            && videoCompilerRevision.startsWith("java-video-compiler-v3:"),
+        pdfs);
+  }
+
+  public IngestionService(
+      SqliteAuthorityStore store,
+      IngestionRepository ingestion,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      ImageOcrOptions images,
+      VisualIngestionOptions visual,
+      String audioCompilerRevision,
+      String videoCompilerRevision,
+      boolean videoOcrExpected,
+      boolean videoSubtitlesExpected,
+      PdfOcrOptions pdfs) {
     this.store = Objects.requireNonNull(store);
     this.ingestion = Objects.requireNonNull(ingestion);
     this.management = Objects.requireNonNull(management);
@@ -179,11 +207,18 @@ public final class IngestionService {
     }
     this.audioCompilerRevision = audioCompilerRevision;
     if (videoCompilerRevision != null
-        && !videoCompilerRevision.matches("java-video-compiler-v[123]:[0-9a-f]{64}")) {
+        && !videoCompilerRevision.matches("java-video-compiler-v[1234]:[0-9a-f]{64}")) {
+      throw invalid();
+    }
+    if (!VideoCompilation.isTextEvidenceOnlyRevision(videoCompilerRevision)
+        && videoSubtitlesExpected
+            != (videoCompilerRevision != null
+                && videoCompilerRevision.startsWith("java-video-compiler-v3:"))) {
       throw invalid();
     }
     this.videoCompilerRevision = videoCompilerRevision;
     this.videoOcrExpected = videoOcrExpected;
+    this.videoSubtitlesExpected = videoSubtitlesExpected;
     this.pdfs = pdfs;
   }
 
@@ -513,8 +548,7 @@ public final class IngestionService {
               || !task.sourceSha256().equals(compilation.sourceSha256())) {
             throw invalidParserOutput();
           }
-          if (videoCompilerRevision.startsWith("java-video-compiler-v3:")
-                  != (compilation.subtitles() != null)
+          if (videoSubtitlesExpected != (compilation.subtitles() != null)
               || videoOcrExpected != (compilation.ocr() != null)) {
             throw invalidParserOutput();
           }

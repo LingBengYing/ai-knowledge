@@ -168,6 +168,33 @@ final class AuthoritySchema {
     new ModelRebuildSchema(store).migrate();
   }
 
+  void migrateVersionTwentyEight() {
+    new VideoTextEvidenceSchema(store).migrate();
+  }
+
+  void verifyVersionTwentyEight() {
+    new VideoTextEvidenceSchema(store).verify();
+  }
+
+  void migrateVersionTwentyNine() {
+    new KnowledgeAnswerSchema(store).migrate();
+  }
+
+  void verifyVersionTwentyNine() {
+    new KnowledgeAnswerSchema(store).verify();
+  }
+
+  String videoTextPreparationComplete(String revision) {
+    return videoPreparationComplete(revision)
+            .replace("h.projection_count=h.frame_count+", "h.projection_count=(SELECT COUNT(*) FROM video_frames WHERE revision_id=h.revision_id AND recall_text IS NOT NULL)+")
+        + " AND (NOT EXISTS(SELECT 1 FROM video_ocr_compilations WHERE revision_id=" + revision + ".id) OR ("
+        + videoOcrComplete(revision) + "))"
+        + " AND (NOT EXISTS(SELECT 1 FROM video_subtitle_compilations WHERE revision_id=" + revision + ".id) OR ("
+        + videoSubtitleComplete(revision) + "))"
+        + " AND NOT EXISTS(SELECT 1 FROM video_frames WHERE revision_id=" + revision
+        + ".id AND (recall_text IS NOT NULL OR recall_sha256 IS NOT NULL OR description_revision IS NOT NULL))";
+  }
+
   void verifyVersionTwentySeven() {
     new ModelRebuildSchema(store).verify();
   }

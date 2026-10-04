@@ -4,7 +4,7 @@
   <parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>4.1.1</version><relativePath/></parent>
   <groupId>com.evidence</groupId><artifactId>rag-java</artifactId><version>0.1.0-SNAPSHOT</version>
   <name>Evidence RAG Java Edition</name>
-  <properties><java.version>21</java.version></properties>
+  <properties><java.version>21</java.version><rag.build.directory>${project.basedir}/target</rag.build.directory></properties>
   <dependencies>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
     <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-oauth2-jose</artifactId></dependency>
@@ -13,7 +13,7 @@
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
     <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit</artifactId><version>1.5.0</version><scope>test</scope></dependency>
   </dependencies>
-  <build><plugins>
+  <build><directory>${rag.build.directory}</directory><plugins>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><configuration><systemPropertyVariables><java.awt.headless>true</java.awt.headless></systemPropertyVariables></configuration></plugin>
     <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><showWarnings>true</showWarnings><compilerArgs><arg>-Xlint:all</arg></compilerArgs></configuration></plugin>

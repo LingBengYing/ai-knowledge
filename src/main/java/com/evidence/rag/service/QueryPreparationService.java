@@ -59,6 +59,7 @@ public final class QueryPreparationService {
         || imageOcr == null
         || audio == null
         || video == null
+        || video.textEvidenceOnly()
         || budget == null
         || budget.compareTo(Duration.ofMillis(10)) < 0
         || budget.compareTo(Duration.ofMinutes(10)) > 0) {
