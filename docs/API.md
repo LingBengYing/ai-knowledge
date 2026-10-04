@@ -182,7 +182,7 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 事务同时取消queued/processing摄取及索引任务、清空其claim、解除可编辑目录关联并写摘要审计；任何失败全部回滚。当前列表/计数/目录/标签、任务读取/重试、解析证据、检索和旧引用来源均失效。显式所选资料中任一被撤下，不能退回剩余资料或全库；回答中途撤下也使完整范围失效。历史publication/trace和原文件保留，物理占用仍计配额；同内容重传产生新身份。
 
-关闭新开关后仍不会重新暴露已经撤下的资料：v5墓碑及当前查询过滤始终有效。`can_delete/can_reindex`仍false，管理批量delete/reindex仍501，网页没有新增删除按钮；完整硬删除与批量清理属于后续B步。规格与验证入口见[0008](changes/0008-document-lifecycle/spec.md)。
+关闭新开关后仍不会重新暴露已经撤下的资料：v5墓碑及当前查询过滤始终有效。仅开启撤下开关不会自动开启重建或清理。当前文本重建资格和批量reindex见后文及[操作指南](BATCH_TEXT_REINDEX.md)，受控批量清理见[清理指南](changes/0031-document-cleanup/spec.md)。规格与验证入口见[0008](changes/0008-document-lifecycle/spec.md)。
 
 ## 可选文本摄取与索引路由
 
@@ -225,7 +225,7 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 任务status是state的同值别名，与列表摄取status分开。queued→processing→indexed/failed/cancelled。单document只有一个索引任务，失败/取消通过原任务显式重试，最多3次总attempt。can_cancel/can_retry只是角色/状态/次数提示；retry提交时还校验冻结target/source与创建者权限，配置变化409 index_configuration_changed，次数上限409 indexing_retry_limit，其他状态冲突409 indexing_state_conflict。持久失败安全码为indexing_failed、indexing_timeout、indexing_output_invalid、worker_interrupted、authorization_changed、index_configuration_changed，不包含provider原文或密钥。
 
-取消使旧claim失效，普通清理确认旧worker退出后释放本进程额度；重启将processing改为failed/worker_interrupted，需显式重试。新claim使用独立generation与物理ID；旧请求即使后来在上游完成，也仅写旧namespace，不以kill代表撤回上游。protocol v2父存活检查和跨JVM collection lease控制本地writer，相关异常进程/晚写验收仍以VERIFICATION为准。每次retry可能再次计费/写投影，网络中断先读状态，不自动重复写请求。完整物理manifest与映射台账事务提交后才indexed且publication非空；回执/generation无HTTP提交接口。索引路由和原管理命名空间保持分离，批量reindex仍拒绝。
+取消使旧claim失效，普通清理确认旧worker退出后释放本进程额度；重启将processing改为failed/worker_interrupted，需显式重试。新claim使用独立generation与物理ID；旧请求即使后来在上游完成，也仅写旧namespace，不以kill代表撤回上游。protocol v2父存活检查和跨JVM collection lease控制本地writer，相关异常进程/晚写验收仍以VERIFICATION为准。每次retry可能再次计费/写投影，网络中断先读状态，不自动重复写请求。完整物理manifest与映射台账事务提交后才indexed且publication非空；回执/generation无HTTP提交接口。单资料索引路由保持，当前管理批量reindex仅委托同一完整重建流程，见[操作指南](BATCH_TEXT_REINDEX.md)。
 
 ## 可选文本问答与引用读取（0007）
 
@@ -392,7 +392,15 @@ OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null
 
 客户端必须显示所有失败，并将缺失、重复或无法对应请求 ID 的回执视为异常。不要自动无差别重试整个批次；已有成功项可能已提交。
 
-`action: delete/reindex` 明确返回 **501 `migration_incomplete`**；不是可用生命周期操作。未知 action、未知字段、重复 ID 或错误整体结构返回 422。
+文字重新索引在实际`batch_text_reindex`能力开放时使用同一路径：
+
+```json
+{"document_ids":["demo-document"],"action":"reindex","base_publication_ids":{"demo-document":"<current-publication-id>"}}
+```
+
+`base_publication_ids`必须与资料ID一一对应，不能带`folder_id/tags`；其他action不能带此字段。逐项复验权限、当前发布版本和完整重建资格，使用原单资料后台任务流程。成功项`receipt.status="queued"`仅表示任务已创建，失败项返回安全错误；HTTP200不代表重建完成。进度沿原索引任务接口读取，旧发布在处理期间保持，成功才单项切换。详见[操作指南](BATCH_TEXT_REINDEX.md)。
+
+`action: delete`仍返回 **501 `migration_incomplete`**；当前批量清理由独立[受控清理接口](changes/0031-document-cleanup/spec.md)处理。未知 action、未知字段、重复 ID 或错误整体结构返回422。
 
 ## 安全错误 schema
 
@@ -422,7 +430,7 @@ OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null
 | 422 | `invalid_request`、`invalid_identity`、`invalid_session` |
 | 429 | 问答`answer_capacity_exceeded`、`scope_capacity_exceeded`；来源证据超限`evidence_capacity_exceeded` |
 | 500 / 503 | `internal_error` / `management_unavailable`、问答`answers_unavailable`，安全常量 detail |
-| 501 | `migration_incomplete`，目前用于 delete/reindex 批量动作拒绝 |
+| 501 | `migration_incomplete`，目前用于旧action=delete批量动作拒绝 |
 
 `/health/ready` 的 503 使用专门的健康状态 JSON，不使用此问题 schema。不要依赖异常原文、数据库信息或 token 内容诊断；它们不会被 API 返回。
 

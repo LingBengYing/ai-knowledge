@@ -1,0 +1,7 @@
+# 安全诊断契约
+
+`VideoCompilationService`在真实失败时记录固定阶段：preflight、native_decode、decoded_validation、asr_transcription、vision_description、frame_ocr、compilation_assembly。记录不透明摄取任务ID、异常类名及白名单失败码；没有摄取上下文时任务记为untracked。捕获后原异常原样抛出，不改变处理预算、模型协议、正文完整性、取消或失败映射。
+
+`IngestionTaskProcessor`在实际处理期间通过同线程日志上下文传递现有任务ID，结束时恢复原上下文。失败记录关联任务ID、异常类名和原持久失败码。所有日志均不传Throwable对象，不输出异常message、堆栈、文件名、路径、正文、provider响应或密钥。
+
+日志仅定位失败阶段，不证明ASR或视觉质量，也不把模型超时转换为本机解码失败。任务HTTP与数据库错误码保持原合同，重试仍由用户明确操作，不自动重试。

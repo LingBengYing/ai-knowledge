@@ -26,7 +26,7 @@ import org.springframework.core.env.Environment;
 
 /** Explicit local video composition, independent of audio and visual answer switches. */
 @Configuration(proxyBeanMethods = false)
-@Conditional(LegacyTextCondition.class)
+@Conditional(MediaModulesCondition.class)
 @ConditionalOnProperty(prefix = "rag.video", name = "enabled", havingValue = "true")
 public class VideoConfiguration {
   @Bean(destroyMethod = "close")
@@ -122,6 +122,7 @@ public class VideoConfiguration {
 
   @Bean
   @ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
+  @Conditional(LegacyTextCondition.class)
   VideoAnswerProposalService videoAnswerProposalService(
       VideoResources resources,
       EvidenceService evidence,

@@ -16,6 +16,7 @@ import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.QueryPreparationService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.service.VisualAnswerService;
 import com.evidence.rag.web.BoundedMediaQueryServlet;
@@ -37,7 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Explicit local attachment opt-in without startup model requests. */
 @Configuration(proxyBeanMethods = false)
-@Conditional(LegacyTextCondition.class)
+@Conditional(MediaModulesCondition.class)
 @ConditionalOnProperty(prefix = "rag.query-attachments", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(QueryAttachmentSettings.class)
 public class QueryAttachmentConfiguration {
@@ -96,6 +97,7 @@ public class QueryAttachmentConfiguration {
   }
 
   @Bean
+  @Conditional(LegacyTextCondition.class)
   QueryAttachmentService queryAttachmentService(
       QueryPreparationService preparation,
       QueryRankingModels ranking,
@@ -130,25 +132,35 @@ public class QueryAttachmentConfiguration {
 
   @Bean
   ServletRegistrationBean<BoundedMediaQueryServlet> queryAttachmentServlet(
-      AnswerService answers,
-      VisualAnswerService visual,
+      ObjectProvider<AnswerService> answers,
+      ObjectProvider<VisualAnswerService> visual,
       QueryAttachmentSettings transport,
       AnswersSettings processing,
       JsonMapper json,
-      ProblemHandler errors) {
+      ProblemHandler errors, ObjectProvider<ManagedTextRuntime> managed) {
     var registration =
         new ServletRegistrationBean<>(
             new BoundedMediaQueryServlet(
                 (actor, body) -> {
                   var command = QueryAttachmentRequestMapper.command(body);
+                  var runtime = managed.getIfAvailable();
+                  var snapshot = runtime == null ? null : runtime.capture();
+                  var currentVisual =
+                      snapshot == null ? visual.getIfAvailable() : snapshot.visual();
+                  var currentAnswers =
+                      snapshot == null ? answers.getIfAvailable() : snapshot.answers();
                   if (command.mode() == QueryAnswerMode.IMAGE) {
-                    if (visual == null) {
+                    if (currentVisual == null) {
                       throw new ApplicationException(
                           FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
                     }
-                    return visual.answerAttached(actor, command.answer(), command.attachments());
+                    return currentVisual.answerAttached(actor, command.answer(), command.attachments());
                   }
-                  return answers.answerAttached(actor, command);
+                  if (currentAnswers == null) {
+                    throw new ApplicationException(
+                        FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
+                  }
+                  return currentAnswers.answerAttached(actor, command);
                 },
                 QueryAttachmentRequestMapper.MAX_REQUEST_BYTES,
                 transport.receiveTimeoutMs(),

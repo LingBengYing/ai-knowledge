@@ -164,6 +164,292 @@ final class AuthoritySchema {
     }
   }
 
+  void migrateVersionTwentySeven() {
+    new ModelRebuildSchema(store).migrate();
+  }
+
+  void verifyVersionTwentySeven() {
+    new ModelRebuildSchema(store).verify();
+  }
+
+  void migrateVersionTwentySix() {
+    new DocumentReplacementSchema(store).migrate();
+  }
+
+  void verifyVersionTwentySix() {
+    new DocumentReplacementSchema(store).verify();
+  }
+
+  /** v25 freezes a complete vector set and records truthful immutable receipt inheritance. */
+  void migrateVersionTwentyFive() {
+    transaction(
+        () -> {
+          verifyVersionTwentyFour();
+          execute(
+              "ALTER TABLE indexing_jobs ADD COLUMN base_vector_set_sha256 TEXT CHECK(base_vector_set_sha256 IS NULL OR (typeof(base_vector_set_sha256)='text' AND length(base_vector_set_sha256)=64 AND base_vector_set_sha256 NOT GLOB '*[^a-f0-9]*'))");
+          String identity = schemaSql("trigger", "indexing_identity");
+          if (!identity.contains("rebuild_sequence,base_publication_id ON indexing_jobs")) {
+            throw new IllegalStateException("Unexpected indexing identity guard");
+          }
+          execute("DROP TRIGGER indexing_identity");
+          execute(
+              identity.replace(
+                  "rebuild_sequence,base_publication_id ON indexing_jobs",
+                  "rebuild_sequence,base_publication_id,base_vector_set_sha256 ON indexing_jobs"));
+          execute(
+              "CREATE TRIGGER indexing_vector_snapshot_initial BEFORE INSERT ON indexing_jobs WHEN NEW.rebuild_sequence=0 AND NEW.base_vector_set_sha256 IS NOT NULL BEGIN SELECT RAISE(ABORT,'invalid initial vector snapshot'); END");
+          execute(
+              """
+          CREATE TABLE image_vector_bindings(publication_id TEXT NOT NULL REFERENCES index_publications(id) ON DELETE RESTRICT,
+            origin_vector_publication_id TEXT NOT NULL REFERENCES image_vector_publications(id) ON DELETE RESTRICT,
+            inherited_from_publication_id TEXT NOT NULL REFERENCES index_publications(id) ON DELETE RESTRICT,
+            binding_sha256 TEXT NOT NULL CHECK(typeof(binding_sha256)='text' AND length(binding_sha256)=64 AND binding_sha256 NOT GLOB '*[^a-f0-9]*'),
+            created_at TEXT NOT NULL,PRIMARY KEY(publication_id,origin_vector_publication_id),
+            CHECK(publication_id!=inherited_from_publication_id))
+          """);
+          execute(
+              """
+          CREATE TRIGGER image_vector_bindings_identity BEFORE INSERT ON image_vector_bindings
+          WHEN NOT EXISTS(SELECT 1 FROM index_publications p
+            JOIN indexing_jobs j ON j.id=p.job_id AND j.state='processing' AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id
+            JOIN index_publications prior ON prior.id=j.base_publication_id
+            JOIN active_corpus_publications a ON a.publication_id=prior.id AND a.document_id=prior.document_id AND a.revision_id=prior.revision_id
+            JOIN image_vector_publications v ON v.id=NEW.origin_vector_publication_id
+            JOIN index_publications origin ON origin.id=v.publication_id
+            WHERE p.id=NEW.publication_id AND NEW.inherited_from_publication_id=prior.id
+              AND j.rebuild_sequence>0 AND j.base_vector_set_sha256 IS NOT NULL
+              AND p.document_id=prior.document_id AND p.revision_id=prior.revision_id AND p.source_sha256=prior.source_sha256 AND p.parser_revision=prior.parser_revision
+              AND p.embedding_identity=prior.embedding_identity AND p.projection_identity=prior.projection_identity AND p.model_revision=prior.model_revision AND p.dimensions=prior.dimensions
+              AND origin.document_id=p.document_id AND origin.revision_id=p.revision_id AND origin.source_sha256=p.source_sha256 AND origin.parser_revision=p.parser_revision
+              AND origin.embedding_identity=p.embedding_identity AND origin.projection_identity=p.projection_identity AND origin.model_revision=p.model_revision AND origin.dimensions=p.dimensions
+              AND origin.segment_count=p.segment_count AND v.document_id=p.document_id AND v.source_revision_id=p.revision_id AND v.source_sha256=p.source_sha256
+              AND (v.publication_id=prior.id OR EXISTS(SELECT 1 FROM image_vector_bindings b WHERE b.publication_id=prior.id AND b.origin_vector_publication_id=v.id))
+              AND NOT EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=p.document_id)
+              AND EXISTS(SELECT 1 FROM image_publication_entries olde JOIN image_publication_entries newe ON newe.image_evidence_id=olde.image_evidence_id
+                JOIN image_evidence e ON e.id=newe.image_evidence_id AND e.revision_id=p.revision_id
+                WHERE olde.publication_id=origin.id AND olde.image_evidence_id=v.image_evidence_id AND olde.physical_segment_id=v.base_physical_segment_id AND newe.publication_id=p.id)
+              AND NOT EXISTS(SELECT 1 FROM image_vector_publications direct WHERE direct.publication_id=p.id AND direct.embedding_identity=v.embedding_identity AND direct.projection_identity=v.projection_identity AND direct.model_revision=v.model_revision AND direct.dimensions=v.dimensions)
+              AND NOT EXISTS(SELECT 1 FROM image_vector_bindings b JOIN image_vector_publications same ON same.id=b.origin_vector_publication_id WHERE b.publication_id=p.id AND same.embedding_identity=v.embedding_identity AND same.projection_identity=v.projection_identity AND same.model_revision=v.model_revision AND same.dimensions=v.dimensions))
+          BEGIN SELECT RAISE(ABORT,'invalid vector inheritance'); END
+          """);
+          execute(
+              "CREATE TRIGGER image_vector_bindings_no_replace BEFORE INSERT ON image_vector_bindings WHEN EXISTS(SELECT 1 FROM image_vector_bindings WHERE publication_id=NEW.publication_id AND origin_vector_publication_id=NEW.origin_vector_publication_id) BEGIN SELECT RAISE(ABORT,'immutable vector inheritance'); END");
+          execute(
+              "CREATE TRIGGER image_vector_bindings_no_update BEFORE UPDATE ON image_vector_bindings BEGIN SELECT RAISE(ABORT,'immutable vector inheritance'); END");
+          execute(
+              "CREATE TRIGGER image_vector_bindings_no_delete BEFORE DELETE ON image_vector_bindings BEGIN SELECT RAISE(ABORT,'immutable vector inheritance'); END");
+          execute(
+              """
+          CREATE TRIGGER image_vector_publications_no_binding_shadow BEFORE INSERT ON image_vector_publications
+          WHEN EXISTS(SELECT 1 FROM image_vector_bindings b JOIN image_vector_publications v ON v.id=b.origin_vector_publication_id WHERE b.publication_id=NEW.publication_id
+            AND v.embedding_identity=NEW.embedding_identity AND v.projection_identity=NEW.projection_identity AND v.model_revision=NEW.model_revision AND v.dimensions=NEW.dimensions)
+          BEGIN SELECT RAISE(ABORT,'duplicate effective vector profile'); END
+          """);
+          execute(
+              """
+          CREATE TABLE audio_vector_bindings(publication_id TEXT NOT NULL REFERENCES index_publications(id) ON DELETE RESTRICT,
+            origin_vector_publication_id TEXT NOT NULL REFERENCES audio_vector_publications(id) ON DELETE RESTRICT,
+            inherited_from_publication_id TEXT NOT NULL REFERENCES index_publications(id) ON DELETE RESTRICT,
+            binding_sha256 TEXT NOT NULL CHECK(typeof(binding_sha256)='text' AND length(binding_sha256)=64 AND binding_sha256 NOT GLOB '*[^a-f0-9]*'),
+            created_at TEXT NOT NULL,PRIMARY KEY(publication_id,origin_vector_publication_id),
+            CHECK(publication_id!=inherited_from_publication_id))
+          """);
+          execute(
+              """
+          CREATE TRIGGER audio_vector_bindings_identity BEFORE INSERT ON audio_vector_bindings
+          WHEN NOT EXISTS(SELECT 1 FROM index_publications p
+            JOIN indexing_jobs j ON j.id=p.job_id AND j.state='processing' AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id
+            JOIN index_publications prior ON prior.id=j.base_publication_id
+            JOIN active_corpus_publications a ON a.publication_id=prior.id AND a.document_id=prior.document_id AND a.revision_id=prior.revision_id
+            JOIN audio_vector_publications v ON v.id=NEW.origin_vector_publication_id
+            JOIN index_publications origin ON origin.id=v.publication_id
+            WHERE p.id=NEW.publication_id AND NEW.inherited_from_publication_id=prior.id
+              AND j.rebuild_sequence>0 AND j.base_vector_set_sha256 IS NOT NULL
+              AND p.document_id=prior.document_id AND p.revision_id=prior.revision_id AND p.source_sha256=prior.source_sha256 AND p.parser_revision=prior.parser_revision
+              AND p.embedding_identity=prior.embedding_identity AND p.projection_identity=prior.projection_identity AND p.model_revision=prior.model_revision AND p.dimensions=prior.dimensions
+              AND origin.document_id=p.document_id AND origin.revision_id=p.revision_id AND origin.source_sha256=p.source_sha256 AND origin.parser_revision=p.parser_revision
+              AND origin.embedding_identity=p.embedding_identity AND origin.projection_identity=p.projection_identity AND origin.model_revision=p.model_revision AND origin.dimensions=p.dimensions
+              AND origin.segment_count=p.segment_count AND v.document_id=p.document_id AND v.source_revision_id=p.revision_id AND v.source_sha256=p.source_sha256
+              AND (v.publication_id=prior.id OR EXISTS(SELECT 1 FROM audio_vector_bindings b WHERE b.publication_id=prior.id AND b.origin_vector_publication_id=v.id))
+              AND NOT EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=p.document_id)
+              AND v.segment_count=(SELECT COUNT(*) FROM audio_vector_entries WHERE audio_vector_publication_id=v.id)
+              AND v.segment_count=(SELECT COUNT(*) FROM audio_publication_entries WHERE publication_id=p.id)
+              AND NOT EXISTS(SELECT 1 FROM audio_vector_entries ve
+                WHERE ve.audio_vector_publication_id=v.id AND NOT EXISTS(SELECT 1 FROM audio_publication_entries olde
+                  JOIN audio_publication_entries newe ON newe.audio_span_id=olde.audio_span_id
+                  JOIN audio_spans e ON e.id=newe.audio_span_id AND e.revision_id=p.revision_id AND e.ordinal=ve.ordinal AND e.index_ordinal IS NOT NULL
+                  WHERE olde.publication_id=origin.id AND olde.audio_span_id=ve.audio_evidence_id AND olde.physical_segment_id=ve.base_physical_segment_id AND newe.publication_id=p.id))
+              AND NOT EXISTS(SELECT 1 FROM audio_vector_publications direct WHERE direct.publication_id=p.id AND direct.embedding_identity=v.embedding_identity AND direct.projection_identity=v.projection_identity AND direct.model_revision=v.model_revision AND direct.dimensions=v.dimensions)
+              AND NOT EXISTS(SELECT 1 FROM audio_vector_bindings b JOIN audio_vector_publications same ON same.id=b.origin_vector_publication_id WHERE b.publication_id=p.id AND same.embedding_identity=v.embedding_identity AND same.projection_identity=v.projection_identity AND same.model_revision=v.model_revision AND same.dimensions=v.dimensions))
+          BEGIN SELECT RAISE(ABORT,'invalid vector inheritance'); END
+          """);
+          execute(
+              "CREATE TRIGGER audio_vector_bindings_no_replace BEFORE INSERT ON audio_vector_bindings WHEN EXISTS(SELECT 1 FROM audio_vector_bindings WHERE publication_id=NEW.publication_id AND origin_vector_publication_id=NEW.origin_vector_publication_id) BEGIN SELECT RAISE(ABORT,'immutable vector inheritance'); END");
+          execute(
+              "CREATE TRIGGER audio_vector_bindings_no_update BEFORE UPDATE ON audio_vector_bindings BEGIN SELECT RAISE(ABORT,'immutable vector inheritance'); END");
+          execute(
+              "CREATE TRIGGER audio_vector_bindings_no_delete BEFORE DELETE ON audio_vector_bindings BEGIN SELECT RAISE(ABORT,'immutable vector inheritance'); END");
+          execute(
+              """
+          CREATE TRIGGER audio_vector_publications_no_binding_shadow BEFORE INSERT ON audio_vector_publications
+          WHEN EXISTS(SELECT 1 FROM audio_vector_bindings b JOIN audio_vector_publications v ON v.id=b.origin_vector_publication_id WHERE b.publication_id=NEW.publication_id
+            AND v.embedding_identity=NEW.embedding_identity AND v.projection_identity=NEW.projection_identity AND v.model_revision=NEW.model_revision AND v.dimensions=NEW.dimensions)
+          BEGIN SELECT RAISE(ABORT,'duplicate effective vector profile'); END
+          """);
+          String rebuild = schemaSql("trigger", "indexing_rebuild_identity");
+          // Match SQL independently of indentation generated by text blocks.
+          String replacement =
+              "OR (NEW.base_vector_set_sha256 IS NULL AND (EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=NEW.base_publication_id) OR EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=NEW.base_publication_id) OR EXISTS(SELECT 1 FROM image_vector_bindings WHERE publication_id=NEW.base_publication_id) OR EXISTS(SELECT 1 FROM audio_vector_bindings WHERE publication_id=NEW.base_publication_id)))";
+          String updated =
+              rebuild.replaceAll(
+                  "OR EXISTS\\(SELECT 1 FROM image_vector_publications WHERE publication_id=NEW\\.base_publication_id\\)\\s+OR EXISTS\\(SELECT 1 FROM audio_vector_publications WHERE publication_id=NEW\\.base_publication_id\\)",
+                  replacement);
+          if (updated.equals(rebuild)) {
+            throw new IllegalStateException("Unexpected rebuild vector fence");
+          }
+          execute("DROP TRIGGER indexing_rebuild_identity");
+          execute(updated);
+          String active = schemaSql("trigger", "active_corpus_publications_no_update");
+          String noVectors =
+              "AND NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=OLD.publication_id)";
+          if (!active.contains(noVectors)) {
+            throw new IllegalStateException("Unexpected active vector fence");
+          }
+          active =
+              active
+                  .replace(
+                      noVectors,
+                      "AND (j.base_vector_set_sha256 IS NOT NULL OR (NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=OLD.publication_id) AND NOT EXISTS(SELECT 1 FROM image_vector_bindings WHERE publication_id=OLD.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_bindings WHERE publication_id=OLD.publication_id)")
+                  .replace(
+                      "AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=OLD.publication_id))",
+                      "AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=OLD.publication_id)))"
+                          + vectorInheritanceCompleteSql()
+                          + ")");
+          execute("DROP TRIGGER active_corpus_publications_no_update");
+          execute(active);
+          String inventoryGuard = schemaSql("trigger", "cleanup_schema_objects_no_update");
+          execute("DROP TRIGGER cleanup_schema_objects_no_update");
+          for (var row :
+              store.rows(
+                  "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+            String name = (String) row.get("name");
+            String type = (String) row.get("type");
+            String digest =
+                ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
+            if (count(
+                    "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=? AND object_type=?",
+                    name,
+                    type)
+                == 0) {
+              execute(
+                  "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
+                  name,
+                  type,
+                  digest);
+            } else if (List.of(
+                    "indexing_jobs",
+                    "indexing_identity",
+                    "indexing_rebuild_identity",
+                    "active_corpus_publications_no_update")
+                .contains(name)) {
+              execute(
+                  "UPDATE cleanup_schema_objects SET sql_sha256=? WHERE name=? AND object_type=?",
+                  digest,
+                  name,
+                  type);
+            }
+          }
+          execute(inventoryGuard);
+          execute("UPDATE format_info SET version=25 WHERE format=?", FORMAT);
+          execute("PRAGMA user_version=25");
+          verifyVersionTwentyFive();
+          return null;
+        });
+  }
+
+  private String vectorInheritanceCompleteSql() {
+    StringBuilder result = new StringBuilder();
+    for (String route : List.of("image", "audio")) {
+      String origins = route + "_vector_publications";
+      String bindings = route + "_vector_bindings";
+      result
+          .append(" AND NOT EXISTS(SELECT 1 FROM ")
+          .append(origins)
+          .append(" v WHERE (v.publication_id=OLD.publication_id OR EXISTS(SELECT 1 FROM ")
+          .append(bindings)
+          .append(
+              " b WHERE b.publication_id=OLD.publication_id AND b.origin_vector_publication_id=v.id)) AND NOT EXISTS(SELECT 1 FROM ")
+          .append(bindings)
+          .append(
+              " n WHERE n.publication_id=NEW.publication_id AND n.origin_vector_publication_id=v.id AND n.inherited_from_publication_id=OLD.publication_id))")
+          .append(" AND NOT EXISTS(SELECT 1 FROM ")
+          .append(bindings)
+          .append(" n WHERE n.publication_id=NEW.publication_id AND NOT EXISTS(SELECT 1 FROM ")
+          .append(origins)
+          .append(
+              " v WHERE v.id=n.origin_vector_publication_id AND (v.publication_id=OLD.publication_id OR EXISTS(SELECT 1 FROM ")
+          .append(bindings)
+          .append(
+              " b WHERE b.publication_id=OLD.publication_id AND b.origin_vector_publication_id=v.id))))");
+    }
+    return result.toString();
+  }
+
+  void verifyVersionTwentyFive() {
+    if (count("PRAGMA user_version") != 25
+        || count("SELECT COUNT(*) FROM format_info WHERE version=25 AND format=?", FORMAT) != 1
+        || count("PRAGMA application_id") != 1163280711
+        || count("SELECT COUNT(*) FROM pragma_foreign_key_check") != 0
+        || count(
+                "SELECT COUNT(*) FROM pragma_table_info('indexing_jobs') WHERE name IN ('rebuild_sequence','base_publication_id')")
+            != 2
+        || count(
+                "SELECT COUNT(*) FROM indexing_jobs WHERE (rebuild_sequence=0)!=(base_publication_id IS NULL)")
+            != 0
+        || count(
+                "SELECT COUNT(*) FROM indexing_jobs j WHERE j.rebuild_sequence>0 AND NOT EXISTS(SELECT 1 FROM index_publications p WHERE p.id=j.base_publication_id AND p.document_id=j.document_id AND p.revision_id=j.revision_id AND p.source_sha256=j.source_sha256 AND p.parser_revision=j.parser_revision AND p.embedding_identity=j.embedding_identity AND p.projection_identity=j.projection_identity AND p.model_revision=j.model_revision AND p.dimensions=j.dimensions)")
+            != 0) {
+      throw new IllegalStateException("Unsupported vector continuation authority format");
+    }
+    if (count(
+                "SELECT COUNT(*) FROM pragma_table_info('indexing_jobs') WHERE name='base_vector_set_sha256'")
+            != 1
+        || count(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('image_vector_bindings','audio_vector_bindings')")
+            != 2
+        || count(
+                "SELECT COUNT(*) FROM indexing_jobs WHERE rebuild_sequence=0 AND base_vector_set_sha256 IS NOT NULL")
+            != 0) {
+      throw new IllegalStateException("Unsupported vector inheritance schema");
+    }
+    var expected = new LinkedHashMap<String, String>();
+    var actual = new LinkedHashMap<String, String>();
+    for (var row :
+        store.rows(
+            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+      actual.put(
+          row.get("type") + ":" + row.get("name"),
+          ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8)));
+    }
+    for (var row : store.rows("SELECT name,object_type,sql_sha256 FROM cleanup_schema_objects")) {
+      expected.put(row.get("object_type") + ":" + row.get("name"), (String) row.get("sql_sha256"));
+    }
+    if (!actual.equals(expected)) {
+      throw new IllegalStateException("Changed vector continuation authority guards");
+    }
+    for (var row :
+        store.rows(
+            "SELECT DISTINCT b.publication_id,d.workspace_id FROM (SELECT publication_id FROM image_vector_bindings UNION SELECT publication_id FROM audio_vector_bindings) b JOIN index_publications p ON p.id=b.publication_id JOIN documents d ON d.id=p.document_id")) {
+      String workspace = AuthorityRows.text(row, "workspace_id");
+      var publication =
+          VectorBindingRows.publication(
+              store, workspace, AuthorityRows.text(row, "publication_id"));
+      new ImageVectorRepository(store).allBindings(workspace, publication);
+      new AudioVectorRepository(store).allBindings(workspace, publication);
+    }
+    new DocumentCleanupRepository(store).verifyPurgedRows();
+  }
+
   /** v24 permits explicit same-source rebuilds without mutating an earlier indexed task. */
   void migrateVersionTwentyFour() {
     transaction(

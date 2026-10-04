@@ -9,6 +9,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioCompilation;
+import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.ImageEvidence;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.ImageRecall;
@@ -24,6 +25,7 @@ import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.TaskEntity;
+import com.evidence.rag.repository.DocumentUpdateRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
@@ -43,6 +45,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Ingestion admission, fencing and evidence acceptance. Remote parsing never holds a transaction.
@@ -359,6 +362,31 @@ public final class IngestionService {
         });
   }
 
+  /** Called only in the replacement admission transaction after its original is saved. */
+  TaskResult enqueueReplacementInTransaction(
+      Actor actor, String replacementId, DocumentOriginal candidate) {
+    permissions.require(management.currentRole(actor, candidate.documentId()), true);
+    checkPendingQuota(actor.workspaceId());
+    validateUploadEnvelope(candidate.filename(), candidate.mediaType(), candidate.content());
+    String parser =
+        videoEnabled(candidate.filename(), candidate.mediaType())
+            ? videoCompilerRevision
+            : parserRevision(candidate.filename());
+    String jobId = UUID.randomUUID().toString();
+    String now = Instant.now().toString();
+    ingestion.insertReplacementJob(
+        jobId,
+        candidate.documentId(),
+        candidate.revisionId(),
+        actor.principalId(),
+        replacementId,
+        parser,
+        candidate.sourceSha256(),
+        now);
+    var task = authorizedTask(actor, jobId, false);
+    return TaskResults.ingestion(task, true, true);
+  }
+
   public Optional<IngestionClaim> claimIngestion(String workspaceId) {
     Actor worker = new Actor(workspaceId, "system:ingestion");
     return store.transaction(
@@ -370,6 +398,10 @@ public final class IngestionService {
             }
             var task = ingestion.findInternalTask(jobId).orElseThrow();
             if (cancelIfUnauthorized(task)) {
+              continue;
+            }
+            if (!new DocumentUpdateRepository(store).replacementCurrent(jobId)) {
+              finishFailed(task, "parser_output_invalid");
               continue;
             }
             String token = UUID.randomUUID().toString() + UUID.randomUUID();
@@ -393,7 +425,7 @@ public final class IngestionService {
                     task.filename(),
                     task.mimeType(),
                     task.parserRevision(),
-                    ingestion.original(task.documentId())));
+                    ingestion.original(task.documentId(), task.revisionId())));
           }
           return Optional.empty();
         });
@@ -428,6 +460,7 @@ public final class IngestionService {
               || !task.sourceSha256().equals(compilation.sourceSha256())) {
             throw invalidParserOutput();
           }
+          return persistCandidate(claim, () -> {
           String now = Instant.now().toString();
           ingestion.insertAudioCompilation(claim.revisionId(), compilation, now);
           ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
@@ -456,6 +489,7 @@ public final class IngestionService {
                   "duration_ms",
                   "compiler_revision"));
           return true;
+          });
         });
   }
 
@@ -485,6 +519,7 @@ public final class IngestionService {
             throw invalidParserOutput();
           }
           validateVideoFrames(compilation);
+          return persistCandidate(claim, () -> {
           String now = Instant.now().toString();
           ingestion.insertVideoCompilation(claim.revisionId(), compilation, now);
           ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
@@ -520,6 +555,7 @@ public final class IngestionService {
                   "duration_us",
                   "compiler_revision"));
           return true;
+          });
         });
   }
 
@@ -579,6 +615,7 @@ public final class IngestionService {
                               + "\u0000"
                               + recall.modelRevision())
                           .getBytes(StandardCharsets.UTF_8));
+          return persistCandidate(claim, () -> {
           String now = Instant.now().toString();
           ingestion.insertImageEvidence(
               new ImageEvidence(
@@ -620,6 +657,7 @@ public final class IngestionService {
                   "recall_sha256",
                   "description_revision"));
           return true;
+          });
         });
   }
 
@@ -665,6 +703,7 @@ public final class IngestionService {
           if (image != null) {
             validateImage(image, claim.content());
           }
+          return persistCandidate(claim, () -> {
           for (TextPage page : parsed.pages()) {
             ingestion.insertPage(
                 claim.revisionId(), page, sha256(page.text().getBytes(StandardCharsets.UTF_8)));
@@ -714,7 +753,16 @@ public final class IngestionService {
                   parsed.segments().size()),
               Set.of("state", "revision_id", "page_count", "segment_count"));
           return true;
+          });
         });
+  }
+
+  private boolean persistCandidate(IngestionClaim claim, Supplier<Boolean> persist) {
+    var updates = new DocumentUpdateRepository(store);
+    var replacement = updates.findByRevision(claim.documentId(), claim.revisionId()).orElse(null);
+    return replacement == null
+        ? persist.get()
+        : updates.withCandidateSource(replacement.id(), persist);
   }
 
   private static void validateImage(ParsedImage image, byte[] original) {
@@ -784,6 +832,11 @@ public final class IngestionService {
     return store.transaction(
         () -> {
           var task = currentClaim(claim);
+          if (task != null
+              && !new DocumentUpdateRepository(store).replacementCurrent(claim.jobId())) {
+            finishFailed(task, "parser_output_invalid");
+            return false;
+          }
           return task != null && !cancelIfUnauthorized(task);
         });
   }
@@ -814,6 +867,10 @@ public final class IngestionService {
           if (!creatorCanWrite(task, actor.workspaceId())) {
             throw new ApplicationException(
                 FailureKind.CONFLICT, "authorization_changed", "任务创建者已无当前写权限。");
+          }
+          if (!new DocumentUpdateRepository(store).replacementCurrent(jobId)) {
+            throw new ApplicationException(
+                FailureKind.CONFLICT, "ingestion_state_conflict", "候选原件或当前资料已变化。");
           }
           checkPendingQuota(actor.workspaceId());
           ingestion.markQueued(jobId, task.attempt() + 1, Instant.now().toString());

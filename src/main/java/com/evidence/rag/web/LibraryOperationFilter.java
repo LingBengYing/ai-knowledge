@@ -50,7 +50,7 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
     this.errors = Objects.requireNonNull(errors);
     this.json = Objects.requireNonNull(json);
     this.legacy = legacy.getIfAvailable();
-    this.visualPresent = visual.getIfAvailable() != null;
+    this.visualPresent = visual.getIfAvailable() != null || (this.legacy != null && this.legacy.visualConfigured());
   }
 
   @Override
@@ -59,6 +59,7 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
     return !path.startsWith("/v1/")
         || path.equals("/v1/config")
         || path.equals("/v1/model-configuration/activate")
+        || (path.equals("/v1/model-configuration/rebuild") && "POST".equals(request.getMethod()))
         || path.equals("/v1/management/document-cleanups")
         || path.matches("/v1/documents/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}/cleanup");
   }

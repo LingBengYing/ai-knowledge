@@ -4,16 +4,20 @@ import static com.evidence.rag.repository.AuthorityRows.integer;
 import static com.evidence.rag.repository.AuthorityRows.number;
 import static com.evidence.rag.repository.AuthorityRows.text;
 
+import com.evidence.rag.model.domain.AudioVectorBinding;
 import com.evidence.rag.model.domain.AudioVectorEntry;
 import com.evidence.rag.model.domain.AudioVectorPublication;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.VectorBindingIdentity;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /** Immutable complete original-audio vector receipts; callers own the authority transaction. */
 public final class AudioVectorRepository {
@@ -136,5 +140,125 @@ public final class AudioVectorRepository {
               text(row, "created_at")));
     }
     return List.copyOf(found);
+  }
+
+  public void insertBinding(AudioVectorBinding binding, String createdAt) {
+    if (binding == null || binding.inheritedFromPublicationId() == null) {
+      throw ModelValues.invalid();
+    }
+    store.execute(
+        "INSERT INTO audio_vector_bindings(publication_id,origin_vector_publication_id,inherited_from_publication_id,binding_sha256,created_at,model_rebuild_id) VALUES(?,?,?,?,?,?)",
+        binding.basePublication().publicationId(),
+        binding.origin().id(),
+        binding.inheritedFromPublicationId(),
+        binding.bindingSha256(),
+        createdAt,
+        binding.modelRebuildId());
+  }
+
+  public List<AudioVectorBinding> findBindings(
+      String workspaceId, List<PublicationVersion> publications, IndexTarget target) {
+    if (target == null || publications == null) {
+      throw ModelValues.invalid();
+    }
+    var result = new ArrayList<AudioVectorBinding>();
+    var unique = new HashSet<String>();
+    for (var base : publications) {
+      if (base == null || !unique.add(base.publicationId())) {
+        throw ModelValues.invalid();
+      }
+      result.addAll(bindings(workspaceId, base, target));
+    }
+    return List.copyOf(result);
+  }
+
+  public List<AudioVectorBinding> allBindings(String workspaceId, PublicationVersion base) {
+    return bindings(workspaceId, base, null);
+  }
+
+  private List<AudioVectorBinding> bindings(
+      String workspace, PublicationVersion base, IndexTarget target) {
+    VectorBindingRows.requireBase(store, workspace, base);
+    var result = new ArrayList<AudioVectorBinding>();
+    var profiles = new HashSet<String>();
+    for (var row :
+        VectorBindingRows.candidates(
+            store, "audio_vector_publications", "audio_vector_bindings", base, target)) {
+      var originBase =
+          VectorBindingRows.publication(
+              store, workspace, AuthorityRows.text(row, "publication_id"));
+      var origins = findPublications(workspace, List.of(originBase), VectorBindingRows.target(row));
+      var origin =
+          origins.stream()
+              .filter(v -> v.id().equals(AuthorityRows.text(row, "id")))
+              .findFirst()
+              .orElseThrow(ModelValues::invalid);
+      if (!profiles.add(
+          VectorBindingIdentity.targetSha256(origin.target()) + ":" + origin.decoderRevision())) {
+        throw ModelValues.invalid();
+      }
+      var headers =
+          store.rows(
+              "SELECT decoder_revision,span_count,projection_count FROM audio_compilations WHERE revision_id=? AND source_sha256=? AND compiler_revision=?",
+              base.sourceRevisionId(),
+              base.sourceSha256(),
+              base.parserRevision());
+      if (headers.size() != 1
+          || !origin
+              .decoderRevision()
+              .equals(AuthorityRows.text(headers.getFirst(), "decoder_revision"))
+          || origin.entries().size()
+              != AuthorityRows.integer(headers.getFirst(), "projection_count")
+          || store.count(
+                  "SELECT COUNT(*) FROM audio_publication_entries WHERE publication_id=?",
+                  base.publicationId())
+              != origin.entries().size()) {
+        throw ModelValues.invalid();
+      }
+      var expected =
+          store.rows(
+              "SELECT id,ordinal,start_ms,end_ms FROM audio_spans WHERE revision_id=? AND index_ordinal IS NOT NULL ORDER BY ordinal",
+              base.sourceRevisionId());
+      if (expected.size() != origin.entries().size()) {
+        throw ModelValues.invalid();
+      }
+      var current = new ArrayList<String>();
+      var digests = new TreeMap<String, String>();
+      for (int i = 0; i < expected.size(); i++) {
+        var span = expected.get(i);
+        var entry = origin.entries().get(i);
+        boolean last =
+            entry.ordinal() == AuthorityRows.integer(headers.getFirst(), "span_count") - 1;
+        long end = AuthorityRows.number(span, "end_ms") * 16;
+        if (!entry.audioEvidenceId().equals(AuthorityRows.text(span, "id"))
+            || entry.ordinal() != AuthorityRows.integer(span, "ordinal")
+            || entry.startSample() != AuthorityRows.number(span, "start_ms") * 16
+            || (last
+                ? entry.endSample() <= end - 16 || entry.endSample() > end
+                : entry.endSample() != end)
+            || !VectorBindingRows.physical(store, originBase, entry.audioEvidenceId(), false)
+                .equals(entry.basePhysicalSegmentId())) {
+          throw ModelValues.invalid();
+        }
+        current.add(VectorBindingRows.physical(store, base, entry.audioEvidenceId(), false));
+        digests.put(entry.vectorPhysicalSegmentId(), entry.entrySha256());
+      }
+      String from = AuthorityRows.text(row, "inherited_from_publication_id");
+      VectorBindingRows.requireProvenance(store, base, from, origin.id(), false);
+      String modelRebuild = AuthorityRows.text(row,"model_rebuild_id");
+      VectorBindingRows.requireModelRebuildProvenance(store,base,from,origin.id(),modelRebuild,false);
+      String digest = VectorBindingIdentity.audioSha256(base, origin, current, from, modelRebuild);
+      if (from != null && !digest.equals(AuthorityRows.text(row, "binding_sha256"))) {
+        throw ModelValues.invalid();
+      }
+      var binding = new AudioVectorBinding(base, origin, current, from, digest, modelRebuild);
+      if (!VectorBindingIdentity.manifestSha256(
+              workspace, base.documentId(), origin.vectorGenerationId(), digests)
+          .equals(origin.manifestSha256())) {
+        throw ModelValues.invalid();
+      }
+      result.add(binding);
+    }
+    return List.copyOf(result);
   }
 }

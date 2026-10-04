@@ -60,7 +60,7 @@ final class EvidenceConflicts {
             : fields;
     var values = new ArrayList<String>();
     for (var field : possible) {
-      String value = fact.value(field.text());
+      String value = fact.value(field, context, fields, 0, context.length());
       if (value == null
           || (!(fact instanceof QuestionFacts.ProcedureFact)
               && TruthContext.unsafe(context, field, fields))) {

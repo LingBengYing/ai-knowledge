@@ -138,6 +138,11 @@ public final class ManagedTextRuntime implements AutoCloseable {
     return snapshot;
   }
 
+  public boolean mediaRebound() {
+    var current = active;
+    return !closed && current != null && current.mediaRebound();
+  }
+
   public Long currentVersion() {
     var snapshot = active;
     return closed || snapshot == null ? null : snapshot.version();

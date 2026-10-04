@@ -12,6 +12,7 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.QueryAttachment;
 import com.evidence.rag.model.domain.QueryRankCandidate;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.tool.parser.TextParser;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,6 +30,7 @@ public final class QueryAttachmentService {
   private final TextModels text;
   private final RetrievalProjection projection;
   private final IndexTarget target;
+  private final String textRevision;
   private final String preparationRevision;
   private final String rankingRevision;
   private final ImageEmbeddingModels imageModels;
@@ -83,12 +85,21 @@ public final class QueryAttachmentService {
       AudioEmbeddingModels audioModels,
       RetrievalProjection audioProjection,
       IndexTarget audioTarget) {
+    this(preparation, ranking, text, projection, target, imageModels, imageProjection, imageTarget,
+        audioModels, audioProjection, audioTarget, null);
+  }
+
+  private QueryAttachmentService(
+      QueryPreparationService preparation, QueryRankingModels ranking, TextModels text,
+      RetrievalProjection projection, IndexTarget target, ImageEmbeddingModels imageModels,
+      RetrievalProjection imageProjection, IndexTarget imageTarget, AudioEmbeddingModels audioModels,
+      RetrievalProjection audioProjection, IndexTarget audioTarget, TextIndexAnchor anchor) {
     if (preparation == null
         || ranking == null
         || text == null
         || projection == null
         || target == null
-        || !target.modelRevision().equals(text.revision())
+        || (anchor == null ? !target.modelRevision().equals(text.revision()) : !target.equals(anchor.target()))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -97,6 +108,7 @@ public final class QueryAttachmentService {
     this.text = text;
     this.projection = projection;
     this.target = target;
+    this.textRevision = ModelValues.identifier(text.revision(), 200);
     if ((imageModels == null || imageProjection == null || imageTarget == null)
         && (imageModels != null || imageProjection != null || imageTarget != null)) {
       throw ModelValues.invalid();
@@ -121,6 +133,30 @@ public final class QueryAttachmentService {
     }
     preparationRevision = ModelValues.identifier(preparation.revision(), 200);
     rankingRevision = ModelValues.identifier(ranking.revision(), 200);
+  }
+
+  /** Keep independent media preparation and vector clients on the installed text bundle. */
+  public static QueryAttachmentService managed(
+      QueryPreparationService preparation, QueryRankingModels ranking, TextModels text,
+      RetrievalProjection projection, IndexTarget target, ImageEmbeddingModels imageModels,
+      RetrievalProjection imageProjection, IndexTarget imageTarget, AudioEmbeddingModels audioModels,
+      RetrievalProjection audioProjection, IndexTarget audioTarget, TextIndexAnchor anchor) {
+    if (anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new QueryAttachmentService(preparation, ranking, text, projection, target,
+        imageModels, imageProjection, imageTarget, audioModels, audioProjection, audioTarget, anchor);
+  }
+
+  /** Rebind an existing legacy template when an explicit caller already owns that graph. */
+  public QueryAttachmentService withTextBundle(
+      TextModels models, RetrievalProjection currentProjection, IndexTarget currentTarget,
+      TextIndexAnchor anchor) {
+    if (anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new QueryAttachmentService(preparation, ranking, models, currentProjection, currentTarget,
+        imageModels, imageProjection, imageTarget, audioModels, audioProjection, audioTarget, anchor);
   }
 
   public PreparedQuery prepare(
@@ -476,7 +512,7 @@ public final class QueryAttachmentService {
       return preparation.configurationCurrent()
           && preparationRevision.equals(preparation.revision())
           && rankingRevision.equals(ranking.revision())
-          && target.modelRevision().equals(text.revision())
+          && textRevision.equals(text.revision())
           && target.projectionIdentity().equals(projection.identity());
     } catch (RuntimeException unavailable) {
       return false;

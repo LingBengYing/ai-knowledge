@@ -193,7 +193,7 @@ public final class ManagementRepository {
   }
 
   private static final String DOCUMENT_FROM =
-      " FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN ingestion_jobs j ON j.document_id=d.id";
+      " FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN ingestion_jobs j ON j.document_id=d.id AND j.revision_id=d.active_revision_id";
 
   private record Filter(String sql, List<Object> args) {}
 
@@ -234,7 +234,7 @@ public final class ManagementRepository {
   public Optional<DocumentEvidenceEntity> evidence(String id) {
     return store
         .rows(
-            "SELECT a.revision_id AS active_revision_id,a.publication_id,j.id,j.state,COALESCE(r.segment_count,0) AS segment_count FROM corpus_documents c JOIN ingestion_jobs j ON j.document_id=c.document_id LEFT JOIN corpus_revisions r ON r.id=c.parsed_revision_id LEFT JOIN active_corpus_publications a ON a.document_id=c.document_id WHERE c.document_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=c.document_id)",
+            "SELECT a.revision_id AS active_revision_id,a.publication_id,j.id,j.state,COALESCE(r.segment_count,0) AS segment_count FROM corpus_documents c JOIN ingestion_jobs j ON j.document_id=c.document_id AND j.revision_id=c.initial_revision_id LEFT JOIN corpus_revisions r ON r.id=c.parsed_revision_id LEFT JOIN active_corpus_publications a ON a.document_id=c.document_id WHERE c.document_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=c.document_id)",
             id)
         .stream()
         .findFirst()

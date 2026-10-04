@@ -163,7 +163,7 @@ class AudioVectorRetrievalMainlineNativeIT {
         assertEquals(4, remote.audioEmbeddings());
         assertTrue(originalPublication.path("can_reindex").asBoolean());
         var expectedPublication = ((ObjectNode) originalPublication).deepCopy();
-        expectedPublication.put("can_reindex", false);
+        expectedPublication.put("can_reindex", true);
         assertEquals(
             expectedPublication,
             row(http, base, oldDocument),

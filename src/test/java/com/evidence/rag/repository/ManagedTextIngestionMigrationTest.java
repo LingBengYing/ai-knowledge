@@ -88,8 +88,8 @@ class ManagedTextIngestionMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
-            assertEquals(24, store.count("SELECT version FROM format_info"));
+            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("SELECT version FROM format_info"));
             assertEquals(jobs, store.rows("SELECT * FROM ingestion_jobs ORDER BY id"));
             assertEquals(
                 schemaObjects,
@@ -100,7 +100,7 @@ class ManagedTextIngestionMigrationTest {
                 foreignKeys, store.rows("SELECT * FROM pragma_foreign_key_list('ingestion_jobs')"));
             assertEquals(1, store.count("PRAGMA foreign_keys"));
             assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
-            new AuthoritySchema(store).verifyVersionTwentyFour();
+            new AuthoritySchema(store).verifyVersionTwentyFive();
             return null;
           });
       assertArrayEquals(
@@ -172,7 +172,7 @@ class ManagedTextIngestionMigrationTest {
               () -> new IngestionRepository(store).original(processing.documentId())));
       var backups = store.managedBackups();
       assertTrue(backups.known());
-      assertEquals(2, backups.files().size());
+      assertEquals(3, backups.files().size());
       var originalBackups =
           backups.files().stream()
               .filter(file -> file.relativePath().startsWith("java-library.v22-before-v23-"))
@@ -190,7 +190,7 @@ class ManagedTextIngestionMigrationTest {
     try (var reopened = new SqliteAuthorityStore(directory)) {
       reopened.transaction(
           () -> {
-            assertEquals(24, reopened.count("PRAGMA user_version"));
+            assertEquals(25, reopened.count("PRAGMA user_version"));
             assertEquals(
                 1,
                 reopened.count(
@@ -201,7 +201,7 @@ class ManagedTextIngestionMigrationTest {
             assertEquals(0, reopened.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
             return null;
           });
-      assertEquals(2, reopened.managedBackups().files().size());
+      assertEquals(3, reopened.managedBackups().files().size());
     }
   }
 

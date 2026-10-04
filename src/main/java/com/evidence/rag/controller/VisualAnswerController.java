@@ -6,10 +6,13 @@ import com.evidence.rag.model.dto.VisualAnswerResult;
 import com.evidence.rag.model.dto.VisualSourceResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.VisualAnswerService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.web.converter.AnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,17 +27,27 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(prefix = "rag.visual", name = "enabled", havingValue = "true")
 public final class VisualAnswerController {
   private final VisualAnswerService answers;
+  private final ManagedTextRuntime runtime;
 
   public VisualAnswerController(@Nullable VisualAnswerService answers) {
     this.answers = answers;
+    this.runtime = null;
+  }
+
+  @Autowired
+  public VisualAnswerController(
+      ObjectProvider<VisualAnswerService> answers, ObjectProvider<ManagedTextRuntime> runtime) {
+    this.answers = answers.getIfAvailable();
+    this.runtime = runtime.getIfAvailable();
   }
 
   private VisualAnswerService selected() {
-    if (answers == null) {
+    var selected = runtime == null ? answers : runtime.capture().visual();
+    if (selected == null) {
       throw new ApplicationException(
           FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成文字模型及对应媒体功能配置。");
     }
-    return answers;
+    return selected;
   }
 
   @PostMapping(

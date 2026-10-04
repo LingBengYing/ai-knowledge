@@ -11,8 +11,10 @@ import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.ImageVectorIndexingService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import java.net.URI;
 import java.time.Duration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -22,12 +24,12 @@ import org.springframework.core.env.Environment;
 
 /** Independent local opt-in; constructing the complete graph sends no model or vector requests. */
 @Configuration(proxyBeanMethods = false)
-@Conditional(LegacyTextCondition.class)
+@Conditional(MediaModulesCondition.class)
 @ConditionalOnProperty(prefix = "rag.image-embedding", name = "enabled", havingValue = "true")
 public class ImageEmbeddingConfiguration {
   @Bean
   ImageEmbeddingSettings imageEmbeddingSettings(
-      Environment environment, RagProperties properties, TextAdapterSettings text) {
+      Environment environment, RagProperties properties) {
     try {
       requireLocal(environment);
       String prefix = "rag.image-embedding.";
@@ -44,8 +46,10 @@ public class ImageEmbeddingConfiguration {
               environment.getProperty(prefix + "max-response-bytes", Integer.class, 4194304),
               environment.getProperty(prefix + "allow-loopback-http", Boolean.class, false));
       String collection = environment.getRequiredProperty(prefix + "milvus.collection");
+      String textCollection = environment.getProperty("RAG_MILVUS_COLLECTION",
+          environment.getProperty("rag.milvus.collection"));
       if (!collection.startsWith("java_image")
-          || collection.equals(text.projection().collection())) {
+          || textCollection != null && collection.equals(textCollection)) {
         throw invalid();
       }
       try (var client = new SiliconFlowImageEmbeddingModels(models)) {
@@ -80,6 +84,19 @@ public class ImageEmbeddingConfiguration {
     }
   }
 
+  // Preserve the existing explicit legacy construction without making it a Spring dependency.
+  ImageEmbeddingSettings imageEmbeddingSettings(
+      Environment environment, RagProperties properties, TextAdapterSettings text) {
+    if (text == null) {
+      throw invalid();
+    }
+    var settings = imageEmbeddingSettings(environment, properties);
+    if (settings.projection().collection().equals(text.projection().collection())) {
+      throw invalid();
+    }
+    return settings;
+  }
+
   @Bean(destroyMethod = "close")
   SiliconFlowImageEmbeddingModels imageEmbeddingModels(ImageEmbeddingSettings settings) {
     return new SiliconFlowImageEmbeddingModels(settings.models());
@@ -103,21 +120,16 @@ public class ImageEmbeddingConfiguration {
       ManagementRepository management,
       IngestionRepository ingestion,
       DocumentPermissionPolicy permissions,
-      @Qualifier("indexingTarget") IndexTarget textTarget,
-      ImageEmbeddingSettings settings) {
-    return new ImageVectorIndexingService(
-        store,
-        vectors,
-        evidence,
-        management,
-        ingestion,
-        permissions,
-        textTarget,
-        settings.target(),
-        settings.models(),
-        settings.projection(),
-        settings.processingBudget(),
-        settings.maxConcurrent());
+      @Qualifier("indexingTarget") ObjectProvider<IndexTarget> textTarget,
+      ImageEmbeddingSettings settings, ObjectProvider<ManagedTextRuntime> managed) {
+    return ImageVectorIndexingService.managed(
+        store, vectors, evidence, management, ingestion, permissions,
+        () -> {
+          var runtime = managed.getIfAvailable();
+          return runtime == null ? textTarget.getIfAvailable() : runtime.currentTarget();
+        },
+        settings.target(), settings.models(), settings.projection(),
+        settings.processingBudget(), settings.maxConcurrent());
   }
 
   private static void requireLocal(Environment environment) {

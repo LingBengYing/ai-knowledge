@@ -1,6 +1,7 @@
 package com.evidence.rag.config;
 
 import com.evidence.rag.bootstrap.DemoFixtures;
+import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.repository.AudioVectorRepository;
 import com.evidence.rag.repository.ImageVectorRepository;
@@ -14,13 +15,17 @@ import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.IndexingService;
+import com.evidence.rag.service.IndexingTaskProcessor;
 import com.evidence.rag.service.IngestionService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.ManagementService;
+import com.evidence.rag.service.ReindexVectorVerifier;
 import com.evidence.rag.service.SynopsisLibraryService;
 import com.evidence.rag.service.VideoCompilationService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -105,9 +110,28 @@ public class PersistenceConfiguration {
       IngestionRepository ingestion,
       IndexingRepository indexing,
       DocumentPermissionPolicy permissions,
-      IndexingSettings indexingSettings) {
+      IndexingSettings indexingSettings,
+      IndexingService authority,
+      ObjectProvider<ManagedTextRuntime> managed,
+      @Qualifier("indexingTarget") ObjectProvider<IndexTarget> legacyTarget,
+      ObjectProvider<IndexingTaskProcessor> processors) {
     return new ManagementService(
-        store, management, ingestion, indexing, permissions, indexingSettings.enabled());
+        store,
+        management,
+        ingestion,
+        indexing,
+        permissions,
+        indexingSettings.enabled(),
+        (actor, documentId) -> {
+          var runtime = managed.getIfAvailable();
+          var current = runtime == null ? legacyTarget.getIfAvailable() : runtime.currentTarget();
+          return current != null
+              && authority.canReindexWithVectorsInTransaction(actor, documentId, current);
+        },
+        () -> {
+          var runtime = managed.getIfAvailable();
+          return runtime == null ? processors.getIfAvailable() : runtime.capture().indexing();
+        });
   }
 
   @Bean
@@ -143,8 +167,15 @@ public class PersistenceConfiguration {
       SqliteAuthorityStore store,
       IndexingRepository indexing,
       ManagementRepository management,
-      DocumentPermissionPolicy permissions) {
-    var service = new IndexingService(store, indexing, management, permissions);
+      DocumentPermissionPolicy permissions,
+      ObjectProvider<ReindexVectorVerifier> receiptVerifiers) {
+    var service =
+        new IndexingService(
+            store,
+            indexing,
+            management,
+            permissions,
+            (route, target) -> receiptVerifiers.getObject().supports(route, target));
     service.recoverIndexings();
     return service;
   }

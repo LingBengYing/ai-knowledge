@@ -81,7 +81,8 @@ class ModelConfigurationRequestMapperTest {
                 () ->
                     ModelConfigurationRequestMapper.save(
                         bytes(
-                            VALID.replaceFirst("\"api_key\":\"REPLACE_ME\"", "\"api_key\":null"))))
+                            VALID.replaceFirst(
+                                "\"api_key\":\"REPLACE_ME\"", "\"api_key\":null"))))
             .field());
     assertEquals(
         "embedding.dimensions",

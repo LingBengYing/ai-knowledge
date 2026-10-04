@@ -8,6 +8,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.PublishedVideoCandidate;
@@ -44,6 +45,8 @@ public final class VideoAnswerProposalService {
   private final FactVisionModels vision;
   private final RetrievalProjection projection;
   private final IndexTarget target;
+  private final String retrievalModelsRevision;
+  private final Duration assessmentBudget;
   private final VideoAssessmentService assessment;
   private final String textRevision;
   private final String visionRevision;
@@ -57,13 +60,20 @@ public final class VideoAnswerProposalService {
       RetrievalProjection projection,
       IndexTarget target,
       Duration assessmentBudget) {
+    this(evidence, text, factText, vision, projection, target, assessmentBudget, null);
+  }
+
+  private VideoAnswerProposalService(
+      EvidenceService evidence, TextModels text, FactTextModels factText, FactVisionModels vision,
+      RetrievalProjection projection, IndexTarget target, Duration assessmentBudget,
+      TextIndexAnchor anchor) {
     if (evidence == null
         || text == null
         || factText == null
         || vision == null
         || projection == null
         || target == null
-        || !target.modelRevision().equals(text.revision())
+        || (anchor == null ? !target.modelRevision().equals(text.revision()) : !target.equals(anchor.target()))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -73,12 +83,35 @@ public final class VideoAnswerProposalService {
     this.vision = vision;
     this.projection = projection;
     this.target = target;
+    this.retrievalModelsRevision = ModelValues.identifier(text.revision(), 200);
+    this.assessmentBudget = assessmentBudget;
     assessment = new VideoAssessmentService(factText, vision, assessmentBudget);
     textRevision = ModelValues.identifier(factText.revision(), 200);
     visionRevision = ModelValues.identifier(vision.revision(), 200);
     modelRevision =
         "java-video-models-v1:"
-            + sha(target.modelRevision() + "\n" + textRevision + "\n" + visionRevision);
+            + sha(retrievalModelsRevision + "\n" + textRevision + "\n" + visionRevision);
+  }
+
+  /** Video fact generation and retrieval use the currently installed managed text roles. */
+  public static VideoAnswerProposalService managed(
+      EvidenceService evidence, TextModels text, FactTextModels facts, FactVisionModels vision,
+      RetrievalProjection projection, IndexTarget target, Duration budget, TextIndexAnchor anchor) {
+    if (anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new VideoAnswerProposalService(evidence, text, facts, vision, projection, target, budget, anchor);
+  }
+
+  /** Rebind an explicitly configured legacy video graph to the installed text roles. */
+  public VideoAnswerProposalService withTextBundle(
+      TextModels models, RetrievalProjection currentProjection, IndexTarget currentTarget,
+      TextIndexAnchor anchor) {
+    if (!(models instanceof FactTextModels facts) || anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new VideoAnswerProposalService(evidence, models, facts, vision, currentProjection,
+        currentTarget, assessmentBudget, anchor);
   }
 
   public VideoAnswerProposal propose(
@@ -236,7 +269,7 @@ public final class VideoAnswerProposalService {
   }
 
   public boolean configurationCurrent() {
-    return target.modelRevision().equals(text.revision())
+    return retrievalModelsRevision.equals(text.revision())
         && target.projectionIdentity().equals(projection.identity())
         && textRevision.equals(factText.revision())
         && visionRevision.equals(vision.revision());

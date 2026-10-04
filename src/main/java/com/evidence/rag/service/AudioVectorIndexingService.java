@@ -64,7 +64,8 @@ public final class AudioVectorIndexingService {
   private final ManagementRepository management;
   private final IngestionRepository ingestion;
   private final DocumentPermissionPolicy permissions;
-  private final IndexTarget textTarget;
+  private final Supplier<IndexTarget> textTarget;
+  private Supplier<IndexTarget> managedTextTarget;
   private final IndexTarget audioTarget;
   private final AudioDecoder decoder;
   private final String decoderRevision;
@@ -82,6 +83,46 @@ public final class AudioVectorIndexingService {
       IngestionRepository ingestion,
       DocumentPermissionPolicy permissions,
       IndexTarget textTarget,
+      IndexTarget audioTarget,
+      GeminiAudioEmbeddingModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      AudioDecoder decoder,
+      Duration processingBudget,
+      int maxConcurrent) {
+    this(
+        store, vectors, evidence, management, ingestion, permissions,
+        fixedTextTarget(textTarget, audioTarget), audioTarget, models, projection,
+        decoder,
+        processingBudget, maxConcurrent);
+  }
+
+  public static AudioVectorIndexingService managed(
+      SqliteAuthorityStore store,
+      AudioVectorRepository vectors,
+      EvidenceRepository evidence,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      DocumentPermissionPolicy permissions,
+      Supplier<IndexTarget> textTarget,
+      IndexTarget audioTarget,
+      GeminiAudioEmbeddingModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      AudioDecoder decoder,
+      Duration processingBudget,
+      int maxConcurrent) {
+    return new AudioVectorIndexingService(
+        store, vectors, evidence, management, ingestion, permissions, textTarget,
+        audioTarget, models, projection, decoder, processingBudget, maxConcurrent);
+  }
+
+  private AudioVectorIndexingService(
+      SqliteAuthorityStore store,
+      AudioVectorRepository vectors,
+      EvidenceRepository evidence,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      DocumentPermissionPolicy permissions,
+      Supplier<IndexTarget> textTarget,
       IndexTarget audioTarget,
       GeminiAudioEmbeddingModels.Configuration models,
       MilvusRestProjection.Settings projection,
@@ -135,6 +176,27 @@ public final class AudioVectorIndexingService {
       int maxConcurrent,
       Supplier<IndexTarget> profiles,
       BiFunction<AudioVectorBuildClaim, Duration, AudioVectorReceipt> worker) {
+    this(
+        store, vectors, evidence, management, ingestion, permissions,
+        fixedTextTarget(textTarget, audioTarget), audioTarget,
+        decoder,
+        processingBudget, maxConcurrent, profiles, worker);
+  }
+
+  private AudioVectorIndexingService(
+      SqliteAuthorityStore store,
+      AudioVectorRepository vectors,
+      EvidenceRepository evidence,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      DocumentPermissionPolicy permissions,
+      Supplier<IndexTarget> textTarget,
+      IndexTarget audioTarget,
+      AudioDecoder decoder,
+      Duration processingBudget,
+      int maxConcurrent,
+      Supplier<IndexTarget> profiles,
+      BiFunction<AudioVectorBuildClaim, Duration, AudioVectorReceipt> worker) {
     if (store == null
         || vectors == null
         || evidence == null
@@ -150,8 +212,7 @@ public final class AudioVectorIndexingService {
         || processingBudget.compareTo(Duration.ofMillis(10)) < 0
         || processingBudget.compareTo(Duration.ofMillis(120000)) > 0
         || maxConcurrent < 1
-        || maxConcurrent > 8
-        || textTarget.projectionIdentity().equals(audioTarget.projectionIdentity())) {
+        || maxConcurrent > 8) {
       throw ModelValues.invalid();
     }
     this.store = store;
@@ -305,16 +366,43 @@ public final class AudioVectorIndexingService {
     }
   }
 
+  /** Installed at composition; independent media model and projection remain unchanged. */
+  public void followTextTarget(Supplier<IndexTarget> current) {
+    if (current == null || managedTextTarget != null) {
+      throw ModelValues.invalid();
+    }
+    managedTextTarget = current;
+  }
+
+  private static Supplier<IndexTarget> fixedTextTarget(IndexTarget text, IndexTarget media) {
+    if (text == null || media == null || text.projectionIdentity().equals(media.projectionIdentity())) {
+      throw ModelValues.invalid();
+    }
+    return () -> text;
+  }
+
+  private IndexTarget currentTextTarget() {
+    IndexTarget current = managedTextTarget == null ? textTarget.get() : managedTextTarget.get();
+    if (current == null) {
+      throw new ApplicationException(FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
+    }
+    if (current.projectionIdentity().equals(audioTarget.projectionIdentity())) {
+      throw stale();
+    }
+    return current;
+  }
+
   private Frozen freeze(Actor actor, String documentId, boolean edit) {
     currentProfile();
     permissions.require(management.currentRole(actor, documentId), edit);
+    IndexTarget requiredTextTarget = currentTextTarget();
     var selected = DocumentSelection.selected(List.of(documentId));
     var publications = evidence.findActivePublications(actor, selected);
     if (publications.size() != 1) {
       throw ModelValues.notFound();
     }
     var base = publications.getFirst();
-    if (!base.target().equals(textTarget)) {
+    if (!base.target().equals(requiredTextTarget)) {
       throw stale();
     }
     var compilation =
@@ -385,15 +473,16 @@ public final class AudioVectorIndexingService {
 
   private AudioVectorState state(Actor actor, Frozen frozen) {
     currentProfile();
-    var saved = vectors.findPublications(actor.workspaceId(), List.of(frozen.base()), audioTarget);
+    var saved = vectors.findBindings(actor.workspaceId(), List.of(frozen.base()), audioTarget);
     if (saved.size() > 1) {
       throw stale();
     }
     if (saved.isEmpty()) {
       return new AudioVectorState(frozen.base(), audioTarget, null);
     }
-    var publication = saved.getFirst();
-    if (!publication.basePublication().equals(frozen.base())
+    var binding = saved.getFirst();
+    var publication = binding.origin();
+    if (!binding.basePublication().equals(frozen.base())
         || !publication.target().equals(audioTarget)
         || !publication.decoderRevision().equals(decoderRevision)
         || publication.entries().size() != frozen.speech().size()) {
@@ -409,7 +498,7 @@ public final class AudioVectorIndexingService {
       long maximum = span.endMs() * 16;
       boolean last = span.ordinal() == frozen.compilation().spans().size() - 1;
       if (!entry.audioEvidenceId().equals(span.id())
-          || !entry.basePhysicalSegmentId().equals(source.physicalSegmentId())
+          || !binding.currentBasePhysicalSegmentIds().get(i).equals(source.physicalSegmentId())
           || !entry.vectorPhysicalSegmentId().equals(id)
           || entry.ordinal() != span.ordinal()
           || entry.startSample() != span.startMs() * 16
@@ -428,7 +517,7 @@ public final class AudioVectorIndexingService {
     if (!manifest.sha256().equals(publication.manifestSha256())) {
       throw stale();
     }
-    return new AudioVectorState(frozen.base(), audioTarget, publication);
+    return new AudioVectorState(frozen.base(), audioTarget, publication, binding);
   }
 
   private AudioVectorBuildClaim claim(Actor actor, Frozen frozen, DecodedAudio decoded) {

@@ -45,6 +45,10 @@ public final class SqliteAuthorityStore implements AutoCloseable {
   private Path libraryPath;
   private String libraryIdentity;
   private final List<Path> generatedBackups = new ArrayList<>();
+  private String modelRebuildId;
+  private Set<String> modelRebuildDocuments = Set.of();
+  private String replacementDocument;
+  private String replacementId;
   private String purgeDocument;
   private Set<String> purgeRows = Set.of();
 
@@ -96,11 +100,50 @@ public final class SqliteAuthorityStore implements AutoCloseable {
               }
             }
           });
+      Function.create(connection, "java_replacement_authorized", new Function() {
+        @Override
+        protected void xFunc() {
+          try {
+            result(args() == 1 && transactionOwner == Thread.currentThread()
+                && replacementDocument != null && replacementDocument.equals(value_text(0)) ? 1 : 0);
+          } catch (SQLException failure) {
+            throw unavailable();
+          }
+        }
+      });
+      Function.create(connection,"java_model_rebuild_authorized",new Function() {
+        @Override
+        protected void xFunc() {
+          try {
+            result(args()==1 && transactionOwner==Thread.currentThread() && modelRebuildId!=null
+                && modelRebuildDocuments.contains(value_text(0)) ? 1 : 0);
+          } catch (SQLException failure) {
+            throw unavailable();
+          }
+        }
+      });
+      Function.create(connection,"java_model_rebuild_batch_authorized",new Function() {
+        @Override
+        protected void xFunc() {
+          try {
+            result(args()==1 && transactionOwner==Thread.currentThread() && modelRebuildId!=null
+                && modelRebuildId.equals(value_text(0)) ? 1 : 0);
+          } catch (SQLException failure) {
+            throw unavailable();
+          }
+        }
+      });
       var schema = new AuthoritySchema(this);
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 24) {
+              if (count("PRAGMA user_version") == 27) {
+                schema.verifyVersionTwentySeven();
+              } else if (count("PRAGMA user_version") == 26) {
+                schema.verifyVersionTwentySix();
+              } else if (count("PRAGMA user_version") == 25) {
+                schema.verifyVersionTwentyFive();
+              } else if (count("PRAGMA user_version") == 24) {
                 schema.verifyVersionTwentyFour();
               } else if (count("PRAGMA user_version") == 23) {
                 schema.verifyVersionTwentyThree();
@@ -290,9 +333,41 @@ public final class SqliteAuthorityStore implements AutoCloseable {
           rawExecute("PRAGMA foreign_keys=ON");
         }
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 24) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 24, 25);
+        }
+        schema.migrateVersionTwentyFive();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 25) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 25, 26);
+        }
+        rawExecute("PRAGMA foreign_keys=OFF");
+        rawExecute("PRAGMA legacy_alter_table=ON");
+        try {
+          schema.migrateVersionTwentySix();
+        } finally {
+          rawExecute("PRAGMA legacy_alter_table=OFF");
+          rawExecute("PRAGMA foreign_keys=ON");
+        }
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 26) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory,26,27);
+        }
+        rawExecute("PRAGMA foreign_keys=OFF");
+        rawExecute("PRAGMA legacy_alter_table=ON");
+        try {
+          schema.migrateVersionTwentySeven();
+        } finally {
+          rawExecute("PRAGMA legacy_alter_table=OFF");
+          rawExecute("PRAGMA foreign_keys=ON");
+        }
+      }
       transaction(
           () -> {
-            schema.verifyVersionTwentyFour();
+            schema.verifyVersionTwentySeven();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -356,6 +431,52 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     } finally {
       transactionOwner = null;
     }
+  }
+
+  <T> T modelRebuildScope(String id,List<String> documents,Supplier<T> work) {
+    requireTransaction();
+    if (modelRebuildId != null) {
+      throw ModelValues.invalid();
+    }
+    modelRebuildId = id;
+    modelRebuildDocuments = Set.copyOf(documents);
+    try {
+      return work.get();
+    } finally {
+      modelRebuildId = null;
+      modelRebuildDocuments = Set.of();
+    }
+  }
+
+  boolean modelRebuildAuthorized(String id) {
+    requireTransaction();
+    return id.equals(modelRebuildId);
+  }
+
+  <T> T replacementScope(String id, String documentId, Supplier<T> work) {
+    requireTransaction();
+    if (replacementDocument != null) {
+      if (!documentId.equals(replacementDocument) || !id.equals(replacementId)) {
+        throw ModelValues.invalid();
+      }
+      return work.get();
+    }
+    if (!new DocumentUpdateRepository(this).sourceCurrent(id)) {
+      throw ModelValues.invalid();
+    }
+    replacementDocument = documentId;
+    replacementId = id;
+    try {
+      return work.get();
+    } finally {
+      replacementDocument = null;
+      replacementId = null;
+    }
+  }
+
+  boolean replacementAuthorized(String documentId) {
+    requireTransaction();
+    return documentId.equals(replacementDocument);
   }
 
   private void requireTransaction() {
@@ -473,7 +594,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionTwentyFour();
+            new AuthoritySchema(this).verifyVersionTwentySeven();
             return null;
           });
     } catch (IOException | SQLException failure) {
@@ -614,7 +735,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
             new DocumentCleanupRepository(this)
                 .verifyPurged(entry.getValue().get("document_id"), entry.getKey());
           }
-          for (var table : CleanupPayloadTables.TABLES) {
+          for (var table : CleanupPayloadTables.current(this)) {
             for (var row :
                 rows(
                     "SELECT DISTINCT "

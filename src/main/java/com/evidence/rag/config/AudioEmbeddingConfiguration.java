@@ -11,6 +11,7 @@ import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AudioVectorIndexingService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.worker.parser.AudioDecoder;
 import java.net.URI;
 import java.time.Duration;
@@ -24,14 +25,13 @@ import org.springframework.core.env.Environment;
 
 /** Independent local opt-in; constructing the complete graph sends no model or vector requests. */
 @Configuration(proxyBeanMethods = false)
-@Conditional(LegacyTextCondition.class)
+@Conditional(MediaModulesCondition.class)
 @ConditionalOnProperty(prefix = "rag.audio-embedding", name = "enabled", havingValue = "true")
 public class AudioEmbeddingConfiguration {
   @Bean
   AudioEmbeddingSettings audioEmbeddingSettings(
       Environment environment,
       RagProperties properties,
-      TextAdapterSettings text,
       AudioDecoder decoder,
       ObjectProvider<ImageEmbeddingSettings> images) {
     try {
@@ -52,8 +52,10 @@ public class AudioEmbeddingConfiguration {
               environment.getProperty(prefix + "allow-loopback-http", Boolean.class, false));
       String collection = environment.getRequiredProperty(prefix + "milvus.collection");
       var image = images.getIfAvailable();
+      String textCollection = environment.getProperty("RAG_MILVUS_COLLECTION",
+          environment.getProperty("rag.milvus.collection"));
       if (!collection.startsWith("java_audio")
-          || collection.equals(text.projection().collection())
+          || textCollection != null && collection.equals(textCollection)
           || image != null && collection.equals(image.projection().collection())
           || !models.decoderRevision().equals(decoder.revision())) {
         throw invalid();
@@ -90,6 +92,20 @@ public class AudioEmbeddingConfiguration {
     }
   }
 
+  // Existing callers can still bind an explicit complete legacy text configuration.
+  AudioEmbeddingSettings audioEmbeddingSettings(
+      Environment environment, RagProperties properties, TextAdapterSettings text,
+      AudioDecoder decoder, ObjectProvider<ImageEmbeddingSettings> images) {
+    if (text == null) {
+      throw invalid();
+    }
+    var settings = audioEmbeddingSettings(environment, properties, decoder, images);
+    if (settings.projection().collection().equals(text.projection().collection())) {
+      throw invalid();
+    }
+    return settings;
+  }
+
   @Bean(destroyMethod = "close")
   GeminiAudioEmbeddingModels audioEmbeddingModels(AudioEmbeddingSettings settings) {
     return new GeminiAudioEmbeddingModels(settings.models());
@@ -113,23 +129,17 @@ public class AudioEmbeddingConfiguration {
       ManagementRepository management,
       IngestionRepository ingestion,
       DocumentPermissionPolicy permissions,
-      @Qualifier("indexingTarget") IndexTarget textTarget,
+      @Qualifier("indexingTarget") ObjectProvider<IndexTarget> textTarget,
       AudioEmbeddingSettings settings,
-      AudioDecoder decoder) {
-    return new AudioVectorIndexingService(
-        store,
-        vectors,
-        evidence,
-        management,
-        ingestion,
-        permissions,
-        textTarget,
-        settings.target(),
-        settings.models(),
-        settings.projection(),
-        decoder,
-        settings.processingBudget(),
-        settings.maxConcurrent());
+      AudioDecoder decoder, ObjectProvider<ManagedTextRuntime> managed) {
+    return AudioVectorIndexingService.managed(
+        store, vectors, evidence, management, ingestion, permissions,
+        () -> {
+          var runtime = managed.getIfAvailable();
+          return runtime == null ? textTarget.getIfAvailable() : runtime.currentTarget();
+        },
+        settings.target(), settings.models(), settings.projection(), decoder,
+        settings.processingBudget(), settings.maxConcurrent());
   }
 
   private static void requireLocal(Environment environment) {

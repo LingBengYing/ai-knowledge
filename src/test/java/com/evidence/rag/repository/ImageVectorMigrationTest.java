@@ -17,8 +17,8 @@ class ImageVectorMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
-            assertEquals(24, store.count("SELECT version FROM format_info"));
+            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("SELECT version FROM format_info"));
             assertEquals(
                 16,
                 store.count("SELECT COUNT(*) FROM pragma_table_info('image_vector_publications')"));
@@ -51,7 +51,7 @@ class ImageVectorMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(24, store.count("PRAGMA user_version"));
+              assertEquals(25, store.count("PRAGMA user_version"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM image_vector_publications"));
               assertEquals(
                   1,

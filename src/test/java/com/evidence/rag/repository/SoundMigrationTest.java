@@ -39,8 +39,8 @@ class SoundMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
-            assertEquals(24, store.count("SELECT version FROM format_info"));
+            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("SELECT version FROM format_info"));
             for (String table : TABLES) {
               assertEquals(0, store.count("SELECT COUNT(*) FROM " + table));
             }
@@ -74,7 +74,7 @@ class SoundMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("PRAGMA user_version"));
             assertEquals(
                 1,
                 store.count(

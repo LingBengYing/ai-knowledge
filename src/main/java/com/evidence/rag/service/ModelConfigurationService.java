@@ -12,6 +12,7 @@ import com.evidence.rag.model.dto.ModelConfigurationResult;
 import com.evidence.rag.model.dto.ModelConfigurationTestResult;
 import com.evidence.rag.model.dto.SaveModelConfigurationCommand;
 import com.evidence.rag.repository.ModelConfigurationRepository;
+import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.TextModelTargetRepository;
 import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
@@ -50,11 +51,14 @@ public final class ModelConfigurationService {
   public synchronized ModelConfigurationResult save(
       Actor actor, SaveModelConfigurationCommand command) {
     permissions.requireEdit(actor);
+    synchronized (repository) {
+      requireNoRebuild();
     var before = repository.read();
     if (command.baseVersion() != before.version()) {
       throw ModelConfigurationRepository.conflict();
     }
     return response(actor, repository.save(command.baseVersion(), command.resolve(before.draft())));
+    }
   }
 
   public ModelConfigurationTestResult test(Actor actor, long version, TextModelRole role) {
@@ -81,6 +85,8 @@ public final class ModelConfigurationService {
 
   public synchronized ModelConfigurationResult activate(Actor actor, long version) {
     permissions.requireEdit(actor);
+    synchronized (repository) {
+      requireNoRebuild();
     var selected = repository.read();
     requireVersion(selected, version);
     try (var maintenance =
@@ -116,6 +122,7 @@ public final class ModelConfigurationService {
       }
       return response(actor, repository.read());
     }
+    }
   }
 
   private TextIndexAnchor activeAnchor(ModelConfigurationState saved) {
@@ -142,6 +149,13 @@ public final class ModelConfigurationService {
         FailureKind.UNAVAILABLE, "model_configuration_unavailable", "活动模型配置尚未安全恢复。");
   }
 
+  private void requireNoRebuild() {
+    if (store.transaction(() -> new ModelRebuildRepository(store).hasPending())) {
+      throw new ApplicationException(
+          FailureKind.CONFLICT, "model_rebuild_in_progress", "模型索引正在重建；完成后可继续保存或应用配置。");
+    }
+  }
+
   private ModelConfigurationResult response(Actor actor, ModelConfigurationState saved) {
     if (!Objects.equals(saved.activeVersion(), runtime.currentVersion())
         || (saved.indexAnchor() != null && !saved.indexAnchor().equals(runtime.currentAnchor()))) {
@@ -158,18 +172,25 @@ public final class ModelConfigurationService {
         saved.activeVersion(),
         state,
         edit,
-        "siliconflow",
+        draft == null || "siliconflow".equals(draft.generation().provider())
+            ? "siliconflow"
+            : "mixed",
         draft == null
             ? new ModelConfigurationResult.EmbeddingResult(null, null, null, false)
             : new ModelConfigurationResult.EmbeddingResult(
                 draft.embedding().model(),
                 draft.embedding().dimensions(),
                 draft.embedding().revision(),
-                true),
+                true,
+                draft.embedding().provider()),
         new ModelConfigurationResult.RoleResult(
-            draft == null ? null : draft.rerank().model(), draft != null),
+            draft == null ? null : draft.rerank().model(),
+            draft != null,
+            draft == null ? "siliconflow" : draft.rerank().provider()),
         new ModelConfigurationResult.RoleResult(
-            draft == null ? null : draft.generation().model(), draft != null),
+            draft == null ? null : draft.generation().model(),
+            draft != null,
+            draft == null ? "siliconflow" : draft.generation().provider()),
         new ModelConfigurationResult.ProjectionResult(
             probe.projectionConfigured(),
             draft == null ? null : draft.embedding().dimensions(),

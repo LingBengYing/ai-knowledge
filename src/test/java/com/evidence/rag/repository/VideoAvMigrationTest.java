@@ -41,8 +41,8 @@ class VideoAvMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
-            assertEquals(24, store.count("SELECT version FROM format_info"));
+            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("SELECT version FROM format_info"));
             for (String table : TABLES) {
               assertEquals(0, store.count("SELECT COUNT(*) FROM " + table));
             }
@@ -84,7 +84,7 @@ class VideoAvMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("PRAGMA user_version"));
             assertEquals(
                 1,
                 store.count(
@@ -452,7 +452,7 @@ class VideoAvMigrationTest {
       if (version <= 19) {
         return;
       }
-      if (version == 24) {
+      if (version == 24 || version == 25) {
         ReindexVersion23Fixture.restoreVersionTwentyThree(directory);
         version = 23;
       }

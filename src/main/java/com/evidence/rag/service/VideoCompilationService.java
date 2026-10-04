@@ -1,5 +1,6 @@
 package com.evidence.rag.service;
 
+import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.AudioTranscription;
@@ -22,11 +23,15 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * Compiles complete video recall inputs; authority and proof stay with their application services.
  */
 public final class VideoCompilationService {
+  private static final Logger LOG = LoggerFactory.getLogger(VideoCompilationService.class);
   private final VideoDecoder decoder;
   private final AudioTranscriptionService transcriber;
   private final VisionModels models;
@@ -127,118 +132,169 @@ public final class VideoCompilationService {
 
   public VideoCompilation compile(
       String filename, String mime, byte[] source, BooleanSupplier current) {
-    long started = System.nanoTime();
-    if (current == null) {
-      throw ModelValues.invalid();
-    }
-    check(current, started);
-    if (source == null || source.length == 0 || source.length > 20 * 1024 * 1024) {
-      throw new TextParser.Failure("unsupported_document");
-    }
-    byte[] original = source.clone();
-    String sourceSha = ModelValues.sha256(original);
-    var decoded = decoder.decode(filename, mime, original);
-    check(current, started);
-    if (decoded == null
-        || !sourceSha.equals(decoded.sourceSha256())
-        || !decoderRevision.equals(decoded.decoderRevision())
-        || subtitlesEnabled != (decoded.subtitles() != null)) {
-      throw new TextParser.Failure("parser_invalid_output");
-    }
-    // Validate the entire local product before disclosing any frame or PCM to a model.
-    for (var frame : decoded.frames()) {
-      validateImage(frame);
-    }
-    AudioTranscription audio =
-        decoded.audio() == null
-            ? null
-            : transcriber.transcribe(
-                decoded.audio(),
-                () -> {
-                  check(current, started);
-                  return true;
-                });
-    check(current, started);
-    var frames = new ArrayList<VideoFrameRecall>();
-    for (var frame : decoded.frames()) {
+    String phase = "preflight";
+    try {
+      long started = System.nanoTime();
+      if (current == null) {
+        throw ModelValues.invalid();
+      }
       check(current, started);
-      var description = models.describe(frame.image());
+      if (source == null || source.length == 0 || source.length > 20 * 1024 * 1024) {
+        throw new TextParser.Failure("unsupported_document");
+      }
+      byte[] original = source.clone();
+      String sourceSha = ModelValues.sha256(original);
+      phase = "native_decode";
+      var decoded = decoder.decode(filename, mime, original);
+      phase = "decoded_validation";
       check(current, started);
-      if (description == null) {
+      if (decoded == null
+          || !sourceSha.equals(decoded.sourceSha256())
+          || !decoderRevision.equals(decoded.decoderRevision())
+          || subtitlesEnabled != (decoded.subtitles() != null)) {
         throw new TextParser.Failure("parser_invalid_output");
       }
-      try {
-        frames.add(
-            new VideoFrameRecall(frame, new ImageRecall(description.recallText(), modelRevision)));
-      } catch (ApplicationException invalidRecall) {
-        throw new TextParser.Failure("parser_invalid_output");
+      // Validate the entire local product before disclosing any frame or PCM to a model.
+      for (var frame : decoded.frames()) {
+        validateImage(frame);
       }
-    }
-    check(current, started);
-    VideoOcrCompilation compiledOcr = null;
-    if (ocr != null) {
-      var ocrFrames = new ArrayList<VideoFrameOcr>();
+      phase = "asr_transcription";
+      AudioTranscription audio =
+          decoded.audio() == null
+              ? null
+              : transcriber.transcribe(
+                  decoded.audio(),
+                  () -> {
+                    check(current, started);
+                    return true;
+                  });
+      check(current, started);
+      var frames = new ArrayList<VideoFrameRecall>();
+      phase = "vision_description";
       for (var frame : decoded.frames()) {
         check(current, started);
-        var parsed = ocr.read(frame.image());
+        var description = models.describe(frame.image());
         check(current, started);
-        if (parsed == null) {
+        if (description == null) {
           throw new TextParser.Failure("parser_invalid_output");
         }
-        var dimensions = new ImageDimensions(frame.width(), frame.height());
         try {
-          if (parsed.isEmpty()) {
-            ocrFrames.add(
-                new VideoFrameOcr(
-                    frame.ordinal(), frame.image().sha256(), dimensions, "", List.of(), List.of()));
-          } else {
-            var image = parsed.orElseThrow();
-            if (!dimensions.equals(image.dimensions())
-                || image.text().pages().size() != 1
-                || image.text().pages().getFirst().number() != 1
-                || image.text().pages().getFirst().text() == null
-                || image.text().pages().getFirst().text().isEmpty()
-                || image.text().segments().stream().anyMatch(segment -> segment.page() != 1)) {
-              throw new TextParser.Failure("parser_invalid_output");
-            }
-            ocrFrames.add(
-                new VideoFrameOcr(
-                    frame.ordinal(),
-                    frame.image().sha256(),
-                    dimensions,
-                    image.text().pages().getFirst().text(),
-                    image.text().segments().stream()
-                        .map(
-                            segment ->
-                                new VideoOcrSegment(
-                                    segment.ordinal(),
-                                    segment.start(),
-                                    segment.end(),
-                                    segment.text()))
-                        .toList(),
-                    image.regions()));
+          frames.add(
+              new VideoFrameRecall(frame, new ImageRecall(description.recallText(), modelRevision)));
+        } catch (ApplicationException invalidRecall) {
+          throw new TextParser.Failure("parser_invalid_output");
+        }
+      }
+      check(current, started);
+      VideoOcrCompilation compiledOcr = null;
+      if (ocr != null) {
+        phase = "frame_ocr";
+        var ocrFrames = new ArrayList<VideoFrameOcr>();
+        for (var frame : decoded.frames()) {
+          check(current, started);
+          var parsed = ocr.read(frame.image());
+          check(current, started);
+          if (parsed == null) {
+            throw new TextParser.Failure("parser_invalid_output");
           }
+          var dimensions = new ImageDimensions(frame.width(), frame.height());
+          try {
+            if (parsed.isEmpty()) {
+              ocrFrames.add(
+                  new VideoFrameOcr(
+                      frame.ordinal(), frame.image().sha256(), dimensions, "", List.of(), List.of()));
+            } else {
+              var image = parsed.orElseThrow();
+              if (!dimensions.equals(image.dimensions())
+                  || image.text().pages().size() != 1
+                  || image.text().pages().getFirst().number() != 1
+                  || image.text().pages().getFirst().text() == null
+                  || image.text().pages().getFirst().text().isEmpty()
+                  || image.text().segments().stream().anyMatch(segment -> segment.page() != 1)) {
+                throw new TextParser.Failure("parser_invalid_output");
+              }
+              ocrFrames.add(
+                  new VideoFrameOcr(
+                      frame.ordinal(),
+                      frame.image().sha256(),
+                      dimensions,
+                      image.text().pages().getFirst().text(),
+                      image.text().segments().stream()
+                          .map(
+                              segment ->
+                                  new VideoOcrSegment(
+                                      segment.ordinal(),
+                                      segment.start(),
+                                      segment.end(),
+                                      segment.text()))
+                          .toList(),
+                      image.regions()));
+            }
+          } catch (ApplicationException invalidOcr) {
+            throw new TextParser.Failure("parser_invalid_output");
+          }
+        }
+        try {
+          compiledOcr = new VideoOcrCompilation(ocrRevision, ocrFrames);
         } catch (ApplicationException invalidOcr) {
           throw new TextParser.Failure("parser_invalid_output");
         }
       }
-      try {
-        compiledOcr = new VideoOcrCompilation(ocrRevision, ocrFrames);
-      } catch (ApplicationException invalidOcr) {
-        throw new TextParser.Failure("parser_invalid_output");
-      }
+      phase = "compilation_assembly";
+      check(current, started);
+      return new VideoCompilation(
+          sourceSha,
+          decoderRevision,
+          compilerRevision,
+          decoded.timelineOriginUs(),
+          decoded.durationUs(),
+          frames,
+          audio,
+          compiledOcr,
+          decoded.subtitles());
+    } catch (RuntimeException failure) {
+      String taskId = MDC.get("ingestion_task_id");
+      LOG.warn(
+          "video_compilation_failed task_id={} phase={} failure_type={} failure_code={}",
+          taskId == null ? "untracked" : taskId,
+          phase,
+          failure.getClass().getName(),
+          diagnosticCode(failure));
+      throw failure;
     }
-    check(current, started);
-    return new VideoCompilation(
-        sourceSha,
-        decoderRevision,
-        compilerRevision,
-        decoded.timelineOriginUs(),
-        decoded.durationUs(),
-        frames,
-        audio,
-        compiledOcr,
-        decoded.subtitles());
+  }
+
+  private static String diagnosticCode(RuntimeException failure) {
+    String code =
+        failure instanceof TextParser.Failure parser
+            ? parser.code()
+            : failure instanceof TextModels.Failure model
+                ? model.code()
+                : failure instanceof ApplicationException application ? application.code() : null;
+    return switch (code == null ? "" : code) {
+      case "unsupported_document",
+          "parser_timeout",
+          "parser_interrupted",
+          "parser_cancelled",
+          "parser_closed",
+          "parser_invalid_output",
+          "parser_failed",
+          "parser_busy",
+          "parser_cleanup_failed",
+          "video_profile_changed",
+          "audio_profile_changed",
+          "model_timeout",
+          "model_interrupted",
+          "model_http_failed",
+          "model_transport_failed",
+          "model_invalid_response",
+          "model_response_too_large",
+          "model_invalid_input",
+          "model_invalid_configuration",
+          "model_closed",
+          "invalid_request" -> code;
+      default -> "unexpected_failure";
+    };
   }
 
   private static void validateImage(VideoFrame frame) {

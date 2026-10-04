@@ -4,12 +4,17 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioEvidence;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
+import com.evidence.rag.model.domain.AudioVectorBinding;
 import com.evidence.rag.model.domain.ImageEvidence;
 import com.evidence.rag.model.domain.ImageRecall;
+import com.evidence.rag.model.domain.ImageVectorBinding;
 import com.evidence.rag.model.domain.IndexSegment;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ProjectionItem;
+import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.ReindexVectorPlan;
+import com.evidence.rag.model.domain.VectorBindingIdentity;
 import com.evidence.rag.model.domain.VideoEvidence;
 import com.evidence.rag.model.domain.VideoOcrSegment;
 import com.evidence.rag.model.domain.VideoOcrSegmentEvidence;
@@ -54,6 +59,41 @@ public final class IndexingRepository {
                     AuthorityRows.text(row, "source_sha256"),
                     AuthorityRows.text(row, "parser_revision"),
                     AuthorityRows.integer(row, "segment_count")));
+  }
+
+  public Optional<RevisionEntity> parsedRevision(String documentId, String revisionId) {
+    return store.rows("SELECT r.* FROM corpus_revisions r JOIN ingestion_jobs j ON j.document_id=r.document_id AND j.revision_id=r.id WHERE r.document_id=? AND r.id=? AND r.parsed_at IS NOT NULL AND j.state='parsed' AND " + PROJECTION_COUNT + " BETWEEN 1 AND 4096",documentId,revisionId)
+        .stream().findFirst().map(row -> new RevisionEntity(AuthorityRows.text(row,"id"),AuthorityRows.text(row,"source_sha256"),AuthorityRows.text(row,"parser_revision"),AuthorityRows.integer(row,"segment_count")));
+  }
+
+  public void insertReplacementJob(String jobId,String documentId,RevisionEntity revision,IndexTarget target,
+      String creator,String basePublicationId,int sequence,String now,String replacementId) {
+    store.execute("INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,replacement_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?)",jobId,documentId,revision.id(),revision.sourceSha256(),revision.parserRevision(),target.embeddingIdentity(),target.projectionIdentity(),target.modelRevision(),target.dimensions(),creator,now,now,sequence,basePublicationId,replacementId);
+    new DocumentUpdateRepository(store).attachIndexJob(replacementId,jobId,now);
+  }
+
+  public void insertModelRebuildJob(String jobId,String documentId,RevisionEntity revision,
+      IndexTarget target,String creator,String basePublicationId,int sequence,String now,String batchId) {
+    var item = new ModelRebuildRepository(store).findItemForJob(jobId).orElseThrow(ModelValues::invalid);
+    if (!item.batchId().equals(batchId) || !item.documentId().equals(documentId)
+        || !item.revisionId().equals(revision.id())) {
+      throw ModelValues.invalid();
+    }
+    store.execute("INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,base_vector_set_sha256,model_rebuild_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?,?)",jobId,documentId,revision.id(),revision.sourceSha256(),revision.parserRevision(),target.embeddingIdentity(),target.projectionIdentity(),target.modelRevision(),target.dimensions(),creator,now,now,sequence,basePublicationId,basePublicationId == null ? null : item.baseVectorSetSha256(),batchId);
+  }
+
+  public Optional<String> modelRebuildIdForJob(String jobId) {
+    return store.rows("SELECT model_rebuild_id FROM indexing_jobs WHERE id=?",jobId).stream()
+        .map(row -> AuthorityRows.text(row,"model_rebuild_id")).filter(Objects::nonNull).findFirst();
+  }
+
+  public List<String> queuedModelRebuildIds(String workspace,String batchId) {
+    return store.rows("SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.model_rebuild_id=? AND j.state='queued' ORDER BY j.created_at,j.id",workspace,batchId)
+        .stream().map(row -> AuthorityRows.text(row,"id")).toList();
+  }
+
+  public void sealModelRebuildPublication(String jobId,String publicationId,String now) {
+    new ModelRebuildRepository(store).seal(jobId,publicationId,now);
   }
 
   public boolean jobExists(String documentId) {
@@ -193,7 +233,7 @@ public final class IndexingRepository {
 
   public boolean hasPending(String documentId) {
     return store.count(
-            "SELECT COUNT(*) FROM indexing_jobs WHERE document_id=? AND state IN ('queued','processing')",
+            "SELECT COUNT(*) FROM indexing_jobs WHERE document_id=? AND state IN ('queued','processing','prepared')",
             documentId)
         != 0;
   }
@@ -218,7 +258,9 @@ public final class IndexingRepository {
 
   public boolean hasBaseVectorReceipt(String publicationId) {
     return store.count(
-            "SELECT (SELECT COUNT(*) FROM image_vector_publications WHERE publication_id=?)+(SELECT COUNT(*) FROM audio_vector_publications WHERE publication_id=?)",
+            "SELECT (SELECT COUNT(*) FROM image_vector_publications WHERE publication_id=?)+(SELECT COUNT(*) FROM audio_vector_publications WHERE publication_id=?)+(SELECT COUNT(*) FROM image_vector_bindings WHERE publication_id=?)+(SELECT COUNT(*) FROM audio_vector_bindings WHERE publication_id=?)",
+            publicationId,
+            publicationId,
             publicationId,
             publicationId)
         > 0;
@@ -233,8 +275,25 @@ public final class IndexingRepository {
       String basePublicationId,
       int sequence,
       String now) {
+    insertRebuildJob(
+        jobId, documentId, revision, target, creator, basePublicationId, sequence, now, null);
+  }
+
+  public void insertRebuildJob(
+      String jobId,
+      String documentId,
+      RevisionEntity revision,
+      IndexTarget target,
+      String creator,
+      String basePublicationId,
+      int sequence,
+      String now,
+      String baseVectorSetSha256) {
+    if (baseVectorSetSha256 != null && !baseVectorSetSha256.matches("[a-f0-9]{64}")) {
+      throw ModelValues.invalid();
+    }
     store.execute(
-        "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?)",
+        "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,base_vector_set_sha256) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?)",
         jobId,
         documentId,
         revision.id(),
@@ -248,7 +307,127 @@ public final class IndexingRepository {
         now,
         now,
         sequence,
-        basePublicationId);
+        basePublicationId,
+        baseVectorSetSha256);
+  }
+
+  /** Full local authority qualification; runtime target configuration is checked by the caller. */
+  public boolean canReindexWithVectors(String documentId) {
+    try {
+      var base = activePublication(documentId);
+      if (base.isEmpty() || hasPending(documentId) || !publicationCurrent(base.get())) {
+        return false;
+      }
+      var rows = store.rows("SELECT workspace_id FROM documents WHERE id=?", documentId);
+      if (rows.size() != 1) {
+        return false;
+      }
+      vectorPlanForBase(
+          "qualification", AuthorityRows.text(rows.getFirst(), "workspace_id"), base.get().id());
+      return true;
+    } catch (ApplicationException corrupt) {
+      return false;
+    }
+  }
+
+  public ReindexVectorPlan vectorPlanForBase(
+      String jobId, String workspaceId, String basePublicationId) {
+    var base = VectorBindingRows.publication(store, workspaceId, basePublicationId);
+    var active = activePublication(base.documentId());
+    if (active.isEmpty()
+        || !active.get().id().equals(basePublicationId)
+        || !publicationCurrent(active.get())) {
+      throw ModelValues.invalid();
+    }
+    var images = new ImageVectorRepository(store).allBindings(workspaceId, base);
+    var audios = new AudioVectorRepository(store).allBindings(workspaceId, base);
+    return new ReindexVectorPlan(
+        jobId,
+        workspaceId,
+        base,
+        VectorBindingIdentity.setSha256(workspaceId, base, images, audios),
+        images,
+        audios);
+  }
+
+  public Optional<String> baseVectorSetSha256(String jobId) {
+    return store.rows("SELECT base_vector_set_sha256 FROM indexing_jobs WHERE id=?", jobId).stream()
+        .map(row -> AuthorityRows.text(row, "base_vector_set_sha256"))
+        .filter(Objects::nonNull)
+        .findFirst();
+  }
+
+  public ReindexVectorPlan freezeVectorPlan(String jobId) {
+    if (modelRebuildIdForJob(jobId).isPresent()) {
+      return new ModelRebuildRepository(store).plan(jobId).orElseThrow(ModelValues::invalid);
+    }
+
+    var job = findInternalTask(jobId).orElseThrow(ModelValues::invalid);
+    String base = basePublicationId(jobId).orElseThrow(ModelValues::invalid);
+    String expected = baseVectorSetSha256(jobId).orElseThrow(ModelValues::invalid);
+    var plan = vectorPlanForBase(jobId, job.workspaceId(), base);
+    if (!expected.equals(plan.setSha256())
+        || !job.target().equals(plan.basePublication().target())
+        || !job.revisionId().equals(plan.basePublication().sourceRevisionId())) {
+      throw ModelValues.invalid();
+    }
+    return plan;
+  }
+
+  public void insertModelRebuildBindings(String jobId,PublicationVersion publication,ReindexVectorPlan plan) {
+    if (modelRebuildIdForJob(jobId).isEmpty() || !jobId.equals(plan.jobId())) {
+      throw ModelValues.invalid();
+    }
+    insertInheritedBindings(publication,plan);
+  }
+
+  /** Caller owns the same transaction as text publication and active-pointer CAS. */
+  public void insertInheritedBindings(PublicationVersion publication, ReindexVectorPlan plan) {
+    var actual =
+        VectorBindingRows.publication(store, plan.workspaceId(), publication.publicationId());
+    var rows =
+        store.rows("SELECT job_id FROM index_publications WHERE id=?", publication.publicationId());
+    if (!actual.equals(publication)
+        || rows.size() != 1
+        || !plan.jobId().equals(AuthorityRows.text(rows.getFirst(), "job_id"))
+        || !freezeVectorPlan(plan.jobId()).equals(plan)) {
+      throw ModelValues.invalid();
+    }
+    String now = Instant.now().toString();
+    String batch = modelRebuildIdForJob(plan.jobId()).orElse(null);
+    var images = new ImageVectorRepository(store);
+    for (var binding : plan.images()) {
+      String physical =
+          VectorBindingRows.physical(store, publication, binding.origin().imageEvidenceId(), true);
+      String from = plan.basePublication().publicationId();
+      images.insertBinding(
+          new ImageVectorBinding(
+              publication,
+              binding.origin(),
+              physical,
+              from,
+              VectorBindingIdentity.imageSha256(publication, binding.origin(), physical, from, batch == null ? binding.modelRebuildId() : batch),
+              batch == null ? binding.modelRebuildId() : batch),
+          now);
+    }
+    var audios = new AudioVectorRepository(store);
+    for (var binding : plan.audios()) {
+      var physical = new ArrayList<String>();
+      for (var entry : binding.origin().entries()) {
+        physical.add(
+            VectorBindingRows.physical(store, publication, entry.audioEvidenceId(), false));
+      }
+      String from = plan.basePublication().publicationId();
+      audios.insertBinding(
+          new AudioVectorBinding(
+              publication,
+              binding.origin(),
+              physical,
+              from,
+              VectorBindingIdentity.audioSha256(publication, binding.origin(), physical, from, batch == null ? binding.modelRebuildId() : batch),
+              batch == null ? binding.modelRebuildId() : batch),
+          now);
+    }
   }
 
   public boolean hasProcessing() {
@@ -260,7 +439,7 @@ public final class IndexingRepository {
   public List<String> queuedIds(String workspaceId) {
     return store
         .rows(
-            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id",
+            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND j.model_rebuild_id IS NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id",
             workspaceId)
         .stream()
         .map(row -> AuthorityRows.text(row, "id"))
@@ -270,7 +449,7 @@ public final class IndexingRepository {
   public Optional<TaskEntity> findInternalTask(String jobId) {
     return store
         .rows(
-            "SELECT j.*,d.workspace_id,d.filename FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE j.id=?",
+            "SELECT j.*,d.workspace_id,COALESCE(o.filename,d.filename) filename FROM indexing_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id WHERE j.id=?",
             jobId)
         .stream()
         .findFirst()
@@ -280,7 +459,7 @@ public final class IndexingRepository {
   public Optional<TaskEntity> findAuthorizedTask(Actor actor, String jobId, boolean edit) {
     return store
         .rows(
-            "SELECT j.*,d.filename,acl.role AS current_role FROM indexing_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
+            "SELECT j.*,COALESCE(o.filename,d.filename) filename,acl.role AS current_role FROM indexing_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
                 + (edit ? " AND acl.role IN ('owner','editor')" : ""),
             jobId,
             actor.workspaceId(),
@@ -291,11 +470,35 @@ public final class IndexingRepository {
   }
 
   public boolean sourceCurrent(TaskEntity job) {
+    if (modelRebuildIdForJob(job.id()).isPresent()) {
+      return new ModelRebuildRepository(store).currentSource(job.id());
+    }
+    var replacement = new DocumentUpdateRepository(store).replacementIdForIndexJob(job.id());
+    if (replacement.isPresent()) {
+      var updates = new DocumentUpdateRepository(store);
+      if (!updates.sourceCurrent(replacement.get())) {
+        return false;
+      }
+      var candidate = updates.find(replacement.get()).orElseThrow(ModelValues::invalid);
+      var parsed = parsedRevision(job.documentId(),job.revisionId());
+      if (!candidate.candidateRevisionId().equals(job.revisionId()) || parsed.isEmpty()
+          || !parsed.get().sourceSha256().equals(job.sourceSha256())
+          || !parsed.get().parserRevision().equals(job.parserRevision())) {
+        return false;
+      }
+      var base = activePublication(job.documentId());
+      if (candidate.basePublicationId() == null) {
+        return base.isEmpty();
+      }
+      return base.isPresent() && base.get().id().equals(candidate.basePublicationId())
+          && base.get().target().equals(job.target());
+    }
+
     boolean metadataCurrent =
         store.count(
                 "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND "
                     + PROJECTION_COUNT
-                    + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND EXISTS(SELECT 1 FROM indexing_jobs j WHERE j.id=? AND j.document_id=c.document_id AND ((j.rebuild_sequence=0 AND j.base_publication_id IS NULL AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id)) OR (j.rebuild_sequence>0 AND EXISTS(SELECT 1 FROM active_corpus_publications a JOIN index_publications base ON base.id=a.publication_id WHERE a.document_id=d.id AND a.publication_id=j.base_publication_id AND a.revision_id=r.id AND base.source_sha256=r.source_sha256 AND base.parser_revision=r.parser_revision AND base.embedding_identity=j.embedding_identity AND base.projection_identity=j.projection_identity AND base.model_revision=j.model_revision AND base.dimensions=j.dimensions AND NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=a.publication_id))))) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
+                    + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND EXISTS(SELECT 1 FROM indexing_jobs j WHERE j.id=? AND j.document_id=c.document_id AND ((j.rebuild_sequence=0 AND j.base_publication_id IS NULL AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id)) OR (j.rebuild_sequence>0 AND EXISTS(SELECT 1 FROM active_corpus_publications a JOIN index_publications base ON base.id=a.publication_id WHERE a.document_id=d.id AND a.publication_id=j.base_publication_id AND a.revision_id=r.id AND base.source_sha256=r.source_sha256 AND base.parser_revision=r.parser_revision AND base.embedding_identity=j.embedding_identity AND base.projection_identity=j.projection_identity AND base.model_revision=j.model_revision AND base.dimensions=j.dimensions AND (j.base_vector_set_sha256 IS NOT NULL OR (NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM image_vector_bindings WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_bindings WHERE publication_id=a.publication_id))))))) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
                 job.documentId(),
                 job.revisionId(),
                 job.sourceSha256(),
@@ -310,10 +513,20 @@ public final class IndexingRepository {
       return true;
     }
     var publication = activePublication(job.documentId());
-    return publication.isPresent()
-        && publication.get().id().equals(base.get())
-        && publication.get().target().equals(job.target())
-        && publicationCurrent(publication.get());
+    if (publication.isEmpty()
+        || !publication.get().id().equals(base.get())
+        || !publication.get().target().equals(job.target())
+        || !publicationCurrent(publication.get())) {
+      return false;
+    }
+    if (baseVectorSetSha256(job.id()).isPresent()) {
+      try {
+        freezeVectorPlan(job.id());
+      } catch (ApplicationException corrupt) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** Complete recall snapshot; text locations are validated before leaving their source type. */
@@ -574,6 +787,23 @@ public final class IndexingRepository {
   }
 
   public void activatePublication(String documentId, String publicationId, String revisionId) {
+    var replacement = store.rows("SELECT u.* FROM document_replacements u JOIN indexing_jobs j ON j.replacement_id=u.id JOIN index_publications p ON p.job_id=j.id WHERE p.id=? AND p.document_id=? AND p.revision_id=?",publicationId,documentId,revisionId);
+    if (!replacement.isEmpty()) {
+      var row = replacement.getFirst();
+      String previous = AuthorityRows.text(row,"base_publication_id");
+      if (previous == null) {
+        store.execute("INSERT INTO active_corpus_publications(document_id,publication_id,revision_id) VALUES(?,?,?)",documentId,publicationId,revisionId);
+      } else {
+        store.execute("UPDATE active_corpus_publications SET publication_id=?,revision_id=? WHERE document_id=? AND publication_id=? AND revision_id=?",publicationId,revisionId,documentId,previous,AuthorityRows.text(row,"base_revision_id"));
+        if (store.count("SELECT changes()") != 1) {
+          throw ModelValues.invalid();
+        }
+        store.execute("UPDATE synopsis_tasks SET state='unavailable',error_code='source_changed',claim_token_sha256=NULL,updated_at=? WHERE publication_id=? AND document_id=? AND state IN ('queued','processing')",Instant.now().toString(),previous,documentId);
+      }
+      new DocumentUpdateRepository(store).activate(AuthorityRows.text(row,"id"),publicationId,Instant.now().toString());
+      return;
+    }
+
     var base =
         store.rows(
             "SELECT j.base_publication_id FROM index_publications p JOIN indexing_jobs j ON j.id=p.job_id WHERE p.id=? AND p.document_id=? AND p.revision_id=?",
@@ -608,6 +838,11 @@ public final class IndexingRepository {
     }
   }
 
+  private void replacementState(String jobId,String state,String now) {
+    new DocumentUpdateRepository(store).replacementIdForIndexJob(jobId)
+        .ifPresent(id -> new DocumentUpdateRepository(store).state(id,state,now));
+  }
+
   public void markIndexed(String jobId, String now) {
     store.execute(
         "UPDATE indexing_jobs SET state='indexed',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
@@ -621,6 +856,7 @@ public final class IndexingRepository {
         code,
         now,
         jobId);
+    replacementState(jobId,"failed",now);
   }
 
   public void markCancelled(String jobId, String now) {
@@ -628,6 +864,7 @@ public final class IndexingRepository {
         "UPDATE indexing_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
         now,
         jobId);
+    replacementState(jobId,"cancelled",now);
   }
 
   public void markQueued(String jobId, int attempt, String now) {
@@ -636,6 +873,7 @@ public final class IndexingRepository {
         attempt,
         now,
         jobId);
+    replacementState(jobId,"indexing",now);
   }
 
   public String publicationId(String jobId) {
@@ -646,7 +884,7 @@ public final class IndexingRepository {
   public Optional<String> documentJobId(String documentId) {
     return store
         .rows(
-            "SELECT id FROM indexing_jobs WHERE document_id=? ORDER BY rebuild_sequence DESC,id DESC LIMIT 1",
+            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE j.document_id=? AND j.revision_id=d.active_revision_id AND (j.model_rebuild_id IS NULL OR j.state='indexed') ORDER BY j.rebuild_sequence DESC,j.id DESC LIMIT 1",
             documentId)
         .stream()
         .findFirst()

@@ -1,5 +1,7 @@
 # AI Knowledge · Java Edition
 
+2026-10-04当前主线：网页可保存嵌入/重排/生成配置、手动连接测试、明确应用及召回预览；逐角色provider、生成/重排切换、嵌入模型全库重建、同资料原文件更新、已配置媒体接网页有效文字配置及当前页批量文本重建已实现。最新交付为工作区`.tools/batch-text-reindex-mainline`，01:32:29 +08仅后端skiptests package成功，未运行测试/检查、未部署，页面由用户验收。使用[模型配置](docs/MODEL_SETUP_AND_RETRIEVAL.md)、[媒体配置](docs/MANAGED_MEDIA_SETUP.md)和[批量重建](docs/BATCH_TEXT_REINDEX.md)；下方历史测试结果不认证新增源码。
+
 2026-10-03当前0035：[保存材料重建](docs/changes/0035-saved-source-reindex/verification.md)。已发布资料可明确重建保存的完整文本索引，处理期间旧索引可用，成功才切换；失败、取消和重启中断保留旧版本。入口核对真实能力及当前资格，成功后提示重新查询，保留问题、范围与整理草稿。模型配置、逐角色测试、明确应用和召回测试继续沿既有流程。首切不支持已有独立图片/音频向量的资料及真正嵌入/投影迁移；后续receipt迁移与原文件版本替换继续保留。未部署，页面用户验收，0新增真实provider调用，完整目标ACTIVE。
 
 2026-10-03基础修复0034：更换文字生成或重排模型后，已有图片、视频、OCR及字幕来源继续按当前权限打开；来源能力与新问答能力分开。保留已生效的媒体POST门禁，只改三处后端和一个前端回调。实际3075 Java、431前端/syntax及六Native各1通过，原格式、架构与双80%门禁保持。结果见[0034验证](docs/changes/0034-media-role-switch-sources/verification.md)，交接以工作区`.tools/media-role-switch-handoff`实际manifest为准；未部署、0新增真实provider调用、页面用户验收。完整目标active，下一基础缺口为retrieval-only范围入口，原重建及版本更新范围保留。下方是历史记录。
@@ -66,9 +68,9 @@
 
 一个面向单组织的 **Java AI 知识库 / RAG（Retrieval-Augmented Generation）** 项目。
 
-当前可运行的是 **资料管理工作台与本机文本/图片/音频/视频后端链路**：列表、授权分页、目录、标签、改名、批量整理和审计；独立开关控制上传/解析、索引发布、问答及摘要HTTP。0010提供PNG/JPEG文字与词框，0012提供无文字原图问答及整图引用，0013提供音频转录/索引/问答及时间来源，0014提供视频原帧/转录及音画联合问答、选中原帧OCR与时间来源；0015提供短/长文件完整摘要与持久来源，0016提供独立字幕轨检索/问答及摘要来源。网页提问、图片预览、音视频播放器和摘要入口尚未接线。后端接口通过不等于网页或真实模型质量通过。
+当前可运行的是 **资料管理工作台与本机文本/图片/音频/视频后端链路**：列表、授权分页、目录、标签、改名、批量整理和审计；独立开关控制上传/解析、索引发布、问答及摘要HTTP。0010提供PNG/JPEG文字与词框，0012提供无文字原图问答及整图引用，0013提供音频转录/索引/问答及时间来源，0014提供视频原帧/转录及音画联合问答、选中原帧OCR与时间来源；0015提供短/长文件完整摘要与持久来源，0016提供独立字幕轨检索/问答及摘要来源。独立前端已接问答、来源预览/播放器和摘要入口，实际开放能力由当前运行配置决定。后端接口通过不等于网页或真实模型质量通过。
 
-> **非生产版。** `parsed`与`indexed`不自动开放问答；需显式启用0007并满足当前授权与publication约束。列表`can_answer=false`和网页未接线的边界保留，`/health/ready`仍为503。Java21历史CI、本机替身和已有浏览器截图均不认证当前真实provider/Milvus或生产可用性。
+> **非生产版。** `parsed`与`indexed`不自动开放问答；需显式启用0007并满足当前授权与publication约束。资料问答资格由当前角色、已发布材料及实际运行能力决定，`/health/ready`仍为503。Java21历史CI、本机替身和已有浏览器截图均不认证当前真实provider/Milvus或生产可用性。
 
 **For AI agents:** A standalone Java knowledge-management application being extended into an evidence-grounded RAG system. Read [AI_CONTEXT](docs/AI_CONTEXT.md), [AGENTS.md](AGENTS.md), and the capability table before making claims or changes. Planned capabilities are not implemented APIs.
 
@@ -87,8 +89,8 @@
 | 上传、持久任务、取消/重试、版本化解析证据 | 本地验收通过 | 默认关闭；显式启用且loopback；解析完成标为parsed，保留原文件 |
 | 摄取后台当前授权与撤权取消 | 0006 本地验收通过 | 领取/执行前/提交复验原创建者当前写权限；取消审计原子提交；重试需恢复创建者权限 |
 | 显式索引任务与active发布 | 0004实现中 | 默认关闭；每attempt独立generation、完整物理manifest与映射台账；父存活/跨JVM lease和晚写隔离仍按当前验证记录验收 |
-| 有证问答与来源 | 0007开发实现，默认关闭 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；范围/配置复验和trace同事务，网页未接线，完整语义与真实provider待验收 |
-| 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，默认关闭 | DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending，物理清理与批量硬删仍未实现 |
+| 有证问答与来源 | 0007开发实现，默认关闭 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；范围/配置复验和trace同事务，独立网页已接入口，当前页面与真实provider效果待验收 |
+| 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，默认关闭 | DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending；当前受控清理和逐项状态见0031，不代表同步清理完成 |
 | PNG/JPEG文字识别、索引问答、词框与原图引用回读 | 0010本机后端验收通过 | 实际Tesseract合成英文PNG；模型/Milvus为协议替身，非真实图片检索质量；见[图片入口](docs/IMAGE_EVIDENCE.md) |
 | 原图视觉模型通信、库内索引、逐事实问答与整图引用 | 0012本机后端验收通过 | 独立image证据，caption仅用于召回；模型/Milvus为协议替身，未验云质量/网页 |
 | 音频解码、ASR协议、索引、问答与原文件Range | 0013本机后端已接线 | [接口及验证边界](docs/AUDIO_COMPILATION.md)；时间为真实分段，不假报词级对齐或真实识别质量 |

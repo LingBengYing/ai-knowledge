@@ -8,17 +8,27 @@ import com.evidence.rag.model.domain.IndexTarget;
 public final class LegacyTextProfileGuard {
   private final ManagedTextRuntime runtime;
   private final IndexTarget legacy;
+  private final boolean visualConfigured;
 
   public LegacyTextProfileGuard(ManagedTextRuntime runtime, IndexTarget legacy) {
+    this(runtime, legacy, false);
+  }
+
+  public LegacyTextProfileGuard(ManagedTextRuntime runtime, IndexTarget legacy, boolean visualConfigured) {
     this.runtime = runtime;
     this.legacy = legacy;
+    this.visualConfigured = visualConfigured;
+  }
+
+  public boolean visualConfigured() {
+    return visualConfigured;
   }
 
   public boolean compatible() {
     var current = runtime.currentTarget();
     return current != null
-        && current.equals(legacy)
-        && legacy.modelRevision().equals(runtime.currentModelsRevision());
+        && (runtime.mediaRebound()
+            || (current.equals(legacy) && legacy.modelRevision().equals(runtime.currentModelsRevision())));
   }
 
   public void requireCompatible() {

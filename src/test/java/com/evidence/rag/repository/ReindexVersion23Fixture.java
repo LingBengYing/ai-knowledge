@@ -31,6 +31,7 @@ final class ReindexVersion23Fixture {
   private ReindexVersion23Fixture() {}
 
   static void restoreVersionTwentyThree(Path directory) throws SQLException {
+    ReindexVectorVersion24Fixture.restoreVersionTwentyFour(directory);
     Path database = directory.resolve("java-library.db");
     try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database)) {
       long version = scalar(connection, "PRAGMA user_version");

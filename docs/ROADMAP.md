@@ -1,5 +1,13 @@
 # Roadmap：按可验收纵切推进
 
+2026-10-04当前0041/前端0030完成[选中资料批量文本重建](BATCH_TEXT_REINDEX.md)：原document-actions reindex已接当前实际processor，逐项排队/失败和原任务进度，旧发布在处理中保持，成功才单项切换。01:32:29 +08仅skiptests package成功，未测试、调用真实模型或部署。交付 `.tools/batch-text-reindex-mainline` 已包含此前模型配置/provider、原文件更新、嵌入模型全库重建及媒体装配。常用主线已实现，当前需要实际部署版本及用户页面验收；不再为主线增加测试支线或扩展功能。下方保留历史状态。
+
+2026-10-04当前0040/前端0029完成[网页文字配置接媒体模块](MANAGED_MEDIA_SETUP.md)：已配置媒体资源不再要求重复旧文字密钥，视觉/视频/附件文字图及独立向量操作读取实际网页有效配置。01:21:20 +08仅跳过全部测试package成功，未测试或部署，页面用户验收。交付 `.tools/managed-media-mainline`；下一开发为已选资料批量重新索引，真实模型效果及部署仍由对应验收处理。
+
+2026-10-04当前0039/前端0028已实现[更换嵌入模型后的专门重建](MODEL_INDEX_REBUILD.md)：保存新草稿后明确全库重建独立集合，旧配置继续使用，完整候选索引及图片/音频向量收据全部合格后整体切换配置与发布；原件更新后的资料沿当前保存材料，媒体查询接当前文字图。01:03:40 +08仅跳过全部测试package成功，未运行测试/真实模型/网页或部署；当前交付工作区`.tools/model-index-rebuild-mainline`。本轮完成服务端现有可信投影连接内的新集合和维度迁移；跨服务端地址/凭据的部署迁移、真实ASR/模型质量与整体生产验收仍未完成，原完整目标保留。下方为历史状态。
+
+2026-10-04当前0038/前端0027已实现[同资料原文件更新](DOCUMENT_UPDATES.md)：保留资料ID及整理信息，新版本解析/索引成功后切换，失败或取消保留旧发布；详情独立更新进度，问题及范围保留。此前0037/0026逐角色模型服务商及模型配置主线已接入。本轮仅跳过测试的package成功，未运行自动化测试、未部署、未调用真实模型，页面用户验收；运行包及前端代理交付在工作区 `.tools/document-replacement-mainline`。当前已实现原文件版本替换，真正嵌入/投影迁移、真实ASR/模型质量及生产验收仍保留；下方状态为历史记录。
+
 2026-10-03当前0035/前端0024完成同target保存材料重建的本机主线；此前retrieval-only范围入口也已完成。实际证据见[0035](changes/0035-saved-source-reindex/verification.md)，未部署。下一范围为已有独立向量receipt的迁移，继而真正嵌入/投影迁移及同资料原文件版本更新；原真实ASR/模型质量、页面与生产目标仍保留。
 
 2026-10-03当前本机0034/前端0022完成模型角色切换后的旧媒体来源读取，实际3075 Java/431前端与六Native各1及原门禁通过，见[验证](changes/0034-media-role-switch-sources/verification.md)。未部署，页面用户验收，真实ASR/模型质量未认证，完整目标active。下一业务切为retrieval-only配置下单选、多选、详情和全库范围入口；原通用重建、嵌入/投影迁移及同资料内容版本更新继续保留，不以重复上传新ID替代。下方各“当前/下一步”保留对应历史时点。
@@ -75,7 +83,7 @@
 | Milvus dense + sparse / BM25 hybrid retrieval | 0007 backend wired / locally tested | 只读prepareSearch、完整范围前置、确定性合并及权威hydrate；不create/load/upsert，无独立候选检索端点，真实Milvus尚待验收 |
 | 有据问答、选中文档范围、来源引用、拒答 | 0007 IMPLEMENTATION / local tests passed | POST answers与GET source已接线，完整scope/资格复验及v4 trace同事务；完整语义、网页和实际质量未验收 |
 | 文档撤下、在途取消与历史来源失效 | 0008 IMPLEMENTATION | 默认关闭；DELETE返回deleting/pending，当前服务面过滤，审计及原文保留，不等于物理删除 |
-| 物理删除、重新索引与版本追溯 | 未完成 | 清理账本与完成状态、备份恢复和重建迁移待实施；批量delete/reindex仍501，不能操作其他系统数据 |
+| 受控清理、重新索引与原件版本更新 | 已实现正常入口，待当前部署/页面验收 | 0031受控逐项清理、0038同资料原件更新、0039模型索引迁移、0041选中文本重建；原action=delete仍拒绝，批量清理由document-cleanups处理 |
 | 独立PNG/JPEG文字OCR及原图引用 | 0009 local backend verified | 真实Tesseract固定英文图HTTP闭环；图片模型/Milvus真实质量与网页未验收 |
 | 图片区域/vision、音频转写及视频音画联合 | 本机后端已接并分切验证 | 0010/0012/0013/0014；来源分别为词框/整图/真实音频分段/视频group与原帧，不等于真实模型质量或网页验收 |
 | 视频选中原帧OCR与真实文字定位 | 0014 local backend verified | [独立模式与v12合同](VIDEO_OCR.md)及[本机验证](changes/0014-video-library/ocr-verification.md)；默认关闭、原像素词框、frame interval，不代表全视频字幕 |

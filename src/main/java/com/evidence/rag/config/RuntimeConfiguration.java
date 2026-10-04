@@ -51,7 +51,8 @@ public class RuntimeConfiguration {
       ObjectProvider<LegacyTextProfileGuard> legacy,
       ObjectProvider<VisualAnswerService> visual,
       ObjectProvider<VideoCompilationService> video,
-      ObjectProvider<QueryAttachmentService> attachments) {
+      ObjectProvider<QueryAttachmentService> attachments,
+      ObjectProvider<ManagedMediaTextFactory> media) {
     var base =
         create(
             p,
@@ -73,9 +74,13 @@ public class RuntimeConfiguration {
       return new RuntimeService(() -> reindexCapabilities(base.capabilities()));
     }
     var guard = legacy.getIfAvailable();
-    boolean visualPresent = visual.getIfAvailable() != null;
-    boolean videoPresent = video.getIfAvailable() != null;
-    boolean attachmentsPresent = attachments.getIfAvailable() != null;
+    var configuredMedia = media.getIfAvailable();
+    boolean visualPresent = configuredMedia != null
+        ? configuredMedia.visualPresent() : visual.getIfAvailable() != null;
+    boolean videoPresent = configuredMedia != null
+        ? configuredMedia.videoPresent() : video.getIfAvailable() != null;
+    boolean attachmentsPresent = configuredMedia != null
+        ? configuredMedia.attachmentsPresent() : attachments.getIfAvailable() != null;
     return new RuntimeService(
         () ->
             managedCapabilities(
@@ -90,10 +95,21 @@ public class RuntimeConfiguration {
   private static RuntimeCapabilities reindexCapabilities(RuntimeCapabilities base) {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
+    if (enabled.contains("ingestions")
+        || enabled.contains("sound_upload")
+        || enabled.contains("video_av_upload")) {
+      enabled.add("document_replacements");
+    } else {
+      unavailable.add("document_replacements");
+    }
     if (enabled.contains("text_index") && enabled.contains("indexings")) {
       enabled.add("text_reindex");
+      enabled.add("text_reindex_with_vectors");
+      enabled.add("batch_text_reindex");
     } else {
       unavailable.add("text_reindex");
+      unavailable.add("text_reindex_with_vectors");
+      unavailable.add("batch_text_reindex");
     }
     return new RuntimeCapabilities(
         base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
@@ -109,6 +125,7 @@ public class RuntimeConfiguration {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
     enabled.add("model_configuration");
+    enabled.add("model_index_rebuild");
     if (textReady) {
       enabled.add("retrieval_test");
     } else {
@@ -119,6 +136,8 @@ public class RuntimeConfiguration {
               "text_index",
               "indexings",
               "text_reindex",
+              "text_reindex_with_vectors",
+              "batch_text_reindex",
               "answers",
               "sources",
               "source_image_content",

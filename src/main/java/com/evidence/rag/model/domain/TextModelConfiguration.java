@@ -12,14 +12,22 @@ public record TextModelConfiguration(Embedding embedding, Role rerank, Role gene
     Objects.requireNonNull(embedding);
     Objects.requireNonNull(rerank);
     Objects.requireNonNull(generation);
+    validateProvider(rerank.provider(), "rerank.provider", false);
+    validateProvider(generation.provider(), "generation.provider", true);
   }
 
-  public record Embedding(String model, String apiKey, int dimensions, String revision) {
+  public record Embedding(
+      String model, String apiKey, int dimensions, String revision, String provider) {
+    public Embedding(String model, String apiKey, int dimensions, String revision) {
+      this(model, apiKey, dimensions, revision, "siliconflow");
+    }
+
     public Embedding {
       validateModel(model, "embedding.model");
       validateKey(apiKey, "embedding.api_key");
       validateDimensions(dimensions);
       validateRevision(revision);
+      validateProvider(provider, "embedding.provider", false);
     }
 
     @Override
@@ -28,10 +36,15 @@ public record TextModelConfiguration(Embedding embedding, Role rerank, Role gene
     }
   }
 
-  public record Role(String model, String apiKey) {
+  public record Role(String model, String apiKey, String provider) {
+    public Role(String model, String apiKey) {
+      this(model, apiKey, "siliconflow");
+    }
+
     public Role {
       validateModel(model, "request");
       validateKey(apiKey, "request");
+      validateProvider(provider, "request", true);
     }
 
     @Override
@@ -43,6 +56,12 @@ public record TextModelConfiguration(Embedding embedding, Role rerank, Role gene
   public static void validateBaseVersion(long version) {
     if (version < 0 || version >= ModelConfigurationState.MAX_VERSION) {
       throw new ModelConfigurationInputException("base_version");
+    }
+  }
+
+  public static void validateProvider(String provider, String field, boolean allowDeepSeek) {
+    if (!"siliconflow".equals(provider) && !(allowDeepSeek && "deepseek".equals(provider))) {
+      throw new ModelConfigurationInputException(field);
     }
   }
 

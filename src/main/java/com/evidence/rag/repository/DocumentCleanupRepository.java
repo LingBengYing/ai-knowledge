@@ -379,7 +379,7 @@ public final class DocumentCleanupRepository {
 
   List<CleanupPayload> inventory(String documentId) {
     var payloads = new ArrayList<CleanupPayload>();
-    for (var table : CleanupPayloadTables.TABLES) {
+    for (var table : CleanupPayloadTables.current(store)) {
       for (var row :
           store.rows(
               "SELECT p.*,"
@@ -431,7 +431,7 @@ public final class DocumentCleanupRepository {
         throw ModelValues.invalid();
       }
       var table =
-          CleanupPayloadTables.TABLES.stream()
+          CleanupPayloadTables.current(store).stream()
               .filter(t -> t.name().equals(now.tableName()))
               .findFirst()
               .orElseThrow();
@@ -466,7 +466,7 @@ public final class DocumentCleanupRepository {
 
   void purgeBodies(CleanupClaim claim) {
     requireCurrent(claim);
-    for (var table : CleanupPayloadTables.TABLES) {
+    for (var table : CleanupPayloadTables.current(store)) {
       String set =
           table.bodies().stream()
               .map(b -> b.name() + "=" + b.empty())
@@ -490,7 +490,7 @@ public final class DocumentCleanupRepository {
     if (current.size() != sealed.payloadRows().size()) {
       throw ModelValues.invalid();
     }
-    for (var table : CleanupPayloadTables.TABLES) {
+    for (var table : CleanupPayloadTables.current(store)) {
       if (store.count(
               "SELECT COUNT(*) FROM "
                   + table.name()
@@ -507,7 +507,7 @@ public final class DocumentCleanupRepository {
   }
 
   void verifyPurgedRows() {
-    for (var table : CleanupPayloadTables.TABLES) {
+    for (var table : CleanupPayloadTables.current(store)) {
       for (var row :
           store.rows(
               "SELECT "

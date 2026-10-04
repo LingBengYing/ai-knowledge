@@ -1,0 +1,9 @@
+# 正常装配
+
+本轮仅修现有模块接线，不新增provider、模型调用、数据库格式或HTTP路径。媒体资源类允许完整legacy配置或managed文字设置；依赖旧文字图的legacy服务Bean仍保留独立条件。managed snapshot直接从实际已配置Vision、ASR/decoder/compiler、query preparation/ranking及独立向量资源创建图片、视频和附件文字绑定，当前文字客户端和projection来自该snapshot。
+
+独立图片/音频向量服务不再为初始化强取旧文字target，操作时读真实有效target；未应用配置明确text_configuration_required，不构造假模型或target。集合仍按已有可信服务端配置隔离，媒体密钥/模型及资源配置仍需管理员完成。已配置能力按实际资源及有效snapshot提供，不因旧模板缺失隐藏，也不凭开关伪造资源。
+
+网页继续同一个模型保存/手动测试/应用流程，然后导入、索引、问题/召回和来源。原音频ASR、OCR、独立sound/video_av现有正常路径不改。无文字或媒体配置时保持清楚的不可用状态，构造和应用不自动调用媒体模型。
+
+按负责人要求停止全部自动化测试，不运行测试、格式/语法检查、浏览器、审计、真实模型或部署。产品源整批就绪后root仅跳过测试package，不把编译说成外部可用性验收。批量重新索引作为已批准原范围的下一正常开发项，未在本轮删除。

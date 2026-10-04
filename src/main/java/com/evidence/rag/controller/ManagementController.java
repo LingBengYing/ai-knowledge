@@ -90,8 +90,9 @@ public final class ManagementController {
   @PostMapping("/document-actions")
   public DocumentActionsResponse actions(
       HttpServletRequest request, @RequestBody Map<String, Object> body) {
+    var actor = AuthenticatedActor.require(request);
+    var command = ManagementRequestMapper.action(body);
     return ManagementResponseMapper.actions(
-        management.documentActions(
-            AuthenticatedActor.require(request), ManagementRequestMapper.action(body)));
+        management.documentActions(actor, command), command.action());
   }
 }

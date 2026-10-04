@@ -6,6 +6,7 @@ import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IndexingTaskProcessor;
+import com.evidence.rag.service.ReindexVectorVerifier;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,14 +65,16 @@ public class IndexingConfiguration {
       RagProperties properties,
       TextAdapterSettings settings,
       IndexingSettings limits,
-      IndexTarget target) {
+      IndexTarget target,
+      ReindexVectorVerifier receiptVerifier) {
     return new IndexingTaskProcessor(
         authority,
         properties.workspaceId(),
         settings.models(),
         settings.projection(),
         target,
-        Duration.ofMillis(limits.timeoutMs()));
+        Duration.ofMillis(limits.timeoutMs()),
+        receiptVerifier);
   }
 
   @Bean(destroyMethod = "close")

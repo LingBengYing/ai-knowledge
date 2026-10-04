@@ -14,14 +14,19 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ProjectionAttempt;
+import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.ReindexVectorPlan;
+import com.evidence.rag.model.domain.VerifiedReindexVectors;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.IndexPublicationEntity;
 import com.evidence.rag.model.entity.TaskEntity;
 import com.evidence.rag.repository.DocumentCleanupRepository;
+import com.evidence.rag.repository.DocumentUpdateRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.ManagementRepository;
+import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +39,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.BiPredicate;
+import java.util.function.Supplier;
 
 /**
  * Claim fencing and full source-to-projection publication acceptance, under one authority
@@ -52,12 +59,23 @@ public final class IndexingService {
   private final IndexingRepository indexing;
   private final ManagementRepository management;
   private final DocumentPermissionPolicy permissions;
+  private final BiPredicate<String, IndexTarget> receiptTargets;
 
   public IndexingService(
       SqliteAuthorityStore store,
       IndexingRepository indexing,
       ManagementRepository management,
       DocumentPermissionPolicy permissions) {
+    this(store, indexing, management, permissions, null);
+  }
+
+  public IndexingService(
+      SqliteAuthorityStore store,
+      IndexingRepository indexing,
+      ManagementRepository management,
+      DocumentPermissionPolicy permissions,
+      BiPredicate<String, IndexTarget> receiptTargets) {
+    this.receiptTargets = receiptTargets;
     this.store = Objects.requireNonNull(store);
     this.indexing = Objects.requireNonNull(indexing);
     this.management = Objects.requireNonNull(management);
@@ -112,7 +130,9 @@ public final class IndexingService {
           if (base == null
               || !base.id().equals(basePublicationId)
               || revision == null
-              || !indexing.canReindex(documentId)) {
+              || !(receiptTargets == null
+                  ? indexing.canReindex(documentId)
+                  : indexing.canReindexWithVectors(documentId))) {
             throw indexConflict();
           }
           if (!base.target().equals(target)) {
@@ -120,15 +140,32 @@ public final class IndexingService {
                 FailureKind.CONFLICT, "index_configuration_changed", "当前索引配置与已发布索引不一致。");
           }
           String jobId = UUID.randomUUID().toString(), now = Instant.now().toString();
-          indexing.insertRebuildJob(
-              jobId,
-              documentId,
-              revision,
-              target,
-              actor.principalId(),
-              basePublicationId,
-              indexing.nextRebuildSequence(documentId),
-              now);
+          if (receiptTargets == null) {
+            indexing.insertRebuildJob(
+                jobId,
+                documentId,
+                revision,
+                target,
+                actor.principalId(),
+                basePublicationId,
+                indexing.nextRebuildSequence(documentId),
+                now);
+          } else {
+            var plan = indexing.vectorPlanForBase(jobId, actor.workspaceId(), basePublicationId);
+            if (!configured(plan)) {
+              throw configurationChanged();
+            }
+            indexing.insertRebuildJob(
+                jobId,
+                documentId,
+                revision,
+                target,
+                actor.principalId(),
+                basePublicationId,
+                indexing.nextRebuildSequence(documentId),
+                now,
+                plan.setSha256());
+          }
           var internal = indexing.findInternalTask(jobId).orElseThrow();
           if (!indexing.sourceCurrent(internal)) {
             throw indexConflict();
@@ -149,14 +186,139 @@ public final class IndexingService {
         });
   }
 
+  /** Index a parsed candidate without changing the active original or publication. */
+  public TaskResult createReplacementIndexing(
+      Actor actor,
+      String documentId,
+      String candidateRevisionId,
+      String baseRevisionId,
+      IndexTarget target) {
+    if (actor == null || target == null) {
+      throw invalid();
+    }
+    identifier(documentId, 100);
+    identifier(candidateRevisionId, 100);
+    identifier(baseRevisionId, 100);
+    return store.transaction(
+        () -> {
+          permissions.require(management.currentRole(actor, documentId), true);
+          var updates = new DocumentUpdateRepository(store);
+          var replacement =
+              updates.current(documentId).orElseThrow(IndexingService::indexConflict);
+          if (!"corpus".equals(replacement.pipeline())
+              || !"parsed".equals(replacement.state())
+              || !candidateRevisionId.equals(replacement.candidateRevisionId())
+              || !baseRevisionId.equals(replacement.baseRevisionId())
+              || replacement.indexJobId() != null
+              || !updates.sourceCurrent(replacement.id())
+              || indexing.hasPending(documentId)) {
+            throw indexConflict();
+          }
+          var revision =
+              indexing.parsedRevision(documentId, candidateRevisionId)
+                  .orElseThrow(IndexingService::indexConflict);
+          var base = indexing.activePublication(documentId).orElse(null);
+          if (!Objects.equals(replacement.basePublicationId(), base == null ? null : base.id())) {
+            throw indexConflict();
+          }
+          if (base != null && !base.target().equals(target)) {
+            throw new ApplicationException(
+                FailureKind.CONFLICT,
+                "index_configuration_changed",
+                "当前索引配置与已发布索引不一致。");
+          }
+          String jobId = UUID.randomUUID().toString();
+          String now = Instant.now().toString();
+          indexing.insertReplacementJob(
+              jobId,
+              documentId,
+              revision,
+              target,
+              actor.principalId(),
+              replacement.basePublicationId(),
+              indexing.nextRebuildSequence(documentId),
+              now,
+              replacement.id());
+          var task = authorizedTask(actor, jobId, false);
+          audit(
+              actor,
+              documentId,
+              "replacement_indexing_queued",
+              null,
+              values("revision_id", candidateRevisionId, "state", "queued"),
+              Set.of("revision_id", "state"));
+          return TaskResults.from(task, true, true, indexing.publicationId(jobId));
+        });
+  }
+
+  /** Full saved-source and configured-receipt eligibility; no provider calls. */
+  public boolean canReindexWithVectors(Actor actor, String documentId, IndexTarget target) {
+    return store.transaction(() -> canReindexWithVectorsInTransaction(actor, documentId, target));
+  }
+
+  /** The caller owns the existing authority transaction; safe for management row qualification. */
+  public boolean canReindexWithVectorsInTransaction(
+      Actor actor, String documentId, IndexTarget target) {
+    if (actor == null || target == null || receiptTargets == null) {
+      return false;
+    }
+    identifier(documentId, 100);
+    if (!permissions.canEdit(management.currentRole(actor, documentId))
+        || !indexing.canReindexWithVectors(documentId)) {
+      return false;
+    }
+    var base = indexing.activePublication(documentId).orElse(null);
+    return base != null
+        && base.target().equals(target)
+        && configured(indexing.vectorPlanForBase("eligibility", actor.workspaceId(), base.id()));
+  }
+
+  /** A legacy or initial claim has no continuation snapshot, including after restart. */
+  public Optional<ReindexVectorPlan> reindexVectorPlan(IndexClaim claim) {
+    return store.transaction(
+        () -> {
+          var task = currentClaim(claim);
+          if (task == null || !creatorCanWrite(task)) {
+            throw indexConflict();
+          }
+          if (indexing.modelRebuildIdForJob(task.id()).isPresent()) {
+            var plan = new ModelRebuildRepository(store).plan(task.id());
+            if (plan.isPresent() && !plan.orElseThrow().isEmpty()
+                && !configured(plan.orElseThrow())) {
+              throw configurationChanged();
+            }
+            return plan.filter(value -> !value.isEmpty());
+          }
+          if (indexing.baseVectorSetSha256(task.id()).isEmpty()) {
+            return Optional.empty();
+          }
+          var plan = indexing.freezeVectorPlan(task.id());
+          if (!configured(plan)) {
+            throw configurationChanged();
+          }
+          return Optional.of(plan);
+        });
+  }
+
   public Optional<IndexClaim> claimIndexing(String workspaceId) {
+    return claim(workspaceId, null);
+  }
+
+  public Optional<IndexClaim> claimModelRebuild(String workspaceId, String batchId) {
+    identifier(batchId, 100);
+    return claim(workspaceId, batchId);
+  }
+
+  private Optional<IndexClaim> claim(String workspaceId, String batchId) {
     Actor worker = new Actor(workspaceId, "system:indexing");
     return store.transaction(
         () -> {
           if (indexing.hasProcessing()) {
             return Optional.empty();
           }
-          for (String jobId : indexing.queuedIds(workspaceId)) {
+          var queued = batchId == null ? indexing.queuedIds(workspaceId)
+              : indexing.queuedModelRebuildIds(workspaceId, batchId);
+          for (String jobId : queued) {
             var task = indexing.findInternalTask(jobId).orElseThrow();
             if (!creatorCanWrite(task)) {
               finishFailed(task, "authorization_changed");
@@ -164,6 +326,10 @@ public final class IndexingService {
             }
             if (!indexing.sourceCurrent(task)) {
               finishFailed(task, "indexing_output_invalid");
+              continue;
+            }
+            if (!configuredTask(task)) {
+              finishFailed(task, "index_configuration_changed");
               continue;
             }
             String token = UUID.randomUUID().toString() + UUID.randomUUID();
@@ -206,6 +372,14 @@ public final class IndexingService {
 
   public boolean completeIndexing(
       IndexClaim claim, Map<String, String> entryDigests, VerifiedRevision verified) {
+    return completeIndexing(claim, entryDigests, verified, null);
+  }
+
+  public boolean completeIndexing(
+      IndexClaim claim,
+      Map<String, String> entryDigests,
+      VerifiedRevision verified,
+      VerifiedReindexVectors vectors) {
     return store.transaction(
         () -> {
           var task = claimedTask(claim);
@@ -219,6 +393,36 @@ public final class IndexingService {
           if (!indexing.sourceCurrent(task)) {
             finishFailed(task, "indexing_output_invalid");
             return false;
+          }
+          ReindexVectorPlan plan = null;
+          boolean modelRebuild = indexing.modelRebuildIdForJob(task.id()).isPresent();
+          if (modelRebuild) {
+            plan = new ModelRebuildRepository(store).plan(task.id()).orElse(null);
+            if (plan != null && !plan.isEmpty()) {
+              if (!configured(plan)) {
+                finishFailed(task, "index_configuration_changed");
+                return false;
+              }
+              if (vectors == null || !vectors.plan().equals(plan)) {
+                throw invalidIndexOutput();
+              }
+              new VerifiedReindexVectors(plan, vectors.receipts());
+            } else if (vectors != null) {
+              throw invalidIndexOutput();
+            }
+          } else if (indexing.baseVectorSetSha256(task.id()).isPresent()) {
+            plan = indexing.freezeVectorPlan(task.id());
+            if (!configured(plan)) {
+              finishFailed(task, "index_configuration_changed");
+              return false;
+            }
+            if (vectors == null || !vectors.plan().equals(plan)) {
+              throw invalidIndexOutput();
+            }
+            // Reconstruct to enforce the full exact receipt set, not a caller-supplied subset.
+            new VerifiedReindexVectors(plan, vectors.receipts());
+          } else if (vectors != null) {
+            throw invalidIndexOutput();
           }
           var authoritative = indexing.projectionItems(claim.revisionId());
           var full = new TreeMap<String, String>();
@@ -245,6 +449,8 @@ public final class IndexingService {
               || verified.segmentCount() != authoritative.size()) {
             throw invalidIndexOutput();
           }
+          final ReindexVectorPlan verifiedPlan = plan;
+          return persistCandidate(claim, () -> {
           String publicationId = UUID.randomUUID().toString(), now = Instant.now().toString();
           indexing.insertPublication(
               new IndexPublicationEntity(
@@ -266,6 +472,27 @@ public final class IndexingService {
                     claim.projectionGenerationId(), segment.evidenceId());
             indexing.insertPublicationEntry(
                 publicationId, segment.evidenceId(), physicalId, full.get(physicalId));
+          }
+          if (verifiedPlan != null) {
+            var newPublication = new PublicationVersion(
+                    claim.documentId(),
+                    publicationId,
+                    claim.revisionId(),
+                    claim.projectionGenerationId(),
+                    claim.sourceSha256(),
+                    claim.parserRevision(),
+                    claim.target(),
+                    manifest.sha256(),
+                    authoritative.size());
+            if (modelRebuild) {
+              indexing.insertModelRebuildBindings(claim.jobId(), newPublication, verifiedPlan);
+            } else {
+              indexing.insertInheritedBindings(newPublication, verifiedPlan);
+            }
+          }
+          if (modelRebuild) {
+            indexing.sealModelRebuildPublication(claim.jobId(), publicationId, now);
+            return true;
           }
           indexing.activatePublication(claim.documentId(), publicationId, claim.revisionId());
           audit(
@@ -292,7 +519,16 @@ public final class IndexingService {
                   "manifest_sha256"));
           indexing.markIndexed(claim.jobId(), now);
           return true;
+          });
         });
+  }
+
+  private boolean persistCandidate(IndexClaim claim, Supplier<Boolean> persist) {
+    var updates = new DocumentUpdateRepository(store);
+    var replacementId = updates.replacementIdForIndexJob(claim.jobId());
+    return replacementId.isEmpty()
+        ? persist.get()
+        : updates.withCandidateSource(replacementId.orElseThrow(), persist);
   }
 
   /** Persist the exact remote target and generation before the first possible worker write. */
@@ -312,6 +548,7 @@ public final class IndexingService {
           if (task == null || !creatorCanWrite(task)) {
             return false;
           }
+          return persistCandidate(claim, () -> {
           var registry = new DocumentCleanupRepository(store);
           registry.registerProjectionAttempt(
               new ProjectionAttempt(
@@ -325,6 +562,7 @@ public final class IndexingService {
                   false));
           registry.markProjectionWriteIssued(claim.projectionGenerationId(), "legacy");
           return true;
+          });
         });
   }
 
@@ -405,6 +643,9 @@ public final class IndexingService {
           if (indexing.hasPending(task.documentId()) || !indexing.sourceCurrent(internal)) {
             throw indexConflict();
           }
+          if (!configuredTask(internal)) {
+            throw configurationChanged();
+          }
           indexing.markQueued(jobId, task.attempt() + 1, Instant.now().toString());
           audit(
               actor,
@@ -452,7 +693,7 @@ public final class IndexingService {
 
   private TaskEntity currentClaim(IndexClaim claim) {
     var task = claimedTask(claim);
-    return task != null && indexing.sourceCurrent(task) ? task : null;
+    return task != null && indexing.sourceCurrent(task) && configuredTask(task) ? task : null;
   }
 
   /** Exact current worker identity; source eligibility is required separately for publication. */
@@ -480,6 +721,32 @@ public final class IndexingService {
       return null;
     }
     return task;
+  }
+
+  private boolean configuredTask(TaskEntity task) {
+    if (indexing.modelRebuildIdForJob(task.id()).isPresent()) {
+      var plan = new ModelRebuildRepository(store).plan(task.id());
+      return plan.isEmpty() || plan.orElseThrow().isEmpty() || configured(plan.orElseThrow());
+    }
+    return indexing.baseVectorSetSha256(task.id()).isEmpty()
+        || configured(indexing.freezeVectorPlan(task.id()));
+  }
+
+  public boolean supportsModelRebuildPlanInTransaction(ReindexVectorPlan plan) {
+    return plan == null || plan.isEmpty() || configured(plan);
+  }
+
+  private boolean configured(ReindexVectorPlan plan) {
+    return receiptTargets != null
+        && plan.images().stream()
+            .allMatch(value -> receiptTargets.test("image", value.origin().target()))
+        && plan.audios().stream()
+            .allMatch(value -> receiptTargets.test("audio", value.origin().target()));
+  }
+
+  private static ApplicationException configurationChanged() {
+    return new ApplicationException(
+        FailureKind.CONFLICT, "index_configuration_changed", "当前索引配置不能完整验证已保存的图片或音频向量。");
   }
 
   private void finishFailed(TaskEntity task, String safeCode) {

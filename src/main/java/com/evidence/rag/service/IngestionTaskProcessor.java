@@ -17,9 +17,13 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /** One parsing use case; authority transactions finish before the isolated worker is entered. */
 public final class IngestionTaskProcessor {
+  private static final Logger LOG = LoggerFactory.getLogger(IngestionTaskProcessor.class);
   private final IngestionService authority;
   private final String workspace;
   private final Duration deadline;
@@ -178,6 +182,10 @@ public final class IngestionTaskProcessor {
   }
 
   public void process(IngestionClaim claim) {
+    String previousTaskId = MDC.get("ingestion_task_id");
+    if (claim != null) {
+      MDC.put("ingestion_task_id", claim.jobId());
+    }
     try {
       if (!authority.isIngestionClaimCurrent(claim)) {
         return;
@@ -269,25 +277,43 @@ public final class IngestionTaskProcessor {
         authority.completeIngestion(claim, parsed);
       }
     } catch (TextParser.Failure failure) {
-      fail(
-          claim,
+      String code =
           switch (failure.code()) {
             case "unsupported_document" -> "unsupported_document";
             case "parser_timeout" -> "parser_timeout";
             case "parser_interrupted", "parser_cancelled", "parser_closed" -> "worker_interrupted";
             case "parser_invalid_output" -> "parser_output_invalid";
             default -> "parser_failed";
-          });
+          };
+      logFailure(claim, failure, code);
+      fail(claim, code);
     } catch (ApplicationException failure) {
       if (Set.of("text_configuration_required", "media_text_configuration_mismatch")
           .contains(failure.code())) {
+        logFailure(claim, failure, failure.code());
         fail(claim, failure.code());
       } else {
+        logFailure(claim, failure, "parser_failed");
         failUnexpected(claim);
       }
     } catch (RuntimeException failure) {
+      logFailure(claim, failure, "parser_failed");
       failUnexpected(claim);
+    } finally {
+      if (previousTaskId == null) {
+        MDC.remove("ingestion_task_id");
+      } else {
+        MDC.put("ingestion_task_id", previousTaskId);
+      }
     }
+  }
+
+  private static void logFailure(IngestionClaim claim, RuntimeException failure, String code) {
+    LOG.warn(
+        "ingestion_failed task_id={} failure_type={} failure_code={}",
+        claim == null ? "untracked" : claim.jobId(),
+        failure.getClass().getName(),
+        code);
   }
 
   public void failUnexpected(IngestionClaim claim) {

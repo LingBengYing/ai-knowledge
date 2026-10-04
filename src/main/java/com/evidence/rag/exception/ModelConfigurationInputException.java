@@ -15,10 +15,13 @@ public final class ModelConfigurationInputException extends RuntimeException {
           "embedding.dimensions",
           "embedding.revision",
           "embedding.api_key",
+          "embedding.provider",
           "rerank.model",
           "rerank.api_key",
+          "rerank.provider",
           "generation.model",
-          "generation.api_key");
+          "generation.api_key",
+          "generation.provider");
   private final String field;
 
   public ModelConfigurationInputException(String field) {

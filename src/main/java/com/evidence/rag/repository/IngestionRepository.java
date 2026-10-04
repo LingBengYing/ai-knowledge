@@ -58,8 +58,10 @@ public final class IngestionRepository {
         SELECT COALESCE(SUM(resident_bytes),0) FROM (
           SELECT length(c.original_blob) resident_bytes FROM corpus_documents c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
           UNION ALL SELECT length(c.original_blob) FROM sound_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
-          UNION ALL SELECT length(c.original_blob) FROM video_av_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?)
+          UNION ALL SELECT length(c.original_blob) FROM video_av_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
+          UNION ALL SELECT length(c.original_blob) FROM document_original_revisions c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?)
         """,
+        workspaceId,
         workspaceId,
         workspaceId,
         workspaceId);
@@ -98,6 +100,21 @@ public final class IngestionRepository {
         now);
   }
 
+  public void insertReplacementJob(String jobId, String documentId, String revisionId,
+      String creator, String replacementId, String parserRevision, String sourceHash, String now) {
+    store.execute("INSERT INTO corpus_revisions(id,document_id,parser_revision,source_sha256,created_at) VALUES(?,?,?,?,?)", revisionId,documentId,parserRevision,sourceHash,now);
+    store.execute("INSERT INTO ingestion_jobs(id,document_id,revision_id,state,attempt,created_by,created_at,updated_at,replacement_id) VALUES(?,?,?,'queued',1,?,?,?,?)",jobId,documentId,revisionId,creator,now,now,replacementId);
+    new DocumentUpdateRepository(store).attachIngestionJob(replacementId,jobId,now);
+  }
+
+  public boolean replacementCurrent(String jobId) {
+    return new DocumentUpdateRepository(store).replacementCurrent(jobId);
+  }
+
+  public boolean sourceCurrent(TaskEntity task) {
+    return replacementCurrent(task.id());
+  }
+
   public Optional<String> nextQueuedId(String workspaceId) {
     return store
         .rows(
@@ -114,12 +131,13 @@ public final class IngestionRepository {
         tokenHash,
         now,
         jobId);
+    replacementState(jobId,"processing",now);
   }
 
   public Optional<TaskEntity> findInternalTask(String jobId) {
     return store
         .rows(
-            "SELECT j.*,d.workspace_id,d.filename,d.mime_type,d.source_sha256,r.parser_revision FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN corpus_documents c ON c.document_id=d.id AND c.initial_revision_id=j.revision_id JOIN corpus_revisions r ON r.id=j.revision_id AND r.document_id=d.id WHERE j.id=?",
+            "SELECT j.*,d.workspace_id,COALESCE(o.filename,d.filename) filename,COALESCE(o.media_type,d.mime_type) mime_type,r.source_sha256,r.parser_revision FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN corpus_revisions r ON r.id=j.revision_id AND r.document_id=d.id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id WHERE j.id=?",
             jobId)
         .stream()
         .findFirst()
@@ -129,7 +147,7 @@ public final class IngestionRepository {
   public Optional<TaskEntity> findAuthorizedTask(Actor actor, String jobId, boolean edit) {
     return store
         .rows(
-            "SELECT j.*,d.filename,acl.role AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
+            "SELECT j.*,COALESCE(o.filename,d.filename) filename,acl.role AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
                 + (edit ? " AND acl.role IN ('owner','editor')" : ""),
             jobId,
             actor.workspaceId(),
@@ -146,6 +164,11 @@ public final class IngestionRepository {
                 .getFirst()
                 .get("original_blob"))
         .clone();
+  }
+
+  public byte[] original(String documentId, String revisionId) {
+    return new DocumentUpdateRepository(store).original(documentId,revisionId)
+        .orElseThrow(ModelValues::invalid).content();
   }
 
   public void insertPage(String revisionId, TextPage page, String textHash) {
@@ -873,15 +896,19 @@ public final class IngestionRepository {
         pages,
         segments,
         revisionId);
-    store.execute(
-        "UPDATE corpus_documents SET parsed_revision_id=? WHERE document_id=?",
-        revisionId,
-        documentId);
+    var replacement = new DocumentUpdateRepository(store).findByRevision(documentId,revisionId);
+    if (replacement.isEmpty()) {
+      store.execute("UPDATE corpus_documents SET parsed_revision_id=? WHERE document_id=?",revisionId,documentId);
+    } else {
+      new DocumentUpdateRepository(store).markParsed(replacement.get().id(),now);
+    }
     store.execute(
         "UPDATE ingestion_jobs SET state='parsed',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
         now,
         jobId);
-    store.execute("UPDATE documents SET updated_at=? WHERE id=?", now, documentId);
+    if (replacement.isEmpty()) {
+      store.execute("UPDATE documents SET updated_at=? WHERE id=?", now, documentId);
+    }
   }
 
   public void markFailed(String jobId, String safeCode, String now) {
@@ -890,6 +917,7 @@ public final class IngestionRepository {
         safeCode,
         now,
         jobId);
+    replacementState(jobId,"failed",now);
   }
 
   public void markCancelled(String jobId, String now) {
@@ -897,6 +925,7 @@ public final class IngestionRepository {
         "UPDATE ingestion_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
         now,
         jobId);
+    replacementState(jobId,"cancelled",now);
   }
 
   public void markQueued(String jobId, int attempt, String now) {
@@ -905,6 +934,12 @@ public final class IngestionRepository {
         attempt,
         now,
         jobId);
+    replacementState(jobId,"queued",now);
+  }
+
+  private void replacementState(String jobId,String state,String now) {
+    store.rows("SELECT replacement_id FROM ingestion_jobs WHERE id=? AND replacement_id IS NOT NULL",jobId)
+        .stream().findFirst().ifPresent(row -> new DocumentUpdateRepository(store).state(AuthorityRows.text(row,"replacement_id"),state,now));
   }
 
   public List<String> processingIds() {

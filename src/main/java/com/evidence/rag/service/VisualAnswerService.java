@@ -11,6 +11,7 @@ import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.ImageVectorScope;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.PublishedImageEvidence;
@@ -53,6 +54,8 @@ public final class VisualAnswerService implements AutoCloseable {
   private final VisionModels vision;
   private final RetrievalProjection projection;
   private final IndexTarget target;
+  private final String textRevision;
+  private final int concurrency;
   private final String visualRevision;
   private final QueryAttachmentService queries;
   private final long timeoutNanos;
@@ -80,6 +83,13 @@ public final class VisualAnswerService implements AutoCloseable {
       Duration deadline,
       int concurrency,
       QueryAttachmentService queries) {
+    this(evidence, text, vision, projection, target, deadline, concurrency, queries, null);
+  }
+
+  private VisualAnswerService(
+      EvidenceService evidence, TextModels text, VisionModels vision,
+      RetrievalProjection projection, IndexTarget target, Duration deadline, int concurrency,
+      QueryAttachmentService queries, TextIndexAnchor anchor) {
     if (evidence == null
         || text == null
         || vision == null
@@ -90,7 +100,7 @@ public final class VisualAnswerService implements AutoCloseable {
         || deadline.compareTo(Duration.ofMinutes(10)) > 0
         || concurrency < 1
         || concurrency > 8
-        || !target.modelRevision().equals(text.revision())
+        || (anchor == null ? !target.modelRevision().equals(text.revision()) : !target.equals(anchor.target()))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -99,6 +109,8 @@ public final class VisualAnswerService implements AutoCloseable {
     this.vision = vision;
     this.projection = projection;
     this.target = target;
+    this.textRevision = ModelValues.identifier(text.revision(), 200);
+    this.concurrency = concurrency;
     this.visualRevision = ModelValues.identifier(vision.revision(), 160);
     this.queries = queries;
     timeoutNanos = deadline.toNanos();
@@ -106,6 +118,29 @@ public final class VisualAnswerService implements AutoCloseable {
     executor =
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("rag-visual-answer-", 0).factory());
+  }
+
+  /** Reuse the configured visual model while retrieval follows the active text collection. */
+  public static VisualAnswerService managed(
+      EvidenceService evidence, TextModels text, VisionModels vision,
+      RetrievalProjection projection, IndexTarget target, Duration deadline, int concurrency,
+      QueryAttachmentService queries, TextIndexAnchor anchor) {
+    if (anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new VisualAnswerService(evidence, text, vision, projection, target, deadline,
+        concurrency, queries, anchor);
+  }
+
+  /** Rebind an explicitly configured legacy template without replacing its visual client. */
+  public VisualAnswerService withTextBundle(
+      TextModels models, RetrievalProjection currentProjection, IndexTarget currentTarget,
+      QueryAttachmentService currentQueries, TextIndexAnchor anchor) {
+    if (anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new VisualAnswerService(evidence, models, vision, currentProjection, currentTarget,
+        Duration.ofNanos(timeoutNanos), concurrency, currentQueries, anchor);
   }
 
   public VisualAnswerResult answer(Actor actor, AnswerCommand command) {
@@ -480,7 +515,7 @@ public final class VisualAnswerService implements AutoCloseable {
   }
 
   private boolean configurationCurrent() {
-    return target.modelRevision().equals(text.revision())
+    return textRevision.equals(text.revision())
         && target.projectionIdentity().equals(projection.identity())
         && visualRevision.equals(vision.revision());
   }

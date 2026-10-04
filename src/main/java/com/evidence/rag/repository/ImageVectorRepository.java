@@ -3,14 +3,18 @@ package com.evidence.rag.repository;
 import static com.evidence.rag.repository.AuthorityRows.integer;
 import static com.evidence.rag.repository.AuthorityRows.text;
 
+import com.evidence.rag.model.domain.ImageVectorBinding;
 import com.evidence.rag.model.domain.ImageVectorPublication;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.VectorBindingIdentity;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** SQL boundary for immutable independent image-vector receipts; callers own transactions. */
@@ -103,5 +107,89 @@ public final class ImageVectorRepository {
               text(row, "created_at")));
     }
     return List.copyOf(found);
+  }
+
+  public void insertBinding(ImageVectorBinding binding, String createdAt) {
+    if (binding == null || binding.inheritedFromPublicationId() == null) {
+      throw ModelValues.invalid();
+    }
+    store.execute(
+        "INSERT INTO image_vector_bindings(publication_id,origin_vector_publication_id,inherited_from_publication_id,binding_sha256,created_at,model_rebuild_id) VALUES(?,?,?,?,?,?)",
+        binding.basePublication().publicationId(),
+        binding.origin().id(),
+        binding.inheritedFromPublicationId(),
+        binding.bindingSha256(),
+        createdAt,
+        binding.modelRebuildId());
+  }
+
+  public List<ImageVectorBinding> findBindings(
+      String workspaceId, List<PublicationVersion> publications, IndexTarget target) {
+    if (target == null || publications == null) {
+      throw ModelValues.invalid();
+    }
+    var result = new ArrayList<ImageVectorBinding>();
+    var unique = new HashSet<String>();
+    for (var base : publications) {
+      if (base == null || !unique.add(base.publicationId())) {
+        throw ModelValues.invalid();
+      }
+      result.addAll(bindings(workspaceId, base, target));
+    }
+    return List.copyOf(result);
+  }
+
+  public List<ImageVectorBinding> allBindings(String workspaceId, PublicationVersion base) {
+    return bindings(workspaceId, base, null);
+  }
+
+  private List<ImageVectorBinding> bindings(
+      String workspace, PublicationVersion base, IndexTarget target) {
+    VectorBindingRows.requireBase(store, workspace, base);
+    var result = new ArrayList<ImageVectorBinding>();
+    var profiles = new HashSet<IndexTarget>();
+    for (var row :
+        VectorBindingRows.candidates(
+            store, "image_vector_publications", "image_vector_bindings", base, target)) {
+      var originBase =
+          VectorBindingRows.publication(
+              store, workspace, AuthorityRows.text(row, "publication_id"));
+      var origins = findPublications(workspace, List.of(originBase), VectorBindingRows.target(row));
+      var origin =
+          origins.stream()
+              .filter(v -> v.id().equals(AuthorityRows.text(row, "id")))
+              .findFirst()
+              .orElseThrow(ModelValues::invalid);
+      if (!profiles.add(origin.target())
+          || store.count(
+                  "SELECT COUNT(*) FROM image_evidence i WHERE i.id=? AND i.revision_id=?",
+                  origin.imageEvidenceId(),
+                  base.sourceRevisionId())
+              != 1
+          || !VectorBindingRows.physical(store, originBase, origin.imageEvidenceId(), true)
+              .equals(origin.basePhysicalSegmentId())) {
+        throw ModelValues.invalid();
+      }
+      String current = VectorBindingRows.physical(store, base, origin.imageEvidenceId(), true);
+      String from = AuthorityRows.text(row, "inherited_from_publication_id");
+      VectorBindingRows.requireProvenance(store, base, from, origin.id(), true);
+      String modelRebuild = AuthorityRows.text(row,"model_rebuild_id");
+      VectorBindingRows.requireModelRebuildProvenance(store,base,from,origin.id(),modelRebuild,true);
+      String digest = VectorBindingIdentity.imageSha256(base, origin, current, from, modelRebuild);
+      if (from != null && !digest.equals(AuthorityRows.text(row, "binding_sha256"))) {
+        throw ModelValues.invalid();
+      }
+      var binding = new ImageVectorBinding(base, origin, current, from, digest, modelRebuild);
+      if (!VectorBindingIdentity.manifestSha256(
+              workspace,
+              base.documentId(),
+              origin.vectorGenerationId(),
+              Map.of(origin.vectorPhysicalSegmentId(), origin.entrySha256()))
+          .equals(origin.manifestSha256())) {
+        throw ModelValues.invalid();
+      }
+      result.add(binding);
+    }
+    return List.copyOf(result);
   }
 }

@@ -6,6 +6,7 @@ import com.evidence.rag.model.dto.DocumentActionCommand;
 import com.evidence.rag.model.dto.DocumentPatchCommand;
 import com.evidence.rag.model.query.DocumentQuery;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,16 +40,36 @@ public final class ManagementRequestMapper {
   }
 
   public static DocumentActionCommand action(Map<String, Object> body) {
-    fields(body, Set.of("document_ids", "action", "folder_id", "tags"));
+    fields(body, Set.of("document_ids", "action", "folder_id", "tags", "base_publication_ids"));
     String action = text(body.get("action"));
-    // Unimplemented lifecycle operations reject independently of their optional action fields.
-    boolean lifecycle = "delete".equals(action) || "reindex".equals(action);
+    boolean reindex = "reindex".equals(action);
+    if (reindex && (body.containsKey("folder_id") || body.containsKey("tags"))
+        || !reindex && body.containsKey("base_publication_ids")) {
+      throw invalid();
+    }
+    // The separate cleanup operation still owns deletion; retain its existing rejection.
+    boolean deletion = "delete".equals(action);
     return new DocumentActionCommand(
         strings(body.get("document_ids")),
         action,
         body.containsKey("folder_id"),
-        lifecycle ? null : text(body.get("folder_id")),
-        lifecycle ? null : strings(body.get("tags")));
+        deletion ? null : text(body.get("folder_id")),
+        deletion ? null : strings(body.get("tags")),
+        reindex ? publications(body.get("base_publication_ids")) : null);
+  }
+
+  private static Map<String, String> publications(Object value) {
+    if (!(value instanceof Map<?, ?> values) || values.isEmpty() || values.size() > 100) {
+      throw invalid();
+    }
+    var result = new LinkedHashMap<String, String>();
+    for (var entry : values.entrySet()) {
+      if (!(entry.getKey() instanceof String id) || !(entry.getValue() instanceof String publication)) {
+        throw invalid();
+      }
+      result.put(id, publication);
+    }
+    return result;
   }
 
   public static String folderName(Map<String, Object> body) {

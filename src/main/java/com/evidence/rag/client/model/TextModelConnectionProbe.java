@@ -1,5 +1,6 @@
 package com.evidence.rag.client.model;
 
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import com.evidence.rag.model.domain.TextModelRole;
 import java.io.ByteArrayOutputStream;
@@ -23,10 +24,12 @@ import java.util.concurrent.TimeoutException;
 
 /** Explicit one-request probes over fixed synthetic material, never library content. */
 public final class TextModelConnectionProbe {
+  public static final URI DEEPSEEK_BASE_URL = URI.create("https://api.deepseek.com");
   private static final String QUESTION = "合成资料中的核验词是什么？";
   private static final String RELEVANT = "合成资料中的核验词是青松。";
   private static final String OTHER = "这条合成资料描述一张空白纸。";
   private final URI provider;
+  private final URI deepseekProvider;
   private final Duration deadline;
   private final int maxResponseBytes;
   private final boolean loopback;
@@ -57,7 +60,27 @@ public final class TextModelConnectionProbe {
       int maxResponseBytes,
       boolean allowLoopbackHttp,
       Projection projection) {
+    this(
+        providerBaseUrl,
+        deadline,
+        maxResponseBytes,
+        allowLoopbackHttp,
+        projection,
+        DEEPSEEK_BASE_URL);
+  }
+
+  public TextModelConnectionProbe(
+      URI providerBaseUrl,
+      Duration deadline,
+      int maxResponseBytes,
+      boolean allowLoopbackHttp,
+      Projection projection,
+      URI deepseekProviderBaseUrl) {
     validateUri(providerBaseUrl, allowLoopbackHttp, false);
+    if (deepseekProviderBaseUrl == null
+        || !TextIndexAnchor.isDeepSeekEndpoint(deepseekProviderBaseUrl.toASCIIString())) {
+      throw new IllegalArgumentException("Invalid trusted DeepSeek endpoint");
+    }
     if (deadline == null
         || deadline.toMillis() < 1
         || deadline.toMillis() > 60000
@@ -69,6 +92,7 @@ public final class TextModelConnectionProbe {
       validateUri(projection.endpoint(), allowLoopbackHttp, true);
     }
     this.provider = providerBaseUrl;
+    this.deepseekProvider = deepseekProviderBaseUrl;
     this.deadline = deadline;
     this.maxResponseBytes = maxResponseBytes;
     this.loopback = allowLoopbackHttp;
@@ -90,9 +114,18 @@ public final class TextModelConnectionProbe {
     try (var models =
         new OpenAiCompatibleModels(
             new OpenAiCompatibleModels.Configuration(
-                endpoint(configuration.embedding().model(), configuration.embedding().apiKey()),
-                endpoint(configuration.rerank().model(), configuration.rerank().apiKey()),
-                endpoint(configuration.generation().model(), configuration.generation().apiKey()),
+                endpoint(
+                    configuration.embedding().provider(),
+                    configuration.embedding().model(),
+                    configuration.embedding().apiKey()),
+                endpoint(
+                    configuration.rerank().provider(),
+                    configuration.rerank().model(),
+                    configuration.rerank().apiKey()),
+                endpoint(
+                    configuration.generation().provider(),
+                    configuration.generation().model(),
+                    configuration.generation().apiKey()),
                 configuration.embedding().dimensions(),
                 deadline,
                 maxResponseBytes,
@@ -118,8 +151,14 @@ public final class TextModelConnectionProbe {
     }
   }
 
-  private OpenAiCompatibleModels.Endpoint endpoint(String model, String key) {
-    return new OpenAiCompatibleModels.Endpoint(provider, model, key);
+  private OpenAiCompatibleModels.Endpoint endpoint(String name, String model, String key) {
+    URI selected =
+        switch (name) {
+          case "siliconflow" -> provider;
+          case "deepseek" -> deepseekProvider;
+          default -> throw new IllegalArgumentException("Invalid model provider");
+        };
+    return new OpenAiCompatibleModels.Endpoint(selected, model, key);
   }
 
   private String projectionTest() {

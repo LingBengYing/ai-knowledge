@@ -7,10 +7,12 @@ import com.evidence.rag.job.DocumentCleanupJob;
 import com.evidence.rag.repository.DocumentCleanupRepository;
 import com.evidence.rag.repository.DocumentLifecycleRepository;
 import com.evidence.rag.repository.ManagementRepository;
+import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.DocumentCleanupService;
 import java.util.ArrayList;
+import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -47,7 +49,10 @@ public class DocumentCleanupConfiguration {
       ObjectProvider<ImageEmbeddingSettings> images,
       ObjectProvider<AudioEmbeddingSettings> audio,
       ObjectProvider<SoundSettings> sound,
-      ObjectProvider<VideoAvSettings> video) {
+      ObjectProvider<VideoAvSettings> video,
+      ObjectProvider<ManagedTextSettings> managed,
+      SqliteAuthorityStore store,
+      RagProperties properties) {
     var targets = new ArrayList<MilvusRestProjection.Settings>();
     text.ifAvailable(settings -> targets.add(settings.projection()));
     images.ifAvailable(settings -> targets.add(settings.projection()));
@@ -58,7 +63,26 @@ public class DocumentCleanupConfiguration {
           targets.add(settings.visualProjection());
           targets.add(settings.audioProjection());
         });
-    return new MilvusProjectionCleanup(targets);
+    return new MilvusProjectionCleanup(targets, target -> {
+      var settings = managed.getIfAvailable();
+      if (settings == null || !properties.workspaceId().equals(target.workspaceId())
+          || !target.collection().matches("java_text_v[0-9]+_[a-f0-9]+")
+          || !store.transaction(() -> new ModelRebuildRepository(store).registeredTarget(target))) {
+        return Optional.empty();
+      }
+      var connection = settings.projection();
+      if (connection == null
+          || !connection.endpoint().resolve("/").toASCIIString().equals(target.endpoint())
+          || !connection.database().equals(target.database())) {
+        return Optional.empty();
+      }
+      var candidate = new MilvusRestProjection.Settings(
+          connection.endpoint(), connection.token(), connection.database(), target.collection(),
+          target.workspaceId(), target.embeddingIdentity(), target.dimensions(),
+          settings.deadline(), settings.maxBytes(), settings.loopback());
+      return MilvusProjectionCleanup.qualified(candidate).equals(target)
+          ? Optional.of(candidate) : Optional.empty();
+    });
   }
 
   @Bean

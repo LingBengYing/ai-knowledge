@@ -2,6 +2,11 @@ package com.evidence.rag.tool.answer;
 
 import com.evidence.rag.model.domain.ModelValues;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -41,6 +46,20 @@ final class QuestionFacts {
       Pattern.compile("^(?:详?见|参见|参考|请?(?:查看|查阅)|see\\b|refer\\b)", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXCLUDED_NUMERIC_SEQUENCE =
       Pattern.compile("^not\\s+\\p{Nd}++(?:[ \\t]*+[,，][ \\t]*+\\p{Nd}++)++$");
+  private static final Pattern LAUNCH_DATE_QUESTION =
+      Pattern.compile("^when\\s+(?:does|did)\\s+(.+?)\\s+launch$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LAUNCH_DATE_STATEMENT =
+      Pattern.compile(
+          "^(.+?)\\s+(?:launch|launches|launched)\\s+(?:on\\s+)?"
+              + "((?:January|February|March|April|May|June|July|August|September|October|November|December)"
+              + "\\s+(?:0?[1-9]|[12][0-9]|3[01]),?\\s+[0-9]{4})$",
+          Pattern.CASE_INSENSITIVE);
+  private static final DateTimeFormatter LAUNCH_DATE_FORMAT =
+      new DateTimeFormatterBuilder()
+          .parseCaseInsensitive()
+          .appendPattern("MMMM d uuuu")
+          .toFormatter(Locale.ENGLISH)
+          .withResolverStyle(ResolverStyle.STRICT);
 
   private QuestionFacts() {}
 
@@ -52,6 +71,19 @@ final class QuestionFacts {
     for (String clause : question.split("[？?。！!；;\\r\\n]+")) {
       String stem = clause.strip().replaceFirst("^(?:请问|请说明|请告诉我|告诉我)", "").strip();
       if (stem.isEmpty()) {
+        continue;
+      }
+      var launchDate = LAUNCH_DATE_QUESTION.matcher(stem);
+      if (launchDate.matches()) {
+        String subject = launchDate.group(1).strip();
+        if (subject.length() < 2
+            || subject.matches("(?i).*\\b(?:not|never|if|unless|when|while|before|after)\\b.*")) {
+          return List.of();
+        }
+        facts.add(new LaunchDateFact(subject));
+        if (facts.size() > MAX_FACTS) {
+          return List.of();
+        }
         continue;
       }
       Fact procedure = procedureQuestion(stem);
@@ -161,10 +193,28 @@ final class QuestionFacts {
     return new ProcedureFact(operation.replaceFirst("^(?:设备|系统|装置|机器|终端)", ""));
   }
 
-  sealed interface Fact permits ScalarFact, ColorFact, BooleanFact, ProcedureFact {
+  sealed interface Fact permits ScalarFact, ColorFact, BooleanFact, ProcedureFact, LaunchDateFact {
     String value(String field);
 
     String requirement();
+
+    default String value(
+        SourceFields.Field field, String page, List<SourceFields.Field> fields,
+        int fragmentStart, int fragmentEnd) {
+      return value(field.text());
+    }
+
+    default SourceFields.Field subjectBinding(
+        SourceFields.Field field, String page, List<SourceFields.Field> fields,
+        int fragmentStart, int fragmentEnd) {
+      return null;
+    }
+
+    default boolean matches(
+        SourceFields.Field field, String page, List<SourceFields.Field> fields,
+        int fragmentStart, int fragmentEnd) {
+      return value(field, page, fields, fragmentStart, fragmentEnd) != null;
+    }
 
     default boolean wholeSentence() {
       return false;
@@ -179,11 +229,113 @@ final class QuestionFacts {
     }
   }
 
+  private record LaunchDateFact(String subject) implements Fact {
+    @Override
+    public String value(String field) {
+      var assertion = LAUNCH_DATE_STATEMENT.matcher(SourceFields.statement(field).strip());
+      if (!assertion.matches() || !normalize(subject).equals(normalize(assertion.group(1)))) {
+        return null;
+      }
+      try {
+        // The date is parsed only from this exact subject/predicate assertion. Original bytes and
+        // quote ranges remain unchanged; a canonical value only compares conflicting dates.
+        String literal = assertion.group(2).replace(",", "").replaceAll("\\s+", " ");
+        return LocalDate.parse(literal, LAUNCH_DATE_FORMAT).toString();
+      } catch (DateTimeParseException invalidDate) {
+        return null;
+      }
+    }
+
+    @Override
+    public String requirement() {
+      return "launch-date\n" + normalize(subject);
+    }
+  }
+
   private record ScalarFact(String relation, Quantity quantity) implements Fact {
     @Override
     public String value(String field) {
-      String normalized = normalize(SourceFields.statement(field));
+      String value = scalarValue(field, relation);
+      var qualified = qualified();
+      if (value == null && qualified != null && qualified.subject().endsWith("项目")) {
+        value = scalarValue(field, qualified.subject() + qualified.field());
+        if (value == null) {
+          value = scalarValue(field, qualified.subject() + "的" + qualified.field());
+        }
+      }
+      return accepted(value);
+    }
+
+    @Override
+    public String value(
+        SourceFields.Field field, String page, List<SourceFields.Field> fields,
+        int fragmentStart, int fragmentEnd) {
+      String direct = value(field.text());
+      if (direct != null) {
+        return direct;
+      }
+      var qualified = qualified();
+      if (qualified == null || subjectBinding(field, page, fields, fragmentStart, fragmentEnd) == null) {
+        return null;
+      }
+      String value = scalarValue(field.text(), qualified.field());
+      if ("名称".equals(qualified.field())) {
+        if (value == null) {
+          value = scalarValue(field.text(), "项目名称");
+        }
+        if (value == null) {
+          value = scalarValue(field.text(), "项目名");
+        }
+      }
+      return accepted(value);
+    }
+
+    @Override
+    public SourceFields.Field subjectBinding(
+        SourceFields.Field field, String page, List<SourceFields.Field> fields,
+        int fragmentStart, int fragmentEnd) {
+      if (value(field.text()) != null) {
+        return null;
+      }
+      var qualified = qualified();
+      return qualified == null ? null
+          : SourceFields.projectBinding(page, fields, qualified.subject(), fragmentStart, fragmentEnd);
+    }
+
+    private Qualified qualified() {
       String key = normalize(relation);
+      int possessive = key.lastIndexOf('的');
+      String subject;
+      String field;
+      if (possessive > 0) {
+        subject = key.substring(0, possessive);
+        field = key.substring(possessive + 1);
+      } else {
+        int project = key.lastIndexOf("项目");
+        if (project <= 0 || project + 2 >= key.length()) {
+          return null;
+        }
+        subject = key.substring(0, project + 2);
+        field = key.substring(project + 2);
+      }
+      if (!List.of("名称", "计划启动日期", "启动日期", "计划预算", "预算").contains(field)) {
+        return null;
+      }
+      return new Qualified(subject, field);
+    }
+
+    private String accepted(String value) {
+      return value == null || REFERENCE_ONLY.matcher(value).find()
+          || (quantity != null && !quantity.accepts(value)) ? null : value;
+    }
+
+    private static String scalarValue(String field, String relation) {
+      String key = normalize(relation);
+      String layout = SourceFields.layoutValue(field, key);
+      if (layout != null) {
+        return normalize(layout);
+      }
+      String normalized = normalize(SourceFields.statement(field));
       if (!normalized.startsWith(key)) {
         return null;
       }
@@ -191,19 +343,25 @@ final class QuestionFacts {
       if (!(payload.matches("^(?:是|为|[:：=]).+") || payload.matches("^(?:is|are)\\s+.+"))) {
         return null;
       }
-      String value = payload.replaceFirst("^(?:是|为|[:：=]|is\\s+|are\\s+)\\s*", "");
-      return REFERENCE_ONLY.matcher(value).find() || (quantity != null && !quantity.accepts(value))
-          ? null
-          : value;
+      return payload.replaceFirst("^(?:是|为|[:：=]|is\\s+|are\\s+)\\s*", "");
     }
 
     @Override
     public boolean matches(String field) {
       String value = value(field);
-      // An excluded sequence may veto a conflicting assertion but never supplies its actual
-      // value. Ordinary negative states such as "not enabled" remain valid literal answers.
       return value != null && !EXCLUDED_NUMERIC_SEQUENCE.matcher(value).matches();
     }
+
+    @Override
+    public boolean matches(
+        SourceFields.Field field, String page, List<SourceFields.Field> fields,
+        int fragmentStart, int fragmentEnd) {
+      String value = value(field, page, fields, fragmentStart, fragmentEnd);
+      // Excluded numeric sequences may conflict, but never supply a positive sequence answer.
+      return value != null && !EXCLUDED_NUMERIC_SEQUENCE.matcher(value).matches();
+    }
+
+    private record Qualified(String subject, String field) {}
 
     @Override
     public String requirement() {

@@ -28,6 +28,7 @@ import com.evidence.rag.model.query.DocumentQuery;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
+import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.VideoAvRepository;
@@ -43,6 +44,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.BiPredicate;
+import java.util.function.Supplier;
 
 /**
  * Metadata use cases and current permissions. Every authority view and edit has one transaction.
@@ -58,6 +61,8 @@ public final class ManagementService {
   private final IndexingRepository indexing;
   private final DocumentPermissionPolicy permissions;
   private final boolean reindexEnabled;
+  private final BiPredicate<Actor, String> reindexEligibility;
+  private final Supplier<IndexingTaskProcessor> reindexProcessor;
 
   public ManagementService(
       SqliteAuthorityStore store,
@@ -75,12 +80,48 @@ public final class ManagementService {
       IndexingRepository indexing,
       DocumentPermissionPolicy permissions,
       boolean reindexEnabled) {
+    this(
+        store,
+        management,
+        ingestion,
+        indexing,
+        permissions,
+        reindexEnabled,
+        (actor, documentId) -> indexing.canReindex(documentId));
+  }
+
+  /**
+   * Installed continuation path supplies current authority and exact runtime target eligibility.
+   */
+  public ManagementService(
+      SqliteAuthorityStore store,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      IndexingRepository indexing,
+      DocumentPermissionPolicy permissions,
+      boolean reindexEnabled,
+      BiPredicate<Actor, String> reindexEligibility) {
+    this(store, management, ingestion, indexing, permissions, reindexEnabled, reindexEligibility, null);
+  }
+
+  /** The processor is resolved only for an admitted explicit batch action. */
+  public ManagementService(
+      SqliteAuthorityStore store,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      IndexingRepository indexing,
+      DocumentPermissionPolicy permissions,
+      boolean reindexEnabled,
+      BiPredicate<Actor, String> reindexEligibility,
+      Supplier<IndexingTaskProcessor> reindexProcessor) {
     this.store = Objects.requireNonNull(store);
     this.management = Objects.requireNonNull(management);
     this.ingestion = Objects.requireNonNull(ingestion);
     this.indexing = Objects.requireNonNull(indexing);
     this.permissions = Objects.requireNonNull(permissions);
     this.reindexEnabled = reindexEnabled;
+    this.reindexEligibility = Objects.requireNonNull(reindexEligibility);
+    this.reindexProcessor = reindexProcessor;
   }
 
   public void registerSyntheticDocument(
@@ -126,7 +167,9 @@ public final class ManagementService {
         () -> {
           long total = management.countDocuments(actor, query);
           var items =
-              management.findDocuments(actor, query).stream().map(this::documentResult).toList();
+              management.findDocuments(actor, query).stream()
+                  .map(document -> documentResult(actor, document))
+                  .toList();
           return new DocumentPageResult(
               items,
               total,
@@ -274,7 +317,7 @@ public final class ManagementService {
     var document =
         management.findAuthorizedDocument(actor, id, requireWrite).orElseThrow(() -> notFound());
     permissions.require(document.currentRole(), requireWrite);
-    return documentResult(document);
+    return documentResult(actor, document);
   }
 
   /** Reuses the manual append rules and audit in the caller's single authority transaction. */
@@ -305,7 +348,21 @@ public final class ManagementService {
     if (action == null) {
       throw invalid();
     }
-    if (action.equals("delete") || action.equals("reindex")) {
+    if (action.equals("reindex")) {
+      if (command.folderIdPresent() || command.tags() != null
+          || command.basePublicationIds() == null
+          || !command.basePublicationIds().keySet().equals(ids)) {
+        throw invalid();
+      }
+      for (String base : command.basePublicationIds().values()) {
+        identifier(base, 100);
+      }
+      return reindexDocuments(actor, ids, command.basePublicationIds());
+    }
+    if (command.basePublicationIds() != null) {
+      throw invalid();
+    }
+    if (action.equals("delete")) {
       throw new ApplicationException(
           FailureKind.NOT_IMPLEMENTED, "migration_incomplete", "Java 版尚未移植资料生命周期操作。");
     }
@@ -335,6 +392,41 @@ public final class ManagementService {
         results.add(new DocumentActionResult(id, true, null, null));
       } catch (ApplicationException failure) {
         results.add(new DocumentActionResult(id, false, failure.code(), failure.getMessage()));
+      }
+    }
+    return List.copyOf(results);
+  }
+
+  private List<DocumentActionResult> reindexDocuments(
+      Actor actor, Set<String> documentIds, Map<String, String> basePublicationIds) {
+    var results = new ArrayList<DocumentActionResult>();
+    try (var operation = store.operationGate().enter()) {
+      IndexingTaskProcessor processor;
+      try {
+        if (store.transaction(() -> new ModelRebuildRepository(store).hasPending())) {
+          throw new ApplicationException(
+              FailureKind.CONFLICT, "model_rebuild_in_progress",
+              "模型索引正在重建；完成后可继续重建资料。现有资料仍可查询。");
+        }
+        processor = reindexEnabled && reindexProcessor != null ? reindexProcessor.get() : null;
+        if (processor == null) {
+          throw new ApplicationException(
+              FailureKind.UNAVAILABLE, "indexing_unavailable", "当前文字索引服务尚未启用。");
+        }
+      } catch (ApplicationException failure) {
+        for (String id : documentIds) {
+          results.add(new DocumentActionResult(id, false, failure.code(), failure.getMessage()));
+        }
+        return List.copyOf(results);
+      }
+      for (String id : documentIds) {
+        try {
+          processor.reindex(actor, id, basePublicationIds.get(id));
+          results.add(new DocumentActionResult(
+              id, true, null, "已创建后台文本索引任务；当前索引仍可查询，完整重建成功后才切换。"));
+        } catch (ApplicationException failure) {
+          results.add(new DocumentActionResult(id, false, failure.code(), failure.getMessage()));
+        }
       }
     }
     return List.copyOf(results);
@@ -409,10 +501,10 @@ public final class ManagementService {
         values("display_name", displayName, "folder_id", folderId, "tags", nextTags),
         fields);
     return documentResult(
-        management.findAuthorizedDocument(actor, id, true).orElseThrow(() -> notFound()));
+        actor, management.findAuthorizedDocument(actor, id, true).orElseThrow(() -> notFound()));
   }
 
-  private DocumentResult documentResult(DocumentEntity document) {
+  private DocumentResult documentResult(Actor actor, DocumentEntity document) {
     permissions.require(document.currentRole(), false);
     var evidence = management.evidence(document.id()).orElse(null);
     var sound =
@@ -531,7 +623,7 @@ public final class ManagementService {
         reindexEnabled
             && !synthetic
             && permissions.canEdit(document.currentRole())
-            && indexing.canReindex(document.id()));
+            && reindexEligibility.test(actor, document.id()));
   }
 
   private List<FolderResult> folderResults(Actor actor) {

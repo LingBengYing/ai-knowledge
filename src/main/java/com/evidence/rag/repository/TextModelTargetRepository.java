@@ -17,7 +17,7 @@ public final class TextModelTargetRepository {
         store.count(
             """
         SELECT COUNT(*) FROM indexing_jobs j JOIN documents d ON d.id=j.document_id
-        WHERE d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+        WHERE d.workspace_id=? AND j.model_rebuild_id IS NULL AND j.state IN ('queued','processing') AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         AND (j.embedding_identity!=? OR j.projection_identity!=? OR j.model_revision!=? OR j.dimensions!=?)
         """,
             workspaceId,
@@ -37,18 +37,6 @@ public final class TextModelTargetRepository {
             target.embeddingIdentity(),
             target.projectionIdentity(),
             target.modelRevision(),
-            target.dimensions());
-    conflicts +=
-        store.count(
-            """
-        SELECT COUNT(*) FROM cleanup_projection_attempts p JOIN documents d ON d.id=p.document_id
-        WHERE d.workspace_id=? AND p.route='legacy'
-        AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
-        AND (p.embedding_identity!=? OR p.projection_identity!=? OR p.dimensions!=?)
-        """,
-            workspaceId,
-            target.embeddingIdentity(),
-            target.projectionIdentity(),
             target.dimensions());
     if (conflicts != 0) {
       throw new ApplicationException(

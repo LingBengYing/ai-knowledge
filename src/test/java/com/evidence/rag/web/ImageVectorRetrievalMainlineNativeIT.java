@@ -153,7 +153,7 @@ class ImageVectorRetrievalMainlineNativeIT {
         assertEquals(2, remote.imageEmbeddings(), "An existing qualified receipt is idempotent");
         assertTrue(originalPublication.path("can_reindex").asBoolean());
         var expectedPublication = ((ObjectNode) originalPublication).deepCopy();
-        expectedPublication.put("can_reindex", false);
+        expectedPublication.put("can_reindex", true);
         assertEquals(
             expectedPublication,
             row(http, base, oldDocument),

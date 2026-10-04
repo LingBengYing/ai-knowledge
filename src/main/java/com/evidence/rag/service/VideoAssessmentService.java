@@ -24,11 +24,15 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.function.BooleanSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Group-local proof Module; callers still own full authorization, retrieval and durable trace. */
 public final class VideoAssessmentService {
+  private static final Logger LOG = LoggerFactory.getLogger(VideoAssessmentService.class);
   public static final String POLICY_REVISION =
       "java-video-assessment-v1:"
           + ModelValues.sha256(
@@ -114,6 +118,7 @@ public final class VideoAssessmentService {
     var factIds =
         plan.map(p -> p.facts().stream().map(QuestionFact::id).toList()).orElse(List.of());
     var proofs = new ArrayList<VideoFactProof>();
+    var diagnostic = new AssessmentDiagnostic();
     String refusal = null;
     try {
       check(current, started, textRevision, visionRevision);
@@ -125,13 +130,15 @@ public final class VideoAssessmentService {
         throw new Stopped("incomplete_evidence");
       }
       if (frame != null && mode != VideoAssessment.Mode.TRANSCRIPT) {
+        diagnostic.stage = "frame_validation";
         validateFrame(frame);
       }
       for (var fact : plan.orElseThrow().facts()) {
         List<String> claims =
             mode == VideoAssessment.Mode.TRANSCRIPT
                 ? List.of()
-                : visual(question, fact, frame, current, started, textRevision, visionRevision);
+                : visual(question, fact, frame, current, started, textRevision, visionRevision, diagnostic);
+        diagnostic.stage = "evidence_check";
         // Counterevidence is independent of whether the extraction model chose to quote it.
         // This can only veto a result; it never adds transcript support to the proof.
         if (!claims.isEmpty()
@@ -143,7 +150,8 @@ public final class VideoAssessmentService {
             mode == VideoAssessment.Mode.VISUAL
                 ? List.of()
                 : transcript(
-                    question, fact, transcript, current, started, textRevision, visionRevision);
+                    question, fact, transcript, current, started, textRevision, visionRevision, diagnostic);
+        diagnostic.stage = "evidence_check";
         check(current, started, textRevision, visionRevision);
         if (claims.isEmpty() && quotes.isEmpty()) {
           throw new Stopped("incomplete_evidence");
@@ -163,8 +171,12 @@ public final class VideoAssessmentService {
       }
       check(current, started, textRevision, visionRevision);
     } catch (Stopped stopped) {
+      if ("model_failure".equals(stopped.reason)) {
+        logFailure(diagnostic, mode, started, stopped, "model_result_invalid");
+      }
       refusal = stopped.reason;
     } catch (TextModels.Failure failed) {
+      logFailure(diagnostic, mode, started, failed, diagnosticCode(failed.code()));
       if ("model_interrupted".equals(failed.code())) {
         Thread.currentThread().interrupt();
       }
@@ -193,9 +205,13 @@ public final class VideoAssessmentService {
       BooleanSupplier current,
       long started,
       String textRevision,
-      String visionRevision) {
+      String visionRevision,
+      AssessmentDiagnostic diagnostic) {
+    diagnostic.stage = "visual_draft_preflight";
     check(current, started, textRevision, visionRevision);
+    diagnostic.stage = "visual_draft";
     var draft = vision.draftFact(question, fact, frame.image());
+    diagnostic.stage = "visual_draft_validation";
     check(current, started, textRevision, visionRevision);
     if (draft == null
         || (draft.refused() ? !draft.claims().isEmpty() : !validClaims(draft.claims()))) {
@@ -204,8 +220,11 @@ public final class VideoAssessmentService {
     if (draft.refused()) {
       return List.of();
     }
+    diagnostic.stage = "visual_verify_preflight";
     check(current, started, textRevision, visionRevision);
+    diagnostic.stage = "visual_verify";
     var verified = vision.verifyFact(question, fact, frame.image(), draft.claims());
+    diagnostic.stage = "visual_verify_validation";
     check(current, started, textRevision, visionRevision);
     if (verified == null || verified.supported().size() != draft.claims().size()) {
       throw new Stopped("model_failure");
@@ -222,13 +241,17 @@ public final class VideoAssessmentService {
       BooleanSupplier current,
       long started,
       String textRevision,
-      String visionRevision) {
+      String visionRevision,
+      AssessmentDiagnostic diagnostic) {
+    diagnostic.stage = "transcript_extract_preflight";
     check(current, started, textRevision, visionRevision);
+    diagnostic.stage = "transcript_extract";
     var extraction =
         text.extractFact(
             question,
             fact,
             List.of(new TextModels.Evidence(candidate.physicalId(), candidate.snippet())));
+    diagnostic.stage = "transcript_extract_validation";
     check(current, started, textRevision, visionRevision);
     if (extraction == null || extraction.refused() != extraction.quotes().isEmpty()) {
       throw new Stopped("model_failure");
@@ -240,6 +263,7 @@ public final class VideoAssessmentService {
         extraction.quotes().stream()
             .map(q -> new GroundingQuote(q.evidenceId(), q.quote()))
             .toList();
+    diagnostic.stage = "transcript_grounding";
     var grounding = new TextGrounding().verifyFact(question, fact, List.of(candidate), input);
     check(current, started, textRevision, visionRevision);
     if (grounding.supported()) {
@@ -338,6 +362,42 @@ public final class VideoAssessmentService {
                         && !c.isBlank()
                         && c.codePointCount(0, c.length()) <= 1024
                         && c.codePoints().noneMatch(p -> p == 0 || (p >= 0xD800 && p <= 0xDFFF)));
+  }
+
+  private static void logFailure(
+      AssessmentDiagnostic diagnostic,
+      VideoAssessment.Mode mode,
+      long started,
+      RuntimeException failure,
+      String code) {
+    LOG.warn(
+        "video_assessment_failed assessment_id={} mode={} stage={} failure_type={} failure_code={} elapsed_ms={}",
+        diagnostic.id,
+        mode.name(),
+        diagnostic.stage,
+        failure.getClass().getName(),
+        code,
+        Math.max(0, (System.nanoTime() - started) / 1_000_000));
+  }
+
+  private static String diagnosticCode(String code) {
+    return switch (code == null ? "" : code) {
+      case "model_timeout",
+          "model_interrupted",
+          "model_http_failed",
+          "model_transport_failed",
+          "model_invalid_response",
+          "model_response_too_large",
+          "model_invalid_input",
+          "model_invalid_configuration",
+          "model_closed" -> code;
+      default -> "model_failure_unclassified";
+    };
+  }
+
+  private static final class AssessmentDiagnostic {
+    private final String id = UUID.randomUUID().toString();
+    private String stage = "preflight";
   }
 
   private static final class Stopped extends RuntimeException {

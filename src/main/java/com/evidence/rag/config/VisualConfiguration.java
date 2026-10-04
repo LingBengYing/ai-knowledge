@@ -21,7 +21,7 @@ import org.springframework.core.env.Environment;
 
 /** Explicit local opt-in. Creates clients but never submits model or index requests at startup. */
 @Configuration(proxyBeanMethods = false)
-@Conditional(LegacyTextCondition.class)
+@Conditional(MediaModulesCondition.class)
 @ConditionalOnProperty(prefix = "rag.visual", name = "enabled", havingValue = "true")
 public class VisualConfiguration {
   @Bean(destroyMethod = "close")
@@ -57,6 +57,7 @@ public class VisualConfiguration {
   }
 
   @Bean(destroyMethod = "close")
+  @Conditional(LegacyTextCondition.class)
   VisualAnswerService visualAnswerService(
       EvidenceService evidence,
       TextModels text,

@@ -5,12 +5,14 @@ import com.evidence.rag.client.model.TextModelConnectionProbe;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.job.IndexingJob;
+import com.evidence.rag.job.ModelRebuildJob;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelConfigurationState;
 import com.evidence.rag.repository.ModelConfigurationRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.TextModelTargetRepository;
 import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
+import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.IndexingService;
@@ -18,12 +20,15 @@ import com.evidence.rag.service.IndexingTaskProcessor;
 import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.ModelConfigurationService;
-import com.evidence.rag.service.QueryAttachmentService;
+import com.evidence.rag.service.ModelRebuildService;
+import com.evidence.rag.service.ReindexVectorVerifier;
 import com.evidence.rag.service.TextRetrievalTestService;
 import com.evidence.rag.service.TextRuntimeSnapshot;
-import com.evidence.rag.service.VideoAnswerProposalService;
+import com.evidence.rag.service.VisualAnswerService;
 import java.time.Duration;
+import java.util.Objects;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +38,18 @@ import org.springframework.core.env.ConfigurableEnvironment;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "rag.model-configuration", name = "enabled", havingValue = "true")
 public class ModelConfigurationConfiguration {
+  private final ObjectProvider<ReindexVectorVerifier> receiptVerifiers;
+
+  /** Compatibility for directly constructed configuration fixtures without media continuation. */
+  public ModelConfigurationConfiguration() {
+    this.receiptVerifiers = null;
+  }
+
+  @Autowired
+  public ModelConfigurationConfiguration(ObjectProvider<ReindexVectorVerifier> receiptVerifiers) {
+    this.receiptVerifiers = Objects.requireNonNull(receiptVerifiers);
+  }
+
   @Bean
   ManagedTextSettings managedTextSettings(ConfigurableEnvironment environment) {
     return new ManagedTextSettings(environment);
@@ -43,7 +60,7 @@ public class ModelConfigurationConfiguration {
       SqliteAuthorityStore store, ConfigurableEnvironment environment) {
     var repository =
         new ModelConfigurationRepository(
-            ManagedTextSettings.privateFile(store.libraryPath().getParent()));
+            ManagedTextSettings.privateFile(store.libraryPath().getParent()), store);
     try {
       var state = repository.read();
       if (state.version() == 0) {
@@ -76,7 +93,8 @@ public class ModelConfigurationConfiguration {
         settings.deadline(),
         settings.maxBytes(),
         settings.loopback(),
-        settings.projection());
+        settings.projection(),
+        settings.deepseekProvider());
   }
 
   @Bean(destroyMethod = "close")
@@ -89,48 +107,45 @@ public class ModelConfigurationConfiguration {
       AnswersSettings answerLimits,
       IndexingSettings indexLimits,
       ModelConfigurationRepository repository,
-      ObjectProvider<VideoAnswerProposalService> videos,
-      ObjectProvider<QueryAttachmentService> attachments) {
+      ManagedMediaTextFactory media) {
     var runtime =
         ManagedTextRuntime.anchored(
             store,
             (version, roles, savedAnchor) -> {
-              var adapters = settings.adapters(roles, properties.workspaceId());
+              var adapters = settings.adapters(roles, properties.workspaceId(), savedAnchor);
               var indexed = settings.indexAdapters(roles, savedAnchor, properties.workspaceId());
               var anchor =
                   savedAnchor == null ? settings.anchor(version, roles, indexed) : savedAnchor;
               var models = new OpenAiCompatibleModels(adapters.models());
               MilvusRestProjection projection = null;
               AnswerService answers = null;
+              VisualAnswerService visual = null;
               try {
                 projection = new MilvusRestProjection(adapters.projection());
                 var target = anchor.target();
+                var receiptVerifier =
+                    receiptVerifiers == null ? null : receiptVerifiers.getObject();
                 var processor =
-                    new IndexingTaskProcessor(
-                        indexing,
-                        properties.workspaceId(),
-                        indexed.models(),
-                        indexed.projection(),
-                        target,
-                        Duration.ofMillis(indexLimits.timeoutMs()));
-                // Media proposal modules keep their independently configured legacy graph.
-                boolean sameLegacy = false;
-                try {
-                  var legacy =
-                      ManagedTextSettings.legacy(settings.environment(), properties.workspaceId());
-                  try (var identity = new OpenAiCompatibleModels(legacy.models())) {
-                    sameLegacy =
-                        models.revision().equals(identity.revision())
-                            && target.equals(
-                                new IndexTarget(
-                                    legacy.projection().embeddingIdentity(),
-                                    legacy.projection().identity(),
-                                    identity.revision(),
-                                    legacy.projection().dimension()));
-                  }
-                } catch (RuntimeException absent) {
-                  /* No legacy graph is an ordinary first-setup state. */
-                }
+                    receiptVerifier == null
+                        ? new IndexingTaskProcessor(
+                            indexing,
+                            properties.workspaceId(),
+                            indexed.models(),
+                            indexed.projection(),
+                            target,
+                            Duration.ofMillis(indexLimits.timeoutMs()))
+                        : new IndexingTaskProcessor(
+                            indexing,
+                            properties.workspaceId(),
+                            indexed.models(),
+                            indexed.projection(),
+                            target,
+                            Duration.ofMillis(indexLimits.timeoutMs()),
+                            receiptVerifier);
+                var mediaBundle = media.build(models, projection, anchor);
+                var currentQueries = mediaBundle.queries();
+                var currentVideo = mediaBundle.video();
+                visual = mediaBundle.visual();
                 answers =
                     new AnswerService(
                         evidence,
@@ -139,8 +154,8 @@ public class ModelConfigurationConfiguration {
                         target,
                         Duration.ofMillis(answerLimits.timeoutMs()),
                         answerLimits.maxConcurrent(),
-                        sameLegacy ? videos.getIfAvailable() : null,
-                        sameLegacy ? attachments.getIfAvailable() : null,
+                        currentVideo,
+                        currentQueries,
                         anchor);
                 var ownedProjection = projection;
                 return new TextRuntimeSnapshot(
@@ -157,10 +172,15 @@ public class ModelConfigurationConfiguration {
                         ownedProjection.close();
                       }
                     },
-                    anchor);
+                    anchor,
+                    visual,
+                    true);
               } catch (RuntimeException failed) {
                 if (answers != null) {
                   answers.close();
+                }
+                if (visual != null) {
+                  visual.close();
                 }
                 if (projection != null) {
                   projection.close();
@@ -202,7 +222,8 @@ public class ModelConfigurationConfiguration {
 
   @Bean
   LegacyTextProfileGuard legacyTextProfileGuard(
-      ManagedTextRuntime runtime, ConfigurableEnvironment environment, RagProperties properties) {
+      ManagedTextRuntime runtime, ConfigurableEnvironment environment, RagProperties properties,
+      ManagedMediaTextFactory media) {
     IndexTarget target = null;
     try {
       var legacy = ManagedTextSettings.legacy(environment, properties.workspaceId());
@@ -217,7 +238,7 @@ public class ModelConfigurationConfiguration {
     } catch (RuntimeException absent) {
       /* Missing legacy media configuration does not block basic text setup. */
     }
-    return new LegacyTextProfileGuard(runtime, target);
+    return new LegacyTextProfileGuard(runtime, target, media.visualPresent());
   }
 
   @Bean
@@ -228,6 +249,26 @@ public class ModelConfigurationConfiguration {
       ManagedTextRuntime runtime,
       TextModelConnectionProbe probe) {
     return new ModelConfigurationService(store, repository, policy, runtime, probe);
+  }
+
+  @Bean
+  ModelRebuildService modelRebuildService(
+      SqliteAuthorityStore store,
+      ModelConfigurationRepository repository,
+      DocumentPermissionPolicy permissions,
+      ManagedTextRuntime runtime,
+      IndexingService indexing,
+      RagProperties properties,
+      ManagedTextSettings settings) {
+    return new ModelRebuildService(
+        store, repository, permissions, runtime, indexing,
+        properties.workspaceId(), settings.administrators(),
+        (version, roles) -> settings.rebuildAnchor(version, roles, properties.workspaceId()));
+  }
+
+  @Bean(destroyMethod = "close")
+  ModelRebuildJob modelRebuildJob(ModelRebuildService service) {
+    return new ModelRebuildJob(service);
   }
 
   @Bean(name = "indexingJob", destroyMethod = "close")

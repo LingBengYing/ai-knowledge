@@ -11,12 +11,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.function.Function;
 
 /** Pure full-question proof and source-fragment validation; callers own current authorization. */
 public final class TextGrounding {
-  public static final String VERSION = "java-text-grounding-v6-numeric-sequences";
+  public static final String VERSION = "java-text-grounding-v8-launch-dates";
   private static final int MAX_QUESTION_BYTES = 4096;
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;
@@ -139,6 +141,7 @@ public final class TextGrounding {
       return refused("conflicting_evidence");
     }
     var verified = new LinkedHashSet<GroundedQuote>();
+    var dependencies = new LinkedHashSet<GroundedQuote>();
     var seenQuotes = new HashSet<GroundingQuote>();
     var quotedRanges = new ArrayList<ProcedureEvidence.QuoteRange>();
     for (var quote : quotes) {
@@ -164,13 +167,16 @@ public final class TextGrounding {
       int absoluteEnd = absoluteStart + quote.quote().length();
       quotedRanges.add(new ProcedureEvidence.QuoteRange(source, absoluteStart, absoluteEnd));
       var fields = SourceFields.split(page);
+      int fragmentStart = page.offsetByCodePoints(0, source.startCodePoint());
+      int fragmentEnd = page.offsetByCodePoints(0, source.endCodePoint());
       for (var field : fields) {
         if (field.start() < absoluteStart || field.end() > absoluteEnd) {
           continue;
         }
         var supporting =
             requirements.stream()
-                .filter(fact -> !fact.wholeSentence() && fact.matches(field.text()))
+                .filter(fact -> !fact.wholeSentence()
+                    && fact.matches(field, page, fields, fragmentStart, fragmentEnd))
                 .toList();
         if (supporting.isEmpty()) {
           continue;
@@ -180,6 +186,17 @@ public final class TextGrounding {
         }
         if (page.codePointCount(field.start(), field.end()) > 1200) {
           return refused("invalid_quote");
+        }
+        for (var fact : supporting) {
+          var binding = fact.subjectBinding(field, page, fields, fragmentStart, fragmentEnd);
+          if (binding != null) {
+            if (page.codePointCount(binding.start(), binding.end()) > 1200) {
+              return refused("invalid_quote");
+            }
+            dependencies.add(new GroundedQuote(
+                quote.physicalId(), page.codePointCount(0, binding.start()),
+                page.codePointCount(0, binding.end()), binding.text(), List.of(fact.sha256())));
+          }
         }
         verified.add(
             new GroundedQuote(
@@ -208,7 +225,31 @@ public final class TextGrounding {
                 verified.stream().noneMatch(value -> value.factHashes().contains(fact.sha256())))) {
       return refused("incomplete_evidence");
     }
-    return new GroundingResult(true, "supported", List.copyOf(verified));
+    // Subject identity is a visible original-source dependency, not an unquoted answer value.
+    var complete = new LinkedHashMap<String, GroundedQuote>();
+    for (var quote : verified) {
+      merge(complete, quote);
+    }
+    for (var quote : dependencies) {
+      merge(complete, quote);
+    }
+    if (complete.size() > MAX_QUOTES) {
+      return refused("invalid_quote");
+    }
+    return new GroundingResult(true, "supported", List.copyOf(complete.values()));
+  }
+
+  private static void merge(Map<String, GroundedQuote> quotes, GroundedQuote next) {
+    String identity = next.physicalId() + ":" + next.start() + ":" + next.end();
+    var previous = quotes.get(identity);
+    if (previous == null) {
+      quotes.put(identity, next);
+      return;
+    }
+    var hashes = new LinkedHashSet<>(previous.factHashes());
+    hashes.addAll(next.factHashes());
+    quotes.put(identity, new GroundedQuote(
+        previous.physicalId(), previous.start(), previous.end(), previous.quote(), List.copyOf(hashes)));
   }
 
   private static boolean validUnicode(String text) {

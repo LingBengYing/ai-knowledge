@@ -1,0 +1,3 @@
+# 分工
+
+C负责媒体condition、实际BundleFactory与Vision/Video/Attachment资源装配；B负责独立图片/音频向量settings及服务的真实target读取；A只写正常配置操作说明；root负责三服务managed构造、snapshot及运行能力/Filter衔接。无并发同文件编辑。整批源码冻结后仅编译运行包，沿用前端0029说明及现有页面，不新增测试支线。

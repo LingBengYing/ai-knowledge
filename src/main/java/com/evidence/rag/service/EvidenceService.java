@@ -7,11 +7,11 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.AudioEvidence;
 import com.evidence.rag.model.domain.AudioSourceEvidence;
-import com.evidence.rag.model.domain.AudioVectorPublication;
+import com.evidence.rag.model.domain.AudioVectorBinding;
 import com.evidence.rag.model.domain.AudioVectorScope;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.EvidenceScope;
-import com.evidence.rag.model.domain.ImageVectorPublication;
+import com.evidence.rag.model.domain.ImageVectorBinding;
 import com.evidence.rag.model.domain.ImageVectorScope;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.LibraryOperationGate;
@@ -694,11 +694,13 @@ public final class EvidenceService {
           if (!current(scope)) {
             throw changed();
           }
+          var bindings = verifiedAudioVectors(scope, audioTarget, decoderRevision);
           return new AudioVectorScope(
               scope,
               audioTarget,
               decoderRevision,
-              verifiedAudioVectors(scope, audioTarget, decoderRevision));
+              bindings.stream().map(AudioVectorBinding::origin).toList(),
+              bindings);
         });
   }
 
@@ -717,9 +719,11 @@ public final class EvidenceService {
             throw audioVectorRequired();
           }
           var byId = new HashMap<String, String>();
-          for (var publication : scope.publications()) {
-            for (var entry : publication.entries()) {
-              byId.put(entry.vectorPhysicalSegmentId(), entry.basePhysicalSegmentId());
+          for (var binding : scope.bindings()) {
+            for (int index = 0; index < binding.origin().entries().size(); index++) {
+              byId.put(
+                  binding.origin().entries().get(index).vectorPhysicalSegmentId(),
+                  binding.currentBasePhysicalSegmentIds().get(index));
             }
           }
           var baseIds = new ArrayList<String>();
@@ -734,21 +738,21 @@ public final class EvidenceService {
         });
   }
 
-  private List<AudioVectorPublication> verifiedAudioVectors(
+  private List<AudioVectorBinding> verifiedAudioVectors(
       EvidenceScope scope, IndexTarget audioTarget, String decoderRevision) {
     var publications = evidence.findAudioPublications(scope);
     if (!scope.publications().containsAll(publications)) {
       throw ModelValues.invalid();
     }
-    var vectors =
-        audioVectors.findPublications(scope.actor().workspaceId(), publications, audioTarget);
+    var vectors = audioVectors.findBindings(scope.actor().workspaceId(), publications, audioTarget);
     if (vectors.size() != publications.size()
-        || !new HashSet<>(vectors.stream().map(AudioVectorPublication::basePublication).toList())
+        || !new HashSet<>(vectors.stream().map(AudioVectorBinding::basePublication).toList())
             .equals(new HashSet<>(publications))) {
       throw audioVectorRequired();
     }
-    for (var vector : vectors) {
-      var base = vector.basePublication();
+    for (var binding : vectors) {
+      var vector = binding.origin();
+      var base = binding.basePublication();
       var compilation =
           ingestion
               .findAudioCompilation(base.sourceRevisionId())
@@ -778,8 +782,9 @@ public final class EvidenceService {
             || entry.startSample() != span.startMs() * 16
             || (entry.endSample() + 15) / 16 != span.endMs()
             || (!last && entry.endSample() != span.endMs() * 16)
-            || !entry
-                .basePhysicalSegmentId()
+            || !binding
+                .currentBasePhysicalSegmentIds()
+                .get(index)
                 .equals(
                     RetrievalProjection.physicalSegmentId(base.projectionGenerationId(), span.id()))
             || !entry
@@ -789,7 +794,7 @@ public final class EvidenceService {
                         vector.vectorGenerationId(), span.id()))) {
           throw audioVectorRequired();
         }
-        ids.add(entry.basePhysicalSegmentId());
+        ids.add(binding.currentBasePhysicalSegmentIds().get(index));
         digests.put(entry.vectorPhysicalSegmentId(), entry.entrySha256());
       }
       var manifest =
@@ -813,7 +818,7 @@ public final class EvidenceService {
     try {
       return new HashSet<>(
               verifiedAudioVectors(scope.base(), scope.target(), scope.decoderRevision()))
-          .equals(new HashSet<>(scope.publications()));
+          .equals(new HashSet<>(scope.bindings()));
     } catch (RuntimeException unavailable) {
       return false;
     }
@@ -834,7 +839,12 @@ public final class EvidenceService {
           if (!current(scope)) {
             throw changed();
           }
-          return new ImageVectorScope(scope, imageTarget, verifiedImageVectors(scope, imageTarget));
+          var bindings = verifiedImageVectors(scope, imageTarget);
+          return new ImageVectorScope(
+              scope,
+              imageTarget,
+              bindings.stream().map(ImageVectorBinding::origin).toList(),
+              bindings);
         });
   }
 
@@ -853,8 +863,9 @@ public final class EvidenceService {
             throw imageVectorRequired();
           }
           var byId = new HashMap<String, String>();
-          for (var publication : scope.publications()) {
-            byId.put(publication.vectorPhysicalSegmentId(), publication.basePhysicalSegmentId());
+          for (var binding : scope.bindings()) {
+            byId.put(
+                binding.origin().vectorPhysicalSegmentId(), binding.currentBasePhysicalSegmentId());
           }
           var baseIds = new ArrayList<String>();
           for (String id : ids) {
@@ -868,24 +879,24 @@ public final class EvidenceService {
         });
   }
 
-  private List<ImageVectorPublication> verifiedImageVectors(
+  private List<ImageVectorBinding> verifiedImageVectors(
       EvidenceScope scope, IndexTarget imageTarget) {
     var publications = evidence.findImagePublications(scope);
     if (!scope.publications().containsAll(publications)) {
       throw ModelValues.invalid();
     }
-    var vectors =
-        imageVectors.findPublications(scope.actor().workspaceId(), publications, imageTarget);
+    var vectors = imageVectors.findBindings(scope.actor().workspaceId(), publications, imageTarget);
     if (vectors.size() != publications.size()
-        || !new HashSet<>(vectors.stream().map(ImageVectorPublication::basePublication).toList())
+        || !new HashSet<>(vectors.stream().map(ImageVectorBinding::basePublication).toList())
             .equals(new HashSet<>(publications))) {
       throw imageVectorRequired();
     }
     var bases =
         hydratedImages(
-            scope, vectors.stream().map(ImageVectorPublication::basePhysicalSegmentId).toList());
+            scope, vectors.stream().map(ImageVectorBinding::currentBasePhysicalSegmentId).toList());
     for (int index = 0; index < vectors.size(); index++) {
-      var vector = vectors.get(index);
+      var binding = vectors.get(index);
+      var vector = binding.origin();
       var base = bases.get(index);
       var manifest =
           new RetrievalProjection.RevisionManifest(
@@ -893,7 +904,7 @@ public final class EvidenceService {
               vector.basePublication().documentId(),
               vector.vectorGenerationId(),
               Map.of(vector.vectorPhysicalSegmentId(), vector.entrySha256()));
-      if (!vector.basePublication().equals(base.publication())
+      if (!binding.basePublication().equals(base.publication())
           || !vector.imageEvidenceId().equals(base.image().id())
           || !vector.target().equals(imageTarget)
           || !RetrievalProjection.physicalSegmentId(
@@ -909,7 +920,7 @@ public final class EvidenceService {
   private boolean imageVectorsCurrent(ImageVectorScope scope) {
     try {
       return new HashSet<>(verifiedImageVectors(scope.authority(), scope.imageTarget()))
-          .equals(new HashSet<>(scope.publications()));
+          .equals(new HashSet<>(scope.bindings()));
     } catch (RuntimeException unavailable) {
       return false;
     }

@@ -17,6 +17,8 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
   private final String modelsRevision;
   private final AnswerService answers;
   private final IndexingTaskProcessor indexing;
+  private final VisualAnswerService visual;
+  private final boolean mediaRebound;
   private final Runnable releaseClients;
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -40,6 +42,13 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
       IndexingTaskProcessor indexing,
       Runnable releaseClients,
       TextIndexAnchor indexAnchor) {
+    this(version, models, projection, target, answers, indexing, releaseClients, indexAnchor, null, false);
+  }
+
+  public TextRuntimeSnapshot(
+      long version, TextModels models, RetrievalProjection projection, IndexTarget target,
+      AnswerService answers, IndexingTaskProcessor indexing, Runnable releaseClients,
+      TextIndexAnchor indexAnchor, VisualAnswerService visual, boolean mediaRebound) {
     if (version < 1
         || version > 9_007_199_254_740_991L
         || models == null
@@ -65,6 +74,8 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
     this.modelsRevision = models.revision();
     this.answers = answers;
     this.indexing = indexing;
+    this.visual = visual;
+    this.mediaRebound = mediaRebound;
     this.releaseClients = releaseClients;
   }
 
@@ -109,6 +120,14 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
     return indexing;
   }
 
+  public VisualAnswerService visual() {
+    return visual;
+  }
+
+  public boolean mediaRebound() {
+    return mediaRebound;
+  }
+
   boolean isOpen() {
     return !closed.get();
   }
@@ -119,7 +138,13 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
       try {
         answers.close();
       } finally {
-        releaseClients.run();
+        try {
+          if (visual != null) {
+            visual.close();
+          }
+        } finally {
+          releaseClients.run();
+        }
       }
     }
   }

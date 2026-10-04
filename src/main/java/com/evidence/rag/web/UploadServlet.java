@@ -5,8 +5,11 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.LibraryWorkContext;
+import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.security.web.AuthenticatedActor;
+import com.evidence.rag.service.DocumentReplacementService;
 import com.evidence.rag.service.IngestionService;
+import com.evidence.rag.web.converter.DocumentReplacementResponseMapper;
 import com.evidence.rag.web.converter.TaskResponseMapper;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
@@ -29,6 +32,7 @@ public final class UploadServlet extends HttpServlet {
   private static final Set<String> VIDEO_CONTENT_TYPES =
       Set.of("video/mp4", "video/webm", "video/quicktime", "video/x-matroska");
   private final transient IngestionService authority;
+  private final transient DocumentReplacementService replacements;
   private final int deadlineMs;
   private final JsonMapper json;
   private final transient ProblemHandler errors;
@@ -36,7 +40,17 @@ public final class UploadServlet extends HttpServlet {
 
   public UploadServlet(
       IngestionService authority, int deadlineMs, JsonMapper json, ProblemHandler errors) {
+    this(authority, deadlineMs, json, errors, null);
+  }
+
+  public UploadServlet(
+      IngestionService authority,
+      int deadlineMs,
+      JsonMapper json,
+      ProblemHandler errors,
+      DocumentReplacementService replacements) {
     this.authority = authority;
+    this.replacements = replacements;
     this.deadlineMs = deadlineMs;
     this.json = json;
     this.errors = errors;
@@ -44,6 +58,20 @@ public final class UploadServlet extends HttpServlet {
 
   @Override
   protected void service(HttpServletRequest request, HttpServletResponse response)
+      throws IOException {
+    receive(request, response, null);
+  }
+
+  /** Called only by the exact replacement MVC route; shares bounded original-file reception. */
+  public void replacement(
+      HttpServletRequest request, HttpServletResponse response, String documentId)
+      throws IOException {
+    ModelValues.identifier(documentId, 128);
+    receive(request, response, documentId);
+  }
+
+  private void receive(
+      HttpServletRequest request, HttpServletResponse response, String documentId)
       throws IOException {
     long deadline = System.nanoTime() + deadlineMs * 1_000_000L;
     try {
@@ -62,14 +90,28 @@ public final class UploadServlet extends HttpServlet {
             "上传需要application/octet-stream，或受支持的显式视频内容类型及原始文件内容。");
       }
       var parameters = request.getParameterMap();
-      if (parameters.size() != 1
-          || !parameters.containsKey("filename")
-          || parameters.get("filename").length != 1) {
+      var expected =
+          documentId == null ? Set.of("filename") : Set.of("filename", "base_revision_id");
+      if (!parameters.keySet().equals(expected)
+          || parameters.values().stream().anyMatch(values -> values.length != 1)) {
         throw new ApplicationException(
             FailureKind.INVALID_INPUT, "invalid_request", "请提供唯一文件名，不接受其他参数。");
       }
       String filename = parameters.get("filename")[0];
-      String mime = authority.prepareUpload(filename, contentTypes.getFirst());
+      String baseRevisionId =
+          documentId == null ? null : parameters.get("base_revision_id")[0];
+      String mime;
+      if (documentId == null) {
+        mime = authority.prepareUpload(filename, contentTypes.getFirst());
+      } else {
+        if (replacements == null) {
+          throw ModelValues.notFound();
+        }
+        ModelValues.identifier(baseRevisionId, 128);
+        mime =
+            replacements.prepareUpload(
+                actor, documentId, baseRevisionId, filename, contentTypes.getFirst());
+      }
       if (request.getContentLengthLong() > authority.maximumUploadBytes()) {
         throw tooLarge();
       }
@@ -81,7 +123,10 @@ public final class UploadServlet extends HttpServlet {
       try {
         AsyncContext async = request.startAsync();
         async.setTimeout(deadlineMs);
-        var receiver = new Receiver(request, response, async, actor, filename, mime, deadline);
+        var receiver =
+            new Receiver(
+                request, response, async, actor, filename, mime, deadline,
+                documentId, baseRevisionId);
         async.addListener(receiver);
         handedOff = true;
         request.getInputStream().setReadListener(receiver);
@@ -109,6 +154,8 @@ public final class UploadServlet extends HttpServlet {
     private final LibraryOperationGate.ReservedOperation operation;
     private final String filename;
     private final String mime;
+    private final String documentId;
+    private final String baseRevisionId;
     private final long deadline;
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     private boolean done;
@@ -120,7 +167,9 @@ public final class UploadServlet extends HttpServlet {
         Actor actor,
         String filename,
         String mime,
-        long deadline) {
+        long deadline,
+        String documentId,
+        String baseRevisionId) {
       this.request = request;
       this.response = response;
       this.async = async;
@@ -129,6 +178,8 @@ public final class UploadServlet extends HttpServlet {
           LibraryWorkContext.currentGate().map(LibraryOperationGate::reserve).orElse(null);
       this.filename = filename;
       this.mime = mime;
+      this.documentId = documentId;
+      this.baseRevisionId = baseRevisionId;
       this.deadline = deadline;
     }
 
@@ -166,8 +217,15 @@ public final class UploadServlet extends HttpServlet {
         return;
       }
       try (var lease = operation == null ? null : operation.begin()) {
-        var task = authority.uploadDocument(actor, filename, mime, bytes.toByteArray());
-        finish(202, TaskResponseMapper.from(task));
+        if (documentId == null) {
+          var task = authority.uploadDocument(actor, filename, mime, bytes.toByteArray());
+          finish(202, TaskResponseMapper.from(task));
+        } else {
+          var value =
+              replacements.upload(
+                  actor, documentId, baseRevisionId, filename, mime, bytes.toByteArray());
+          finish(202, DocumentReplacementResponseMapper.from(value));
+        }
       } catch (ApplicationException problem) {
         fail(problem);
       } catch (RuntimeException error) {

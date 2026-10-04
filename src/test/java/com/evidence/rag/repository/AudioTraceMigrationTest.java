@@ -60,8 +60,8 @@ class AudioTraceMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
-            assertEquals(24, store.count("SELECT version FROM format_info"));
+            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("SELECT version FROM format_info"));
             assertEquals(
                 16, store.count("SELECT COUNT(*) FROM pragma_table_info('audio_trace_evidence')"));
             assertEquals(

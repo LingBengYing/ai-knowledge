@@ -55,7 +55,8 @@ public final class ModelConfigurationRequestMapper {
             text(embedding.path("model"), "embedding.model"),
             (int) dimensions,
             text(embedding.path("revision"), "embedding.revision"),
-            key(embedding, "embedding")),
+            key(embedding, "embedding"),
+            provider(embedding, "embedding")),
         role(body.path("rerank"), "rerank"),
         role(body.path("generation"), "generation"));
   }
@@ -77,11 +78,15 @@ public final class ModelConfigurationRequestMapper {
   private static SaveModelConfigurationCommand.RoleInput role(JsonNode value, String role) {
     roleShape(value, Set.of("model"));
     return new SaveModelConfigurationCommand.RoleInput(
-        text(value.path("model"), role + ".model"), key(value, role));
+        text(value.path("model"), role + ".model"), key(value, role), provider(value, role));
   }
 
   private static String key(JsonNode value, String role) {
     return value.has("api_key") ? text(value.path("api_key"), role + ".api_key") : null;
+  }
+
+  private static String provider(JsonNode value, String role) {
+    return value.has("provider") ? text(value.path("provider"), role + ".provider") : null;
   }
 
   private static void roleShape(JsonNode value, Set<String> required) {
@@ -90,6 +95,7 @@ public final class ModelConfigurationRequestMapper {
     }
     var names = new java.util.HashSet<>(value.propertyNames());
     names.remove("api_key");
+    names.remove("provider");
     if (!names.equals(required)) {
       throw invalid("request");
     }

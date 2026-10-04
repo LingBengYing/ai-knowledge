@@ -63,7 +63,7 @@ class ReindexMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("PRAGMA user_version"));
             assertEquals(
                 oldJobs, store.rows("SELECT " + oldColumns + " FROM indexing_jobs ORDER BY id"));
             assertEquals(
@@ -99,8 +99,12 @@ class ReindexMigrationTest {
               () -> new IngestionRepository(store).original(publication.documentId())));
       var backups = store.managedBackups();
       assertTrue(backups.known());
-      assertEquals(1, backups.files().size());
-      var backup = backups.files().getFirst();
+      assertEquals(2, backups.files().size());
+      var backup =
+          backups.files().stream()
+              .filter(file -> file.relativePath().startsWith("java-library.v23-before-v24-"))
+              .findFirst()
+              .orElseThrow();
       assertTrue(backup.relativePath().startsWith("java-library.v23-before-v24-"));
       Path file = store.libraryPath().getParent().resolve(backup.relativePath());
       assertEquals(Files.size(file), backup.sizeBytes());
@@ -115,7 +119,7 @@ class ReindexMigrationTest {
     }
     try (var reopened = new SqliteAuthorityStore(directory)) {
       ReindexSqlFixture.requireVersionTwentyFour(reopened);
-      assertEquals(1, reopened.managedBackups().files().size());
+      assertEquals(2, reopened.managedBackups().files().size());
     }
   }
 
@@ -179,7 +183,7 @@ class ReindexMigrationTest {
         scalar(
             database,
             "SELECT COUNT(*) FROM indexing_jobs WHERE id='" + queued + "' AND state='queued'"));
-    assertEquals(24, scalar(database, "PRAGMA user_version"));
+    assertEquals(25, scalar(database, "PRAGMA user_version"));
   }
 
   private static long scalar(Path database, String sql) throws SQLException {

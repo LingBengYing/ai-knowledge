@@ -5,9 +5,11 @@ import com.evidence.rag.client.model.TextModelConnectionProbe;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
@@ -23,6 +25,7 @@ import org.springframework.core.env.EnumerablePropertySource;
 final class ManagedTextSettings {
   private final ConfigurableEnvironment environment;
   private final URI provider;
+  private final URI deepseekProvider;
   private final Duration deadline;
   private final int maxBytes;
   private final boolean loopback;
@@ -61,6 +64,11 @@ final class ManagedTextSettings {
           URI.create(
               environment.getProperty(
                   "rag.model-configuration.provider-base-url", "https://api.siliconflow.cn/v1"));
+      String legacyGeneration = environment.getProperty("RAG_GENERATION_BASE_URL");
+      deepseekProvider =
+          TextIndexAnchor.isDeepSeekEndpoint(legacyGeneration)
+              ? URI.create(legacyGeneration)
+              : TextModelConnectionProbe.DEEPSEEK_BASE_URL;
       deadline =
           Duration.ofMillis(
               environment.getProperty("rag.model-configuration.deadline-ms", Long.class, 30000L));
@@ -87,7 +95,7 @@ final class ManagedTextSettings {
         throw invalid();
       }
       // Probe constructor validates the trusted URI without issuing a request.
-      new TextModelConnectionProbe(provider, deadline, maxBytes, loopback, null);
+      new TextModelConnectionProbe(provider, deadline, maxBytes, loopback, null, deepseekProvider);
     } catch (RuntimeException rejected) {
       throw invalid();
     }
@@ -99,6 +107,18 @@ final class ManagedTextSettings {
 
   URI provider() {
     return provider;
+  }
+
+  URI deepseekProvider() {
+    return deepseekProvider;
+  }
+
+  private URI provider(String name) {
+    return switch (name) {
+      case "siliconflow" -> provider;
+      case "deepseek" -> deepseekProvider;
+      default -> throw invalid();
+    };
   }
 
   Duration deadline() {
@@ -142,20 +162,44 @@ final class ManagedTextSettings {
   }
 
   TextAdapterSettings adapters(TextModelConfiguration roles, String workspace) {
+    return adapters(roles, workspace, (TextIndexAnchor) null);
+  }
+
+  TextAdapterSettings adapters(
+      TextModelConfiguration roles, String workspace, TextIndexAnchor anchor) {
+    return adapters(
+        roles,
+        workspace,
+        provider(roles.embedding().provider()),
+        provider(roles.rerank().provider()),
+        provider(roles.generation().provider()),
+        anchor == null ? null : anchor.projectionCollection());
+  }
+
+  private TextAdapterSettings adapters(
+      TextModelConfiguration roles,
+      String workspace,
+      URI embeddingProvider,
+      URI rerankProvider,
+      URI generationProvider,
+      String collection) {
     if (projection() == null) {
       throw new ApplicationException(
           FailureKind.UNAVAILABLE, "projection_configuration_required", "请由管理员先配置知识索引连接。");
     }
     var values = serverValues(workspace);
-    values.put("RAG_EMBEDDING_BASE_URL", provider.toASCIIString());
+    if (collection != null) {
+      values.put("RAG_MILVUS_COLLECTION", collection);
+    }
+    values.put("RAG_EMBEDDING_BASE_URL", embeddingProvider.toASCIIString());
     values.put("RAG_EMBEDDING_MODEL", roles.embedding().model());
     values.put("RAG_EMBEDDING_API_KEY", roles.embedding().apiKey());
     values.put("RAG_EMBEDDING_DIMENSIONS", Integer.toString(roles.embedding().dimensions()));
     values.put("RAG_EMBEDDING_REVISION", roles.embedding().revision());
-    values.put("RAG_RERANK_BASE_URL", provider.toASCIIString());
+    values.put("RAG_RERANK_BASE_URL", rerankProvider.toASCIIString());
     values.put("RAG_RERANK_MODEL", roles.rerank().model());
     values.put("RAG_RERANK_API_KEY", roles.rerank().apiKey());
-    values.put("RAG_GENERATION_BASE_URL", provider.toASCIIString());
+    values.put("RAG_GENERATION_BASE_URL", generationProvider.toASCIIString());
     values.put("RAG_GENERATION_MODEL", roles.generation().model());
     values.put("RAG_GENERATION_API_KEY", roles.generation().apiKey());
     return TextAdapterSettings.load(values);
@@ -163,23 +207,37 @@ final class ManagedTextSettings {
 
   TextAdapterSettings indexAdapters(
       TextModelConfiguration roles, TextIndexAnchor anchor, String workspace) {
-    var actual = adapters(roles, workspace);
+    var actual = adapters(roles, workspace, anchor);
     if (anchor == null) {
       return actual;
     }
-    if (!anchor.providerBaseUrl().equals(provider.toASCIIString())
+    if (!anchor.providerBaseUrl().equals(provider(roles.embedding().provider()).toASCIIString())
         || !anchor.embeddingModel().equals(roles.embedding().model())
         || !anchor.embeddingRevision().equals(roles.embedding().revision())
         || anchor.dimensions() != roles.embedding().dimensions()) {
       throw rebuildRequired();
     }
-    // These are genuine old model names with current credentials. Indexing only embeds.
+    // Keep all original endpoint/name bytes in the index identity. Indexing only embeds,
+    // so current answer-role credentials never cause a call to an old generation/rerank role.
     var indexingRoles =
         new TextModelConfiguration(
             roles.embedding(),
-            new TextModelConfiguration.Role(anchor.rerankModel(), roles.rerank().apiKey()),
-            new TextModelConfiguration.Role(anchor.generationModel(), roles.generation().apiKey()));
-    var indexed = adapters(indexingRoles, workspace);
+            new TextModelConfiguration.Role(
+                anchor.rerankModel(), roles.rerank().apiKey(), "siliconflow"),
+            new TextModelConfiguration.Role(
+                anchor.generationModel(),
+                roles.generation().apiKey(),
+                TextIndexAnchor.isDeepSeekEndpoint(anchor.generationProviderBaseUrl())
+                    ? "deepseek"
+                    : "siliconflow"));
+    var indexed =
+        adapters(
+            indexingRoles,
+            workspace,
+            URI.create(anchor.providerBaseUrl()),
+            URI.create(anchor.rerankProviderBaseUrl()),
+            URI.create(anchor.generationProviderBaseUrl()),
+            anchor.projectionCollection());
     if (!anchor.target().equals(indexTarget(indexed))) {
       throw rebuildRequired();
     }
@@ -189,13 +247,43 @@ final class ManagedTextSettings {
   TextIndexAnchor anchor(long version, TextModelConfiguration roles, TextAdapterSettings indexed) {
     return new TextIndexAnchor(
         version,
-        provider.toASCIIString(),
+        indexed.models().embedding().baseUrl().toASCIIString(),
         roles.embedding().model(),
         roles.embedding().revision(),
         roles.embedding().dimensions(),
         roles.rerank().model(),
         roles.generation().model(),
-        indexTarget(indexed));
+        indexTarget(indexed),
+        indexed.models().rerank().baseUrl().toASCIIString(),
+        indexed.models().generation().baseUrl().toASCIIString());
+  }
+
+  TextIndexAnchor rebuildAnchor(long version, TextModelConfiguration roles, String workspace) {
+    var original = adapters(roles, workspace);
+    String suffix =
+        ModelValues.sha256(original.projection().identity().getBytes(StandardCharsets.UTF_8))
+            .substring(0, 32);
+    String collection = "java_text_v" + version + "_" + suffix;
+    var indexed =
+        adapters(
+            roles,
+            workspace,
+            provider(roles.embedding().provider()),
+            provider(roles.rerank().provider()),
+            provider(roles.generation().provider()),
+            collection);
+    return new TextIndexAnchor(
+        version,
+        indexed.models().embedding().baseUrl().toASCIIString(),
+        roles.embedding().model(),
+        roles.embedding().revision(),
+        roles.embedding().dimensions(),
+        roles.rerank().model(),
+        roles.generation().model(),
+        indexTarget(indexed),
+        indexed.models().rerank().baseUrl().toASCIIString(),
+        indexed.models().generation().baseUrl().toASCIIString(),
+        collection);
   }
 
   static IndexTarget indexTarget(TextAdapterSettings indexed) {
@@ -264,16 +352,49 @@ final class ManagedTextSettings {
               environment.getProperty("RAG_EMBEDDING_MODEL"),
               environment.getProperty("RAG_EMBEDDING_API_KEY"),
               Integer.parseInt(environment.getProperty("RAG_EMBEDDING_DIMENSIONS")),
-              environment.getProperty("RAG_EMBEDDING_REVISION")),
+              environment.getProperty("RAG_EMBEDDING_REVISION"),
+              bootstrapProvider(environment, "EMBEDDING")),
           new TextModelConfiguration.Role(
               environment.getProperty("RAG_RERANK_MODEL"),
-              environment.getProperty("RAG_RERANK_API_KEY")),
+              environment.getProperty("RAG_RERANK_API_KEY"),
+              bootstrapProvider(environment, "RERANK")),
           new TextModelConfiguration.Role(
               environment.getProperty("RAG_GENERATION_MODEL"),
-              environment.getProperty("RAG_GENERATION_API_KEY")));
+              environment.getProperty("RAG_GENERATION_API_KEY"),
+              bootstrapProvider(environment, "GENERATION")));
     } catch (RuntimeException rejected) {
       throw invalid();
     }
+  }
+
+  private static String bootstrapProvider(ConfigurableEnvironment environment, String role) {
+    String value = environment.getProperty("RAG_" + role + "_BASE_URL");
+    if (value == null || value.isBlank()) {
+      return "siliconflow";
+    }
+    if (TextIndexAnchor.isDeepSeekEndpoint(value)) {
+      if (!"GENERATION".equals(role)) {
+        throw invalid();
+      }
+      return "deepseek";
+    }
+    String configured =
+        environment.getProperty(
+            "rag.model-configuration.provider-base-url", "https://api.siliconflow.cn/v1");
+    if (value.equals(configured)
+        || Set.of(
+                "https://api.siliconflow.cn",
+                "https://api.siliconflow.cn/",
+                "https://api.siliconflow.cn/v1",
+                "https://api.siliconflow.cn/v1/",
+                "https://api.siliconflow.com",
+                "https://api.siliconflow.com/",
+                "https://api.siliconflow.com/v1",
+                "https://api.siliconflow.com/v1/")
+            .contains(value)) {
+      return "siliconflow";
+    }
+    throw invalid();
   }
 
   static boolean legacyAvailable(ConfigurableEnvironment environment) {

@@ -49,7 +49,8 @@ public final class ImageVectorIndexingService {
   private final ManagementRepository management;
   private final IngestionRepository ingestion;
   private final DocumentPermissionPolicy permissions;
-  private final IndexTarget textTarget;
+  private final Supplier<IndexTarget> textTarget;
+  private Supplier<IndexTarget> managedTextTarget;
   private final IndexTarget imageTarget;
   private final Duration budget;
   private final Supplier<IndexTarget> profiles;
@@ -65,6 +66,43 @@ public final class ImageVectorIndexingService {
       IngestionRepository ingestion,
       DocumentPermissionPolicy permissions,
       IndexTarget textTarget,
+      IndexTarget imageTarget,
+      SiliconFlowImageEmbeddingModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      Duration processingBudget,
+      int maxConcurrent) {
+    this(
+        store, vectors, evidence, management, ingestion, permissions,
+        fixedTextTarget(textTarget, imageTarget), imageTarget, models, projection,
+        processingBudget, maxConcurrent);
+  }
+
+  public static ImageVectorIndexingService managed(
+      SqliteAuthorityStore store,
+      ImageVectorRepository vectors,
+      EvidenceRepository evidence,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      DocumentPermissionPolicy permissions,
+      Supplier<IndexTarget> textTarget,
+      IndexTarget imageTarget,
+      SiliconFlowImageEmbeddingModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      Duration processingBudget,
+      int maxConcurrent) {
+    return new ImageVectorIndexingService(
+        store, vectors, evidence, management, ingestion, permissions, textTarget,
+        imageTarget, models, projection, processingBudget, maxConcurrent);
+  }
+
+  private ImageVectorIndexingService(
+      SqliteAuthorityStore store,
+      ImageVectorRepository vectors,
+      EvidenceRepository evidence,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      DocumentPermissionPolicy permissions,
+      Supplier<IndexTarget> textTarget,
       IndexTarget imageTarget,
       SiliconFlowImageEmbeddingModels.Configuration models,
       MilvusRestProjection.Settings projection,
@@ -115,6 +153,25 @@ public final class ImageVectorIndexingService {
       int maxConcurrent,
       Supplier<IndexTarget> profiles,
       BiFunction<ImageVectorBuildClaim, Duration, ImageVectorReceipt> worker) {
+    this(
+        store, vectors, evidence, management, ingestion, permissions,
+        fixedTextTarget(textTarget, imageTarget), imageTarget,
+        processingBudget, maxConcurrent, profiles, worker);
+  }
+
+  private ImageVectorIndexingService(
+      SqliteAuthorityStore store,
+      ImageVectorRepository vectors,
+      EvidenceRepository evidence,
+      ManagementRepository management,
+      IngestionRepository ingestion,
+      DocumentPermissionPolicy permissions,
+      Supplier<IndexTarget> textTarget,
+      IndexTarget imageTarget,
+      Duration processingBudget,
+      int maxConcurrent,
+      Supplier<IndexTarget> profiles,
+      BiFunction<ImageVectorBuildClaim, Duration, ImageVectorReceipt> worker) {
     if (store == null
         || vectors == null
         || evidence == null
@@ -129,8 +186,7 @@ public final class ImageVectorIndexingService {
         || processingBudget.compareTo(Duration.ofMillis(10)) < 0
         || processingBudget.compareTo(Duration.ofMillis(120000)) > 0
         || maxConcurrent < 1
-        || maxConcurrent > 8
-        || textTarget.projectionIdentity().equals(imageTarget.projectionIdentity())) {
+        || maxConcurrent > 8) {
       throw ModelValues.invalid();
     }
     this.store = store;
@@ -280,16 +336,43 @@ public final class ImageVectorIndexingService {
     }
   }
 
+  /** Installed at composition; independent media model and projection remain unchanged. */
+  public void followTextTarget(Supplier<IndexTarget> current) {
+    if (current == null || managedTextTarget != null) {
+      throw ModelValues.invalid();
+    }
+    managedTextTarget = current;
+  }
+
+  private static Supplier<IndexTarget> fixedTextTarget(IndexTarget text, IndexTarget media) {
+    if (text == null || media == null || text.projectionIdentity().equals(media.projectionIdentity())) {
+      throw ModelValues.invalid();
+    }
+    return () -> text;
+  }
+
+  private IndexTarget currentTextTarget() {
+    IndexTarget current = managedTextTarget == null ? textTarget.get() : managedTextTarget.get();
+    if (current == null) {
+      throw new ApplicationException(FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
+    }
+    if (current.projectionIdentity().equals(imageTarget.projectionIdentity())) {
+      throw stale();
+    }
+    return current;
+  }
+
   private Frozen freeze(Actor actor, String documentId, boolean edit) {
     currentProfile();
     permissions.require(management.currentRole(actor, documentId), edit);
+    IndexTarget requiredTextTarget = currentTextTarget();
     var selected = DocumentSelection.selected(List.of(documentId));
     var publications = evidence.findActivePublications(actor, selected);
     if (publications.size() != 1) {
       throw ModelValues.notFound();
     }
     var base = publications.getFirst();
-    if (!base.target().equals(textTarget)) {
+    if (!base.target().equals(requiredTextTarget)) {
       throw stale();
     }
     var image =
@@ -323,14 +406,15 @@ public final class ImageVectorIndexingService {
 
   private ImageVectorState state(Actor actor, Frozen frozen) {
     currentProfile();
-    var saved = vectors.findPublications(actor.workspaceId(), List.of(frozen.base()), imageTarget);
+    var saved = vectors.findBindings(actor.workspaceId(), List.of(frozen.base()), imageTarget);
     if (saved.size() > 1) {
       throw stale();
     }
     if (saved.isEmpty()) {
       return new ImageVectorState(frozen.base(), imageTarget, null);
     }
-    var publication = saved.getFirst();
+    var binding = saved.getFirst();
+    var publication = binding.origin();
     String vectorId =
         RetrievalProjection.physicalSegmentId(publication.vectorGenerationId(), frozen.imageId());
     var manifest =
@@ -339,15 +423,15 @@ public final class ImageVectorIndexingService {
             frozen.base().documentId(),
             publication.vectorGenerationId(),
             Map.of(vectorId, publication.entrySha256()));
-    if (!publication.basePublication().equals(frozen.base())
+    if (!binding.basePublication().equals(frozen.base())
         || !publication.imageEvidenceId().equals(frozen.imageId())
-        || !publication.basePhysicalSegmentId().equals(frozen.baseId())
+        || !binding.currentBasePhysicalSegmentId().equals(frozen.baseId())
         || !publication.vectorPhysicalSegmentId().equals(vectorId)
         || !publication.target().equals(imageTarget)
         || !publication.manifestSha256().equals(manifest.sha256())) {
       throw stale();
     }
-    return new ImageVectorState(frozen.base(), imageTarget, publication);
+    return new ImageVectorState(frozen.base(), imageTarget, publication, binding);
   }
 
   private static void verify(ImageVectorBuildClaim claim, ImageVectorReceipt receipt) {

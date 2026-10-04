@@ -1,0 +1,11 @@
+# 正常操作契约
+
+继续使用POST /v1/management/document-actions，请求action=reindex、document_ids为1–100个唯一ID、base_publication_ids为同一组ID到当前发布ID的映射。folder_id和tags不得同时提供；其他action不接受base_publication_ids。move/tag原契约保持，delete仍由现有受控清理路径完成。本轮不改变数据库或provider配置。
+
+批量重建使用当前有效IndexingTaskProcessor逐项调用现有reindex(actor,id,basePublicationId)；每项复验当前写权限、当前已发布解析材料、目标与媒体收据资格、无活动任务、原件更新及模型全库重建冲突。成功项不会因其他项失败回滚，按请求顺序逐项回执。成功ok=true、receipt.status=queued，detail明确仅创建后台索引任务；失败返回原安全error_code及detail。顶层仍为原items响应和HTTP200；不假装所有资料同时切换。
+
+新增能力batch_text_reindex，仅在实际text_reindex路径可用且managed文字已应用时开放。网页当前页多选操作栏提供“重建选中文本索引”。对不具资格的选中项明确显示不会提交及数量，不悄悄减少范围；确认框列出本次处理的资料及已保存发布身份。提交只包含明确确认的合格项，确认前或提交前资格/发布/任务/身份变化要求刷新，不自动再次提交。通信失败后先刷新资料/任务核对结果。
+
+显示逐项创建/失败结果，后台处理仍在原资料行/详情和索引任务入口查看；支持多个独立任务，保留失败或未提交项选择。不把HTTP创建成功说成索引完成。旧发布在处理及失败/取消后仍可查询，完整新索引成功才单项切换。保留问题、范围与整理草稿，成功后沿现有机制使旧来源重新查询。
+
+本轮只实现正常产品，不运行任何测试、语法/格式检查、审计、浏览器或真实模型调用，不部署或修改Git。整批源码冻结后root仅skiptests package；页面验收由用户完成。

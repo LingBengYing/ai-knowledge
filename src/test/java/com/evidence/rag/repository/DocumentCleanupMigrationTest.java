@@ -25,8 +25,8 @@ class DocumentCleanupMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
-            assertEquals(24, store.count("SELECT version FROM format_info"));
+            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("SELECT version FROM format_info"));
             for (String table : CleanupPayloadTables.names()) {
               assertEquals(
                   1,
@@ -82,7 +82,7 @@ class DocumentCleanupMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(24, store.count("PRAGMA user_version"));
+            assertEquals(25, store.count("PRAGMA user_version"));
             assertEquals(
                 1,
                 store.count(
@@ -99,7 +99,7 @@ class DocumentCleanupMigrationTest {
           });
       var backups = store.managedBackups();
       assertTrue(backups.known());
-      assertEquals(3, backups.files().size());
+      assertEquals(4, backups.files().size());
       for (var backup : backups.files()) {
         assertEquals(Files.size(directory.resolve(backup.relativePath())), backup.sizeBytes());
         assertEquals(
@@ -122,6 +122,11 @@ class DocumentCleanupMigrationTest {
           backups.files().stream()
               .filter(backup -> backup.relativePath().startsWith("java-library.v23-before-v24-"))
               .count());
+      assertEquals(
+          1,
+          backups.files().stream()
+              .filter(backup -> backup.relativePath().startsWith("java-library.v24-before-v25-"))
+              .count());
     }
   }
 
@@ -135,7 +140,12 @@ class DocumentCleanupMigrationTest {
     byte[] unchanged = Files.readAllBytes(unknown);
     try (var store = new SqliteAuthorityStore(directory)) {
       org.junit.jupiter.api.Assertions.assertFalse(store.managedBackups().known());
-      assertEquals(3, store.managedBackups().files().size());
+      assertEquals(4, store.managedBackups().files().size());
+      assertEquals(
+          1,
+          store.managedBackups().files().stream()
+              .filter(backup -> backup.relativePath().startsWith("java-library.v24-before-v25-"))
+              .count());
     }
     org.junit.jupiter.api.Assertions.assertArrayEquals(unchanged, Files.readAllBytes(unknown));
   }

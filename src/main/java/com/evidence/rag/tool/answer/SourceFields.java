@@ -3,11 +3,22 @@ package com.evidence.rag.tool.answer;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.regex.Pattern;
 
 /** Exact source ranges are retained separately from any question-matching normalization. */
 final class SourceFields {
+  private static final Pattern LAYOUT_LABEL =
+      Pattern.compile(
+          "^(?:项目名称|项目名|名称|计划预算|预算|计划启动日期|启动日期|project name|name|planned budget|budget|planned launch date|launch date)$",
+          Pattern.CASE_INSENSITIVE);
+  private static final Pattern PROJECT_NAME =
+      Pattern.compile("^(?:项目名称|项目名)\\s*(?:是|为|[:：=])\\s*(.+)$");
+  private static final Pattern EXPLICIT_PROJECT_FIELD =
+      Pattern.compile("^(.+?项目)(?:的|[:：])?(?:名称|计划预算|预算|计划启动日期|启动日期)(?:是|为|[:：=]).+$");
+  private static final Pattern PROJECT_HEADING =
+      Pattern.compile("^(?:[\\p{L}\\p{N} _-]{1,24}[:：])?([^:：\\r\\n]{1,100}项目)$");
   private static final Pattern BOUNDARY =
       Pattern.compile("[。！？!?；;\\r\\n]+|\\.(?=\\s+[A-Z\\p{IsHan}]|\\s*$)|[,，]");
   private static final Pattern SENTENCE_BOUNDARY =
@@ -26,7 +37,85 @@ final class SourceFields {
   private SourceFields() {}
 
   static List<Field> split(String text) {
-    return ranges(text, true);
+    var original = ranges(text, true);
+    var fields = new ArrayList<Field>();
+    for (int index = 0; index < original.size(); index++) {
+      checkInterrupted();
+      var label = original.get(index);
+      if (LAYOUT_LABEL.matcher(label.text()).matches() && index + 1 < original.size()) {
+        var value = original.get(index + 1);
+        String between = text.substring(label.end(), value.start());
+        if (between.matches("[ \t]*\r?\n[ \t]*")
+            && !LAYOUT_LABEL.matcher(value.text()).matches()
+            && !ASSIGNMENT.matcher(value.text()).find()
+            && value.text().codePointCount(0, value.text().length()) <= 512) {
+          fields.add(new Field(label.start(), value.end(), text.substring(label.start(), value.end())));
+          index++;
+          continue;
+        }
+      }
+      fields.add(label);
+    }
+    return List.copyOf(fields);
+  }
+
+  /** A layout field keeps its two original lines and their exact source range. */
+  static String layoutValue(String field, String key) {
+    int newline = field.indexOf('\n');
+    if (newline < 0 || !field.substring(0, newline).strip().equalsIgnoreCase(key)) {
+      return null;
+    }
+    String label = field.substring(0, newline).strip();
+    String value = field.substring(newline + 1).strip();
+    return LAYOUT_LABEL.matcher(label).matches() && !value.isEmpty() ? value : null;
+  }
+
+  /** One explicit, safe project identity must occur inside the same retrieved source fragment. */
+  static Field projectBinding(
+      String page, List<Field> fields, String subject, int fragmentStart, int fragmentEnd) {
+    String requested = projectIdentity(subject);
+    Field binding = null;
+    for (var field : fields) {
+      checkInterrupted();
+      String statement = statement(field.text());
+      String declared = layoutValue(statement, "项目名称");
+      if (declared == null) {
+        declared = layoutValue(statement, "项目名");
+      }
+      var assignment = PROJECT_NAME.matcher(statement);
+      if (declared == null && assignment.matches()) {
+        declared = assignment.group(1);
+      }
+      if (declared != null) {
+        if (!projectIdentity(declared).equals(requested)
+            || TruthContext.unsafe(page, field, fields)) {
+          return null;
+        }
+        if (field.start() >= fragmentStart && field.end() <= fragmentEnd && binding == null) {
+          binding = field;
+        }
+      }
+      // Check the original label before neutral-label stripping can hide another owner.
+      var explicit = EXPLICIT_PROJECT_FIELD.matcher(field.text());
+      var heading = PROJECT_HEADING.matcher(field.text());
+      if ((explicit.matches() && !projectIdentity(explicit.group(1)).equals(requested))
+          || (heading.matches() && !projectIdentity(heading.group(1)).equals(requested))) {
+        return null;
+      }
+    }
+    return binding;
+  }
+
+  private static String projectIdentity(String value) {
+    String result = value.strip();
+    if (result.length() >= 2
+        && ((result.startsWith("‘") && result.endsWith("’"))
+            || (result.startsWith("“") && result.endsWith("”"))
+            || (result.startsWith("\"") && result.endsWith("\""))
+            || (result.startsWith("'") && result.endsWith("'")))) {
+      result = result.substring(1, result.length() - 1).strip();
+    }
+    return result.replaceFirst("项目$", "").toLowerCase(Locale.ROOT);
   }
 
   static List<Field> sentences(String text) {
