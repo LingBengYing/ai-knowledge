@@ -1,103 +1,87 @@
-"""Full v1.5 pipeline: local CPU layout/ordering, remote region recognition."""
+"""Whole-page remote recognition: one SiliconFlow PaddleOCR-VL-1.5 call per page, no local model."""
 
-import contextlib
-import importlib.metadata
-import io
-import logging
-import os
-import warnings
+import asyncio
+import base64
+import struct
+import zlib
 
 from .protocol import OcrError
-from .provider import MODEL, create_http_client
+from .provider import MODEL, create_http_client, validate_completion
+
+# Same pixel ceiling Pillow uses for its decompression-bomb error threshold.
+MAX_PIXELS = 2 * 89_478_485
+PROMPT = "OCR:"
 
 
-def configure_pipeline(config, base_url, api_key, http_client):
-    # SDK config copying is shallow on the inspected 3.4.0 path. Do not dump YAML:
-    # this dictionary deliberately contains a secret and the actual client object.
-    config["batch_size"] = 1
-    config["markdown_ignore_labels"] = []
-    config["use_doc_preprocessor"] = False
-    config["use_layout_detection"] = True
-    config["SubModules"]["LayoutDetection"]["batch_size"] = 1
-    recognition = config["SubModules"]["VLRecognition"]
-    recognition["batch_size"] = 1
-    recognition["genai_config"] = {
-        "backend": "vllm-server", "server_url": base_url, "max_concurrency": 1,
-        "client_kwargs": {
-            "model_name": MODEL, "api_key": api_key,
-            "max_retries": 0, "http_client": http_client,
-        },
+def check_png(png):
+    """Walk chunks up to the first IDAT: valid IHDR, bounded size, not animated."""
+    if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise OcrError("invalid_request")
+    offset, first = 8, True
+    try:
+        while True:
+            length, kind = struct.unpack("!I4s", png[offset:offset + 8])
+            data = png[offset + 8:offset + 8 + length]
+            crc = png[offset + 8 + length:offset + 12 + length]
+            if len(data) != length or len(crc) != 4:
+                raise ValueError()
+            if struct.unpack("!I", crc)[0] != zlib.crc32(kind + data):
+                raise ValueError()
+            if first:
+                if kind != b"IHDR" or length != 13:
+                    raise ValueError()
+                width, height = struct.unpack("!II", data[:8])
+                if not width or not height or width * height > MAX_PIXELS:
+                    raise ValueError()
+                first = False
+            elif kind == b"acTL":
+                raise ValueError()
+            elif kind == b"IDAT":
+                return
+            offset += 12 + length
+    except (ValueError, struct.error):
+        raise OcrError("invalid_request") from None
+
+
+def page_request(png):
+    image = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+    return {
+        "model": MODEL,
+        "stream": False,
+        "messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": image}},
+            {"type": "text", "text": PROMPT},
+        ]}],
     }
-    return config
 
 
-@contextlib.contextmanager
-def quiet_sdk():
-    # Third-party exceptions/progress can include original text or endpoint data.
-    # Our dedicated AuditLog retains its stream and is unaffected by redirects.
-    logging.disable(logging.CRITICAL)
-    with open(os.devnull, "w") as sink:
-        with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
-            yield
-
-
-class PaddlePagePipeline:
-    def __init__(self, base_url, api_key):
-        self._context = None
-        self.http_client = create_http_client(lambda: self._context, base_url)
-        with quiet_sdk():
-            if any(importlib.metadata.version(name) != "3.4.0"
-                   for name in ("paddleocr", "paddlex")):
-                raise RuntimeError("unsupported pipeline version")
-            from paddleocr import PaddleOCRVL
-            from paddlex.inference import load_pipeline_config
-
-            config = configure_pipeline(load_pipeline_config("PaddleOCR-VL-1.5"),
-                                        base_url, api_key, self.http_client)
-            self.pipeline = PaddleOCRVL(
-                pipeline_version="v1.5", paddlex_config=config,
-                device="cpu", cpu_threads=1, use_queues=False,
-                use_doc_orientation_classify=False, use_doc_unwarping=False,
-                layout_detection_model_dir=os.environ.get("OCR_LAYOUT_MODEL_DIR"),
-            )
+class RemotePagePipeline:
+    def __init__(self, base_url, api_key, transport=None):
+        self.endpoint = base_url.rstrip("/") + "/chat/completions"
+        self.base_url = base_url
+        self.api_key = api_key
+        self.transport = transport
 
     def __call__(self, png, context):
         context.check()
-        self._context = context
-        try:
-            with quiet_sdk():
-                import numpy as np
-                from PIL import Image
+        check_png(png)
+        return asyncio.run(self._recognize(png, context))
 
-                with warnings.catch_warnings():
-                    warnings.simplefilter("error", Image.DecompressionBombWarning)
-                    try:
-                        with Image.open(io.BytesIO(png)) as image:
-                            if image.format != "PNG" or getattr(image, "n_frames", 1) != 1:
-                                raise OcrError("invalid_request")
-                            image.load()
-                            page = np.ascontiguousarray(np.asarray(image.convert("RGB"))[:, :, ::-1])
-                    except (OSError, ValueError, Image.DecompressionBombWarning,
-                            Image.DecompressionBombError):
-                        raise OcrError("invalid_request") from None
-                context.check()
-                results = list(self.pipeline.predict(page))
-                context.check()
-                if len(results) != 1:
-                    raise OcrError("pipeline_failed")
-                text = results[0].markdown["markdown_texts"]
-                if not isinstance(text, str):
-                    raise OcrError("pipeline_failed")
-                return text
+    async def _recognize(self, png, context):
+        # A fresh client per page: connection pools must not outlive their event loop.
+        client = create_http_client(lambda: context, self.base_url, transport=self.transport)
+        try:
+            response = await client.post(self.endpoint, json=page_request(png),
+                                         headers={"Authorization": "Bearer " + self.api_key})
+            # GuardedAsyncClient already validated; re-extract the single plain-text choice.
+            return validate_completion(response.status_code, response.content)
         except OcrError:
             raise
         except Exception:
-            # The SDK wraps HTTP errors; preserve the already-latched safe reason.
             context.check()
             raise OcrError("pipeline_failed") from None
         finally:
-            self._context = None
+            await client.aclose()
 
     def close(self):
-        with quiet_sdk():
-            self.pipeline.close()
+        pass

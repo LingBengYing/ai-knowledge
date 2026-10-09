@@ -7,7 +7,7 @@ import threading
 from urllib.parse import urlsplit
 
 from .execution import AuditLog
-from .pipeline import PaddlePagePipeline
+from .pipeline import RemotePagePipeline
 from .protocol import PROFILE
 from .provider import MODEL
 from .server import OcrServer
@@ -39,7 +39,7 @@ def main():
         os.environ.setdefault("OMP_NUM_THREADS", "1")
         os.environ.setdefault("MKL_NUM_THREADS", "1")
         audit = AuditLog(sys.stdout)
-        pipeline = PaddlePagePipeline(base_url, api_key)
+        pipeline = RemotePagePipeline(base_url, api_key)
         server = OcrServer(socket_path, pipeline, audit)
         server.start()
         stopped.wait()

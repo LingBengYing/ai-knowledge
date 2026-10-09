@@ -2,13 +2,11 @@
 
 This service is an OCR-only companion to the Java knowledge library. Java owns original files, PDF page numbers, parsing revisions, evidence, storage and publication. Python receives one rendered PNG page and returns the **full PaddleOCR-VL 1.5 pipeline's Markdown** as page text. It does not implement knowledge answers, embedding, reranking, indexing, or database access.
 
-The pipeline uses local CPU **PP-DocLayoutV3** layout detection and reading order. It sends each detected recognition region to SiliconFlow's exact `PaddlePaddle/PaddleOCR-VL-1.5` model through OpenAI-compatible chat completions. A page is **not** assumed to equal one model HTTP request. No whole-page chat-only replacement is presented as layout-aware OCR. An empty layout may legitimately produce empty text and zero model calls.
+No local model runs. Each rendered page PNG is sent as one image to SiliconFlow's exact `PaddlePaddle/PaddleOCR-VL-1.5` model through OpenAI-compatible chat completions (prompt `OCR:`), and the single plain-text reply is the page text. Layout detection and reading order are left to the remote model; there is no PaddlePaddle, PaddleX or PP-DocLayoutV3 dependency.
 
 ## Runtime
 
-Production sets `OCR_LAYOUT_MODEL_DIR` to the pre-provisioned, checksum-verified PP-DocLayoutV3 directory and `PADDLE_PDX_CACHE_HOME` to a private service-owned cache. Set these before importing Paddle; source-check disabling alone does not prevent downloads when weights are missing.
-
-Use a dedicated Python 3.11 environment; do not add these dependencies to the existing knowledge Agent environment. Install the pinned requirements separately, run `pip check`, and provision the CPU layout model/cache under the service account before accepting production traffic. Only the layout model is local; the remote recognition backend must not download the local VLM weights. Document orientation and unwarping are disabled, while layout detection and reading order remain enabled.
+Use a dedicated Python 3.11 environment with `requirements.txt` (only `httpx`).
 
 From this directory:
 
@@ -68,38 +66,26 @@ There is one active pipeline operation and no application work queue. A second v
 
 ## Provider boundary and failure behavior
 
-- PaddleOCR and PaddleX are both runtime-checked at `3.4.0`.
-- `use_queues=False`, page/layout/recognition `batch_size=1`, `max_concurrency=1`, and SDK `max_retries=0` prevent speculative region dispatch and automatic retries.
-- The owned `GuardedAsyncClient.send` seam is injected as an actual client object through supported `client_kwargs`. There is no process-global HTTP monkey patch or modification of installed SDK files.
-- The SDK internally supplies a 600-second timeout and defaults output token caps. This adapter replaces HTTP phase timeouts with the remaining **page** deadline and wraps the whole request/complete-body read in the same deadline. It explicitly removes `max_tokens` and `max_completion_tokens` at the wire boundary, leaving the provider's own capacity limit. Other request contents are preserved.
-- Streaming model responses and redirects are not accepted. The HTTP response body is read with a hard byte bound. Only one plain-text choice with `finish_reason="stop"` succeeds. Connect failures, non-200 status, incomplete/length-limited output, malformed responses, timeouts and cancellation latch the page as failed; subsequent region sends are blocked.
-- No partial page is published after any regional failure. Markdown filtering is explicitly `markdown_ignore_labels=[]`, preserving headers, footers and footnotes in the pipeline output rather than silently omitting them.
-- On socket disconnect or page deadline, cancellation interrupts in-flight asynchronous HTTP and prevents future HTTP. Local CPU inference cannot be forcibly interrupted by `asyncio`; the socket watchdog still emits the deadline error and retains the active slot until that computation exits. Use the supervisor's stop timeout for a genuinely stuck native inference process. This is not a claim that a Python coroutine can kill native CPU work.
+- Exactly one HTTPS request per page to `<OCR_BASE_URL>/chat/completions`, no automatic retry and no redirects. The `GuardedAsyncClient.send` seam rejects any other method or URL.
+- HTTP phase timeouts are the remaining **page** deadline, and the whole request/complete-body read is wrapped in the same deadline. `max_tokens` and `max_completion_tokens` are never sent, leaving the provider's own capacity limit.
+- Streaming responses are not accepted. The response body is read with a hard byte bound. Only one plain-text choice with `finish_reason="stop"` succeeds; connect failures, non-200 status, length-limited or malformed output, timeouts and cancellation fail the page with a fixed code. No partial page is ever returned.
+- The PNG header is checked before any HTTP (valid chunks/CRC, non-zero size, at most ~179 megapixels, not animated).
+- On socket disconnect or page deadline, cancellation interrupts the in-flight HTTP request.
 
-Each provider dispatch attempt has one `start` and one `finish` JSON audit record, including connection errors. The only fields are `request_id`, `event`, safe `status`, and `elapsed_ms`. Model content, URLs, HTTP headers, keys and external error strings are never logged. A failed start-audit write prevents dispatch. SDK stdout/stderr and Python logging are suppressed; the dedicated audit stream is retained. A `start` without a `finish` after process termination is an interrupted/unknown attempt, not success or an automatic retry authorization.
+Each provider dispatch attempt has one `start` and one `finish` JSON audit record, including connection errors. The only fields are `request_id`, `event`, safe `status`, and `elapsed_ms`. Model content, URLs, HTTP headers, keys and external error strings are never logged. A failed start-audit write prevents dispatch. A `start` without a `finish` after process termination is an interrupted/unknown attempt, not success or an automatic retry authorization.
 
 ## Verification
 
-Stdlib-only contract regression (synthetic pipeline, no network/model/weights):
+Stdlib-only contract regression (synthetic pipeline, no network/model):
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v
 ```
 
-Real `httpx` wire regression with `MockTransport` (still no network/model/SDK/weights):
+Real `httpx` wire regression with `MockTransport` (no network/model):
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s wire_tests -v
 ```
 
-The contract suite covers framing, limits, fields, no extra URLs/paths, permissions, single active work, deadline/disconnect, fixed safe errors and accounting. The wire suite checks cap removal, SDK timeout override, complete response validation, connection-failure accounting and cancellation. Neither suite measures Paddle layout quality, provider OCR quality, production capacity or Java integration. Those require separately recorded real-Paddle and real-provider evidence before a release is called verified.
-
-## Version-bound SDK source review
-
-The integration was traced through the official pinned sources, not inferred from an unrelated whole-image OCR example:
-
-- [PaddleOCR 3.4.0 wrapper](https://github.com/PaddlePaddle/PaddleOCR/blob/fc82f229112a03aff46cc53db6166a98ea65a8fa/paddleocr/_pipelines/paddleocr_vl.py)
-- [PaddleX 3.4.0 pipeline](https://github.com/PaddlePaddle/PaddleX/blob/b1bfbc6fa0bcca335ead0c9308c4723c23ccaa06/paddlex/inference/pipelines/paddleocr_vl/pipeline.py)
-- [PaddleX recognition predictor](https://github.com/PaddlePaddle/PaddleX/blob/b1bfbc6fa0bcca335ead0c9308c4723c23ccaa06/paddlex/inference/models/doc_vlm/predictor.py)
-
-The inspected path shallow-copies configuration dictionaries and preserves the injected AsyncClient object. PaddleX executes recognition coroutines on one persistent SDK event-loop thread; this client is not used from a separate socket event loop. Revisit those assumptions before changing either pinned SDK version.
+The contract suite covers framing, limits, fields, no extra URLs/paths, permissions, single active work, deadline/disconnect, fixed safe errors and accounting. The wire suite checks cap removal, SDK timeout override, complete response validation, connection-failure accounting and cancellation. Neither suite measures provider OCR quality, production capacity or Java integration. Those require separately recorded real-provider evidence before a release is called verified.

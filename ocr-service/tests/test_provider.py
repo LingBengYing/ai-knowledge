@@ -1,7 +1,6 @@
 import json
 import unittest
 
-from ocr_service.pipeline import configure_pipeline
 from ocr_service.provider import MODEL, prepare_request_body, validate_completion
 from ocr_service.protocol import OcrError
 
@@ -32,25 +31,6 @@ class ProviderTest(unittest.TestCase):
             with self.assertRaises(OcrError) as result:
                 validate_completion(status, body)
             self.assertNotIn("private", str(result.exception))
-
-    def test_pipeline_has_local_layout_and_serial_no_retry_cloud_recognition(self):
-        config = {"SubModules": {
-            "LayoutDetection": {"batch_size": 8},
-            "VLRecognition": {"batch_size": 4096, "genai_config": {}},
-        }}
-        client = object()
-        result = configure_pipeline(config, "https://api.siliconflow.cn/v1", "synthetic-key", client)
-        self.assertEqual(result["batch_size"], 1)
-        self.assertEqual(result["SubModules"]["LayoutDetection"]["batch_size"], 1)
-        vl = result["SubModules"]["VLRecognition"]
-        self.assertEqual(vl["batch_size"], 1)
-        self.assertEqual(vl["genai_config"]["backend"], "vllm-server")
-        self.assertEqual(vl["genai_config"]["max_concurrency"], 1)
-        kwargs = vl["genai_config"]["client_kwargs"]
-        self.assertEqual(kwargs["model_name"], "PaddlePaddle/PaddleOCR-VL-1.5")
-        self.assertEqual(kwargs["max_retries"], 0)
-        self.assertIs(kwargs["http_client"], client)
-        self.assertEqual(result["markdown_ignore_labels"], [])
 
 
 if __name__ == "__main__":
