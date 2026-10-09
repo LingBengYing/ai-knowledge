@@ -1,0 +1,12 @@
+{
+  "release": "20261009-dbgpt-agent-0057",
+  "files": {
+    "application.jar": "35fff38ca5eae6634804c5a5866bd31b9b9f678846ddf926b4309c99fb0cd34c",
+    "frontend.tar.gz": "d1417b676c2f8edb6151bef8deb32a7a48e285a8a2162a3730f92e0bff862800",
+    "frontend-files.json": "af91c8b547c50dbd31ff3ad713d85439d16e6590fda4faedcd6355dc349db817",
+    "python-linux.tar.gz": "54fd3449a73511e36de68874026a4addd0dbf9156606ae22cf898581b1426211"
+  },
+  "old_jar_sha256": "3e7e9aa272992b9ed879e7720ea4792b7433c3e381257c9ec28b3fc75fc6673a",
+  "old_entry_sha256": "d47c6fd3e5a01cbafd2095e2b93d801726376d070fc4fcb6455e2336cc3e2ff2",
+  "migration_probe_sha256": "4e3f170a12407dc035db10f080afc2ee9f7a512ebb107acf64bf26f0f2fe2199"
+}

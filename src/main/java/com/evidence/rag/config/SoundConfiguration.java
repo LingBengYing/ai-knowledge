@@ -158,19 +158,24 @@ public class SoundConfiguration {
       ManagementRepository management,
       DocumentPermissionPolicy permissions,
       SoundCompilationService compilation,
-      SoundSettings settings) {
-    return new SoundLibraryService(
-        store,
-        repository,
-        management,
-        permissions,
-        compilation,
-        settings.target(),
-        settings.models(),
-        settings.embedding(),
-        settings.projection(),
-        settings.processingBudget(),
-        settings.maxConcurrent());
+      SoundSettings settings,
+      Environment environment) {
+    var service =
+        new SoundLibraryService(
+            store,
+            repository,
+            management,
+            permissions,
+            compilation,
+            settings.target(),
+            settings.models(),
+            settings.embedding(),
+            settings.projection(),
+            settings.processingBudget(),
+            settings.maxConcurrent());
+    service.setAutomaticIndexingEnabled(
+        environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true));
+    return service;
   }
 
   @Bean(destroyMethod = "close")

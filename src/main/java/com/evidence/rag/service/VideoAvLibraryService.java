@@ -25,6 +25,7 @@ import com.evidence.rag.model.domain.VideoAvVideoMetadata;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.repository.DocumentCleanupRepository;
 import com.evidence.rag.repository.DocumentUpdateRepository;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
@@ -54,6 +55,12 @@ import java.util.function.BiFunction;
  * authority.
  */
 public final class VideoAvLibraryService implements AutoCloseable {
+  private boolean automaticIndexingEnabled = true;
+
+  public void setAutomaticIndexingEnabled(boolean enabled) {
+    automaticIndexingEnabled = enabled;
+  }
+
   private final SqliteAuthorityStore store;
   private final MilvusRestProjection.Settings cleanupVisualProjection;
   private final MilvusRestProjection.Settings cleanupAudioProjection;
@@ -221,6 +228,11 @@ public final class VideoAvLibraryService implements AutoCloseable {
               now);
           management.insertGrant(original.documentId(), actor.principalId(), "owner");
           videos.insertOriginal(original, now);
+          if (automaticIndexingEnabled) {
+            new ImportIndexRepository(store)
+                .insert(
+                    actor, original.documentId(), original.revisionId(), "video_av", null, null);
+          }
           management.insertAudit(
               AuditEventEntity.create(
                   actor,

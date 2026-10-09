@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.StandardProtocolFamily;
+import java.net.UnixDomainSocketAddress;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -16,6 +19,61 @@ import org.springframework.mock.env.MockEnvironment;
 
 class PdfOcrConfigurationTest {
   @TempDir Path directory;
+
+  @Test
+  void pipelineBackendUsesOnlyAnExplicitNativeSocketAndPinnedRevision() throws Exception {
+    Path socket = directory.resolve("ocr.sock");
+    try (var server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+      server.bind(UnixDomainSocketAddress.of(socket));
+      var environment =
+          new MockEnvironment()
+              .withProperty("rag.pdf-ocr.enabled", "true")
+              .withProperty("server.address", "127.0.0.1")
+              .withProperty("rag.environment", "test")
+              .withProperty("rag.pdf-ocr.backend", "paddle-vl")
+              .withProperty("rag.pdf-ocr.socket", socket.toString())
+              .withProperty("rag.pdf-ocr.revision", "paddleocr-vl-1.5-pipeline-v1");
+      var options = PdfOcrConfiguration.options(environment);
+      assertNotNull(options);
+      assertNull(options.ocr());
+      assertTrue(options.parserRevision().matches("java-pdf-ocr-v1:[0-9a-f]{64}"));
+      assertNull(ImageOcrConfiguration.options(environment));
+    }
+  }
+
+  @Test
+  void pipelineRejectsNonSocketPathsUnknownBackendAndUnpinnedRevision() throws Exception {
+    Path file = directory.resolve("not-socket");
+    Files.writeString(file, "synthetic");
+    var environment =
+        new MockEnvironment()
+            .withProperty("rag.pdf-ocr.enabled", "true")
+            .withProperty("server.address", "127.0.0.1")
+            .withProperty("rag.environment", "test")
+            .withProperty("rag.pdf-ocr.backend", "paddle-vl")
+            .withProperty("rag.pdf-ocr.revision", "paddleocr-vl-1.5-pipeline-v1");
+    for (Path invalid :
+        List.of(file, directory, directory.resolve("missing"), Path.of("relative"))) {
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              PdfOcrConfiguration.options(
+                  environment.withProperty("rag.pdf-ocr.socket", invalid.toString())));
+    }
+    Path socket = directory.resolve("native.sock");
+    try (var server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+      server.bind(UnixDomainSocketAddress.of(socket));
+      environment.withProperty("rag.pdf-ocr.socket", socket.toString());
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> PdfOcrConfiguration.options(environment.withProperty("rag.pdf-ocr.revision", "")));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              PdfOcrConfiguration.options(
+                  environment.withProperty("rag.pdf-ocr.backend", "unknown")));
+    }
+  }
 
   @Test
   void defaultsOffAndDoesNotFollowTheImageOcrSwitch() throws Exception {

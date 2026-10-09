@@ -74,6 +74,8 @@ class DocumentCleanupMigrationTest {
     String document;
     byte[] original = "真正旧版正文，升级后仍逐字保存。".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     try (var fixture = new PublishedCorpusFixture(directory)) {
+      // This fixture represents v21, before durable automatic-index admission existed.
+      fixture.authority.ingestion().setAutomaticIndexingEnabled(false);
       document =
           fixture
               .publish(

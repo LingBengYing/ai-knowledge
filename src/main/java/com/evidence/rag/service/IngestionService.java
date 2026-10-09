@@ -9,6 +9,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioCompilation;
+import com.evidence.rag.model.domain.DocumentFormat;
 import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.ImageEvidence;
 import com.evidence.rag.model.domain.ImageOcrOptions;
@@ -26,6 +27,7 @@ import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.TaskEntity;
 import com.evidence.rag.repository.DocumentUpdateRepository;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
@@ -51,6 +53,12 @@ import java.util.function.Supplier;
  * Ingestion admission, fencing and evidence acceptance. Remote parsing never holds a transaction.
  */
 public final class IngestionService {
+  private boolean automaticIndexingEnabled = true;
+
+  public void setAutomaticIndexingEnabled(boolean enabled) {
+    automaticIndexingEnabled = enabled;
+  }
+
   private static final long MAX_ORIGINAL_BYTES = 256L * 1024 * 1024;
   private static final int MAX_PENDING_INGESTIONS = 32;
   private static final Set<String> ERRORS =
@@ -260,10 +268,9 @@ public final class IngestionService {
   }
 
   private static String canonicalMime(String filename) {
-    String lower = filename.toLowerCase(Locale.ROOT);
-    return lower.endsWith(".pdf")
-        ? "application/pdf"
-        : lower.endsWith(".md") ? "text/markdown" : "text/plain";
+    return DocumentFormat.fromFilename(filename)
+        .orElseThrow(() -> new TextParser.Failure("unsupported_document"))
+        .mediaType();
   }
 
   public void validateUploadEnvelope(String filename, String mime, byte[] content) {
@@ -308,7 +315,9 @@ public final class IngestionService {
       return audioCompilerRevision;
     }
     if (!imageEnabled(filename)) {
-      return pdfs != null && isPdf(filename) ? pdfs.parserRevision() : TextParser.REVISION;
+      return pdfs != null && isPdf(filename)
+          ? pdfs.parserRevision()
+          : TextParser.revisionFor(filename);
     }
     return visual != null ? visual.parserRevision() : images.parserRevision();
   }
@@ -326,8 +335,8 @@ public final class IngestionService {
             : audioCompilerRevision != null
                 ? "仅支持已启用且符合文件格式和大小限制的文本、图片或音频资料。"
                 : images == null && visual == null
-                    ? "仅支持符合文件格式的 PDF、TXT 和 Markdown。"
-                    : "仅支持符合文件格式和大小限制的 PDF、TXT、Markdown、PNG 和 JPEG。");
+                    ? "仅支持已启用且符合文件格式和大小限制的文档资料。"
+                    : "仅支持已启用且符合文件格式和大小限制的文档或图片资料。");
   }
 
   public TaskResult uploadDocument(Actor owner, String filename, String mime, byte[] content) {
@@ -374,6 +383,10 @@ public final class IngestionService {
           ingestion.insertOriginal(
               documentId, revisionId, parserRevision, sourceHash, original, now);
           ingestion.insertJob(jobId, documentId, revisionId, owner.principalId(), now);
+          if (automaticIndexingEnabled) {
+            new ImportIndexRepository(store)
+                .insert(owner, documentId, revisionId, "corpus", null, null);
+          }
           audit(
               owner,
               documentId,
@@ -726,7 +739,7 @@ public final class IngestionService {
                   ? images == null ? null : images.parserRevision()
                   : pdfs != null && isPdf(task.filename())
                       ? pdfs.parserRevision()
-                      : TextParser.REVISION;
+                      : TextParser.revisionFor(task.filename());
           if (!Objects.equals(expectedRevision, task.parserRevision())
               || !sha256(claim.content()).equals(task.sourceSha256())) {
             throw invalidParserOutput();

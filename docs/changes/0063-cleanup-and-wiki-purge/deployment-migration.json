@@ -1,0 +1,9 @@
+{
+  "migration_and_compatibility_reopen": true,
+  "model_requests": 0,
+  "old_file_count": 9,
+  "old_files_preserved": true,
+  "old_rows_preserved": true,
+  "old_table_count": 96,
+  "schema": 35
+}

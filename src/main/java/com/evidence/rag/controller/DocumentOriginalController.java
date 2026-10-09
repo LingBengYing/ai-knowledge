@@ -4,6 +4,7 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.vo.DocumentOriginalResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.ManagementService;
+import com.evidence.rag.web.MediaContentResponse;
 import com.evidence.rag.web.converter.ManagementResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
@@ -38,7 +39,7 @@ public final class DocumentOriginalController {
     var original =
         management.documentContent(AuthenticatedActor.require(request), documentId, revisionId);
     byte[] bytes = original.content();
-    return ResponseEntity.ok()
+    return MediaContentResponse.protectDocument(ResponseEntity.ok(), original.mediaType())
         .contentType(MediaType.parseMediaType(original.mediaType()))
         .header("Cache-Control", "private, no-store")
         .header("X-Content-Type-Options", "nosniff")

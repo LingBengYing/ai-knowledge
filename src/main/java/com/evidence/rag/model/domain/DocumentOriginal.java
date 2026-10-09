@@ -15,7 +15,7 @@ public record DocumentOriginal(
     byte[] content) {
   private static final Map<String, Set<String>> MEDIA_TYPES =
       Map.of(
-          "document", Set.of("application/pdf", "text/plain", "text/markdown"),
+          "document", DocumentFormat.mediaTypes(),
           "image", Set.of("image/png", "image/jpeg"),
           "audio",
               Set.of(

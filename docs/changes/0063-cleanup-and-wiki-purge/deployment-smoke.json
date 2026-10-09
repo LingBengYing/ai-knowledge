@@ -1,0 +1,70 @@
+{
+  "/": {
+    "bytes": 2746,
+    "status": 200
+  },
+  "/classic/": {
+    "bytes": 38039,
+    "status": 200
+  },
+  "/health/ready": {
+    "known_gate": true,
+    "status": 503
+  },
+  "/knowledge-agent.mjs": {
+    "bytes": 12146,
+    "status": 200
+  },
+  "/v1/config": {
+    "bytes": 862,
+    "status": 200
+  },
+  "/v1/knowledge-agent/config": {
+    "bytes": 48,
+    "status": 200
+  },
+  "/v1/management/documents": {
+    "bytes": 9186,
+    "status": 200
+  },
+  "/v1/management/folders": {
+    "bytes": 12,
+    "status": 200
+  },
+  "/v1/retrieval-settings": {
+    "bytes": 145,
+    "status": 200
+  },
+  "/v1/session": {
+    "bytes": 75,
+    "status": 200
+  },
+  "/v1/wiki/drafts?offset=0&limit=20": {
+    "bytes": 44,
+    "status": 200
+  },
+  "/v1/wiki/pages?state=active": {
+    "bytes": 44,
+    "status": 200
+  },
+  "/v1/wiki/pages?state=deleted": {
+    "bytes": 73245,
+    "status": 200
+  },
+  "/wiki-maintenance.mjs": {
+    "bytes": 45905,
+    "status": 200
+  },
+  "/wiki-retrieval.mjs": {
+    "bytes": 16733,
+    "status": 200
+  },
+  "/wiki-workspace.css": {
+    "bytes": 9052,
+    "status": 200
+  },
+  "/wiki-workspace.mjs": {
+    "bytes": 84425,
+    "status": 200
+  }
+}

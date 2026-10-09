@@ -18,7 +18,9 @@ public final class IndexWorker {
   public static void main(String[] args) {
     var protocol = System.out;
     System.setOut(new PrintStream(OutputStream.nullOutputStream()));
-    run(System.in, protocol, true);
+    try (var audit = IndexWorkerModelHttpLog.child()) {
+      run(System.in, protocol, true);
+    }
   }
 
   /** One bounded request; library logs and exception messages are never protocol output. */

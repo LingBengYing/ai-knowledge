@@ -37,6 +37,36 @@ class VideoAvLibraryServiceTest {
   @TempDir Path directory;
 
   @Test
+  void automaticAdmissionUsesTheExistingAudioVisualPipelineOnce() {
+    var calls = new AtomicInteger();
+    try (var store = new SqliteAuthorityStore(directory);
+        var compilation = compilation(new AtomicInteger())) {
+      var service =
+          service(
+              store,
+              compilation,
+              (claim, budget) -> {
+                calls.incrementAndGet();
+                return receipt(claim);
+              });
+      var original = service.upload(OWNER, "clip.mp4", "application/octet-stream", raw());
+      var automatic =
+          new ImportAutoIndexService(
+              store,
+              () -> {
+                throw new AssertionError("not corpus");
+              },
+              null,
+              service);
+      assertEquals(true, automatic.processNext());
+      assertNotNull(service.get(OWNER, original.documentId()).publication());
+      assertEquals(false, automatic.processNext());
+      assertEquals(1, calls.get());
+      assertEquals(0, scalar("SELECT COUNT(*) FROM indexing_jobs"));
+    }
+  }
+
+  @Test
   void rawRegistrationHasNoDecodeProviderOrOldTaskAndBuildIsCompleteIdempotent() {
     var calls = new AtomicInteger();
     var decoded = new AtomicInteger();

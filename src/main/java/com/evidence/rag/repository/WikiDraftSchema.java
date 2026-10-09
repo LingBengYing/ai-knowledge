@@ -52,7 +52,11 @@ final class WikiDraftSchema {
   }
 
   void verify() {
-    new WikiWorkspaceSchema(store).verify(32);
+    verify(32);
+  }
+
+  void verify(int version) {
+    new WikiWorkspaceSchema(store).verify(version);
     if (store.count(
                 "SELECT COUNT(*) FROM pragma_table_info('wiki_drafts') WHERE name IN ('workspace_id','id','title','body','version','created_at','updated_at')")
             != 7

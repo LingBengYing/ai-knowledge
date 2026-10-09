@@ -14,6 +14,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.dto.WikiPageLifecycleCommand;
 import com.evidence.rag.model.dto.WikiProposalCommand;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.SynopsisMaterialRepository;
@@ -158,6 +159,14 @@ class WikiWorkspaceServiceTest {
               .getFirst()
               .current());
       assertEquals("stale", service.proposal(owner, pending.id()).sourceState());
+      assertEquals("", service.page(owner, page.pageId()).content().sections().getFirst().body());
+      assertEquals(
+          "来源资料已清理", service.page(owner, page.pageId()).content().sections().getFirst().heading());
+      assertEquals(
+          "", service.version(owner, page.pageId(), 1).content().sections().getFirst().body());
+      assertEquals("", service.proposal(owner, initial.id()).after().sections().getFirst().body());
+      assertEquals("", service.proposal(owner, pending.id()).before().sections().getFirst().body());
+      assertEquals("", service.proposal(owner, pending.id()).after().sections().getFirst().body());
       assertThrows(ApplicationException.class, () -> service.accept(owner, pending.id(), 1));
       assertEquals("pending", service.proposal(owner, pending.id()).status());
       String sourceId = page.content().sections().getFirst().sources().getFirst().id();
@@ -203,6 +212,48 @@ class WikiWorkspaceServiceTest {
       assertEquals(1, service.proposals(owner, 0, 20, "dismissed").total());
       assertThrows(ApplicationException.class, () -> service.accept(owner, proposal.id(), 0));
       assertThrows(ApplicationException.class, () -> service.dismiss(owner, proposal.id()));
+    }
+  }
+
+  @Test
+  void lifecycleHidesOtherOrganizationAndNeverCallsModelForDeletedPage() {
+    try (var fixture = new PublishedCorpusFixture(directory)) {
+      String documentId = fixture.publish(owner, "可恢复的原始资料。").documentId();
+      var service = service(fixture.authority.store());
+      var proposed = service.createProposal(owner, command(null, 0, "可恢复", documentId));
+      var page = service.accept(owner, proposed.id(), 0);
+      var other = new Actor("other-org", "member");
+      assertEquals(
+          FailureKind.NOT_FOUND,
+          assertThrows(
+                  ApplicationException.class,
+                  () -> service.delete(other, page.pageId(), new WikiPageLifecycleCommand(1, 0)))
+              .kind());
+      assertEquals(
+          FailureKind.NOT_FOUND,
+          assertThrows(
+                  ApplicationException.class,
+                  () -> service.restore(other, page.pageId(), new WikiPageLifecycleCommand(1, 0)))
+              .kind());
+      assertEquals(
+          FailureKind.NOT_FOUND,
+          assertThrows(
+                  ApplicationException.class,
+                  () -> service.purge(other, page.pageId(), new WikiPageLifecycleCommand(1, 0)))
+              .kind());
+      service.delete(owner, page.pageId(), new WikiPageLifecycleCommand(1, 0));
+      assertEquals(
+          "wiki_page_deleted",
+          assertThrows(
+                  ApplicationException.class,
+                  () ->
+                      service.createProposal(
+                          owner,
+                          new WikiProposalCommand(
+                              page.pageId(), 1, "不得调用模型", "topic", List.of(documentId), "model")))
+              .code());
+      assertEquals("deleted", service.page(owner, page.pageId()).state());
+      assertEquals(1, service.version(owner, page.pageId(), 1).version());
     }
   }
 

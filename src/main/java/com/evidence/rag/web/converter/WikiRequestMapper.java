@@ -2,6 +2,7 @@ package com.evidence.rag.web.converter;
 
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
+import com.evidence.rag.model.dto.WikiPageLifecycleCommand;
 import com.evidence.rag.model.dto.WikiProposalCommand;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
@@ -71,6 +72,40 @@ public final class WikiRequestMapper {
 
   public static void dismiss(byte[] bytes) {
     if (!object(bytes).isEmpty()) {
+      throw invalid();
+    }
+  }
+
+  public static WikiPageLifecycleCommand lifecycle(byte[] bytes) {
+    var node = object(bytes);
+    if (!Set.copyOf(node.propertyNames()).equals(Set.of("version", "lifecycle_version"))) {
+      throw invalid();
+    }
+    return new WikiPageLifecycleCommand(
+        integer(node.path("version")), integer(node.path("lifecycle_version")));
+  }
+
+  public static String pageState(String state) {
+    if (state == null) {
+      return "active";
+    }
+    if (!Set.of("active", "deleted").contains(state)) {
+      throw invalid();
+    }
+    return state;
+  }
+
+  public static WikiPageLifecycleCommand lifecycle(String version, String lifecycleVersion) {
+    return new WikiPageLifecycleCommand(requiredLong(version), requiredLong(lifecycleVersion));
+  }
+
+  private static long requiredLong(String value) {
+    try {
+      if (value == null || !value.matches("[0-9]{1,16}")) {
+        throw invalid();
+      }
+      return Long.parseLong(value);
+    } catch (NumberFormatException failed) {
       throw invalid();
     }
   }

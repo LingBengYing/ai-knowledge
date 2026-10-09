@@ -9,6 +9,7 @@ import com.evidence.rag.model.dto.DocumentReplacementResult;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.DocumentReplacementEntity;
 import com.evidence.rag.repository.DocumentUpdateRepository;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
@@ -25,6 +26,12 @@ import java.util.function.Supplier;
 
 /** Candidate originals remain separate from the current document until complete publication. */
 public final class DocumentReplacementService {
+  private boolean automaticIndexingEnabled = true;
+
+  public void setAutomaticIndexingEnabled(boolean enabled) {
+    automaticIndexingEnabled = enabled;
+  }
+
   private final SqliteAuthorityStore store;
   private final DocumentUpdateRepository updates;
   private final ManagementRepository management;
@@ -152,6 +159,16 @@ public final class DocumentReplacementService {
                     now,
                     now);
             updates.insert(replacement, previous, candidate);
+            if (automaticIndexingEnabled) {
+              new ImportIndexRepository(store)
+                  .insert(
+                      actor,
+                      documentId,
+                      candidate.revisionId(),
+                      pipeline,
+                      replacement.id(),
+                      baseRevisionId);
+            }
             if ("corpus".equals(pipeline)) {
               ingestion.enqueueReplacementInTransaction(actor, replacement.id(), candidate);
             }

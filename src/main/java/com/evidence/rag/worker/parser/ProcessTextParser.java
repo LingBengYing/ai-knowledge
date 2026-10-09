@@ -59,7 +59,7 @@ public final class ProcessTextParser implements AutoCloseable {
       Duration deadline, String fixtureMainClass, List<String> fixtureArgs, PdfOcrOptions pdfs) {
     if (deadline == null
         || deadline.compareTo(Duration.ofMillis(10)) < 0
-        || deadline.compareTo(Duration.ofSeconds(60)) > 0) {
+        || deadline.compareTo(Duration.ofSeconds(300)) > 0) {
       throw new IllegalArgumentException("Invalid parser deadline");
     }
     deadlineNanos = deadline.toNanos();
@@ -257,12 +257,20 @@ public final class ProcessTextParser implements AutoCloseable {
           }
           var parent = ProcessHandle.current();
           var born = parent.info().startInstant().orElseThrow(() -> failure("parser_failed"));
+          if (pdfs.pipeline()) {
+            command.addAll(
+                List.of(
+                    "--pdf-page-ocr", pdfs.socket().toString(), PdfOcrOptions.PIPELINE_PROFILE));
+          } else {
+            command.addAll(
+                List.of(
+                    "--pdf-ocr",
+                    pdfs.ocr().executable().toString(),
+                    pdfs.ocr().language(),
+                    pdfs.ocr().revision()));
+          }
           command.addAll(
               List.of(
-                  "--pdf-ocr",
-                  pdfs.ocr().executable().toString(),
-                  pdfs.ocr().language(),
-                  pdfs.ocr().revision(),
                   Long.toString(parent.pid()),
                   Long.toString(born.getEpochSecond()),
                   Integer.toString(born.getNano()),
@@ -325,6 +333,11 @@ public final class ProcessTextParser implements AutoCloseable {
         checkCancelled();
         try {
           return ParserProtocol.decode(response.toByteArray());
+        } catch (TextParser.Failure failure) {
+          if (pdfOcr && pdfs.pipeline() && "unsupported_document".equals(failure.code())) {
+            throw failure("parser_failed");
+          }
+          throw failure;
         } catch (IOException ignored) {
           throw failure("parser_invalid_output");
         }

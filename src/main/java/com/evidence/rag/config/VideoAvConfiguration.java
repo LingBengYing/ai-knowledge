@@ -169,20 +169,25 @@ public class VideoAvConfiguration {
       ManagementRepository management,
       DocumentPermissionPolicy permissions,
       VideoAvCompilationService compilation,
-      VideoAvSettings settings) {
-    return new VideoAvLibraryService(
-        store,
-        repository,
-        management,
-        permissions,
-        compilation,
-        settings.targets(),
-        settings.models().revision(),
-        settings.embedding(),
-        settings.visualProjection(),
-        settings.audioProjection(),
-        settings.processingBudget(),
-        settings.maxConcurrent());
+      VideoAvSettings settings,
+      Environment environment) {
+    var service =
+        new VideoAvLibraryService(
+            store,
+            repository,
+            management,
+            permissions,
+            compilation,
+            settings.targets(),
+            settings.models().revision(),
+            settings.embedding(),
+            settings.visualProjection(),
+            settings.audioProjection(),
+            settings.processingBudget(),
+            settings.maxConcurrent());
+    service.setAutomaticIndexingEnabled(
+        environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true));
+    return service;
   }
 
   @Bean(destroyMethod = "close")

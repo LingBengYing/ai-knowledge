@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,11 +76,29 @@ final class ModelHttpTransport implements AutoCloseable {
   }
 
   JsonNode post(Endpoint endpoint, String path, Map<String, Object> payload) {
-    return post(endpoint, path, () -> JSON.writeValueAsBytes(payload), "application/json", false);
+    return post(
+        endpoint, path, () -> JSON.writeValueAsBytes(payload), "application/json", false, null);
+  }
+
+  /**
+   * Agent-only opt-in: bounded error JSON is decoded by its strict protocol Adapter, never logged.
+   */
+  JsonNode postWithSafeErrorDecoder(
+      Endpoint endpoint,
+      String path,
+      Map<String, Object> payload,
+      Function<JsonNode, Failure> errorDecoder) {
+    return post(
+        endpoint,
+        path,
+        () -> JSON.writeValueAsBytes(payload),
+        "application/json",
+        false,
+        java.util.Objects.requireNonNull(errorDecoder));
   }
 
   JsonNode post(Endpoint endpoint, String path, byte[] payload, String contentType) {
-    return post(endpoint, path, () -> payload, contentType, false);
+    return post(endpoint, path, () -> payload, contentType, false, null);
   }
 
   JsonNode postGoogleEmbedding(Endpoint endpoint, Map<String, Object> payload) {
@@ -88,7 +107,8 @@ final class ModelHttpTransport implements AutoCloseable {
         "v1beta/models/" + endpoint.model() + ":embedContent",
         () -> JSON.writeValueAsBytes(payload),
         "application/json",
-        true);
+        true,
+        null);
   }
 
   JsonNode postGoogleSound(Endpoint endpoint, Map<String, Object> payload) {
@@ -97,7 +117,8 @@ final class ModelHttpTransport implements AutoCloseable {
         "v1beta/interactions",
         () -> JSON.writeValueAsBytes(payload),
         "application/json",
-        true);
+        true,
+        null);
   }
 
   private JsonNode post(
@@ -105,7 +126,8 @@ final class ModelHttpTransport implements AutoCloseable {
       String path,
       Supplier<byte[]> payload,
       String contentType,
-      boolean googleEmbedding) {
+      boolean googleEmbedding,
+      Function<JsonNode, Failure> errorDecoder) {
     if (closed) {
       throw new Failure("model_closed");
     }
@@ -146,7 +168,7 @@ final class ModelHttpTransport implements AutoCloseable {
               request,
               info -> {
                 status.set(info.statusCode());
-                if (info.statusCode() != 200) {
+                if (info.statusCode() != 200 && errorDecoder == null) {
                   body.fail(new Failure("model_http_failed", info.statusCode()));
                 } else if (!info.headers()
                     .firstValue("Content-Type")
@@ -173,6 +195,9 @@ final class ModelHttpTransport implements AutoCloseable {
       var parsed = parseObject(decoded);
       if (System.nanoTime() - started > deadline.toNanos()) {
         throw new TimeoutException();
+      }
+      if (response.statusCode() != 200) {
+        throw errorDecoder.apply(parsed);
       }
       transportOk = true;
       return parsed;

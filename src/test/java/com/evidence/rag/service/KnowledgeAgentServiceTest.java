@@ -230,6 +230,64 @@ class KnowledgeAgentServiceTest {
   }
 
   @Test
+  void taskPreservesEnumeratedSidecarReasonsAndLogsOnlySafeTaskMetadata() throws Exception {
+    var logger =
+        (ch.qos.logback.classic.Logger)
+            org.slf4j.LoggerFactory.getLogger(KnowledgeAgentService.class);
+    var appender =
+        new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+    appender.start();
+    logger.addAppender(appender);
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成资料原文。");
+      for (String code :
+          List.of(
+              "agent_callback_failed",
+              "agent_callback_invalid",
+              "agent_model_invalid",
+              "agent_invalid_action",
+              "agent_invalid_tool_input",
+              "agent_tool_failed",
+              "agent_invalid_result",
+              "agent_step_limit",
+              "agent_execution_failed")) {
+        fixture.script.set(
+            request -> {
+              throw new TextModels.Failure(code);
+            });
+        var run = fixture.await(fixture.start());
+        assertEquals("failed", run.status());
+        assertEquals(code, run.error().code());
+        assertNull(run.result());
+        assertTrue(
+            appender.list.stream()
+                .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .anyMatch(
+                    message ->
+                        message.contains("run_id=" + run.id())
+                            && message.contains("code=" + code)
+                            && message.contains("stage=running")));
+      }
+      fixture.script.set(
+          request -> {
+            throw new TextModels.Failure("private-provider-secret");
+          });
+      assertEquals("agent_failed", fixture.await(fixture.start()).error().code());
+      assertTrue(
+          appender.list.stream()
+              .allMatch(
+                  event ->
+                      !event.getFormattedMessage().contains("private-provider-secret")
+                          && event.getThrowableProxy() == null));
+      assertTrue(fixture.context.models.calls.isEmpty());
+      assertEquals(0, fixture.context.scalar("SELECT COUNT(*) FROM knowledge_answer_traces"));
+    } finally {
+      logger.detachAppender(appender);
+      appender.stop();
+    }
+  }
+
+  @Test
   void deadlineAndToolBudgetAreEnforcedByJavaIndependentlyOfSidecar() throws Exception {
     try (var fixture = new Fixture(directory, Duration.ofMillis(150))) {
       fixture.context.publish("manual.txt", "合成资料原文。");
@@ -266,10 +324,11 @@ class KnowledgeAgentServiceTest {
       var executor = (java.util.concurrent.ExecutorService) field.get(fixture.agents);
       var occupied = new CountDownLatch(1);
       var release = new CountDownLatch(1);
-      executor.execute(() -> {
-        occupied.countDown();
-        await(release);
-      });
+      executor.execute(
+          () -> {
+            occupied.countDown();
+            await(release);
+          });
       assertTrue(occupied.await(5, TimeUnit.SECONDS));
       String id = fixture.start();
       assertFalse(fixture.context.authority.store().operationGate().isIdle());
@@ -278,7 +337,8 @@ class KnowledgeAgentServiceTest {
       assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
       assertEquals("cancelled", fixture.agents.get(fixture.context.owner, id).status());
       assertEquals(0, fixture.calls.get());
-      assertTrue(fixture.context.authority.store().operationGate().isIdle(),
+      assertTrue(
+          fixture.context.authority.store().operationGate().isIdle(),
           "Closing before the reserved body starts must not strand the library operation lease");
     }
   }

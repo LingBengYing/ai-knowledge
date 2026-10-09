@@ -192,6 +192,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
     volatile boolean cleaned;
     boolean terminalCleanup;
     Thread writerThread;
+    Thread auditThread;
     final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
 
@@ -243,16 +244,17 @@ public final class ProcessTextIndexer implements AutoCloseable {
                 "-Djava.io.tmpdir=" + directory,
                 "-XX:ErrorFile=" + directory.resolve("jvm-error.log")));
         command.addAll(launch);
-        var builder =
-            new ProcessBuilder(command)
-                .directory(directory.toFile())
-                .redirectError(ProcessBuilder.Redirect.DISCARD);
+        var builder = new ProcessBuilder(command).directory(directory.toFile());
         builder.environment().clear();
         // macOS may independently add its bounded numeric CoreFoundation locale at JVM startup.
         checkCancelled();
         OwnedTemporaryResources.launching(directory);
         process = builder.start();
         OwnedTemporaryResources.childStarted(directory, process);
+        auditThread =
+            Thread.ofVirtual()
+                .name("text-index-model-audit")
+                .start(() -> IndexWorkerModelHttpLog.drain(process.getErrorStream()));
         checkCancelled();
         var inputBody =
             LibraryOperationGate.protectCurrent(
@@ -364,6 +366,21 @@ public final class ProcessTextIndexer implements AutoCloseable {
               }
             } catch (InterruptedException ignored) {
               /* Confirm the writer has also stopped. */
+            }
+          }
+        }
+        if (auditThread != null) {
+          while (auditThread.isAlive()) {
+            long remaining = until - System.nanoTime();
+            if (remaining <= 0) {
+              process.getErrorStream().close();
+              auditThread.interrupt();
+              return false;
+            }
+            try {
+              auditThread.join(Duration.ofNanos(remaining));
+            } catch (InterruptedException ignored) {
+              // Child exit and a drained diagnostics pipe precede releasing global capacity.
             }
           }
         }

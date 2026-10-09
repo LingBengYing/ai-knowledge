@@ -1,5 +1,9 @@
 # AI Knowledge · Java Edition
 
+## 基础文档格式（0059）
+
+上传与替换支持 PDF、PROPERTIES、HTML、VTT、CSV、MSG、MARKDOWN、EML、PPT、DOCX、DOC、TXT、PPTX、MDX、XLS、ODT、MD、XLSX、XML、EPUB、HTM；新增格式实际本地提取正文，不只是后缀白名单。PDF保留页码，其他格式使用解析文本位置并保留同版原件下载。详见 [格式合同与限制](docs/DOCUMENT_FORMATS.md) 和 [本轮验证](docs/changes/0059-document-formats/REVIEW.md)。未自动部署，解析成功不等于模型/索引验收。
+
 ## 当前交付（2026-10-09）：Wiki 建设与可选 DB-GPT 问答
 
 Java 提供原资料入库、文件级查找、知识页编译提案、审阅采纳、不可变版本和同版原文回读，配套新版前端独立模型设置。0056 已用真实 DeepSeek / 硅基流动和 Milvus 完成单份合成 TXT 的两次编译采纳及重启回读；这不代表多模态、批量增量或生产验收。见 [真实流程记录](docs/changes/0056-wiki-workspace-integration/provider-run.md)。

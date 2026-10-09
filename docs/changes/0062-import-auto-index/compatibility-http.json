@@ -1,0 +1,44 @@
+{
+  "checks": [
+    {
+      "bytes": 32,
+      "path_kind": "/health/live",
+      "status": 200
+    },
+    {
+      "bytes": 446,
+      "path_kind": "/v1/config",
+      "status": 200
+    },
+    {
+      "bytes": 1949,
+      "path_kind": "/v1/management/documents",
+      "status": 200
+    },
+    {
+      "bytes": 19649,
+      "path_kind": "/v1/wiki/pages",
+      "status": 200
+    },
+    {
+      "bytes": 708,
+      "path_kind": "/v1/wiki/catalog",
+      "status": 200
+    },
+    {
+      "bytes": 490,
+      "path_kind": "original_read",
+      "status": 200
+    },
+    {
+      "bytes": 247886,
+      "path_kind": "original_read",
+      "status": 200
+    }
+  ],
+  "isolated_copy_only": true,
+  "model_requests": 0,
+  "old_business_rows_and_files_preserved": true,
+  "original_sha256_matches": true,
+  "schema": 34
+}

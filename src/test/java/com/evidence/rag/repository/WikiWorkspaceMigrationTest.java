@@ -41,7 +41,7 @@ class WikiWorkspaceMigrationTest {
               assertEquals(
                   originalSchema,
                   store.rows(
-                      "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_%' ORDER BY type,name"));
+                      "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_%' AND name!='import_index_requests' ORDER BY type,name"));
               for (var entry : originalRows.entrySet()) {
                 assertEquals(
                     entry.getValue(),
@@ -49,13 +49,14 @@ class WikiWorkspaceMigrationTest {
                     entry.getKey());
               }
               assertEquals(
-                  13,
+                  23,
                   store.count(
                       "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name LIKE 'wiki_%'"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
               assertEquals(1, store.count("PRAGMA foreign_keys"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM wiki_page_revisions"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM wiki_proposals"));
+              assertEquals(0, store.count("SELECT COUNT(*) FROM import_index_requests"));
               return null;
             });
         HistoricalSchemaV25Fixture.assertMigrationBackups(

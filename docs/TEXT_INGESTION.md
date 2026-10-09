@@ -1,5 +1,7 @@
 # Text Ingestion · 当前摄取契约
 
+2026-10-09：0059将原有文字入口扩展到21种文档格式，详见 [DOCUMENT_FORMATS](DOCUMENT_FORMATS.md)。仍复用本页的原件、任务、解析子进程和不可变证据合同；不新增数据库迁移，不自动索引。下文仅列PDF/TXT/MD的段落为原始阶段范围。
+
 本页保留0003真实文本到持久解析证据的摄取契约与历史边界，历史审查见[REVIEW](changes/0003-text-ingestion/REVIEW.md)。当前0004索引任务、v3迁移与publication扩展见[TEXT_INDEXING](TEXT_INDEXING.md)，当前源码验证见[VERIFICATION](VERIFICATION.md)。摄取本身不自动索引；最终问答/引用与多模态仍未接通，解析正确不证明RAG质量。
 
 0005 完成职责分层；[0006](changes/0006-ingestion-authorization/spec.md) 单独补齐摄取后台创建者当前授权复验，并通过本地回归。2026-09-07 11:33:24 +08:00 最终 `clean verify`：297 项 JUnit 测试（含 11 项架构测试，0 失败/错误/跳过）、150 个 Java 文件的 Spotless 检查；Node 73 项通过。详见 [0006 验证记录](changes/0006-ingestion-authorization/verification.md)。本次没有新增权限管理端点、修改 schema、推送或部署，不代表完整 RAG、Spring Security 或生产验收。

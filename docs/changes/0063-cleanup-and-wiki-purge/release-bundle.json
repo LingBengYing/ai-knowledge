@@ -1,0 +1,13 @@
+{
+  "release": "20261009-cleanup-wiki-purge-0063",
+  "schema": 35,
+  "previous_jar_sha256": "8c8b2ee5c114220da6ec70f89b1c004633b39fd368783c9f9934883baed62732",
+  "files": {
+    "application.jar": "92b6b5b5d065d098c1ae3a106cebb7a7387bb38f501518e0781fd55225349a04",
+    "compatibility.jar": "70427543d527e378b705c606c7cea2e2d255d7c0aae0d52ebd4cfeb3d9ae55d9",
+    "frontend.tar.gz": "e7a90546fc150986ea0347afaf8487360f08fbb0a758d8d210b1d74dad363f50",
+    "frontend-files.json": "2850c7340a816763990fd6eef29ce5c83b8c8dff2b6dfd44d3bc86c0d8ace440",
+    "deploy.py": "9375bea92839d399c65252974f9134084f5e12fcc160dac7ec9852cdfc190c75",
+    "compatibility-http.py": "a7adb62e1cac9dd997ab9ebe6c5c3b64704513e7386b8161fdbda487727b8e6a"
+  }
+}

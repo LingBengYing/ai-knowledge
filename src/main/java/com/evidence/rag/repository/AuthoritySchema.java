@@ -208,6 +208,30 @@ final class AuthoritySchema {
     new WikiDraftSchema(store).verify();
   }
 
+  void migrateVersionThirtyThree() {
+    new WikiPageLifecycleSchema(store).migrate();
+  }
+
+  void verifyVersionThirtyThree() {
+    new WikiPageLifecycleSchema(store).verify();
+  }
+
+  void migrateVersionThirtyFour() {
+    new ImportIndexSchema(store).migrate();
+  }
+
+  void verifyVersionThirtyFour() {
+    new ImportIndexSchema(store).verify();
+  }
+
+  void migrateVersionThirtyFive() {
+    new WikiPagePurgeSchema(store).migrate();
+  }
+
+  void verifyVersionThirtyFive() {
+    new WikiPagePurgeSchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

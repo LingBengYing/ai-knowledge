@@ -5,6 +5,7 @@ import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.AgentFailureCode;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.KnowledgeEvidence;
@@ -35,9 +36,12 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Optional DB-GPT task orchestration; Java owns all evidence, identities and formal citations. */
 public final class KnowledgeAgentService implements AutoCloseable {
+  private static final Logger LOG = LoggerFactory.getLogger(KnowledgeAgentService.class);
   public static final int MAX_STEPS = 8;
   private static final String PROMPT = "java-dbgpt-knowledge-agent-v1";
   private static final String REFUSAL = "当前资料不足以形成可核对的完整回答。";
@@ -131,11 +135,14 @@ public final class KnowledgeAgentService implements AutoCloseable {
       executor.execute(
           () -> {
             run.worker = Thread.currentThread();
-            var deadline =
-                timer.schedule(
-                    () -> stop(run, "failed", "agent_timeout"), timeoutNanos, TimeUnit.NANOSECONDS);
+            java.util.concurrent.ScheduledFuture<?> deadline = null;
             try (var operation = reservation.begin()) {
               active(run);
+              deadline =
+                  timer.schedule(
+                      () -> stop(run, "failed", "agent_timeout"),
+                      timeoutNanos,
+                      TimeUnit.NANOSECONDS);
               run.snapshot = runtime.capture();
               run.settings = retrieval.settingsSnapshot();
               run.scope =
@@ -154,7 +161,9 @@ public final class KnowledgeAgentService implements AutoCloseable {
                       : failed instanceof TextModels.Failure model ? model.code() : "agent_failed";
               stop(run, "failed", safeCode(code));
             } finally {
-              deadline.cancel(false);
+              if (deadline != null) {
+                deadline.cancel(false);
+              }
               run.worker = null;
               reservation.close();
               admission.release();
@@ -457,21 +466,11 @@ public final class KnowledgeAgentService implements AutoCloseable {
   }
 
   private static String safeCode(String code) {
-    return Set.of(
-                "agent_unavailable",
-                "agent_invalid_response",
-                "agent_timeout",
-                "agent_limit_exceeded",
-                "scope_changed",
-                "configuration_changed",
-                "evidence_changed")
-            .contains(code)
-        ? code
-        : "agent_failed";
+    return AgentFailureCode.safe(code, AgentFailureCode.AGENT_FAILED);
   }
 
   private static ApplicationException problem(FailureKind kind, String code) {
-    return new ApplicationException(kind, code, "智能体任务未完成，请重新发起。");
+    return new ApplicationException(kind, code, "智能体任务未完成，请查看任务原因码。");
   }
 
   private static ApplicationException invalid() {
@@ -486,7 +485,16 @@ public final class KnowledgeAgentService implements AutoCloseable {
     synchronized (run) {
       if (!run.running()) return;
       run.status = status;
-      run.error = code == null ? null : new AgentRunResult.Problem(code, "智能体任务未完成，请重新发起。");
+      String safe = code == null ? null : safeCode(code);
+      run.error = safe == null ? null : new AgentRunResult.Problem(safe, "智能体任务未完成，请查看任务原因码。");
+      LOG.info(
+          "knowledge_agent_terminal run_id={} status={} code={} stage={} model_calls={} tool_calls={}",
+          run.id,
+          status,
+          safe == null ? "none" : safe,
+          run.events.isEmpty() ? "running" : run.events.getLast().type(),
+          run.modelCalls,
+          run.toolCalls);
       run.event(status, "cancelled".equals(status) ? "已停止任务" : "任务未完成");
       if (run.callback != null && run.callback != Thread.currentThread()) run.callback.interrupt();
       if (run.worker != null && run.worker != Thread.currentThread()) run.worker.interrupt();

@@ -92,6 +92,10 @@ public final class IndexingTaskProcessor {
     return authority.createIndexing(actor, documentId, target);
   }
 
+  public TaskResult createImported(Actor actor, String documentId, String revisionId) {
+    return authority.createIndexing(actor, documentId, revisionId, target);
+  }
+
   public TaskResult reindex(Actor actor, String documentId, String basePublicationId) {
     return authority.createReindexing(actor, documentId, basePublicationId, target);
   }

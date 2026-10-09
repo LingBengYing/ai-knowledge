@@ -19,6 +19,7 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.SoundBuildClaim;
 import com.evidence.rag.model.domain.SoundReceipt;
 import com.evidence.rag.model.domain.VerifiedRevision;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
@@ -43,6 +44,59 @@ import org.junit.jupiter.api.io.TempDir;
 class SoundLibraryServiceTest {
   private static final Actor OWNER = new Actor("org", "owner");
   @TempDir Path directory;
+
+  @Test
+  void automaticAdmissionUsesTheExistingSoundPipelineOnce() {
+    var calls = new AtomicInteger();
+    try (var store = new SqliteAuthorityStore(directory);
+        var compilation = compilation(new AtomicInteger())) {
+      var service =
+          service(
+              store,
+              compilation,
+              (claim, budget) -> {
+                calls.incrementAndGet();
+                return receipt(claim);
+              });
+      var original = service.upload(OWNER, "tone.wav", "application/octet-stream", raw());
+      var automatic =
+          new ImportAutoIndexService(
+              store,
+              () -> {
+                throw new AssertionError("not corpus");
+              },
+              service,
+              null);
+      assertEquals(true, automatic.processNext());
+      assertNotNull(service.get(OWNER, original.documentId()).publication());
+      assertEquals(false, automatic.processNext());
+      assertEquals(1, calls.get());
+      assertEquals(0, scalar("SELECT COUNT(*) FROM indexing_jobs"));
+    }
+  }
+
+  @Test
+  void uncertainNativeDispatchIsNotRepeatedAfterRecovery() {
+    try (var store = new SqliteAuthorityStore(directory);
+        var compilation = compilation(new AtomicInteger())) {
+      var service =
+          service(
+              store,
+              compilation,
+              (claim, budget) -> {
+                throw new AssertionError("do not retry a possibly billed native dispatch");
+              });
+      var original = service.upload(OWNER, "tone.wav", "application/octet-stream", raw());
+      var requests = new ImportIndexRepository(store);
+      store.transaction(() -> requests.claim().orElseThrow());
+      var automatic = new ImportAutoIndexService(store, () -> null, service, null);
+      assertEquals(false, automatic.processNext());
+      assertEquals(
+          "indexing_interrupted",
+          store.transaction(() -> requests.latest(original.documentId())).errorCode());
+      assertNull(service.get(OWNER, original.documentId()).publication());
+    }
+  }
 
   @Test
   void rawRegistrationHasNoDecodeProviderOrOldTaskAndBuildIsCompleteIdempotent() {

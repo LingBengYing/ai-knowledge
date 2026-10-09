@@ -11,6 +11,27 @@ class MediaContentResponseTest {
   private static final byte[] ORIGINAL = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
   @Test
+  void activeAndOfficeDocumentOriginalsAreDownloadsIncludingRanges() {
+    for (String mime :
+        List.of(
+            "text/html",
+            "application/xml",
+            "message/rfc822",
+            "application/vnd.ms-outlook",
+            "application/msword",
+            "application/epub+zip")) {
+      for (var ranges : List.of(List.<String>of(), List.of("bytes=1-3"))) {
+        var response = MediaContentResponse.create(mime, ORIGINAL, ranges);
+        assertEquals("attachment", response.getHeaders().getFirst("Content-Disposition"));
+        assertEquals(
+            "sandbox; default-src 'none'",
+            response.getHeaders().getFirst("Content-Security-Policy"));
+        assertEquals(mime, response.getHeaders().getContentType().toString());
+      }
+    }
+  }
+
+  @Test
   void originalVideoAndSingleRangeUseItsOwnMimeAndExactBytes() {
     var complete = MediaContentResponse.create("video/mp4", ORIGINAL, List.of());
     assertEquals(200, complete.getStatusCode().value());

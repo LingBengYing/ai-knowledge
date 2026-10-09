@@ -12,7 +12,9 @@ import com.evidence.rag.model.domain.WikiContent;
 import com.evidence.rag.model.domain.WikiPageRevision;
 import com.evidence.rag.model.domain.WikiProposal;
 import com.evidence.rag.model.dto.WikiContentResult;
+import com.evidence.rag.model.dto.WikiPageLifecycleCommand;
 import com.evidence.rag.model.dto.WikiPageListResult;
+import com.evidence.rag.model.dto.WikiPagePurgeResult;
 import com.evidence.rag.model.dto.WikiPageResult;
 import com.evidence.rag.model.dto.WikiProposalCommand;
 import com.evidence.rag.model.dto.WikiProposalListResult;
@@ -116,18 +118,80 @@ public final class WikiWorkspaceService {
   }
 
   public WikiPageListResult pages(Actor actor, int offset, int limit, String query) {
+    return pages(actor, offset, limit, query, "active");
+  }
+
+  public WikiPageListResult pages(Actor actor, int offset, int limit, String query, String state) {
     requireMember(actor);
     pagination(offset, limit);
+    String selected = state == null ? "active" : state;
+    if (!Set.of("active", "deleted").contains(selected)) {
+      throw ModelValues.invalid();
+    }
     String q = query == null ? "" : ModelValues.bounded(query.strip(), 200);
     return store.transaction(
         () ->
             new WikiPageListResult(
-                repository.pages(actor, offset, limit, q).stream()
+                repository.pages(actor, offset, limit, q, selected).stream()
                     .map(page -> pageResult(actor, page))
                     .toList(),
-                repository.pageCount(actor, q),
+                repository.pageCount(actor, q, selected),
                 offset,
                 limit));
+  }
+
+  public WikiPageResult delete(Actor actor, String pageId, WikiPageLifecycleCommand command) {
+    return changeLifecycle(actor, pageId, command, "deleted");
+  }
+
+  public WikiPageResult restore(Actor actor, String pageId, WikiPageLifecycleCommand command) {
+    return changeLifecycle(actor, pageId, command, "active");
+  }
+
+  public WikiPagePurgeResult purge(Actor actor, String pageId, WikiPageLifecycleCommand command) {
+    if (actor != null && !workspaceId.equals(actor.workspaceId())) {
+      throw ModelValues.notFound();
+    }
+    requireMember(actor);
+    ModelValues.identifier(pageId, 128);
+    if (command == null) {
+      throw ModelValues.invalid();
+    }
+    return store.transaction(
+        () -> {
+          repository.page(actor, pageId).orElseThrow(ModelValues::notFound);
+          repository.purge(
+              actor,
+              pageId,
+              command.version(),
+              command.lifecycleVersion(),
+              Instant.now().toEpochMilli());
+          return new WikiPagePurgeResult(pageId, "purged");
+        });
+  }
+
+  private WikiPageResult changeLifecycle(
+      Actor actor, String pageId, WikiPageLifecycleCommand command, String state) {
+    if (actor != null && !workspaceId.equals(actor.workspaceId())) {
+      throw ModelValues.notFound();
+    }
+    requireMember(actor);
+    ModelValues.identifier(pageId, 128);
+    if (command == null) {
+      throw ModelValues.invalid();
+    }
+    return store.transaction(
+        () -> {
+          var page = repository.page(actor, pageId).orElseThrow(ModelValues::notFound);
+          repository.changeLifecycle(
+              actor,
+              pageId,
+              command.version(),
+              command.lifecycleVersion(),
+              state,
+              Instant.now().toEpochMilli());
+          return pageResult(actor, page);
+        });
   }
 
   public WikiPageResult page(Actor actor, String pageId) {
@@ -257,6 +321,9 @@ public final class WikiWorkspaceService {
     if (current.isEmpty()) {
       throw ModelValues.notFound();
     }
+    if (!"active".equals(repository.lifecycle(actor, pageId).state())) {
+      throw new ApplicationException(FailureKind.CONFLICT, "wiki_page_deleted", "知识页已删除，请先恢复后再更新。");
+    }
     if (current.get().version() != expectedVersion) {
       throw versionConflict();
     }
@@ -279,6 +346,7 @@ public final class WikiWorkspaceService {
 
   private WikiPageResult pageResult(Actor actor, WikiPageRevision page) {
     var content = contentResult(actor, page.content());
+    var lifecycle = repository.lifecycle(actor, page.pageId());
     return new WikiPageResult(
         page.pageId(),
         page.version(),
@@ -286,7 +354,9 @@ public final class WikiWorkspaceService {
         page.modelRevision(),
         page.policyRevision(),
         page.createdAt(),
-        sourceState(content));
+        sourceState(content),
+        lifecycle.state(),
+        lifecycle.version());
   }
 
   private WikiProposalResult proposalResult(Actor actor, WikiProposal proposal) {
@@ -308,38 +378,47 @@ public final class WikiWorkspaceService {
 
   private WikiContentResult contentResult(Actor actor, WikiContent content) {
     var current = new HashMap<PublicationVersion, Boolean>();
+    var removed = new HashMap<String, Boolean>();
     return new WikiContentResult(
         content.title(),
         content.kind(),
         content.sections().stream()
             .map(
-                section ->
-                    new WikiContentResult.Section(
-                        section.id(),
-                        section.heading(),
-                        section.body(),
-                        section.sources().stream()
-                            .map(
-                                source -> {
-                                  var publication = source.publication();
-                                  var reference = source.reference();
-                                  boolean available =
-                                      current.computeIfAbsent(
-                                          publication, value -> isCurrent(actor, value));
-                                  return new WikiContentResult.Source(
-                                      source.id(),
-                                      publication.documentId(),
-                                      publication.publicationId(),
-                                      publication.sourceRevisionId(),
-                                      publication.sourceSha256(),
-                                      reference.id(),
-                                      reference.sha256(),
-                                      reference.kind().name().toLowerCase(Locale.ROOT),
-                                      reference.time() == null ? null : reference.time().startUs(),
-                                      reference.time() == null ? null : reference.time().endUs(),
-                                      available);
-                                })
-                            .toList()))
+                section -> {
+                  boolean sourceRemoved =
+                      section.sources().stream()
+                          .anyMatch(
+                              source ->
+                                  removed.computeIfAbsent(
+                                      source.publication().documentId(),
+                                      id -> repository.sourceRemoved(actor, id)));
+                  return new WikiContentResult.Section(
+                      section.id(),
+                      sourceRemoved ? "来源资料已清理" : section.heading(),
+                      sourceRemoved ? "" : section.body(),
+                      section.sources().stream()
+                          .map(
+                              source -> {
+                                var publication = source.publication();
+                                var reference = source.reference();
+                                boolean available =
+                                    current.computeIfAbsent(
+                                        publication, value -> isCurrent(actor, value));
+                                return new WikiContentResult.Source(
+                                    source.id(),
+                                    publication.documentId(),
+                                    publication.publicationId(),
+                                    publication.sourceRevisionId(),
+                                    publication.sourceSha256(),
+                                    reference.id(),
+                                    reference.sha256(),
+                                    reference.kind().name().toLowerCase(Locale.ROOT),
+                                    reference.time() == null ? null : reference.time().startUs(),
+                                    reference.time() == null ? null : reference.time().endUs(),
+                                    available);
+                              })
+                          .toList());
+                })
             .toList());
   }
 

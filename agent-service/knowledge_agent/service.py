@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import ipaddress
 import json
+import logging
 import os
 from collections import deque
 from dataclasses import dataclass
@@ -15,7 +16,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import Field, StrictStr, ValidationError
 
-from .runtime import AgentFailure, CallbackBridge, StrictModel, run_agent
+from .runtime import AgentFailure, CallbackBridge, STAGES, StrictModel, run_agent
+
+LOG = logging.getLogger("knowledge_agent.service")
+
+
+def log_failure(run_id: str, code: str, bridge: CallbackBridge | None):
+    """Fixed diagnostic fields only: never log request, model, tool, or exception objects."""
+    stage = bridge.stage if bridge is not None and bridge.stage in STAGES else "starting"
+    LOG.warning("knowledge_agent_failed run_id=%s code=%s stage=%s model_calls=%d tool_calls=%d",
+                run_id, AgentFailure(code).code, stage,
+                bridge.model_calls if bridge is not None else 0,
+                bridge.tool_calls if bridge is not None else 0)
 
 
 @dataclass(frozen=True)
@@ -85,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         active.add(value.run_id)
         task = None
         monitor = None
+        bridge = None
 
         async def watch_disconnect():
             while not await request.is_disconnected():
@@ -98,11 +111,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 done, _ = await asyncio.wait((task, monitor), return_when=asyncio.FIRST_COMPLETED)
                 if task not in done:
                     task.cancel()
+                    log_failure(value.run_id, "agent_cancelled", bridge)
                     return JSONResponse({"error": "agent_cancelled"}, status_code=409)
                 return await task
         except AgentFailure as error:
-            return JSONResponse({"error": str(error)}, status_code=502)
+            log_failure(value.run_id, error.code, bridge)
+            return JSONResponse({"error": error.code}, status_code=502)
         except Exception:
+            log_failure(value.run_id, "agent_execution_failed", bridge)
             return JSONResponse({"error": "agent_execution_failed"}, status_code=502)
         finally:
             pending = [t for t in (task, monitor) if t is not None]

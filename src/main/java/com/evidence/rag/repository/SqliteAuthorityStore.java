@@ -51,6 +51,8 @@ public final class SqliteAuthorityStore implements AutoCloseable {
   private String replacementId;
   private String purgeDocument;
   private Set<String> purgeRows = Set.of();
+  private String wikiPurgeWorkspace;
+  private String wikiPurgePage;
 
   public SqliteAuthorityStore(Path directory) {
     try {
@@ -80,6 +82,26 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         throw new IllegalStateException("Unsafe Java database path");
       }
       connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+      Function.create(
+          connection,
+          "java_wiki_page_purge_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() {
+              try {
+                result(
+                    args() == 2
+                            && transactionOwner == Thread.currentThread()
+                            && wikiPurgeWorkspace != null
+                            && wikiPurgeWorkspace.equals(value_text(0))
+                            && wikiPurgePage.equals(value_text(1))
+                        ? 1
+                        : 0);
+              } catch (SQLException failure) {
+                throw unavailable();
+              }
+            }
+          });
       Function.create(
           connection,
           "java_cleanup_authorized",
@@ -161,7 +183,13 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 32) {
+              if (count("PRAGMA user_version") == 35) {
+                schema.verifyVersionThirtyFive();
+              } else if (count("PRAGMA user_version") == 34) {
+                schema.verifyVersionThirtyFour();
+              } else if (count("PRAGMA user_version") == 33) {
+                schema.verifyVersionThirtyThree();
+              } else if (count("PRAGMA user_version") == 32) {
                 schema.verifyVersionThirtyTwo();
               } else if (count("PRAGMA user_version") == 31) {
                 schema.verifyVersionThirtyOne();
@@ -443,9 +471,27 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         }
         schema.migrateVersionThirtyTwo();
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 32) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 32, 33);
+        }
+        schema.migrateVersionThirtyThree();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 33) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 33, 34);
+        }
+        schema.migrateVersionThirtyFour();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 34) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 34, 35);
+        }
+        schema.migrateVersionThirtyFive();
+      }
       transaction(
           () -> {
-            schema.verifyVersionThirtyTwo();
+            schema.verifyVersionThirtyFive();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -523,6 +569,21 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     } finally {
       modelRebuildId = null;
       modelRebuildDocuments = Set.of();
+    }
+  }
+
+  <T> T wikiPagePurgeScope(String workspaceId, String pageId, Supplier<T> work) {
+    requireTransaction();
+    if (wikiPurgePage != null) {
+      throw ModelValues.invalid();
+    }
+    wikiPurgeWorkspace = workspaceId;
+    wikiPurgePage = pageId;
+    try {
+      return work.get();
+    } finally {
+      wikiPurgeWorkspace = null;
+      wikiPurgePage = null;
     }
   }
 
@@ -672,7 +733,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionTwentyNine();
+            new AuthoritySchema(this).verifyVersionThirtyFive();
             return null;
           });
     } catch (IOException | SQLException failure) {

@@ -786,20 +786,14 @@ public final class OpenAiCompatibleModels implements TextModels, FactTextModels,
                 "stream",
                 false,
                 "n",
-                1));
-    var choices = array(response.path("choices"), 1);
-    var choice = choices.get(0);
-    index(choice.path("index"), 1);
-    var message = choice.path("message");
-    if (!"stop".equals(text(choice.path("finish_reason")))
-        || !"assistant".equals(text(message.path("role")))
-        || message.hasNonNull("tool_calls")
-        || message.hasNonNull("function_call")
-        || message.hasNonNull("refusal")) throw invalidResponse();
-    String content = text(message.path("content"));
-    if (content.isBlank() || content.length() > 262144 || content.indexOf(0) >= 0)
-      throw invalidResponse();
-    return content;
+                1,
+                "tools",
+                AgentToolProtocol.tools(),
+                "tool_choice",
+                "auto",
+                "parallel_tool_calls",
+                false));
+    return AgentToolProtocol.canonicalAction(response);
   }
 
   private JsonNode synthesisResponse(

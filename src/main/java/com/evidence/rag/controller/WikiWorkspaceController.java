@@ -3,6 +3,7 @@ package com.evidence.rag.controller;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.SynopsisSourceMaterial;
 import com.evidence.rag.model.dto.WikiPageListResult;
+import com.evidence.rag.model.dto.WikiPagePurgeResult;
 import com.evidence.rag.model.dto.WikiPageResult;
 import com.evidence.rag.model.dto.WikiProposalListResult;
 import com.evidence.rag.model.dto.WikiProposalResult;
@@ -19,6 +20,7 @@ import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,13 +38,48 @@ public final class WikiWorkspaceController {
   @GetMapping("/v1/wiki/pages")
   public ResponseEntity<WikiPageListResult> pages(HttpServletRequest request) {
     noBody(request);
-    WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit", "q"));
+    WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit", "q", "state"));
     return ok(
         service.pages(
             AuthenticatedActor.require(request),
             WikiRequestMapper.number(request.getParameter("offset"), 0),
             WikiRequestMapper.number(request.getParameter("limit"), 20),
-            request.getParameter("q")));
+            request.getParameter("q"),
+            WikiRequestMapper.pageState(request.getParameter("state"))));
+  }
+
+  @DeleteMapping("/v1/wiki/pages/{id}")
+  public ResponseEntity<WikiPageResult> delete(
+      HttpServletRequest request, @PathVariable String id) {
+    noBody(request);
+    WikiRequestMapper.query(request.getParameterMap(), Set.of("version", "lifecycle_version"));
+    return ok(
+        service.delete(
+            AuthenticatedActor.require(request),
+            id,
+            WikiRequestMapper.lifecycle(
+                request.getParameter("version"), request.getParameter("lifecycle_version"))));
+  }
+
+  @PostMapping(value = "/v1/wiki/pages/{id}/restore", consumes = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<WikiPageResult> restore(
+      HttpServletRequest request, @PathVariable String id) {
+    return ok(
+        service.restore(
+            AuthenticatedActor.require(request), id, WikiRequestMapper.lifecycle(body(request))));
+  }
+
+  @DeleteMapping("/v1/wiki/pages/{id}/purge")
+  public ResponseEntity<WikiPagePurgeResult> purge(
+      HttpServletRequest request, @PathVariable String id) {
+    noBody(request);
+    WikiRequestMapper.query(request.getParameterMap(), Set.of("version", "lifecycle_version"));
+    return ok(
+        service.purge(
+            AuthenticatedActor.require(request),
+            id,
+            WikiRequestMapper.lifecycle(
+                request.getParameter("version"), request.getParameter("lifecycle_version"))));
   }
 
   @GetMapping("/v1/wiki/pages/{id}")

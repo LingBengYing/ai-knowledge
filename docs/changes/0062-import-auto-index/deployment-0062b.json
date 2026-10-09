@@ -1,0 +1,13 @@
+{
+  "agent_unchanged": true,
+  "configuration_preserved": true,
+  "data_preserved": true,
+  "frontend_changed_files": [
+    "public/wiki-maintenance.mjs"
+  ],
+  "migration": false,
+  "model_requests_by_deployment": 0,
+  "rollback_used": false,
+  "schema": 34,
+  "time": "2026-10-09T20:59:09+0800"
+}

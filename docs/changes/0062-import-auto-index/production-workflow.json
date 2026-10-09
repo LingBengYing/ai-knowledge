@@ -1,0 +1,28 @@
+{
+  "run_id": "b057bf76-d718-4e7e-b9c2-5503481f6c3d",
+  "answer_id": "0fd3f0e3-d4d4-4be0-9bed-0c9ff20f56ba",
+  "document_id": "8d155c64-1502-45bc-9e34-b57f0f6e4e5c",
+  "revision_id": "24a4e125-20f0-468e-b1fc-2fc3f80530d5",
+  "task_id": "a1839148-569f-43cd-b516-31323c7e5ded",
+  "automatic_indexed": true,
+  "attempt": 1,
+  "events": [
+    "running",
+    "planning",
+    "searching",
+    "planning",
+    "reading",
+    "planning",
+    "completed"
+  ],
+  "answer_status": "answered",
+  "citation_count": 1,
+  "three_steps_supported": true,
+  "source_sha256": "2c796e0ea4925c461a5111a1a6e7be0edb7e2183aa89530357bf1e6d87489c4c",
+  "text_sha256": "16619009a0a89e34d58fda9ebf987f346efeed987c35ec5b40b6804d075f479b",
+  "server_source_identical": true,
+  "original_bytes_sha256_match": true,
+  "frontend_task_label_patch_verified": true,
+  "tls_verified": true,
+  "new_model_requests_by_verifier": 0
+}

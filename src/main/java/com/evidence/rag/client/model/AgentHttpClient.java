@@ -1,5 +1,6 @@
 package com.evidence.rag.client.model;
 
+import com.evidence.rag.model.domain.AgentFailureCode;
 import com.evidence.rag.model.dto.AgentProtocol;
 import java.net.URI;
 import java.time.Duration;
@@ -32,7 +33,7 @@ public final class AgentHttpClient implements AgentClient, AutoCloseable {
   public AgentProtocol.Proposal execute(AgentProtocol.RunRequest request) {
     try {
       var result =
-          transport.post(
+          transport.postWithSafeErrorDecoder(
               endpoint,
               "v1/runs",
               Map.of(
@@ -41,7 +42,8 @@ public final class AgentHttpClient implements AgentClient, AutoCloseable {
                   "question",
                   request.question(),
                   "callback_token",
-                  request.callbackToken()));
+                  request.callbackToken()),
+              AgentHttpClient::remoteFailure);
       exact(result, Set.of("refused", "statements", "suggestions"));
       if (!result.path("refused").isBoolean()
           || !result.path("statements").isArray()
@@ -67,11 +69,24 @@ public final class AgentHttpClient implements AgentClient, AutoCloseable {
       return new AgentProtocol.Proposal(
           result.path("refused").booleanValue(), statements, suggestions);
     } catch (TextModels.Failure failed) {
-      throw new TextModels.Failure(
-          "agent_invalid_response".equals(failed.code()) ? failed.code() : "agent_unavailable");
+      String code =
+          switch (failed.code()) {
+            case "model_timeout" -> "agent_timeout";
+            case "model_invalid_response", "model_response_too_large" -> "agent_invalid_response";
+            default -> AgentFailureCode.safe(failed.code(), AgentFailureCode.AGENT_UNAVAILABLE);
+          };
+      throw new TextModels.Failure(code);
     } catch (RuntimeException failed) {
       throw invalid();
     }
+  }
+
+  private static TextModels.Failure remoteFailure(JsonNode response) {
+    if (!response.propertyNames().equals(Set.of("error")) || !response.path("error").isString())
+      return new TextModels.Failure("agent_unavailable");
+    return new TextModels.Failure(
+        AgentFailureCode.safe(
+            response.path("error").asString(), AgentFailureCode.AGENT_UNAVAILABLE));
   }
 
   private static void exact(JsonNode value, Set<String> fields) {

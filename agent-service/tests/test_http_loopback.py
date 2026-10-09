@@ -20,7 +20,7 @@ CALLBACK_TOKEN = uuid4().hex
 
 
 @pytest.mark.asyncio
-async def test_real_http_loopback_and_service_token():
+async def test_real_http_loopback_and_service_token(caplog):
     calls = []
     outputs = [react("knowledge_search", {"query": "灯塔"}), react("knowledge_read", {"source_ids": ["source-1"]}), react("terminate", {"result": RESULT})]
 
@@ -71,7 +71,16 @@ async def test_real_http_loopback_and_service_token():
             assert response.json() == RESULT
             duplicate = await client.post("/v1/runs", json=body, headers={"Authorization": "Bearer " + SERVICE_TOKEN})
             assert duplicate.status_code == 409
-        assert [name for name, _ in calls] == ["model", "search", "model", "read", "model"]
+            assert [name for name, _ in calls] == ["model", "search", "model", "read", "model"]
+            outputs.append(react("forbidden_private_tool", {"input": "private tool body"}))
+            failed_run = str(uuid4())
+            failed = await client.post("/v1/runs", headers={"Authorization": "Bearer " + SERVICE_TOKEN},
+                json={"run_id": failed_run, "question": "private synthetic question", "callback_token": CALLBACK_TOKEN})
+            assert failed.status_code == 502 and failed.json() == {"error": "agent_invalid_action"}
+            assert [name for name, _ in calls[5:]] == ["model"]
+            assert failed_run in caplog.text and "code=agent_invalid_action stage=action model_calls=1 tool_calls=0" in caplog.text
+            for private in ("forbidden_private_tool", "private tool body", "private synthetic question", SERVICE_TOKEN, CALLBACK_TOKEN):
+                assert private not in caplog.text and private not in failed.text
     finally:
         server.should_exit = True
         await asyncio.to_thread(server_thread.join, 5)

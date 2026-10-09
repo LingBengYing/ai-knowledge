@@ -1,0 +1,9 @@
+{
+  "compatibility_rollback_reopen": true,
+  "files_preserved": 8,
+  "migration": true,
+  "model_requests": 0,
+  "reopened_twice": true,
+  "schema": 34,
+  "tables_preserved": 95
+}

@@ -1,0 +1,48 @@
+[Unit]
+Description=AI Knowledge DB-GPT Agent
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=@RELEASE_DIR@
+ExecStart=@RELEASE_DIR@/.venv/bin/python -m knowledge_agent
+EnvironmentFile=/etc/ai-knowledge/agent.env
+Environment=KNOWLEDGE_JAVA_ORIGIN=http://127.0.0.1:18084
+Environment=AGENT_SERVICE_PORT=18088
+Environment=AGENT_RUN_TIMEOUT_SECONDS=180
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=DBGPT_HOME=/run/ai-knowledge-agent
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
+UnsetEnvironment=HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+RuntimeDirectory=ai-knowledge-agent
+RuntimeDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+TasksMax=128
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-knowledge-agent
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

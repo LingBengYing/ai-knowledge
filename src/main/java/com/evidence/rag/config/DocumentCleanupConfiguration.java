@@ -11,6 +11,7 @@ import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.DocumentCleanupService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import java.util.ArrayList;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
@@ -51,6 +52,7 @@ public class DocumentCleanupConfiguration {
       ObjectProvider<SoundSettings> sound,
       ObjectProvider<VideoAvSettings> video,
       ObjectProvider<ManagedTextSettings> managed,
+      ObjectProvider<ManagedTextRuntime> managedRuntime,
       SqliteAuthorityStore store,
       RagProperties properties) {
     var targets = new ArrayList<MilvusRestProjection.Settings>();
@@ -63,15 +65,27 @@ public class DocumentCleanupConfiguration {
           targets.add(settings.visualProjection());
           targets.add(settings.audioProjection());
         });
+    var runtime = managedRuntime.getIfAvailable();
     return new MilvusProjectionCleanup(
         targets,
         target -> {
           var settings = managed.getIfAvailable();
-          if (settings == null
-              || !properties.workspaceId().equals(target.workspaceId())
-              || !target.collection().matches("java_text_v[0-9]+_[a-f0-9]+")
-              || !store.transaction(
-                  () -> new ModelRebuildRepository(store).registeredTarget(target))) {
+          if (settings == null || !properties.workspaceId().equals(target.workspaceId())) {
+            return Optional.empty();
+          }
+          // Initial managed activation need not create a rebuild row. Match its installed
+          // projection identity, never infer an old target from today's model role settings.
+          var active = runtime == null ? null : runtime.currentTarget();
+          boolean current =
+              active != null
+                  && active.projectionIdentity().equals(target.projectionIdentity())
+                  && active.embeddingIdentity().equals(target.embeddingIdentity())
+                  && active.dimensions() == target.dimensions();
+          boolean rebuilt =
+              target.collection().matches("java_text_v[0-9]+_[a-f0-9]+")
+                  && store.transaction(
+                      () -> new ModelRebuildRepository(store).registeredTarget(target));
+          if (!current && !rebuilt) {
             return Optional.empty();
           }
           var connection = settings.projection();

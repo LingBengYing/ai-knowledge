@@ -5,6 +5,7 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.WikiContent;
+import com.evidence.rag.model.domain.WikiPageLifecycle;
 import com.evidence.rag.model.domain.WikiPageRevision;
 import com.evidence.rag.model.domain.WikiProposal;
 import java.util.List;
@@ -18,7 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 public final class WikiWorkspaceRepository {
   private static final JsonMapper JSON = JsonMapper.builder().build();
   private static final String CURRENT_PAGES =
-      " FROM wiki_page_revisions p WHERE p.workspace_id=? AND p.version=(SELECT MAX(v.version) FROM wiki_page_revisions v WHERE v.workspace_id=p.workspace_id AND v.page_id=p.page_id) AND (?='' OR instr(lower(json_extract(p.content_json,'$.title')),lower(?))>0)";
+      " FROM wiki_page_revisions p WHERE p.workspace_id=? AND p.version=(SELECT MAX(v.version) FROM wiki_page_revisions v WHERE v.workspace_id=p.workspace_id AND v.page_id=p.page_id) AND COALESCE((SELECT l.state FROM wiki_page_lifecycle l WHERE l.workspace_id=p.workspace_id AND l.page_id=p.page_id ORDER BY l.lifecycle_version DESC LIMIT 1),'active')=? AND (?='' OR instr(lower(json_extract(p.content_json,'$.title')),lower(?))>0)";
   private final SqliteAuthorityStore store;
 
   public WikiWorkspaceRepository(SqliteAuthorityStore store) {
@@ -49,12 +50,18 @@ public final class WikiWorkspaceRepository {
   }
 
   public List<WikiPageRevision> pages(Actor actor, int offset, int limit, String query) {
+    return pages(actor, offset, limit, query, "active");
+  }
+
+  public List<WikiPageRevision> pages(
+      Actor actor, int offset, int limit, String query, String state) {
     pagination(offset, limit);
     String search = query == null ? "" : query;
     return store
         .rows(
             "SELECT p.*" + CURRENT_PAGES + " ORDER BY p.created_at DESC,p.page_id LIMIT ? OFFSET ?",
             actor.workspaceId(),
+            state,
             search,
             search,
             limit,
@@ -65,8 +72,56 @@ public final class WikiWorkspaceRepository {
   }
 
   public long pageCount(Actor actor, String query) {
+    return pageCount(actor, query, "active");
+  }
+
+  public long pageCount(Actor actor, String query, String state) {
     String search = query == null ? "" : query;
-    return store.count("SELECT COUNT(*)" + CURRENT_PAGES, actor.workspaceId(), search, search);
+    return store.count(
+        "SELECT COUNT(*)" + CURRENT_PAGES, actor.workspaceId(), state, search, search);
+  }
+
+  public WikiPageLifecycle lifecycle(Actor actor, String pageId) {
+    return store
+        .rows(
+            "SELECT state,lifecycle_version FROM wiki_page_lifecycle WHERE workspace_id=? AND page_id=? ORDER BY lifecycle_version DESC LIMIT 1",
+            actor.workspaceId(),
+            pageId)
+        .stream()
+        .map(row -> new WikiPageLifecycle(text(row, "state"), number(row, "lifecycle_version")))
+        .findFirst()
+        .orElse(new WikiPageLifecycle("active", 0));
+  }
+
+  public void changeLifecycle(
+      Actor actor,
+      String pageId,
+      long expectedVersion,
+      long expectedLifecycleVersion,
+      String state,
+      long now) {
+    String previous = "deleted".equals(state) ? "active" : "deleted";
+    store.execute(
+        "INSERT INTO wiki_page_lifecycle(workspace_id,page_id,lifecycle_version,state,content_version,actor_id,created_at) SELECT ?,?,?,?,?,?,? WHERE ?=(SELECT MAX(version) FROM wiki_page_revisions WHERE workspace_id=? AND page_id=?) AND ?=COALESCE((SELECT MAX(lifecycle_version) FROM wiki_page_lifecycle WHERE workspace_id=? AND page_id=?),0) AND ?=COALESCE((SELECT state FROM wiki_page_lifecycle WHERE workspace_id=? AND page_id=? ORDER BY lifecycle_version DESC LIMIT 1),'active')",
+        actor.workspaceId(),
+        pageId,
+        expectedLifecycleVersion + 1,
+        state,
+        expectedVersion,
+        actor.principalId(),
+        now,
+        expectedVersion,
+        actor.workspaceId(),
+        pageId,
+        expectedLifecycleVersion,
+        actor.workspaceId(),
+        pageId,
+        previous,
+        actor.workspaceId(),
+        pageId);
+    if (store.count("SELECT changes()") != 1) {
+      throw conflict("wiki_lifecycle_conflict");
+    }
   }
 
   public void insertProposal(Actor actor, WikiProposal proposal) {
@@ -90,6 +145,50 @@ public final class WikiWorkspaceRepository {
         proposal.status(),
         proposal.createdAt(),
         proposal.reviewedAt());
+  }
+
+  public void purge(
+      Actor actor, String pageId, long expectedVersion, long expectedLifecycleVersion, long now) {
+    store.wikiPagePurgeScope(
+        actor.workspaceId(),
+        pageId,
+        () -> {
+          store.execute(
+              "INSERT INTO wiki_page_purges(workspace_id,page_id,content_version,lifecycle_version,actor_id,created_at) SELECT ?,?,?,?,?,? WHERE ?=(SELECT MAX(version) FROM wiki_page_revisions WHERE workspace_id=? AND page_id=?) AND ?=(SELECT MAX(lifecycle_version) FROM wiki_page_lifecycle WHERE workspace_id=? AND page_id=?) AND 'deleted'=(SELECT state FROM wiki_page_lifecycle WHERE workspace_id=? AND page_id=? ORDER BY lifecycle_version DESC LIMIT 1)",
+              actor.workspaceId(),
+              pageId,
+              expectedVersion,
+              expectedLifecycleVersion,
+              actor.principalId(),
+              now,
+              expectedVersion,
+              actor.workspaceId(),
+              pageId,
+              expectedLifecycleVersion,
+              actor.workspaceId(),
+              pageId,
+              actor.workspaceId(),
+              pageId);
+          if (store.count("SELECT changes()") != 1) {
+            throw conflict("wiki_lifecycle_conflict");
+          }
+          for (String table :
+              List.of("wiki_page_lifecycle", "wiki_proposals", "wiki_page_revisions")) {
+            store.execute(
+                "DELETE FROM " + table + " WHERE workspace_id=? AND page_id=?",
+                actor.workspaceId(),
+                pageId);
+          }
+          return null;
+        });
+  }
+
+  public boolean sourceRemoved(Actor actor, String documentId) {
+    return store.count(
+            "SELECT COUNT(*) FROM document_tombstones WHERE workspace_id=? AND document_id=?",
+            actor.workspaceId(),
+            documentId)
+        != 0;
   }
 
   public Optional<WikiProposal> proposal(Actor actor, String proposalId) {

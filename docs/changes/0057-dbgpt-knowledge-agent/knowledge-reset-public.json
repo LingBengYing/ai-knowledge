@@ -1,0 +1,27 @@
+{
+  "/v1/management/documents?page=1&page_size=100": {
+    "status": 200,
+    "total": 0
+  },
+  "/v1/wiki/pages?offset=0&limit=100": {
+    "status": 200,
+    "total": 0
+  },
+  "/v1/wiki/drafts?offset=0&limit=100": {
+    "status": 200,
+    "total": 0
+  },
+  "/v1/knowledge-agent/config": {
+    "status": 200,
+    "enabled": true
+  },
+  "/v1/model-configuration": {
+    "status": 200,
+    "active_version": 6,
+    "state": "active"
+  },
+  "/v1/session": {
+    "status": 200,
+    "authenticated": true
+  }
+}

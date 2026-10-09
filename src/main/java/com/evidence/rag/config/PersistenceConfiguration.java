@@ -159,6 +159,8 @@ public class PersistenceConfiguration {
             videoCompiler != null && videoCompiler.ocrEnabled(),
             videoCompiler != null && videoCompiler.subtitlesEnabled(),
             PdfOcrConfiguration.options(environment));
+    service.setAutomaticIndexingEnabled(
+        environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true));
     service.recoverIngestions();
     return service;
   }

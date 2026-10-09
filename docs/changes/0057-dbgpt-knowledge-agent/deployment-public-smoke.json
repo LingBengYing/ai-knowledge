@@ -1,0 +1,108 @@
+{
+  "origin": "https://<DEPLOYMENT_HOST>:18443",
+  "tls_verified": true,
+  "checks": {
+    "/": {
+      "status": 200,
+      "bytes": 2788,
+      "sha256": "9d6bfe34eaeb030cab9eba121ec5d960321ee94513fd53393d34a96c0f55fa4f"
+    },
+    "/classic/": {
+      "status": 200,
+      "bytes": 38039,
+      "sha256": "e96e018b086d2a43c9c1956f87eb5502d5ee2337900b7b8c0d5333e5aae8cfe0"
+    },
+    "/v1/session": {
+      "status": 200,
+      "bytes": 75,
+      "sha256": "1d67d8c2f9381c8eed5582ad8ec172fc9d06466a27c9ae6f33bda915baa4ba7c"
+    },
+    "/v1/knowledge-agent/config": {
+      "status": 200,
+      "bytes": 48,
+      "sha256": "f145b363a08acfe90788782c50c9a0773ee229c57780b2438e01e15a4f318321"
+    },
+    "/v1/config": {
+      "status": 200,
+      "bytes": 824,
+      "sha256": "a994520f2b840e527d78b187a513347e932bd2c234bcc3b6802238cbba390f96"
+    },
+    "/v1/retrieval-settings": {
+      "status": 200,
+      "bytes": 145,
+      "sha256": "231503bd35109939ab132e5f0b75402b6c9ddc5184ed0ed47c7a059e9b65fb69"
+    },
+    "/v1/wiki/pages?offset=0&limit=20": {
+      "status": 200,
+      "bytes": 44,
+      "sha256": "bbbb1f925fd2051730419a66c6e2b5fddb38052186902861b4f71d4c2e896ebb"
+    },
+    "/v1/wiki/drafts?offset=0&limit=20": {
+      "status": 200,
+      "bytes": 44,
+      "sha256": "bbbb1f925fd2051730419a66c6e2b5fddb38052186902861b4f71d4c2e896ebb"
+    },
+    "/v1/wiki/proposals?offset=0&limit=20&status=pending": {
+      "status": 200,
+      "bytes": 44,
+      "sha256": "bbbb1f925fd2051730419a66c6e2b5fddb38052186902861b4f71d4c2e896ebb"
+    },
+    "/v1/wiki/catalog?offset=0&limit=20": {
+      "status": 200,
+      "bytes": 4461,
+      "sha256": "c0698904c419cf55ad656fd1a07c690aa202d7861add0d6a74d6aeb2688f660e"
+    },
+    "/wiki-workspace.mjs": {
+      "status": 200,
+      "bytes": 73785,
+      "sha256": "38f719fb72576ae42d1efba688e369571d191776aaba57fc0a5fb84605663d78"
+    },
+    "/knowledge-agent.mjs": {
+      "status": 200,
+      "bytes": 7238,
+      "sha256": "3ac95117f0189ecc10d0c093cc7fbba074d39ff02bef782c2de964a4978be88e"
+    },
+    "/wiki-workspace-api.mjs": {
+      "status": 200,
+      "bytes": 12039,
+      "sha256": "1374db4425a3049e3bd58eab532ccf2b4303d96bff8128a9643ae1eb2c2d72ba"
+    },
+    "/wiki-workspace.css": {
+      "status": 200,
+      "bytes": 6059,
+      "sha256": "730a01cb1d05d7b838f8db35d04d25c714166e84eaf44a9595ecd0083a08ba7e"
+    },
+    "/vendor/pdfjs/pdf.min.mjs": {
+      "status": 200,
+      "bytes": 458904,
+      "sha256": "57456c8e0c81e46be31174b499ef77f2b9f5ee46d04412ba627320a36755d4c2"
+    },
+    "/v1/management/documents?page=1&page_size=100&sort=updated_desc": {
+      "status": 200,
+      "bytes": 15771,
+      "sha256": "219eea9dc8d0e8e480cdb1a622f2979d68bee3010b866be2a82962c749ee0f79"
+    },
+    "/v1/documents/a62572d5-0163-4614-a005-c6e5ea10925a/original": {
+      "status": 200,
+      "bytes": 405,
+      "sha256": "e08e4d654a7d37456fdce3078559c538a8398a0333b04186ad355169bccdeda9"
+    },
+    "/v1/documents/a62572d5-0163-4614-a005-c6e5ea10925a/revisions/90149f4f-dd40-4340-8949-2a4e22db1820/content": {
+      "status": 200,
+      "bytes": 112146,
+      "sha256": "5a864fd106866cdfffc7c82cf944d5b78ab34aad71dfa0676b037417989d74bf"
+    },
+    "/internal/knowledge-agent/runs/x/model": {
+      "status": 404
+    }
+  },
+  "old_originals": [
+    {
+      "document_id": "a62572d5-0163-4614-a005-c6e5ea10925a",
+      "revision_id": "90149f4f-dd40-4340-8949-2a4e22db1820",
+      "bytes": 112146,
+      "sha256": "5a864fd106866cdfffc7c82cf944d5b78ab34aad71dfa0676b037417989d74bf"
+    }
+  ],
+  "model_requests": 0
+}

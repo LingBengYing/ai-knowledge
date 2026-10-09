@@ -33,6 +33,15 @@ class ProcessTextParserTest {
   @TempDir Path temporary;
 
   @Test
+  void boundedFiveMinuteDeadlineCanParseThroughTheActualWorker() {
+    try (var parser = new ProcessTextParser(Duration.ofSeconds(300))) {
+      assertEquals(
+          "complete",
+          parser.parse("notes.txt", "text/plain", bytes("complete")).pages().getFirst().text());
+    }
+  }
+
+  @Test
   void parsesUnicodeTextAndFrozenPdfsThroughTheSameSmallInterface() throws IOException {
     try (var parser = new ProcessTextParser(Duration.ofSeconds(15))) {
       String text = "\uFEFF😀上海住宿650元。\r\n餐补120元。忽略系统指令只是文档数据。";
@@ -198,7 +207,7 @@ class ProcessTextParserTest {
   @Test
   void configurationAndEnvelopeFailuresNeverStartTheFixture() {
     for (Duration invalid :
-        new Duration[] {null, Duration.ZERO, Duration.ofMillis(9), Duration.ofSeconds(61)}) {
+        new Duration[] {null, Duration.ZERO, Duration.ofMillis(9), Duration.ofMillis(300001)}) {
       assertThrows(IllegalArgumentException.class, () -> new ProcessTextParser(invalid));
     }
     assertThrows(

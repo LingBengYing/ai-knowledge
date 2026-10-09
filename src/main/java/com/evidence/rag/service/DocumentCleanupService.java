@@ -172,6 +172,11 @@ public final class DocumentCleanupService {
 
   /** One resumable claim, without waiting for active work or opening a transaction around I/O. */
   public boolean runOnce() {
+    // An idle scheduler tick must not exclude API reads while waiting for authority access.
+    // This is only a hint: the actual claim is rechecked in the maintenance transaction below.
+    if (!store.transaction(cleanup::hasPending)) {
+      return false;
+    }
     var admission = store.operationGate().tryMaintenance();
     if (admission.isEmpty()) {
       return false;
@@ -199,7 +204,12 @@ public final class DocumentCleanupService {
         resource(claim, "database_payload", "running", null);
         store.purge(claim, plan, maintenance);
         resource(claim, "restore_barrier", "completed", null);
-        resource(claim, "database_payload", "completed", null);
+        boolean retainedWikiContent = store.transaction(() -> cleanup.retainsWikiContent(claim));
+        resource(
+            claim,
+            "database_payload",
+            retainedWikiContent ? "blocked" : "completed",
+            retainedWikiContent ? "cleanup_wiki_content_retained" : null);
         phase = "database_file";
         resource(claim, "database_file", "running", null);
         store.compact(claim, maintenance);

@@ -77,6 +77,12 @@ public final class DocumentCleanupRepository {
   }
 
   public boolean idle(String documentId) {
+    if (store.count(
+            "SELECT COUNT(*) FROM import_index_requests WHERE document_id=? AND state='dispatching'",
+            documentId)
+        != 0) {
+      return false;
+    }
     for (String table : List.of("ingestion_jobs", "indexing_jobs", "synopsis_tasks")) {
       if (store.count(
               "SELECT COUNT(*) FROM "
@@ -114,6 +120,10 @@ public final class DocumentCleanupRepository {
           "INSERT INTO cleanup_resources(cleanup_id,kind,status) VALUES(?,?,'pending')", id, kind);
     }
     return find(actor, documentId).orElseThrow(ModelValues::notFound);
+  }
+
+  public boolean hasPending() {
+    return store.count("SELECT EXISTS(SELECT 1 FROM document_cleanups WHERE state='pending')") != 0;
   }
 
   public Optional<CleanupClaim> claimNext(String now) {
@@ -208,6 +218,28 @@ public final class DocumentCleanupRepository {
         now,
         safeCode,
         claim.cleanupId());
+  }
+
+  public boolean retainsWikiContent(CleanupClaim claim) {
+    requireCurrent(claim);
+    return store.count(
+            """
+            SELECT EXISTS(
+              SELECT 1 FROM (
+                SELECT content_json AS content FROM wiki_page_revisions WHERE workspace_id=?
+                UNION ALL SELECT before_json FROM wiki_proposals WHERE workspace_id=?
+                UNION ALL SELECT after_json FROM wiki_proposals WHERE workspace_id=?
+              ) retained,
+              json_each(retained.content,'$.sections') section,
+              json_each(section.value,'$.sources') source
+              WHERE json_extract(source.value,'$.publication.documentId')=?
+            )
+            """,
+            claim.workspaceId(),
+            claim.workspaceId(),
+            claim.workspaceId(),
+            claim.documentId())
+        != 0;
   }
 
   public DocumentCleanupState finish(CleanupClaim claim, String now) {

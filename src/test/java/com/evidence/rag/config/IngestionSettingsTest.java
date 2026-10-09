@@ -14,8 +14,13 @@ class IngestionSettingsTest {
   @TempDir Path directory;
 
   @Test
+  void boundedFiveMinuteParsingCanBeConfiguredForMultiPageScans() {
+    assertTrue(new IngestionSettings(true, 300000, 30000).enabled());
+  }
+
+  @Test
   void limitsAreBoundedEvenWhenDisabled() {
-    for (int invalid : new int[] {0, 9, 60001, Integer.MAX_VALUE}) {
+    for (int invalid : new int[] {0, 9, 300001, Integer.MAX_VALUE}) {
       assertThrows(
           IllegalArgumentException.class, () -> new IngestionSettings(false, invalid, 30000));
     }

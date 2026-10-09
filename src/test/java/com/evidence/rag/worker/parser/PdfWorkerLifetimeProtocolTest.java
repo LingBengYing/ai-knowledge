@@ -55,7 +55,7 @@ class PdfWorkerLifetimeProtocolTest {
     cases.add(replace(valid, 0, "--unknown-mode"));
     cases.add(replace(valid, 4, "0"));
     cases.add(replace(valid, 7, "9"));
-    cases.add(replace(valid, 7, "60001"));
+    cases.add(replace(valid, 7, "300001"));
     cases.add(replace(valid, 4, Long.toString(ProcessHandle.current().pid() + 1)));
     int nanos = Integer.parseInt(valid.get(6));
     cases.add(replace(valid, 6, Integer.toString((nanos + 1) % 1_000_000_000)));

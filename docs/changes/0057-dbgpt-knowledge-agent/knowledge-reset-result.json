@@ -1,0 +1,43 @@
+{
+  "agent_enabled": true,
+  "backup": "/srv/ai-knowledge/releases/20261009-dbgpt-agent-0057/private/knowledge-reset-20261009T152728",
+  "backup_retained": true,
+  "checks": {
+    "/v1/management/documents?page=1&page_size=100": {
+      "status": 200,
+      "total": 0
+    },
+    "/v1/wiki/catalog?offset=0&limit=100": {
+      "status": 200,
+      "total": 0
+    },
+    "/v1/wiki/drafts?offset=0&limit=100": {
+      "status": 200,
+      "total": 0
+    },
+    "/v1/wiki/pages?offset=0&limit=100": {
+      "status": 200,
+      "total": 0
+    },
+    "/v1/wiki/proposals?offset=0&limit=100&status=pending": {
+      "status": 200,
+      "total": 0
+    }
+  },
+  "cloud_model_requests": 0,
+  "documents_removed": 10,
+  "knowledge_tables_empty": 90,
+  "model_active_version": 6,
+  "model_files_unchanged": true,
+  "old_data_restored": false,
+  "other_collections_modified": false,
+  "permission_repair_verified": true,
+  "retrieval_settings_unchanged": true,
+  "schema": 32,
+  "services_active": true,
+  "shared_access_preserved": true,
+  "time": "2026-10-09T15:30:17+0800",
+  "vector_collection": "java_knowledge_20261002",
+  "vector_rows_remaining_for_old_documents": 0,
+  "vector_rows_removed": 13
+}

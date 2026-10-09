@@ -23,6 +23,7 @@ import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.repository.DocumentCleanupRepository;
 import com.evidence.rag.repository.DocumentUpdateRepository;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SoundRepository;
@@ -49,6 +50,12 @@ import java.util.function.BiFunction;
 
 /** Raw sound registration and explicit complete publication; remote work never holds authority. */
 public final class SoundLibraryService {
+  private boolean automaticIndexingEnabled = true;
+
+  public void setAutomaticIndexingEnabled(boolean enabled) {
+    automaticIndexingEnabled = enabled;
+  }
+
   private final SqliteAuthorityStore store;
   private final MilvusRestProjection.Settings cleanupProjection;
   private final SoundRepository sounds;
@@ -207,6 +214,10 @@ public final class SoundLibraryService {
               now);
           management.insertGrant(original.documentId(), actor.principalId(), "owner");
           sounds.insertOriginal(original, now);
+          if (automaticIndexingEnabled) {
+            new ImportIndexRepository(store)
+                .insert(actor, original.documentId(), original.revisionId(), "sound", null, null);
+          }
           management.insertAudit(
               AuditEventEntity.create(
                   actor,

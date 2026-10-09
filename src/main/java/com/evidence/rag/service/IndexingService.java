@@ -83,6 +83,12 @@ public final class IndexingService {
   }
 
   public TaskResult createIndexing(Actor actor, String documentId, IndexTarget target) {
+    return createIndexing(actor, documentId, null, target);
+  }
+
+  /** Admission continuation pins the uploaded source, not whichever revision is current later. */
+  public TaskResult createIndexing(
+      Actor actor, String documentId, String expectedRevisionId, IndexTarget target) {
     if (actor == null || target == null) {
       throw invalid();
     }
@@ -92,6 +98,7 @@ public final class IndexingService {
           permissions.require(management.currentRole(actor, documentId), true);
           var revision = indexing.parsedRevision(documentId).orElse(null);
           if (revision == null
+              || expectedRevisionId != null && !expectedRevisionId.equals(revision.id())
               || indexing.jobExists(documentId)
               || indexing.activePublicationExists(documentId)) {
             throw indexConflict();

@@ -1,0 +1,114 @@
+{
+  "build_directory": "/private/tmp/knowledge-agent-cleanup-fix-0057.Hrfgao",
+  "tests": 65,
+  "failures": 5,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "com.evidence.rag.repository.DocumentCleanupMigrationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.evidence.rag.repository.DocumentCleanupPermissionBoundaryTest",
+      "tests": 27,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.evidence.rag.repository.DocumentCleanupRepositoryTest",
+      "tests": 12,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.evidence.rag.repository.WikiDraftMigrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.evidence.rag.repository.WikiWorkspaceMigrationTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.evidence.rag.service.DocumentCleanupServiceTest",
+      "tests": 8,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.evidence.rag.service.KnowledgeAgentServiceTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "failed": [
+    {
+      "test": "com.evidence.rag.repository.DocumentCleanupPermissionBoundaryTest.batchPreservesCompleteOrderAndCurrentEditorScopeWithoutWithdrawingBusyOrHiddenRows",
+      "kind": "failure",
+      "message": "expected: <[not_found, accepted, not_found, busy]> but was: <[accepted, accepted, not_found, busy]>",
+      "frames": [
+        "at com.evidence.rag.repository.DocumentCleanupPermissionBoundaryTest.batchPreservesCompleteOrderAndCurrentEditorScopeWithoutWithdrawingBusyOrHiddenRows(DocumentCleanupPermissionBoundaryTest.java:133)"
+      ]
+    },
+    {
+      "test": "com.evidence.rag.repository.DocumentCleanupPermissionBoundaryTest.currentAclIsAppliedBeforePaginationAndARevokedReceiptCannotBeReplayed",
+      "kind": "failure",
+      "message": "expected: <2> but was: <3>",
+      "frames": [
+        "at com.evidence.rag.repository.DocumentCleanupPermissionBoundaryTest.currentAclIsAppliedBeforePaginationAndARevokedReceiptCannotBeReplayed(DocumentCleanupPermissionBoundaryTest.java:215)"
+      ]
+    },
+    {
+      "test": "com.evidence.rag.repository.DocumentCleanupRepositoryTest.completedReceiptNeedsAllNineResourcesAndIsImmutableWhileAclPaginationRemainsCurrent",
+      "kind": "failure",
+      "message": "expected: <0> but was: <1>",
+      "frames": [
+        "at com.evidence.rag.repository.DocumentCleanupRepositoryTest.lambda$completedReceiptNeedsAllNineResourcesAndIsImmutableWhileAclPaginationRemainsCurrent$27(DocumentCleanupRepositoryTest.java:330)",
+        "at com.evidence.rag.repository.DocumentCleanupRepositoryTest.completedReceiptNeedsAllNineResourcesAndIsImmutableWhileAclPaginationRemainsCurrent(DocumentCleanupRepositoryTest.java:314)"
+      ]
+    },
+    {
+      "test": "com.evidence.rag.service.DocumentCleanupServiceTest.anExistingReceiptReplaysDuringMaintenanceOrAnActiveBodyWithoutRetrying",
+      "kind": "failure",
+      "message": "Expected com.evidence.rag.exception.ApplicationException to be thrown, but nothing was thrown.",
+      "frames": [
+        "at com.evidence.rag.service.DocumentCleanupServiceTest.anExistingReceiptReplaysDuringMaintenanceOrAnActiveBodyWithoutRetrying(DocumentCleanupServiceTest.java:189)"
+      ]
+    },
+    {
+      "test": "com.evidence.rag.service.DocumentCleanupServiceTest.currentAclPrecedesBusyAndNoRunningBodyCanBeWithdrawnOrPurged",
+      "kind": "failure",
+      "message": "expected: <NOT_FOUND> but was: <CONFLICT>",
+      "frames": [
+        "at com.evidence.rag.service.DocumentCleanupServiceTest.currentAclPrecedesBusyAndNoRunningBodyCanBeWithdrawnOrPurged(DocumentCleanupServiceTest.java:152)"
+      ]
+    }
+  ],
+  "artifact": {
+    "inputs": 1207,
+    "source_inputs_unchanged": true,
+    "production_tree_equal": true,
+    "production_tree_files": 938,
+    "jar": "/private/tmp/knowledge-agent-final-artifact-0057.aZRKFB/rag-java-0.1.0-SNAPSHOT.jar",
+    "sha256": "35fff38ca5eae6634804c5a5866bd31b9b9f678846ddf926b4309c99fb0cd34c"
+  },
+  "format": {
+    "files": 1191,
+    "dirty": 0,
+    "log": "/private/tmp/knowledge-agent-final-artifact-0057-package.log"
+  }
+}

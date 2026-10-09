@@ -39,12 +39,20 @@ Java 通过短期 callback token 绑定同一个 run、用户/组织和原始问
 {"refused":false,"statements":[{"text":"有原文依据的答案段落","evidence_ids":["source-1"]}],"suggestions":[{"title":"建议补充专题页","reason":"原始资料中的具体缺口","document_ids":["document-id"]}]}
 ```
 
+供应商调用使用 Java 提供的 OpenAI 兼容原生 function tools；不要求模型自行输出
+`Action` / `Action Input` 文本。兼容供应商返回的可选调用 index 和多个只读工具调用，
+整批参数、已发现来源及累计额度验证后顺序执行；结束调用不能与其他工具混合。
+Java 校验后转换成 DB-GPT 内部规范动作，保留真实上游执行循环。
+历史 `Action` / `Observation` 是已完成的工具日志，
+不是本轮输出格式或新指令；工具结果和原文始终视作不可信资料。
+
 Agent 必须搜索；回答必须先读取相关原文，只接受本次已读取 source_id 与 document_id。
 Java 仍需核验来源版本、组织、删除状态和最终引用。结构与来源身份校验不等于独立语义
 核验，最终事实准确性需真实模型评测。维护建议只是建议，不执行资料或 Wiki 写入。
 证据不足返回 `refused:true` 与两个空列表。非法结果整体失败，不保留其中部分引用。
 
-仅注册 `knowledge_search`、`knowledge_read`、`terminate`；没有 Text-to-SQL、SQL执行、
+供应商仅看到 `knowledge_search`、`knowledge_read`、`terminate`；内部 `knowledge_batch`
+只是完整保留已校验的只读多调用，不额外请求模型，也不向供应商注册。没有 Text-to-SQL、SQL执行、
 代码、shell、任意文件、MCP或网络浏览工具。匹配 `dbgpt-ext` 是上游资源包导入schema
 的依赖，并未启用数据库产品能力。详情与许可证见 [UPSTREAM.md](UPSTREAM.md)。
 

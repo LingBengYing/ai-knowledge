@@ -10,7 +10,9 @@ public record WikiPageResult(
     @JsonProperty("model_revision") String modelRevision,
     @JsonProperty("policy_revision") String policyRevision,
     @JsonProperty("created_at") long createdAt,
-    @JsonProperty("source_state") String sourceState) {
+    @JsonProperty("source_state") String sourceState,
+    String state,
+    @JsonProperty("lifecycle_version") long lifecycleVersion) {
   @Override
   public String toString() {
     return "WikiPageResult[redacted]";

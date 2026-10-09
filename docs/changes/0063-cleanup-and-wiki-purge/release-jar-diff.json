@@ -1,0 +1,24 @@
+{
+  "added": [
+    "BOOT-INF/classes/com/evidence/rag/model/dto/WikiPagePurgeResult.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/SqliteAuthorityStore$5.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/WikiPagePurgeSchema.class"
+  ],
+  "removed": [],
+  "changed": [
+    "BOOT-INF/classes/com/evidence/rag/config/DocumentCleanupConfiguration.class",
+    "BOOT-INF/classes/com/evidence/rag/controller/WikiWorkspaceController.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/AuthoritySchema.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/DocumentCleanupRepository.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/ImportIndexSchema.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/SqliteAuthorityStore$1.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/SqliteAuthorityStore$2.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/SqliteAuthorityStore$3.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/SqliteAuthorityStore$4.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/SqliteAuthorityStore.class",
+    "BOOT-INF/classes/com/evidence/rag/repository/WikiWorkspaceRepository.class",
+    "BOOT-INF/classes/com/evidence/rag/service/DocumentCleanupService.class",
+    "BOOT-INF/classes/com/evidence/rag/service/WikiWorkspaceService$Prepared.class",
+    "BOOT-INF/classes/com/evidence/rag/service/WikiWorkspaceService.class"
+  ]
+}

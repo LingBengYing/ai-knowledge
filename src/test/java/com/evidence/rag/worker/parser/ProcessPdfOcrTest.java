@@ -20,11 +20,21 @@ import java.util.List;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Real PDF worker/native child lifecycle; an explicitly controlled OCR protocol process. */
 class ProcessPdfOcrTest {
+  @Test
+  void fiveMinutePdfDeadlineStillRunsTheBoundedNativeOcrWorker() throws Exception {
+    try (var parser = new ProcessTextParser(Duration.ofSeconds(300), options("valid"))) {
+      var parsed =
+          parser.parse("synthetic.pdf", "application/pdf", PdfOcrCompilerTest.pdf(1, false, null));
+      assertEquals("budget650\n", parsed.pages().getFirst().text());
+    }
+  }
+
   @TempDir Path directory;
 
   @Test
@@ -82,7 +92,10 @@ class ProcessPdfOcrTest {
           assertThrows(
               TextParser.Failure.class,
               () ->
-                  parser.parse("x.pdf", "application/pdf", PdfOcrCompilerTest.pdf(1, false, null)));
+                  parser.parse(
+                      "x.pdf",
+                      "application/pdf",
+                      PdfOcrCompilerTest.pdf(1, false, new PDRectangle(8, 8))));
       assertEquals("parser_timeout", failure.code());
       assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 7000);
       assertDead(directory.resolve("ocr.pid"));
@@ -163,6 +176,20 @@ class ProcessPdfOcrTest {
 
   private PdfOcrOptions options(String mode) throws Exception {
     Path executable = directory.resolve("ocr-executable");
+    if (mode.equals("hang")) {
+      // The deadline test exercises native cancellation, not a second JVM's cold startup.
+      // exec preserves this child's PID, so the unchanged assertions still prove actual exit.
+      Files.writeString(
+          executable,
+          "#!/bin/sh\n[ \"$7\" = tsv ] || exit 2\n"
+              + "printf '%s' \"$PPID\" > "
+              + quote(directory.resolve("worker.pid").toString())
+              + "\nprintf '%s' \"$$\" > "
+              + quote(directory.resolve("ocr.pid").toString())
+              + "\nexec /bin/sleep 60\n");
+      assertTrue(executable.toFile().setExecutable(true));
+      return new PdfOcrOptions(new ImageOcrOptions(executable, "eng", "controlled-pdf-v1"));
+    }
     Files.writeString(
         executable,
         "#!/bin/sh\n[ \"$7\" = tsv ] || exit 2\nexec "

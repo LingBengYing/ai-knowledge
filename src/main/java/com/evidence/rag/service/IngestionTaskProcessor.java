@@ -250,7 +250,9 @@ public final class IngestionTaskProcessor {
         if (!images.parserRevision().equals(claim.parserRevision())) {
           throw new TextParser.Failure("parser_invalid_output");
         }
-        try (var parser = new ProcessImageParser(images, deadline)) {
+        Duration imageDeadline =
+            deadline.compareTo(Duration.ofSeconds(60)) > 0 ? Duration.ofSeconds(60) : deadline;
+        try (var parser = new ProcessImageParser(images, imageDeadline)) {
           var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
           authority.completeImageIngestion(claim, parsed);
         }

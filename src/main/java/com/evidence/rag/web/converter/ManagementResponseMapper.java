@@ -12,6 +12,7 @@ import com.evidence.rag.model.vo.DocumentActionsResponse;
 import com.evidence.rag.model.vo.DocumentOriginalResponse;
 import com.evidence.rag.model.vo.DocumentPageResponse;
 import com.evidence.rag.model.vo.DocumentResponse;
+import com.evidence.rag.model.vo.ImportIndexResponse;
 import com.evidence.rag.model.vo.MediaInfoResponse;
 import com.evidence.rag.model.vo.TagListResponse;
 import java.util.List;
@@ -67,7 +68,11 @@ public final class ManagementResponseMapper {
         r.canIndex(),
         r.latestJob() == null ? null : TaskResponseMapper.from(r.latestJob()),
         r.syntheticFixture(),
-        r.documentType());
+        r.documentType(),
+        r.autoIndex() == null
+            ? null
+            : new ImportIndexResponse(
+                r.autoIndex().state(), r.autoIndex().errorCode(), r.autoIndex().taskId()));
   }
 
   public static FolderListResult folders(List<FolderResult> r) {

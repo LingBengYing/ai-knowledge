@@ -21,10 +21,12 @@ import com.evidence.rag.model.dto.DocumentPatchCommand;
 import com.evidence.rag.model.dto.DocumentResult;
 import com.evidence.rag.model.dto.FolderRemovalResult;
 import com.evidence.rag.model.dto.FolderResult;
+import com.evidence.rag.model.dto.ImportIndexResult;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.model.entity.AuditEventEntity;
 import com.evidence.rag.model.entity.DocumentEntity;
 import com.evidence.rag.model.query.DocumentQuery;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
@@ -543,7 +545,9 @@ public final class ManagementService {
           false,
           null,
           false,
-          document.documentType());
+          document.documentType(),
+          false,
+          automaticIndexProgress(document.id()));
     }
     var videoAv =
         evidence == null
@@ -574,7 +578,9 @@ public final class ManagementService {
           false,
           null,
           false,
-          document.documentType());
+          document.documentType(),
+          false,
+          automaticIndexProgress(document.id()));
     }
     boolean synthetic = evidence == null;
     TaskResult parseTask = null, indexTask = null;
@@ -630,7 +636,15 @@ public final class ManagementService {
         reindexEnabled
             && !synthetic
             && permissions.canEdit(document.currentRole())
-            && reindexEligibility.test(actor, document.id()));
+            && reindexEligibility.test(actor, document.id()),
+        automaticIndexProgress(document.id()));
+  }
+
+  private ImportIndexResult automaticIndexProgress(String documentId) {
+    var progress = new ImportIndexRepository(store).latest(documentId);
+    return progress == null
+        ? null
+        : new ImportIndexResult(progress.state(), progress.errorCode(), progress.taskId());
   }
 
   private List<FolderResult> folderResults(Actor actor) {

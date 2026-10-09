@@ -13,6 +13,7 @@ import com.evidence.rag.service.VideoAvLibraryService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
 public class DocumentReplacementConfiguration {
@@ -37,19 +38,24 @@ public class DocumentReplacementConfiguration {
       ObjectProvider<ManagedTextRuntime> managed,
       ObjectProvider<IndexingTaskProcessor> indexing,
       ObjectProvider<SoundLibraryService> sound,
-      ObjectProvider<VideoAvLibraryService> videoAv) {
-    return new DocumentReplacementService(
-        store,
-        updates,
-        management,
-        permissions,
-        ingestion,
-        () -> {
-          var runtime = managed.getIfAvailable();
-          return runtime == null ? indexing.getIfAvailable() : runtime.capture().indexing();
-        },
-        sound.getIfAvailable(),
-        videoAv.getIfAvailable(),
-        settings.enabled());
+      ObjectProvider<VideoAvLibraryService> videoAv,
+      Environment environment) {
+    var service =
+        new DocumentReplacementService(
+            store,
+            updates,
+            management,
+            permissions,
+            ingestion,
+            () -> {
+              var runtime = managed.getIfAvailable();
+              return runtime == null ? indexing.getIfAvailable() : runtime.capture().indexing();
+            },
+            sound.getIfAvailable(),
+            videoAv.getIfAvailable(),
+            settings.enabled());
+    service.setAutomaticIndexingEnabled(
+        environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true));
+    return service;
   }
 }

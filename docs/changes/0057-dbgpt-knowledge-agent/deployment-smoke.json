@@ -1,0 +1,46 @@
+{
+  "/": {
+    "bytes": 2788,
+    "status": 200
+  },
+  "/classic/": {
+    "bytes": 38039,
+    "status": 200
+  },
+  "/knowledge-agent.mjs": {
+    "bytes": 7238,
+    "status": 200
+  },
+  "/v1/config": {
+    "bytes": 824,
+    "status": 200
+  },
+  "/v1/knowledge-agent/config": {
+    "bytes": 48,
+    "status": 200
+  },
+  "/v1/management/documents": {
+    "bytes": 15770,
+    "status": 200
+  },
+  "/v1/retrieval-settings": {
+    "bytes": 145,
+    "status": 200
+  },
+  "/v1/session": {
+    "bytes": 75,
+    "status": 200
+  },
+  "/v1/wiki/drafts?offset=0&limit=20": {
+    "bytes": 44,
+    "status": 200
+  },
+  "/v1/wiki/pages?offset=0&limit=20": {
+    "bytes": 44,
+    "status": 200
+  },
+  "/wiki-workspace.mjs": {
+    "bytes": 73785,
+    "status": 200
+  }
+}

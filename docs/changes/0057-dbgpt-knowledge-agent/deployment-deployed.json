@@ -1,0 +1,9 @@
+{
+  "agent_enabled": true,
+  "model_requests_by_deployment": 0,
+  "preserved_old_tables": 91,
+  "public_origin": "https://<DEPLOYMENT_HOST>:18443",
+  "rollback_used": false,
+  "schema": 32,
+  "time": "2026-10-09T14:06:50+0800"
+}

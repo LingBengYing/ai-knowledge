@@ -1,0 +1,8 @@
+# CPU client-only pipeline. Do not install local VLM server/torch extras.
+paddlepaddle==3.2.2
+paddleocr[doc-parser]==3.4.0
+paddlex[ocr,genai-client]==3.4.0
+httpx==0.28.1
+openai==1.63.0
+numpy==1.26.4
+pandas==2.2.3

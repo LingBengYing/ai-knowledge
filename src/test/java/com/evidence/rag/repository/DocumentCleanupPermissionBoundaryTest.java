@@ -515,6 +515,8 @@ class DocumentCleanupPermissionBoundaryTest {
       throws Exception {
     String id;
     try (var authority = new AuthorityTestContext(directory)) {
+      // Seed the historical v21 workflow, without creating a newer v34 admission intent.
+      authority.ingestion().setAutomaticIndexingEnabled(false);
       id = parsed(authority, "legacy projection provenance");
     }
     CleanupV21Fixture.restoreVersionTwentyOne(directory);
