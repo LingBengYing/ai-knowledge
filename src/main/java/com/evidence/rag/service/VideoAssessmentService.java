@@ -137,7 +137,15 @@ public final class VideoAssessmentService {
         List<String> claims =
             mode == VideoAssessment.Mode.TRANSCRIPT
                 ? List.of()
-                : visual(question, fact, frame, current, started, textRevision, visionRevision, diagnostic);
+                : visual(
+                    question,
+                    fact,
+                    frame,
+                    current,
+                    started,
+                    textRevision,
+                    visionRevision,
+                    diagnostic);
         diagnostic.stage = "evidence_check";
         // Counterevidence is independent of whether the extraction model chose to quote it.
         // This can only veto a result; it never adds transcript support to the proof.
@@ -150,7 +158,14 @@ public final class VideoAssessmentService {
             mode == VideoAssessment.Mode.VISUAL
                 ? List.of()
                 : transcript(
-                    question, fact, transcript, current, started, textRevision, visionRevision, diagnostic);
+                    question,
+                    fact,
+                    transcript,
+                    current,
+                    started,
+                    textRevision,
+                    visionRevision,
+                    diagnostic);
         diagnostic.stage = "evidence_check";
         check(current, started, textRevision, visionRevision);
         if (claims.isEmpty() && quotes.isEmpty()) {
@@ -390,7 +405,8 @@ public final class VideoAssessmentService {
           "model_response_too_large",
           "model_invalid_input",
           "model_invalid_configuration",
-          "model_closed" -> code;
+          "model_closed" ->
+          code;
       default -> "model_failure_unclassified";
     };
   }

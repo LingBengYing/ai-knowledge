@@ -70,8 +70,7 @@ public final class UploadServlet extends HttpServlet {
     receive(request, response, documentId);
   }
 
-  private void receive(
-      HttpServletRequest request, HttpServletResponse response, String documentId)
+  private void receive(HttpServletRequest request, HttpServletResponse response, String documentId)
       throws IOException {
     long deadline = System.nanoTime() + deadlineMs * 1_000_000L;
     try {
@@ -98,8 +97,7 @@ public final class UploadServlet extends HttpServlet {
             FailureKind.INVALID_INPUT, "invalid_request", "请提供唯一文件名，不接受其他参数。");
       }
       String filename = parameters.get("filename")[0];
-      String baseRevisionId =
-          documentId == null ? null : parameters.get("base_revision_id")[0];
+      String baseRevisionId = documentId == null ? null : parameters.get("base_revision_id")[0];
       String mime;
       if (documentId == null) {
         mime = authority.prepareUpload(filename, contentTypes.getFirst());
@@ -125,8 +123,15 @@ public final class UploadServlet extends HttpServlet {
         async.setTimeout(deadlineMs);
         var receiver =
             new Receiver(
-                request, response, async, actor, filename, mime, deadline,
-                documentId, baseRevisionId);
+                request,
+                response,
+                async,
+                actor,
+                filename,
+                mime,
+                deadline,
+                documentId,
+                baseRevisionId);
         async.addListener(receiver);
         handedOff = true;
         request.getInputStream().setReadListener(receiver);

@@ -62,38 +62,111 @@ public final class IndexingRepository {
   }
 
   public Optional<RevisionEntity> parsedRevision(String documentId, String revisionId) {
-    return store.rows("SELECT r.* FROM corpus_revisions r JOIN ingestion_jobs j ON j.document_id=r.document_id AND j.revision_id=r.id WHERE r.document_id=? AND r.id=? AND r.parsed_at IS NOT NULL AND j.state='parsed' AND " + PROJECTION_COUNT + " BETWEEN 1 AND 4096",documentId,revisionId)
-        .stream().findFirst().map(row -> new RevisionEntity(AuthorityRows.text(row,"id"),AuthorityRows.text(row,"source_sha256"),AuthorityRows.text(row,"parser_revision"),AuthorityRows.integer(row,"segment_count")));
+    return store
+        .rows(
+            "SELECT r.* FROM corpus_revisions r JOIN ingestion_jobs j ON j.document_id=r.document_id AND j.revision_id=r.id WHERE r.document_id=? AND r.id=? AND r.parsed_at IS NOT NULL AND j.state='parsed' AND "
+                + PROJECTION_COUNT
+                + " BETWEEN 1 AND 4096",
+            documentId,
+            revisionId)
+        .stream()
+        .findFirst()
+        .map(
+            row ->
+                new RevisionEntity(
+                    AuthorityRows.text(row, "id"),
+                    AuthorityRows.text(row, "source_sha256"),
+                    AuthorityRows.text(row, "parser_revision"),
+                    AuthorityRows.integer(row, "segment_count")));
   }
 
-  public void insertReplacementJob(String jobId,String documentId,RevisionEntity revision,IndexTarget target,
-      String creator,String basePublicationId,int sequence,String now,String replacementId) {
-    store.execute("INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,replacement_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?)",jobId,documentId,revision.id(),revision.sourceSha256(),revision.parserRevision(),target.embeddingIdentity(),target.projectionIdentity(),target.modelRevision(),target.dimensions(),creator,now,now,sequence,basePublicationId,replacementId);
-    new DocumentUpdateRepository(store).attachIndexJob(replacementId,jobId,now);
+  public void insertReplacementJob(
+      String jobId,
+      String documentId,
+      RevisionEntity revision,
+      IndexTarget target,
+      String creator,
+      String basePublicationId,
+      int sequence,
+      String now,
+      String replacementId) {
+    store.execute(
+        "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,replacement_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?)",
+        jobId,
+        documentId,
+        revision.id(),
+        revision.sourceSha256(),
+        revision.parserRevision(),
+        target.embeddingIdentity(),
+        target.projectionIdentity(),
+        target.modelRevision(),
+        target.dimensions(),
+        creator,
+        now,
+        now,
+        sequence,
+        basePublicationId,
+        replacementId);
+    new DocumentUpdateRepository(store).attachIndexJob(replacementId, jobId, now);
   }
 
-  public void insertModelRebuildJob(String jobId,String documentId,RevisionEntity revision,
-      IndexTarget target,String creator,String basePublicationId,int sequence,String now,String batchId) {
-    var item = new ModelRebuildRepository(store).findItemForJob(jobId).orElseThrow(ModelValues::invalid);
-    if (!item.batchId().equals(batchId) || !item.documentId().equals(documentId)
+  public void insertModelRebuildJob(
+      String jobId,
+      String documentId,
+      RevisionEntity revision,
+      IndexTarget target,
+      String creator,
+      String basePublicationId,
+      int sequence,
+      String now,
+      String batchId) {
+    var item =
+        new ModelRebuildRepository(store).findItemForJob(jobId).orElseThrow(ModelValues::invalid);
+    if (!item.batchId().equals(batchId)
+        || !item.documentId().equals(documentId)
         || !item.revisionId().equals(revision.id())) {
       throw ModelValues.invalid();
     }
-    store.execute("INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,base_vector_set_sha256,model_rebuild_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?,?)",jobId,documentId,revision.id(),revision.sourceSha256(),revision.parserRevision(),target.embeddingIdentity(),target.projectionIdentity(),target.modelRevision(),target.dimensions(),creator,now,now,sequence,basePublicationId,basePublicationId == null ? null : item.baseVectorSetSha256(),batchId);
+    store.execute(
+        "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,base_publication_id,base_vector_set_sha256,model_rebuild_id) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?,?,?)",
+        jobId,
+        documentId,
+        revision.id(),
+        revision.sourceSha256(),
+        revision.parserRevision(),
+        target.embeddingIdentity(),
+        target.projectionIdentity(),
+        target.modelRevision(),
+        target.dimensions(),
+        creator,
+        now,
+        now,
+        sequence,
+        basePublicationId,
+        basePublicationId == null ? null : item.baseVectorSetSha256(),
+        batchId);
   }
 
   public Optional<String> modelRebuildIdForJob(String jobId) {
-    return store.rows("SELECT model_rebuild_id FROM indexing_jobs WHERE id=?",jobId).stream()
-        .map(row -> AuthorityRows.text(row,"model_rebuild_id")).filter(Objects::nonNull).findFirst();
+    return store.rows("SELECT model_rebuild_id FROM indexing_jobs WHERE id=?", jobId).stream()
+        .map(row -> AuthorityRows.text(row, "model_rebuild_id"))
+        .filter(Objects::nonNull)
+        .findFirst();
   }
 
-  public List<String> queuedModelRebuildIds(String workspace,String batchId) {
-    return store.rows("SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.model_rebuild_id=? AND j.state='queued' ORDER BY j.created_at,j.id",workspace,batchId)
-        .stream().map(row -> AuthorityRows.text(row,"id")).toList();
+  public List<String> queuedModelRebuildIds(String workspace, String batchId) {
+    return store
+        .rows(
+            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.model_rebuild_id=? AND j.state='queued' ORDER BY j.created_at,j.id",
+            workspace,
+            batchId)
+        .stream()
+        .map(row -> AuthorityRows.text(row, "id"))
+        .toList();
   }
 
-  public void sealModelRebuildPublication(String jobId,String publicationId,String now) {
-    new ModelRebuildRepository(store).seal(jobId,publicationId,now);
+  public void sealModelRebuildPublication(String jobId, String publicationId, String now) {
+    new ModelRebuildRepository(store).seal(jobId, publicationId, now);
   }
 
   public boolean jobExists(String documentId) {
@@ -374,11 +447,12 @@ public final class IndexingRepository {
     return plan;
   }
 
-  public void insertModelRebuildBindings(String jobId,PublicationVersion publication,ReindexVectorPlan plan) {
+  public void insertModelRebuildBindings(
+      String jobId, PublicationVersion publication, ReindexVectorPlan plan) {
     if (modelRebuildIdForJob(jobId).isEmpty() || !jobId.equals(plan.jobId())) {
       throw ModelValues.invalid();
     }
-    insertInheritedBindings(publication,plan);
+    insertInheritedBindings(publication, plan);
   }
 
   /** Caller owns the same transaction as text publication and active-pointer CAS. */
@@ -406,7 +480,12 @@ public final class IndexingRepository {
               binding.origin(),
               physical,
               from,
-              VectorBindingIdentity.imageSha256(publication, binding.origin(), physical, from, batch == null ? binding.modelRebuildId() : batch),
+              VectorBindingIdentity.imageSha256(
+                  publication,
+                  binding.origin(),
+                  physical,
+                  from,
+                  batch == null ? binding.modelRebuildId() : batch),
               batch == null ? binding.modelRebuildId() : batch),
           now);
     }
@@ -424,7 +503,12 @@ public final class IndexingRepository {
               binding.origin(),
               physical,
               from,
-              VectorBindingIdentity.audioSha256(publication, binding.origin(), physical, from, batch == null ? binding.modelRebuildId() : batch),
+              VectorBindingIdentity.audioSha256(
+                  publication,
+                  binding.origin(),
+                  physical,
+                  from,
+                  batch == null ? binding.modelRebuildId() : batch),
               batch == null ? binding.modelRebuildId() : batch),
           now);
     }
@@ -459,11 +543,9 @@ public final class IndexingRepository {
   public Optional<TaskEntity> findAuthorizedTask(Actor actor, String jobId, boolean edit) {
     return store
         .rows(
-            "SELECT j.*,COALESCE(o.filename,d.filename) filename,acl.role AS current_role FROM indexing_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
-                + (edit ? " AND acl.role IN ('owner','editor')" : ""),
+            "SELECT j.*,COALESCE(o.filename,d.filename) filename,'member' AS current_role FROM indexing_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             jobId,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(row -> AuthorityRows.task(row, true));
@@ -480,8 +562,9 @@ public final class IndexingRepository {
         return false;
       }
       var candidate = updates.find(replacement.get()).orElseThrow(ModelValues::invalid);
-      var parsed = parsedRevision(job.documentId(),job.revisionId());
-      if (!candidate.candidateRevisionId().equals(job.revisionId()) || parsed.isEmpty()
+      var parsed = parsedRevision(job.documentId(), job.revisionId());
+      if (!candidate.candidateRevisionId().equals(job.revisionId())
+          || parsed.isEmpty()
           || !parsed.get().sourceSha256().equals(job.sourceSha256())
           || !parsed.get().parserRevision().equals(job.parserRevision())) {
         return false;
@@ -490,7 +573,8 @@ public final class IndexingRepository {
       if (candidate.basePublicationId() == null) {
         return base.isEmpty();
       }
-      return base.isPresent() && base.get().id().equals(candidate.basePublicationId())
+      return base.isPresent()
+          && base.get().id().equals(candidate.basePublicationId())
           && base.get().target().equals(job.target());
     }
 
@@ -787,20 +871,40 @@ public final class IndexingRepository {
   }
 
   public void activatePublication(String documentId, String publicationId, String revisionId) {
-    var replacement = store.rows("SELECT u.* FROM document_replacements u JOIN indexing_jobs j ON j.replacement_id=u.id JOIN index_publications p ON p.job_id=j.id WHERE p.id=? AND p.document_id=? AND p.revision_id=?",publicationId,documentId,revisionId);
+    var replacement =
+        store.rows(
+            "SELECT u.* FROM document_replacements u JOIN indexing_jobs j ON j.replacement_id=u.id JOIN index_publications p ON p.job_id=j.id WHERE p.id=? AND p.document_id=? AND p.revision_id=?",
+            publicationId,
+            documentId,
+            revisionId);
     if (!replacement.isEmpty()) {
       var row = replacement.getFirst();
-      String previous = AuthorityRows.text(row,"base_publication_id");
+      String previous = AuthorityRows.text(row, "base_publication_id");
       if (previous == null) {
-        store.execute("INSERT INTO active_corpus_publications(document_id,publication_id,revision_id) VALUES(?,?,?)",documentId,publicationId,revisionId);
+        store.execute(
+            "INSERT INTO active_corpus_publications(document_id,publication_id,revision_id) VALUES(?,?,?)",
+            documentId,
+            publicationId,
+            revisionId);
       } else {
-        store.execute("UPDATE active_corpus_publications SET publication_id=?,revision_id=? WHERE document_id=? AND publication_id=? AND revision_id=?",publicationId,revisionId,documentId,previous,AuthorityRows.text(row,"base_revision_id"));
+        store.execute(
+            "UPDATE active_corpus_publications SET publication_id=?,revision_id=? WHERE document_id=? AND publication_id=? AND revision_id=?",
+            publicationId,
+            revisionId,
+            documentId,
+            previous,
+            AuthorityRows.text(row, "base_revision_id"));
         if (store.count("SELECT changes()") != 1) {
           throw ModelValues.invalid();
         }
-        store.execute("UPDATE synopsis_tasks SET state='unavailable',error_code='source_changed',claim_token_sha256=NULL,updated_at=? WHERE publication_id=? AND document_id=? AND state IN ('queued','processing')",Instant.now().toString(),previous,documentId);
+        store.execute(
+            "UPDATE synopsis_tasks SET state='unavailable',error_code='source_changed',claim_token_sha256=NULL,updated_at=? WHERE publication_id=? AND document_id=? AND state IN ('queued','processing')",
+            Instant.now().toString(),
+            previous,
+            documentId);
       }
-      new DocumentUpdateRepository(store).activate(AuthorityRows.text(row,"id"),publicationId,Instant.now().toString());
+      new DocumentUpdateRepository(store)
+          .activate(AuthorityRows.text(row, "id"), publicationId, Instant.now().toString());
       return;
     }
 
@@ -838,9 +942,10 @@ public final class IndexingRepository {
     }
   }
 
-  private void replacementState(String jobId,String state,String now) {
-    new DocumentUpdateRepository(store).replacementIdForIndexJob(jobId)
-        .ifPresent(id -> new DocumentUpdateRepository(store).state(id,state,now));
+  private void replacementState(String jobId, String state, String now) {
+    new DocumentUpdateRepository(store)
+        .replacementIdForIndexJob(jobId)
+        .ifPresent(id -> new DocumentUpdateRepository(store).state(id, state, now));
   }
 
   public void markIndexed(String jobId, String now) {
@@ -856,7 +961,7 @@ public final class IndexingRepository {
         code,
         now,
         jobId);
-    replacementState(jobId,"failed",now);
+    replacementState(jobId, "failed", now);
   }
 
   public void markCancelled(String jobId, String now) {
@@ -864,7 +969,7 @@ public final class IndexingRepository {
         "UPDATE indexing_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
         now,
         jobId);
-    replacementState(jobId,"cancelled",now);
+    replacementState(jobId, "cancelled", now);
   }
 
   public void markQueued(String jobId, int attempt, String now) {
@@ -873,7 +978,7 @@ public final class IndexingRepository {
         attempt,
         now,
         jobId);
-    replacementState(jobId,"indexing",now);
+    replacementState(jobId, "indexing", now);
   }
 
   public String publicationId(String jobId) {

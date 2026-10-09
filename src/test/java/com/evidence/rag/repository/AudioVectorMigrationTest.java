@@ -19,17 +19,24 @@ class AudioVectorMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             assertEquals(
                 14,
                 store.count("SELECT COUNT(*) FROM pragma_table_info('audio_vector_publications')"));
             assertEquals(
                 9, store.count("SELECT COUNT(*) FROM pragma_table_info('audio_vector_entries')"));
             assertEquals(
-                8,
+                14,
                 store.count(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'audio_vector_%'"));
+            assertEquals(
+                8,
+                store.count(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('audio_vector_publications_identity','audio_vector_publications_no_replace','audio_vector_publications_no_update','audio_vector_publications_no_delete','audio_vector_entries_sealed','audio_vector_entries_no_replace','audio_vector_entries_no_update','audio_vector_entries_no_delete')"));
             for (String table :
                 new String[] {"audio_vector_publications", "audio_vector_entries"}) {
               assertEquals(
@@ -52,7 +59,8 @@ class AudioVectorMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(25, store.count("PRAGMA user_version"));
+              assertEquals(
+                  HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM audio_vector_publications"));
               assertEquals(
                   1,

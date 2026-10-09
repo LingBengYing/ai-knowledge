@@ -20,8 +20,11 @@ class VideoAvQueryMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             assertEquals(
                 8,
                 store.count(
@@ -200,7 +203,8 @@ class VideoAvQueryMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
             assertEquals(1, store.count("SELECT COUNT(*) FROM video_av_traces WHERE id='old'"));
             assertEquals(0, store.count("SELECT COUNT(*) FROM video_av_query_preparations"));
             return null;

@@ -25,7 +25,9 @@ public final class ModelRebuildController {
     this.service = service;
   }
 
-  @GetMapping(value = "/v1/model-configuration/rebuild", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(
+      value = "/v1/model-configuration/rebuild",
+      produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelRebuildResult> get(HttpServletRequest request) {
     noQuery(request);
     if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {

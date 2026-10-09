@@ -5,9 +5,11 @@ import java.nio.charset.StandardCharsets;
 /** Server-derived original quote, never a model-generated page or media timestamp. */
 public record KnowledgeReference(int citationId, KnowledgeEvidence evidence, int start, int end) {
   public KnowledgeReference {
-    if (citationId < 1 || citationId > 32 || evidence == null
-        || start < evidence.context().startCodePoint() || end > evidence.context().endCodePoint()
-        || end <= start || end - start > 1200) {
+    if (citationId < 1
+        || evidence == null
+        || start < evidence.context().startCodePoint()
+        || end > evidence.context().endCodePoint()
+        || end <= start) {
       throw ModelValues.invalid();
     }
   }

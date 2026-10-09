@@ -60,8 +60,11 @@ class AudioTraceMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             assertEquals(
                 16, store.count("SELECT COUNT(*) FROM pragma_table_info('audio_trace_evidence')"));
             assertEquals(
@@ -264,8 +267,13 @@ class AudioTraceMigrationTest {
                 assertEquals(
                     audioCitation, repository.findTraceAudioCitation(OWNER, "mixed-trace", 3));
                 assertNull(repository.findTraceAudioCitation(OWNER, "mixed-trace", 1));
-                assertNull(
+                // 0053 shares exact server-bound citations within, never across, organizations.
+                assertEquals(
+                    audioCitation,
                     repository.findTraceAudioCitation(new Actor("org", "other"), "mixed-trace", 3));
+                assertNull(
+                    repository.findTraceAudioCitation(
+                        new Actor("other-org", "owner"), "mixed-trace", 3));
                 return audioCitation;
               });
     }

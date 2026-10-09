@@ -44,6 +44,178 @@ import tools.jackson.databind.node.ObjectNode;
 
 class MilvusRestProjectionTest {
   @Test
+  void configuredFullTextUsesOnlyBm25AndDoesNotRequireAnEmbedding() throws Exception {
+    try (var stub = new MilvusStub(true);
+        var projection = new MilvusRestProjection(settings(stub.endpoint()))) {
+      projection.prepareSearch();
+      stub.dense = List.of(hit("dense-only", "d", "r", 0.99));
+      stub.sparse = List.of(hit("keyword", "d", "r", 12.5));
+      var result =
+          projection.search(
+              new Query(
+                  "灯塔",
+                  List.of(),
+                  new AuthorizedScope("org-main", Map.of("d", "r")),
+                  5,
+                  RetrievalProjection.SearchMode.SPARSE_ONLY,
+                  RetrievalProjection.FusionMode.WEIGHTED,
+                  0.5));
+      assertEquals(List.of(new RetrievalProjection.Candidate("keyword", 12.5)), result);
+      var calls = stub.requests.stream().filter(r -> r.path().endsWith("/search")).toList();
+      assertEquals(1, calls.size());
+      assertEquals("sparse", calls.getFirst().body().path("annsField").asString());
+      assertEquals("灯塔", calls.getFirst().body().path("data").get(0).asString());
+    }
+  }
+
+  @Test
+  void configuredVectorReturnsNormalizedCosineRatherThanRankOnlyScore() throws Exception {
+    try (var stub = new MilvusStub(true);
+        var projection = new MilvusRestProjection(settings(stub.endpoint()))) {
+      projection.prepareSearch();
+      stub.dense = List.of(hit("first", "d", "r", 0.8), hit("second", "d", "r", -0.5));
+      var result =
+          projection.search(
+              new Query(
+                  "灯塔",
+                  List.of(1.0, 0.0),
+                  new AuthorizedScope("org-main", Map.of("d", "r")),
+                  5,
+                  RetrievalProjection.SearchMode.DENSE_ONLY,
+                  RetrievalProjection.FusionMode.WEIGHTED,
+                  0.5));
+      assertEquals(0.9, result.getFirst().score(), 1e-12);
+      assertEquals(0.25, result.getLast().score(), 1e-12);
+      assertEquals(1, stub.requests.stream().filter(r -> r.path().endsWith("/search")).count());
+    }
+  }
+
+  @Test
+  void configuredHybridWeightsChangeActualOrderAndUseNormalizedScores() throws Exception {
+    try (var stub = new MilvusStub(true);
+        var projection = new MilvusRestProjection(settings(stub.endpoint()))) {
+      projection.prepareSearch();
+      stub.dense = List.of(hit("semantic", "d", "r", 0.8), hit("keyword", "d", "r", -0.6));
+      stub.sparse = List.of(hit("keyword", "d", "r", 10), hit("semantic", "d", "r", 0.1));
+      var scope = new AuthorizedScope("org-main", Map.of("d", "r"));
+      var semantic =
+          projection.search(
+              new Query(
+                  "灯塔",
+                  List.of(1.0, 0.0),
+                  scope,
+                  5,
+                  RetrievalProjection.SearchMode.HYBRID,
+                  RetrievalProjection.FusionMode.WEIGHTED,
+                  0.9));
+      var keyword =
+          projection.search(
+              new Query(
+                  "灯塔",
+                  List.of(1.0, 0.0),
+                  scope,
+                  5,
+                  RetrievalProjection.SearchMode.HYBRID,
+                  RetrievalProjection.FusionMode.WEIGHTED,
+                  0.1));
+      assertEquals("semantic", semantic.getFirst().segmentId());
+      assertEquals(
+          0.9 * 0.9 + 0.1 * 2 * Math.atan(0.1) / Math.PI, semantic.getFirst().score(), 1e-12);
+      assertEquals("keyword", keyword.getFirst().segmentId());
+      assertEquals(
+          0.1 * 0.2 + 0.9 * 2 * Math.atan(10) / Math.PI, keyword.getFirst().score(), 1e-12);
+    }
+  }
+
+  @Test
+  void zeroWeightDoesNotAdmitCandidatesFromOnlyTheDisabledRoute() throws Exception {
+    try (var stub = new MilvusStub(true);
+        var projection = new MilvusRestProjection(settings(stub.endpoint()))) {
+      projection.prepareSearch();
+      stub.dense = List.of(hit("semantic", "d", "r", 0.8));
+      stub.sparse = List.of(hit("keyword", "d", "r", 10));
+      var scope = new AuthorizedScope("org-main", Map.of("d", "r"));
+      assertEquals(
+          List.of("keyword"),
+          projection
+              .search(
+                  new Query(
+                      "灯塔",
+                      List.of(1.0, 0.0),
+                      scope,
+                      5,
+                      RetrievalProjection.SearchMode.HYBRID,
+                      RetrievalProjection.FusionMode.WEIGHTED,
+                      0))
+              .stream()
+              .map(RetrievalProjection.Candidate::segmentId)
+              .toList());
+      assertEquals(
+          List.of("semantic"),
+          projection
+              .search(
+                  new Query(
+                      "灯塔",
+                      List.of(1.0, 0.0),
+                      scope,
+                      5,
+                      RetrievalProjection.SearchMode.HYBRID,
+                      RetrievalProjection.FusionMode.WEIGHTED,
+                      1))
+              .stream()
+              .map(RetrievalProjection.Candidate::segmentId)
+              .toList());
+    }
+  }
+
+  @Test
+  void fullWorkspaceIsBatchedWithoutTruncationAndRoutesAreGloballyRanked() throws Exception {
+    try (var stub = new MilvusStub(true);
+        var projection = new MilvusRestProjection(settings(stub.endpoint()))) {
+      projection.initialize();
+      var scope = new TreeMap<String, String>();
+      for (int i = 0; i < 129; i++) scope.put(String.format("d%03d", i), "r");
+      stub.mutate =
+          (request, response) -> {
+            if (request.path().endsWith("/search")) {
+              boolean last = request.body().path("filter").asString().contains("d128");
+              response.set(
+                  "data",
+                  MilvusStub.JSON.valueToTree(
+                      List.of(
+                          hit(
+                              last ? "last" : "first",
+                              last ? "d128" : "d000",
+                              "r",
+                              last ? 0.9 : 0.5))));
+            }
+          };
+      String question = "如何使用？".repeat(2000);
+      var result =
+          projection.search(
+              new Query(question, List.of(1.0, 0.0), new AuthorizedScope("org-main", scope), 2));
+      assertEquals(
+          List.of("last", "first"),
+          result.stream().map(RetrievalProjection.Candidate::segmentId).toList());
+      var calls =
+          stub.requests.stream().filter(request -> request.path().endsWith("/search")).toList();
+      assertEquals(4, calls.size());
+      assertEquals(2.0 / 61, result.getFirst().score(), 1e-12);
+      assertTrue(
+          calls.stream()
+              .filter(request -> request.body().path("annsField").asString().equals("sparse"))
+              .allMatch(request -> request.body().path("data").get(0).asString().equals(question)));
+      for (String id : scope.keySet())
+        assertEquals(
+            2,
+            calls.stream()
+                .filter(
+                    request -> request.body().path("filter").asString().contains("\"" + id + "\""))
+                .count());
+    }
+  }
+
+  @Test
   void identityIsStableWithoutNetworkAndBindsTargetButNotCredentialsOrBudgets() {
     var original = settings(URI.create("http://127.0.0.1:1"));
     try (var projection = new MilvusRestProjection(original)) {

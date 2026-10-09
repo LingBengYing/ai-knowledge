@@ -8,9 +8,12 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublishedEvidence;
+import com.evidence.rag.model.domain.RetrievalSettings;
+import com.evidence.rag.model.dto.RetrievalSettingsResult;
 import com.evidence.rag.model.dto.RetrievalTestCommand;
 import com.evidence.rag.model.dto.RetrievalTestMatch;
 import com.evidence.rag.model.dto.RetrievalTestResult;
+import com.evidence.rag.tool.retrieval.RetrievalSelection;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -37,6 +40,7 @@ public final class TextRetrievalTestService implements AutoCloseable {
   private static final int MAX_CANDIDATES = 64;
   private final EvidenceService evidence;
   private final ManagedTextRuntime runtime;
+  private final Supplier<RetrievalSettings> settings;
   private final long budgetNanos;
   private final Semaphore admission;
   private final ExecutorService executor;
@@ -48,8 +52,18 @@ public final class TextRetrievalTestService implements AutoCloseable {
       ManagedTextRuntime runtime,
       Duration deadline,
       int maximumConcurrent) {
+    this(evidence, runtime, deadline, maximumConcurrent, RetrievalSettings::defaults);
+  }
+
+  public TextRetrievalTestService(
+      EvidenceService evidence,
+      ManagedTextRuntime runtime,
+      Duration deadline,
+      int maximumConcurrent,
+      Supplier<RetrievalSettings> settings) {
     if (evidence == null
         || runtime == null
+        || settings == null
         || deadline == null
         || deadline.compareTo(Duration.ofMillis(10)) < 0
         || deadline.compareTo(Duration.ofSeconds(180)) > 0
@@ -59,6 +73,7 @@ public final class TextRetrievalTestService implements AutoCloseable {
     }
     this.evidence = evidence;
     this.runtime = runtime;
+    this.settings = settings;
     budgetNanos = deadline.toNanos();
     admission = new Semaphore(maximumConcurrent);
     executor =
@@ -135,22 +150,23 @@ public final class TextRetrievalTestService implements AutoCloseable {
   private RetrievalTestResult execute(
       Actor actor, RetrievalTestCommand command, Processing progress) {
     progress.check();
+    var retrievalSettings = command.effectiveSettings(settings.get());
     var snapshot = runtime.capture();
-    var scope = evidence.snapshot(actor, command.answer().selection(), snapshot.target());
+    var scope =
+        evidence.snapshot(
+            actor,
+            com.evidence.rag.model.domain.DocumentSelection.allDocuments(),
+            snapshot.target());
     current(snapshot, progress);
     var texts = evidence.textPublications(scope);
-    if (!scope.selection().all()
-        && !new HashSet<>(texts).equals(new HashSet<>(scope.publications()))) {
-      throw ModelValues.notFound();
-    }
     finish(scope, List.of(), snapshot, progress);
     String testId = UUID.randomUUID().toString();
     if (scope.publications().isEmpty()) {
-      return empty(testId, snapshot, scope, "empty_scope");
+      return empty(testId, snapshot, scope, "empty_scope", retrievalSettings);
     }
     // Narrow only search candidates; finish() continues to validate the complete authority scope.
     if (texts.isEmpty()) {
-      return empty(testId, snapshot, scope, "no_matches");
+      return empty(testId, snapshot, scope, "no_matches", retrievalSettings);
     }
     stage(
         "retrieval_search_failed",
@@ -166,26 +182,40 @@ public final class TextRetrievalTestService implements AutoCloseable {
       generations.put(publication.documentId(), publication.projectionGenerationId());
     }
     var authorized = new RetrievalProjection.AuthorizedScope(actor.workspaceId(), generations);
+    List<Double> vector =
+        "full_text".equals(retrievalSettings.searchMethod())
+            ? List.of()
+            : stage(
+                "retrieval_embedding_failed",
+                snapshot,
+                progress,
+                () -> {
+                  var vectors = snapshot.models().embed(List.of(command.answer().question()));
+                  if (vectors == null
+                      || vectors.size() != 1
+                      || vectors.getFirst() == null
+                      || vectors.getFirst().size() != snapshot.target().dimensions()) {
+                    throw rejected("retrieval_embedding_failed");
+                  }
+                  return vectors.getFirst();
+                });
+    var mode =
+        switch (retrievalSettings.searchMethod()) {
+          case "vector" -> RetrievalProjection.SearchMode.DENSE_ONLY;
+          case "full_text" -> RetrievalProjection.SearchMode.SPARSE_ONLY;
+          default -> RetrievalProjection.SearchMode.HYBRID;
+        };
     var query =
-        stage(
-            "retrieval_embedding_failed",
-            snapshot,
-            progress,
-            () -> {
-              var vectors = snapshot.models().embed(List.of(command.answer().question()));
-              if (vectors == null
-                  || vectors.size() != 1
-                  || vectors.getFirst() == null
-                  || vectors.getFirst().size() != snapshot.target().dimensions()) {
-                throw rejected("retrieval_embedding_failed");
-              }
-              return new RetrievalProjection.Query(
-                  command.answer().question(),
-                  vectors.getFirst(),
-                  authorized,
-                  MAX_CANDIDATES,
-                  RetrievalProjection.SearchMode.HYBRID);
-            });
+        new RetrievalProjection.Query(
+            command.answer().question(),
+            vector,
+            authorized,
+            MAX_CANDIDATES,
+            mode,
+            retrievalSettings.rerank() && "hybrid".equals(retrievalSettings.searchMethod())
+                ? RetrievalProjection.FusionMode.RRF
+                : RetrievalProjection.FusionMode.WEIGHTED,
+            retrievalSettings.denseWeight());
     finish(scope, List.of(), snapshot, progress);
     var candidates =
         stage(
@@ -211,14 +241,14 @@ public final class TextRetrievalTestService implements AutoCloseable {
     var ids = candidates.stream().map(RetrievalProjection.Candidate::segmentId).toList();
     var sources = finish(scope, ids, snapshot, progress);
     if (sources.isEmpty()) {
-      return empty(testId, snapshot, scope, "no_matches");
+      return empty(testId, snapshot, scope, "no_matches", retrievalSettings);
     }
     var retrievalScores = new LinkedHashMap<String, Double>();
     for (var candidate : candidates) {
       retrievalScores.put(candidate.segmentId(), candidate.score());
     }
     List<TextModels.Ranked> ranks;
-    if (command.rerank()) {
+    if (retrievalSettings.rerank()) {
       var material = sources;
       ranks =
           stage(
@@ -236,7 +266,9 @@ public final class TextRetrievalTestService implements AutoCloseable {
     } else {
       var unranked = new ArrayList<TextModels.Ranked>();
       for (int index = 0; index < sources.size(); index++) {
-        unranked.add(new TextModels.Ranked(index, retrievalScores.get(ids.get(index))));
+        unranked.add(
+            new TextModels.Ranked(
+                index, retrievalScores.get(sources.get(index).physicalSegmentId())));
       }
       ranks =
           unranked.stream()
@@ -246,10 +278,19 @@ public final class TextRetrievalTestService implements AutoCloseable {
                       .thenComparingInt(TextModels.Ranked::index))
               .toList();
     }
-    sources = finish(scope, ids, snapshot, progress);
+    var currentSources = finish(scope, ids, snapshot, progress);
+    if (!currentSources.equals(sources)) {
+      throw rejected("evidence_changed");
+    }
+    var selected =
+        RetrievalSelection.select(
+            ranks,
+            retrievalSettings,
+            TextModels.Ranked::score,
+            rank -> currentSources.get(rank.index()).segment().text());
     var matches = new ArrayList<RetrievalTestMatch>();
-    for (var rank : ranks.subList(0, Math.min(command.topK(), ranks.size()))) {
-      var source = sources.get(rank.index());
+    for (var rank : selected) {
+      var source = currentSources.get(rank.index());
       var publication = source.publication();
       var segment = source.segment();
       matches.add(
@@ -266,11 +307,20 @@ public final class TextRetrievalTestService implements AutoCloseable {
               segment.text(),
               segment.textSha256(),
               retrievalScores.get(source.physicalSegmentId()),
-              command.rerank() ? rank.score() : null));
+              retrievalSettings.rerank() ? rank.score() : null));
     }
     progress.check();
-    return new RetrievalTestResult(
-        testId, snapshot.version(), "completed", null, scope.publications().size(), "rrf", matches);
+    return matches.isEmpty()
+        ? empty(testId, snapshot, scope, "no_matches", retrievalSettings)
+        : new RetrievalTestResult(
+            testId,
+            snapshot.version(),
+            "completed",
+            null,
+            scope.publications().size(),
+            retrievalSettings.retrievalScoreKind(),
+            matches,
+            RetrievalSettingsResult.from(retrievalSettings));
   }
 
   private List<PublishedEvidence> finish(
@@ -331,9 +381,20 @@ public final class TextRetrievalTestService implements AutoCloseable {
   }
 
   private static RetrievalTestResult empty(
-      String id, TextRuntimeSnapshot snapshot, EvidenceScope scope, String reason) {
+      String id,
+      TextRuntimeSnapshot snapshot,
+      EvidenceScope scope,
+      String reason,
+      RetrievalSettings settings) {
     return new RetrievalTestResult(
-        id, snapshot.version(), "empty", reason, scope.publications().size(), "rrf", List.of());
+        id,
+        snapshot.version(),
+        "empty",
+        reason,
+        scope.publications().size(),
+        settings.retrievalScoreKind(),
+        List.of(),
+        RetrievalSettingsResult.from(settings));
   }
 
   private static ApplicationException rejected(String code) {

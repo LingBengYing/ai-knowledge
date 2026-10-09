@@ -14,9 +14,11 @@ final class KnowledgeAnswerSchema {
   }
 
   void migrate() {
-    store.transaction(() -> {
-      new AuthoritySchema(store).verifyVersionTwentyEight();
-      store.execute("""
+    store.transaction(
+        () -> {
+          new AuthoritySchema(store).verifyVersionTwentyEight();
+          store.execute(
+              """
           CREATE TABLE knowledge_answer_traces(
             id TEXT PRIMARY KEY NOT NULL,workspace_id TEXT NOT NULL,actor_id TEXT NOT NULL,
             selection_all INTEGER NOT NULL CHECK(selection_all IN (0,1)),
@@ -29,13 +31,15 @@ final class KnowledgeAnswerSchema {
             CHECK((outcome='answered' AND answer_sha256 IS NOT NULL AND reason_code IS NULL AND citation_count>0)
               OR (outcome='abstained' AND answer_sha256 IS NULL AND reason_code IS NOT NULL AND citation_count=0)))
           """);
-      store.execute("""
+          store.execute(
+              """
           CREATE TABLE knowledge_answer_documents(
             trace_id TEXT NOT NULL,ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 127),publication_id TEXT NOT NULL,
             PRIMARY KEY(trace_id,ordinal),UNIQUE(trace_id,publication_id),
             FOREIGN KEY(trace_id) REFERENCES knowledge_answer_traces(id) DEFERRABLE INITIALLY DEFERRED)
           """);
-      store.execute("""
+          store.execute(
+              """
           CREATE TABLE knowledge_answer_citations(
             trace_id TEXT NOT NULL,ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 1 AND 32),publication_id TEXT NOT NULL,
             kind TEXT NOT NULL CHECK(kind IN ('DOCUMENT_TEXT','VIDEO_TRANSCRIPT','VIDEO_SUBTITLE','VIDEO_FRAME_OCR')),
@@ -49,7 +53,8 @@ final class KnowledgeAnswerSchema {
             CHECK((kind='DOCUMENT_TEXT' AND page_number BETWEEN 1 AND 500 AND page_number IS NOT NULL AND start_us IS NULL AND end_us IS NULL)
               OR (kind!='DOCUMENT_TEXT' AND page_number IS NULL AND start_us IS NOT NULL AND end_us IS NOT NULL AND start_us>=0 AND end_us>start_us AND end_us<=600000000)))
           """);
-      store.execute("""
+          store.execute(
+              """
           CREATE TRIGGER knowledge_answer_traces_complete BEFORE INSERT ON knowledge_answer_traces
           WHEN NEW.scope_count!=(SELECT COUNT(*) FROM knowledge_answer_documents WHERE trace_id=NEW.id)
             OR (NEW.scope_count>0 AND (SELECT MIN(ordinal)!=0 OR MAX(ordinal)!=NEW.scope_count-1 FROM knowledge_answer_documents WHERE trace_id=NEW.id))
@@ -59,7 +64,8 @@ final class KnowledgeAnswerSchema {
               LEFT JOIN documents d ON d.id=p.document_id WHERE s.trace_id=NEW.id AND (p.id IS NULL OR d.workspace_id IS NOT NEW.workspace_id))
           BEGIN SELECT RAISE(ABORT,'incomplete knowledge answer'); END
           """);
-      store.execute("""
+          store.execute(
+              """
           CREATE TRIGGER knowledge_answer_citations_identity BEFORE INSERT ON knowledge_answer_citations
           WHEN NOT (
             (NEW.kind='DOCUMENT_TEXT' AND EXISTS(SELECT 1 FROM index_publication_entries e JOIN corpus_segments s ON s.id=e.source_segment_id
@@ -72,44 +78,90 @@ final class KnowledgeAnswerSchema {
               WHERE e.publication_id=NEW.publication_id AND e.physical_segment_id=NEW.physical_id AND NEW.start_us=f.presentation_us AND NEW.end_us=f.presentation_us+f.duration_us AND NEW.start_offset>=s.start_offset AND NEW.end_offset<=s.end_offset)))
           BEGIN SELECT RAISE(ABORT,'invalid knowledge citation'); END
           """);
-      for (String table : List.of("knowledge_answer_traces", "knowledge_answer_documents", "knowledge_answer_citations")) {
-        for (String operation : List.of("UPDATE", "DELETE")) {
-          store.execute("CREATE TRIGGER " + table + "_no_" + operation.toLowerCase(Locale.ROOT)
-              + " BEFORE " + operation + " ON " + table + " BEGIN SELECT RAISE(ABORT,'immutable knowledge answer'); END");
-        }
-        String identity = table.equals("knowledge_answer_traces") ? "id=NEW.id" : "trace_id=NEW.trace_id AND ordinal=NEW.ordinal";
-        store.execute("CREATE TRIGGER " + table + "_no_replace BEFORE INSERT ON " + table
-            + " WHEN EXISTS(SELECT 1 FROM " + table + " WHERE " + identity + ") BEGIN SELECT RAISE(ABORT,'immutable knowledge answer'); END");
-        if (!table.equals("knowledge_answer_traces")) {
-          store.execute("CREATE TRIGGER " + table + "_sealed BEFORE INSERT ON " + table
-              + " WHEN EXISTS(SELECT 1 FROM knowledge_answer_traces WHERE id=NEW.trace_id) BEGIN SELECT RAISE(ABORT,'sealed knowledge answer'); END");
-        }
-      }
-      refreshInventory();
-      store.execute("UPDATE format_info SET version=29");
-      store.execute("PRAGMA user_version=29");
-      verify();
-      return null;
-    });
+          for (String table :
+              List.of(
+                  "knowledge_answer_traces",
+                  "knowledge_answer_documents",
+                  "knowledge_answer_citations")) {
+            for (String operation : List.of("UPDATE", "DELETE")) {
+              store.execute(
+                  "CREATE TRIGGER "
+                      + table
+                      + "_no_"
+                      + operation.toLowerCase(Locale.ROOT)
+                      + " BEFORE "
+                      + operation
+                      + " ON "
+                      + table
+                      + " BEGIN SELECT RAISE(ABORT,'immutable knowledge answer'); END");
+            }
+            String identity =
+                table.equals("knowledge_answer_traces")
+                    ? "id=NEW.id"
+                    : "trace_id=NEW.trace_id AND ordinal=NEW.ordinal";
+            store.execute(
+                "CREATE TRIGGER "
+                    + table
+                    + "_no_replace BEFORE INSERT ON "
+                    + table
+                    + " WHEN EXISTS(SELECT 1 FROM "
+                    + table
+                    + " WHERE "
+                    + identity
+                    + ") BEGIN SELECT RAISE(ABORT,'immutable knowledge answer'); END");
+            if (!table.equals("knowledge_answer_traces")) {
+              store.execute(
+                  "CREATE TRIGGER "
+                      + table
+                      + "_sealed BEFORE INSERT ON "
+                      + table
+                      + " WHEN EXISTS(SELECT 1 FROM knowledge_answer_traces WHERE id=NEW.trace_id) BEGIN SELECT RAISE(ABORT,'sealed knowledge answer'); END");
+            }
+          }
+          refreshInventory();
+          store.execute("UPDATE format_info SET version=29");
+          store.execute("PRAGMA user_version=29");
+          verify();
+          return null;
+        });
   }
 
   void verify() {
     new VideoTextEvidenceSchema(store).verify(29);
-    if (store.count("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('knowledge_answer_traces','knowledge_answer_documents','knowledge_answer_citations')") != 3) {
+    if (store.count(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('knowledge_answer_traces','knowledge_answer_documents','knowledge_answer_citations')")
+        != 3) {
       throw new IllegalStateException("Unsupported knowledge answer authority format");
     }
   }
 
   private void refreshInventory() {
-    String guard = AuthorityRows.text(store.rows("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='cleanup_schema_objects_no_update'").getFirst(), "sql");
+    String guard =
+        AuthorityRows.text(
+            store
+                .rows(
+                    "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='cleanup_schema_objects_no_update'")
+                .getFirst(),
+            "sql");
     store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    for (var row : store.rows("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+    for (var row :
+        store.rows(
+            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
       String name = AuthorityRows.text(row, "name");
-      String hash = ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
+      String hash =
+          ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
       if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name) == 0) {
-        store.execute("INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)", name, row.get("type"), hash);
+        store.execute(
+            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
+            name,
+            row.get("type"),
+            hash);
       } else {
-        store.execute("UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?", row.get("type"), hash, name);
+        store.execute(
+            "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
+            row.get("type"),
+            hash,
+            name);
       }
     }
     store.execute(guard);

@@ -168,25 +168,28 @@ class VideoAvAnswerServiceTest {
   }
 
   @Test
-  void emptySelectedStaysEmptyAndAllExcludesPrivateBeforeRetrieval() {
+  void legacyEmptySelectionStaysEmptyButWorkspaceAllIncludesEveryMembersVideo() {
     try (var fixture = new VideoAvTestFixture(directory);
         var answers = fixture.answers()) {
       fixture.register("visible", 1, 1, 16000, true);
-      fixture.register("private", 1, 1, 0, false);
-      fixture.sql("INSERT INTO document_acl VALUES('visible','reader','reader')");
+      fixture.register("private", 1, 1, 0, true);
       var reader = new Actor(VideoAvTestFixture.OWNER.workspaceId(), "reader");
       assertEquals("empty_scope", answers.answer(reader, command(VideoAvMode.VISUAL)).reasonCode());
       assertEquals(0, fixture.textEmbeds);
       var result = answers.answer(reader, all(VideoAvMode.VISUAL));
       assertEquals("answered", result.status());
       assertEquals(
-          Set.of("visible"),
+          Set.of("visible", "private"),
           fixture.queries.getFirst().query().scope().documentRevisions().keySet());
       int before = fixture.textEmbeds;
+      assertEquals(
+          "answered", answers.answer(reader, command(VideoAvMode.VISUAL, "private")).status());
+      assertEquals(before + 1, fixture.textEmbeds);
       assertThrows(
           ApplicationException.class,
-          () -> answers.answer(reader, command(VideoAvMode.VISUAL, "private")));
-      assertEquals(before, fixture.textEmbeds);
+          () ->
+              answers.answer(
+                  new Actor("other-workspace", "reader"), command(VideoAvMode.VISUAL, "private")));
     }
   }
 
@@ -333,7 +336,9 @@ class VideoAvAnswerServiceTest {
       fixture.register("cited", 1, 1, 16000, true);
       fixture.register("uncited", 1, 1, 0, true);
       fixture.afterVerify =
-          () -> fixture.sql("DELETE FROM document_acl WHERE document_id='uncited'");
+          () ->
+              fixture.sql(
+                  "INSERT INTO document_tombstones SELECT id,workspace_id,'owner','2026-10-08T00:00:00Z' FROM documents WHERE id='uncited'");
       assertEquals(
           "scope_changed",
           assertThrows(
@@ -341,7 +346,7 @@ class VideoAvAnswerServiceTest {
                   () -> answers.answer(VideoAvTestFixture.OWNER, all(VideoAvMode.JOINT)))
               .code());
       assertEquals(0, fixture.count("SELECT count(*) FROM video_av_traces"));
-      fixture.sql("INSERT INTO document_acl VALUES('uncited','owner','owner')");
+      fixture.register("replacement-uncited", 1, 1, 0, true);
       fixture.afterVerify = () -> fixture.embeddingRevision = "changed-revision";
       assertEquals(
           "configuration_changed",

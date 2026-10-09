@@ -161,7 +161,7 @@ class VideoAvQueryBoundaryTest {
   }
 
   @Test
-  void permissionChangeInsideSearchRejectsBeforeAnyDecodeAndLeavesNoTrace() {
+  void withdrawalInsideSearchRejectsBeforeAnyDecodeAndLeavesNoTrace() {
     try (var fixture = new VideoAvTestFixture(directory);
         var answers = fixture.answers()) {
       fixture.register("cited", 1, 1, 16000, true);
@@ -169,7 +169,8 @@ class VideoAvQueryBoundaryTest {
       var id = fixture.publications.getFirst().windows().getFirst().visualPhysicalId();
       fixture.search =
           (route, query) -> {
-            fixture.sql("DELETE FROM document_acl WHERE document_id='uncited'");
+            fixture.sql(
+                "INSERT INTO document_tombstones SELECT id,workspace_id,'owner','2026-10-08T00:00:00Z' FROM documents WHERE id='uncited'");
             return List.of(new RetrievalProjection.Candidate(id, 1.0));
           };
       assertEquals(

@@ -74,20 +74,24 @@ public class RuntimeConfiguration {
         environment.getProperty("rag.video.text-evidence-only", Boolean.class, false);
     if (runtime == null) {
       return new RuntimeService(
-          () -> textEvidenceCapabilities(reindexCapabilities(base.capabilities()), textEvidenceOnly));
+          () ->
+              textEvidenceCapabilities(reindexCapabilities(base.capabilities()), textEvidenceOnly));
     }
     var guard = legacy.getIfAvailable();
     var configuredMedia = media.getIfAvailable();
-    boolean visualPresent = configuredMedia != null
-        ? configuredMedia.visualPresent() : visual.getIfAvailable() != null;
-    boolean videoPresent = configuredMedia != null
-        ? configuredMedia.videoPresent() : video.getIfAvailable() != null;
-    boolean attachmentsPresent = configuredMedia != null
-        ? configuredMedia.attachmentsPresent() : attachments.getIfAvailable() != null;
+    boolean visualPresent =
+        configuredMedia != null ? configuredMedia.visualPresent() : visual.getIfAvailable() != null;
+    boolean videoPresent =
+        configuredMedia != null ? configuredMedia.videoPresent() : video.getIfAvailable() != null;
+    boolean attachmentsPresent =
+        configuredMedia != null
+            ? configuredMedia.attachmentsPresent()
+            : attachments.getIfAvailable() != null;
     return new RuntimeService(
         () ->
             managedCapabilities(
-                textEvidenceCapabilities(reindexCapabilities(base.capabilities()), textEvidenceOnly),
+                textEvidenceCapabilities(
+                    reindexCapabilities(base.capabilities()), textEvidenceOnly),
                 runtime.currentVersion() != null,
                 guard != null && guard.compatible(),
                 visualPresent,
@@ -102,8 +106,14 @@ public class RuntimeConfiguration {
     }
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
-    disable(enabled, unavailable, List.of(
-        "video_answers", "query_attachments", "image_vector_retrieval", "audio_vector_retrieval"));
+    disable(
+        enabled,
+        unavailable,
+        List.of(
+            "video_answers",
+            "query_attachments",
+            "image_vector_retrieval",
+            "audio_vector_retrieval"));
     return new RuntimeCapabilities(
         base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
   }
@@ -141,6 +151,7 @@ public class RuntimeConfiguration {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
     enabled.add("model_configuration");
+    enabled.add("retrieval_settings");
     enabled.add("model_index_rebuild");
     if (textReady) {
       enabled.add("retrieval_test");

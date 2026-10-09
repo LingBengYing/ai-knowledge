@@ -155,14 +155,24 @@ class AudioVectorDomainTest {
 
   @Test
   void publicationRetainsAllEntriesAndCannotAttachToAnotherBaseOrTarget() {
+    String generation = UUID.randomUUID().toString();
     var entries =
         List.of(
             new AudioVectorEntry(
-                evidenceId(0), "base0", "vector0", 0, 0, 16000, "a".repeat(64), "b".repeat(64)),
+                evidenceId(0),
+                VectorBindingIdentity.physicalSegmentId(
+                    BASE.projectionGenerationId(), evidenceId(0)),
+                VectorBindingIdentity.physicalSegmentId(generation, evidenceId(0)),
+                0,
+                0,
+                16000,
+                "a".repeat(64),
+                "b".repeat(64)),
             new AudioVectorEntry(
                 evidenceId(2),
-                "base2",
-                "vector2",
+                VectorBindingIdentity.physicalSegmentId(
+                    BASE.projectionGenerationId(), evidenceId(2)),
+                VectorBindingIdentity.physicalSegmentId(generation, evidenceId(2)),
                 2,
                 32000,
                 32003,
@@ -173,7 +183,7 @@ class AudioVectorDomainTest {
             "receipt",
             BASE,
             TARGET,
-            UUID.randomUUID().toString(),
+            generation,
             DECODER,
             entries,
             "a".repeat(64),

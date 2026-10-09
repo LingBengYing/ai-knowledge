@@ -6,7 +6,7 @@ import com.evidence.rag.model.entity.DocumentRemovalEntity;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Removal history and current raw ACL, within the caller's shared authority transaction. */
+/** Removal history and organization membership within the shared authority transaction. */
 public final class DocumentLifecycleRepository {
   private final SqliteAuthorityStore store;
 
@@ -14,26 +14,24 @@ public final class DocumentLifecycleRepository {
     this.store = Objects.requireNonNull(store);
   }
 
-  /** A repeated request still requires current write permission, even after removal. */
+  /** A repeated request still requires the current organization, even after removal. */
   public Optional<DocumentEntity> findWritableDocument(Actor actor, String documentId) {
     return store
         .rows(
             """
-            SELECT d.*,acl.role AS current_role,f.name AS folder_name
-            FROM documents d JOIN document_acl acl ON acl.document_id=d.id
+            SELECT d.*,'member' AS current_role,f.name AS folder_name
+            FROM documents d
             LEFT JOIN folders f ON f.id=d.folder_id AND f.workspace_id=d.workspace_id
-            WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=?
-              AND acl.role IN ('owner','editor')
+            WHERE d.id=? AND d.workspace_id=?
             """,
             documentId,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(AuthorityRows::document);
   }
 
-  /** Historical receipt only; the Service separately checks the caller's current raw ACL. */
+  /** Historical receipt only; the Service separately checks the caller's organization. */
   public Optional<DocumentRemovalEntity> findRemoval(Actor actor, String documentId) {
     return store
         .rows(

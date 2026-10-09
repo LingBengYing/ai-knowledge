@@ -21,6 +21,20 @@ final class ReindexVectorVersion24Fixture {
       "CREATE TRIGGER active_corpus_publications_no_update BEFORE UPDATE ON active_corpus_publications\nWHEN NEW.document_id IS NOT OLD.document_id OR NEW.revision_id IS NOT OLD.revision_id\n  OR NOT EXISTS(SELECT 1 FROM index_publications p\n    JOIN indexing_jobs j ON j.id=p.job_id AND j.state='processing'\n      AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id\n    JOIN index_publications base ON base.id=OLD.publication_id AND base.document_id=OLD.document_id AND base.revision_id=OLD.revision_id\n    WHERE p.id=NEW.publication_id AND p.document_id=NEW.document_id AND p.revision_id=NEW.revision_id\n      AND j.rebuild_sequence>0 AND j.base_publication_id=OLD.publication_id\n      AND p.id!=base.id AND p.projection_generation_id!=base.projection_generation_id\n      AND p.source_sha256=base.source_sha256 AND p.parser_revision=base.parser_revision\n      AND p.embedding_identity=base.embedding_identity AND p.projection_identity=base.projection_identity\n      AND p.model_revision=base.model_revision AND p.dimensions=base.dimensions\n      AND NOT EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=NEW.document_id)\n      AND NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=OLD.publication_id)\n      AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=OLD.publication_id))\nBEGIN SELECT RAISE(ABORT,'immutable index publication'); END\n";
 
   static void restoreVersionTwentyFour(Path directory) throws SQLException {
+    // Refuse the complete inverse before changing any newer format marker or schema.
+    try (var connection =
+        DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"))) {
+      if (scalar(connection, "PRAGMA user_version") > 25) {
+        assertEquals(
+            0,
+            scalar(
+                connection,
+                "SELECT COUNT(*) FROM indexing_jobs WHERE base_vector_set_sha256 IS NOT NULL"));
+        assertEquals(0, scalar(connection, "SELECT COUNT(*) FROM image_vector_bindings"));
+        assertEquals(0, scalar(connection, "SELECT COUNT(*) FROM audio_vector_bindings"));
+      }
+    }
+    HistoricalSchemaV25Fixture.restoreVersionTwentyFive(directory);
     try (var connection =
         DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"))) {
       long version = scalar(connection, "PRAGMA user_version");

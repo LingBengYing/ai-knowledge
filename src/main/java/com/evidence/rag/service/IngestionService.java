@@ -495,36 +495,41 @@ public final class IngestionService {
               || !task.sourceSha256().equals(compilation.sourceSha256())) {
             throw invalidParserOutput();
           }
-          return persistCandidate(claim, () -> {
-          String now = Instant.now().toString();
-          ingestion.insertAudioCompilation(claim.revisionId(), compilation, now);
-          ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
-          audit(
-              new Actor(claim.workspaceId(), "system:ingestion"),
-              claim.documentId(),
-              "ingestion_parsed",
-              values("state", "processing"),
-              values(
-                  "state", "parsed",
-                  "revision_id", claim.revisionId(),
-                  "page_count", 0,
-                  "segment_count", 0,
-                  "audio_span_count", compilation.spans().size(),
-                  "audio_indexable_count",
-                      compilation.spans().stream().filter(span -> !span.text().isBlank()).count(),
-                  "duration_ms", compilation.durationMs(),
-                  "compiler_revision", compilation.compilerRevision()),
-              Set.of(
-                  "state",
-                  "revision_id",
-                  "page_count",
-                  "segment_count",
-                  "audio_span_count",
-                  "audio_indexable_count",
-                  "duration_ms",
-                  "compiler_revision"));
-          return true;
-          });
+          return persistCandidate(
+              claim,
+              () -> {
+                String now = Instant.now().toString();
+                ingestion.insertAudioCompilation(claim.revisionId(), compilation, now);
+                ingestion.markParsed(
+                    claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
+                audit(
+                    new Actor(claim.workspaceId(), "system:ingestion"),
+                    claim.documentId(),
+                    "ingestion_parsed",
+                    values("state", "processing"),
+                    values(
+                        "state", "parsed",
+                        "revision_id", claim.revisionId(),
+                        "page_count", 0,
+                        "segment_count", 0,
+                        "audio_span_count", compilation.spans().size(),
+                        "audio_indexable_count",
+                            compilation.spans().stream()
+                                .filter(span -> !span.text().isBlank())
+                                .count(),
+                        "duration_ms", compilation.durationMs(),
+                        "compiler_revision", compilation.compilerRevision()),
+                    Set.of(
+                        "state",
+                        "revision_id",
+                        "page_count",
+                        "segment_count",
+                        "audio_span_count",
+                        "audio_indexable_count",
+                        "duration_ms",
+                        "compiler_revision"));
+                return true;
+              });
         });
   }
 
@@ -553,43 +558,46 @@ public final class IngestionService {
             throw invalidParserOutput();
           }
           validateVideoFrames(compilation);
-          return persistCandidate(claim, () -> {
-          String now = Instant.now().toString();
-          ingestion.insertVideoCompilation(claim.revisionId(), compilation, now);
-          ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
-          audit(
-              new Actor(claim.workspaceId(), "system:ingestion"),
-              claim.documentId(),
-              "ingestion_parsed",
-              values("state", "processing"),
-              values(
-                  "state",
-                  "parsed",
-                  "revision_id",
-                  claim.revisionId(),
-                  "page_count",
-                  0,
-                  "segment_count",
-                  0,
-                  "video_frame_count",
-                  compilation.frames().size(),
-                  "video_audio_span_count",
-                  compilation.audio() == null ? 0 : compilation.audio().spans().size(),
-                  "duration_us",
-                  compilation.durationUs(),
-                  "compiler_revision",
-                  compilation.compilerRevision()),
-              Set.of(
-                  "state",
-                  "revision_id",
-                  "page_count",
-                  "segment_count",
-                  "video_frame_count",
-                  "video_audio_span_count",
-                  "duration_us",
-                  "compiler_revision"));
-          return true;
-          });
+          return persistCandidate(
+              claim,
+              () -> {
+                String now = Instant.now().toString();
+                ingestion.insertVideoCompilation(claim.revisionId(), compilation, now);
+                ingestion.markParsed(
+                    claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
+                audit(
+                    new Actor(claim.workspaceId(), "system:ingestion"),
+                    claim.documentId(),
+                    "ingestion_parsed",
+                    values("state", "processing"),
+                    values(
+                        "state",
+                        "parsed",
+                        "revision_id",
+                        claim.revisionId(),
+                        "page_count",
+                        0,
+                        "segment_count",
+                        0,
+                        "video_frame_count",
+                        compilation.frames().size(),
+                        "video_audio_span_count",
+                        compilation.audio() == null ? 0 : compilation.audio().spans().size(),
+                        "duration_us",
+                        compilation.durationUs(),
+                        "compiler_revision",
+                        compilation.compilerRevision()),
+                    Set.of(
+                        "state",
+                        "revision_id",
+                        "page_count",
+                        "segment_count",
+                        "video_frame_count",
+                        "video_audio_span_count",
+                        "duration_us",
+                        "compiler_revision"));
+                return true;
+              });
         });
   }
 
@@ -649,49 +657,52 @@ public final class IngestionService {
                               + "\u0000"
                               + recall.modelRevision())
                           .getBytes(StandardCharsets.UTF_8));
-          return persistCandidate(claim, () -> {
-          String now = Instant.now().toString();
-          ingestion.insertImageEvidence(
-              new ImageEvidence(
-                  imageId,
-                  claim.revisionId(),
-                  dimensions.width(),
-                  dimensions.height(),
-                  recall.recallText(),
-                  recallHash,
-                  recall.modelRevision()),
-              now);
-          ingestion.markParsed(claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
-          audit(
-              new Actor(claim.workspaceId(), "system:ingestion"),
-              claim.documentId(),
-              "ingestion_parsed",
-              values("state", "processing"),
-              values(
-                  "state",
-                  "parsed",
-                  "revision_id",
-                  claim.revisionId(),
-                  "page_count",
-                  0,
-                  "segment_count",
-                  0,
-                  "image_evidence_id",
-                  imageId,
-                  "recall_sha256",
-                  recallHash,
-                  "description_revision",
-                  recall.modelRevision()),
-              Set.of(
-                  "state",
-                  "revision_id",
-                  "page_count",
-                  "segment_count",
-                  "image_evidence_id",
-                  "recall_sha256",
-                  "description_revision"));
-          return true;
-          });
+          return persistCandidate(
+              claim,
+              () -> {
+                String now = Instant.now().toString();
+                ingestion.insertImageEvidence(
+                    new ImageEvidence(
+                        imageId,
+                        claim.revisionId(),
+                        dimensions.width(),
+                        dimensions.height(),
+                        recall.recallText(),
+                        recallHash,
+                        recall.modelRevision()),
+                    now);
+                ingestion.markParsed(
+                    claim.jobId(), claim.documentId(), claim.revisionId(), 0, 0, now);
+                audit(
+                    new Actor(claim.workspaceId(), "system:ingestion"),
+                    claim.documentId(),
+                    "ingestion_parsed",
+                    values("state", "processing"),
+                    values(
+                        "state",
+                        "parsed",
+                        "revision_id",
+                        claim.revisionId(),
+                        "page_count",
+                        0,
+                        "segment_count",
+                        0,
+                        "image_evidence_id",
+                        imageId,
+                        "recall_sha256",
+                        recallHash,
+                        "description_revision",
+                        recall.modelRevision()),
+                    Set.of(
+                        "state",
+                        "revision_id",
+                        "page_count",
+                        "segment_count",
+                        "image_evidence_id",
+                        "recall_sha256",
+                        "description_revision"));
+                return true;
+              });
         });
   }
 
@@ -737,57 +748,61 @@ public final class IngestionService {
           if (image != null) {
             validateImage(image, claim.content());
           }
-          return persistCandidate(claim, () -> {
-          for (TextPage page : parsed.pages()) {
-            ingestion.insertPage(
-                claim.revisionId(), page, sha256(page.text().getBytes(StandardCharsets.UTF_8)));
-          }
-          for (TextSegment segment : parsed.segments()) {
-            String textHash = sha256(segment.text().getBytes(StandardCharsets.UTF_8));
-            String segmentId =
-                sha256(
-                    (claim.workspaceId()
-                            + "\u0000"
-                            + claim.documentId()
-                            + "\u0000"
-                            + claim.revisionId()
-                            + "\u0000"
-                            + segment.ordinal()
-                            + "\u0000"
-                            + textHash)
-                        .getBytes(StandardCharsets.UTF_8));
-            ingestion.insertSegment(segmentId, claim.revisionId(), segment, textHash);
-          }
-          if (image != null) {
-            for (int ordinal = 0; ordinal < image.regions().size(); ordinal++) {
-              ingestion.insertImageRegion(
-                  claim.revisionId(), ordinal, image.regions().get(ordinal));
-            }
-          }
-          ingestion.markParsed(
-              claim.jobId(),
-              claim.documentId(),
-              claim.revisionId(),
-              parsed.pages().size(),
-              parsed.segments().size(),
-              Instant.now().toString());
-          audit(
-              new Actor(claim.workspaceId(), "system:ingestion"),
-              claim.documentId(),
-              "ingestion_parsed",
-              values("state", "processing"),
-              values(
-                  "state",
-                  "parsed",
-                  "revision_id",
-                  claim.revisionId(),
-                  "page_count",
-                  parsed.pages().size(),
-                  "segment_count",
-                  parsed.segments().size()),
-              Set.of("state", "revision_id", "page_count", "segment_count"));
-          return true;
-          });
+          return persistCandidate(
+              claim,
+              () -> {
+                for (TextPage page : parsed.pages()) {
+                  ingestion.insertPage(
+                      claim.revisionId(),
+                      page,
+                      sha256(page.text().getBytes(StandardCharsets.UTF_8)));
+                }
+                for (TextSegment segment : parsed.segments()) {
+                  String textHash = sha256(segment.text().getBytes(StandardCharsets.UTF_8));
+                  String segmentId =
+                      sha256(
+                          (claim.workspaceId()
+                                  + "\u0000"
+                                  + claim.documentId()
+                                  + "\u0000"
+                                  + claim.revisionId()
+                                  + "\u0000"
+                                  + segment.ordinal()
+                                  + "\u0000"
+                                  + textHash)
+                              .getBytes(StandardCharsets.UTF_8));
+                  ingestion.insertSegment(segmentId, claim.revisionId(), segment, textHash);
+                }
+                if (image != null) {
+                  for (int ordinal = 0; ordinal < image.regions().size(); ordinal++) {
+                    ingestion.insertImageRegion(
+                        claim.revisionId(), ordinal, image.regions().get(ordinal));
+                  }
+                }
+                ingestion.markParsed(
+                    claim.jobId(),
+                    claim.documentId(),
+                    claim.revisionId(),
+                    parsed.pages().size(),
+                    parsed.segments().size(),
+                    Instant.now().toString());
+                audit(
+                    new Actor(claim.workspaceId(), "system:ingestion"),
+                    claim.documentId(),
+                    "ingestion_parsed",
+                    values("state", "processing"),
+                    values(
+                        "state",
+                        "parsed",
+                        "revision_id",
+                        claim.revisionId(),
+                        "page_count",
+                        parsed.pages().size(),
+                        "segment_count",
+                        parsed.segments().size()),
+                    Set.of("state", "revision_id", "page_count", "segment_count"));
+                return true;
+              });
         });
   }
 

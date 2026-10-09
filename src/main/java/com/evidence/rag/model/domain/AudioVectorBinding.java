@@ -9,10 +9,21 @@ public record AudioVectorBinding(
     AudioVectorPublication origin,
     List<String> currentBasePhysicalSegmentIds,
     String inheritedFromPublicationId,
-    String bindingSha256, String modelRebuildId) {
-  public AudioVectorBinding(PublicationVersion basePublication, AudioVectorPublication origin,
-      List<String> currentBasePhysicalSegmentIds, String inheritedFromPublicationId, String bindingSha256) {
-    this(basePublication,origin,currentBasePhysicalSegmentIds,inheritedFromPublicationId,bindingSha256,null);
+    String bindingSha256,
+    String modelRebuildId) {
+  public AudioVectorBinding(
+      PublicationVersion basePublication,
+      AudioVectorPublication origin,
+      List<String> currentBasePhysicalSegmentIds,
+      String inheritedFromPublicationId,
+      String bindingSha256) {
+    this(
+        basePublication,
+        origin,
+        currentBasePhysicalSegmentIds,
+        inheritedFromPublicationId,
+        bindingSha256,
+        null);
   }
 
   public AudioVectorBinding {
@@ -25,11 +36,11 @@ public record AudioVectorBinding(
     if (modelRebuildId == null) {
       VectorBindingIdentity.requireSameSource(basePublication, origin.basePublication());
     } else {
-      ModelValues.identifier(modelRebuildId,128);
+      ModelValues.identifier(modelRebuildId, 128);
       if (inheritedFromPublicationId == null) {
         throw ModelValues.invalid();
       }
-      VectorBindingIdentity.requireSameMaterials(basePublication,origin.basePublication());
+      VectorBindingIdentity.requireSameMaterials(basePublication, origin.basePublication());
     }
     VectorBindingIdentity.requireProvenance(
         basePublication, origin.basePublication(), inheritedFromPublicationId);
@@ -51,7 +62,11 @@ public record AudioVectorBinding(
       }
     }
     if (!VectorBindingIdentity.audioSha256(
-            basePublication, origin, currentBasePhysicalSegmentIds, inheritedFromPublicationId, modelRebuildId)
+            basePublication,
+            origin,
+            currentBasePhysicalSegmentIds,
+            inheritedFromPublicationId,
+            modelRebuildId)
         .equals(bindingSha256)) {
       throw ModelValues.invalid();
     }

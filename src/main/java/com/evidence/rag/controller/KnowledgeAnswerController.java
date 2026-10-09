@@ -28,25 +28,34 @@ public final class KnowledgeAnswerController {
     this.answers = answers;
   }
 
-  @PostMapping(value = "/v1/knowledge-answers", consumes = MediaType.APPLICATION_JSON_VALUE,
+  @PostMapping(
+      value = "/v1/knowledge-answers",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<KnowledgeAnswerResult> answer(
       HttpServletRequest request, @RequestBody Map<String, Object> body) {
     if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
-    return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .body(answers.answer(AuthenticatedActor.require(request), AnswerRequestMapper.command(body)));
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+        .body(
+            answers.answer(AuthenticatedActor.require(request), AnswerRequestMapper.command(body)));
   }
 
-  @GetMapping(value = "/v1/knowledge-sources/{answerId}/{ordinal}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(
+      value = "/v1/knowledge-sources/{answerId}/{ordinal}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<KnowledgeSourceResult> source(
       HttpServletRequest request, @PathVariable String answerId, @PathVariable int ordinal) {
-    if (ordinal < 1 || ordinal > 32 || request.getQueryString() != null
-        || request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
+    if (ordinal < 1
+        || request.getQueryString() != null
+        || request.getContentLengthLong() > 0
+        || request.getHeader("Transfer-Encoding") != null) {
       throw ModelValues.invalid();
     }
-    return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .body(answers.source(AuthenticatedActor.require(request), answerId, ordinal));
   }
 }

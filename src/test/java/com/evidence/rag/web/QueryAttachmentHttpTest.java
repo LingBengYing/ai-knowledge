@@ -174,7 +174,7 @@ class QueryAttachmentHttpTest {
         assertEquals(200, request(http, base, "GET", source, null, true).statusCode());
         int calls = state.calls.get();
         int modelCalls = remote.requests.size();
-        var invalid =
+        var legacySelection =
             JSON.writeValueAsString(
                 Map.of(
                     "question",
@@ -192,8 +192,34 @@ class QueryAttachmentHttpTest {
                             "image/png",
                             "content_base64",
                             Base64.getEncoder().encodeToString(image())))));
+        var shared = request(http, base, "POST", "/v1/attachment-answers", legacySelection, true);
+        assertEquals(200, shared.statusCode(), shared.body());
+        var sharedResult = JSON.readTree(shared.body()).path("result");
+        assertEquals("answered", sharedResult.path("status").asString());
         assertEquals(
-            404, request(http, base, "POST", "/v1/attachment-answers", invalid, true).statusCode());
+            upload.documentId(),
+            sharedResult.path("citations").get(0).path("document_id").asString());
+        assertTrue(state.calls.get() > calls);
+        assertTrue(remote.requests.size() > modelCalls);
+        calls = state.calls.get();
+        modelCalls = remote.requests.size();
+        var memberSource =
+            HttpRequest.newBuilder(URI.create(base + source))
+                .header("Authorization", "Bearer " + token("second-member", "org-main"))
+                .GET()
+                .build();
+        var memberResponse = http.send(memberSource, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, memberResponse.statusCode(), memberResponse.body());
+        assertEquals(citation, JSON.readTree(memberResponse.body()).path("citation"));
+        var foreignSource =
+            HttpRequest.newBuilder(URI.create(base + source))
+                .header("Authorization", "Bearer " + token("owner", "other-org"))
+                .header("X-Workspace-Id", "org-main")
+                .header("X-Principal-Id", "owner")
+                .GET()
+                .build();
+        assertEquals(
+            401, http.send(foreignSource, HttpResponse.BodyHandlers.ofString()).statusCode());
         assertEquals(calls, state.calls.get());
         assertEquals(modelCalls, remote.requests.size());
         assertEquals(
@@ -360,6 +386,10 @@ class QueryAttachmentHttpTest {
   }
 
   private static String token() throws Exception {
+    return token("owner", "org-main");
+  }
+
+  private static String token(String principal, String workspace) throws Exception {
     Instant now = Instant.now();
     var jwt =
         new SignedJWT(
@@ -367,8 +397,8 @@ class QueryAttachmentHttpTest {
             new JWTClaimsSet.Builder()
                 .issuer("evidence-rag")
                 .audience("evidence-rag-web")
-                .subject("owner")
-                .claim("workspace_id", "org-main")
+                .subject(principal)
+                .claim("workspace_id", workspace)
                 .notBeforeTime(Date.from(now.minusSeconds(1)))
                 .expirationTime(Date.from(now.plusSeconds(120)))
                 .build());

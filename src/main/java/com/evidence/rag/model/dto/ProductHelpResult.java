@@ -17,9 +17,12 @@ public record ProductHelpResult(
     List<ProductHelpMatch> matches) {
   public ProductHelpResult {
     ModelValues.identifier(searchId, 36);
-    if (configurationVersion < 1 || configurationVersion > 9_007_199_254_740_991L
-        || scopeCount < 0 || scopeCount > 128 || !"rrf".equals(scoreKind)
-        || matches == null || matches.size() > 20
+    if (configurationVersion < 1
+        || configurationVersion > 9_007_199_254_740_991L
+        || scopeCount < 0
+        || !"rrf".equals(scoreKind)
+        || matches == null
+        || matches.size() > 20
         || !("completed".equals(status) || "empty".equals(status))) {
       throw ModelValues.invalid();
     }
@@ -27,14 +30,16 @@ public record ProductHelpResult(
       if (reason != null || matches.isEmpty() || scopeCount == 0) {
         throw ModelValues.invalid();
       }
-    } else if (!matches.isEmpty() || reason == null
+    } else if (!matches.isEmpty()
+        || reason == null
         || !Set.of("empty_scope", "no_matches").contains(reason)
         || ("empty_scope".equals(reason) != (scopeCount == 0))) {
       throw ModelValues.invalid();
     }
     var ranks = new HashMap<String, Integer>();
     for (var match : matches) {
-      if (match == null || !Set.of("document", "video").contains(match.category())
+      if (match == null
+          || !Set.of("document", "video").contains(match.category())
           || match.rank() != ranks.merge(match.category(), 1, Integer::sum)
           || match.rank() > 10) {
         throw ModelValues.invalid();

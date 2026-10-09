@@ -88,8 +88,11 @@ class ManagedTextIngestionMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             assertEquals(jobs, store.rows("SELECT * FROM ingestion_jobs ORDER BY id"));
             assertEquals(
                 schemaObjects,
@@ -100,7 +103,7 @@ class ManagedTextIngestionMigrationTest {
                 foreignKeys, store.rows("SELECT * FROM pragma_foreign_key_list('ingestion_jobs')"));
             assertEquals(1, store.count("PRAGMA foreign_keys"));
             assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
-            new AuthoritySchema(store).verifyVersionTwentyFive();
+            new AuthoritySchema(store).verifyVersionThirtyTwo();
             return null;
           });
       assertArrayEquals(
@@ -172,7 +175,7 @@ class ManagedTextIngestionMigrationTest {
               () -> new IngestionRepository(store).original(processing.documentId())));
       var backups = store.managedBackups();
       assertTrue(backups.known());
-      assertEquals(3, backups.files().size());
+      HistoricalSchemaV25Fixture.assertMigrationBackups(directory, backups.files(), 22);
       var originalBackups =
           backups.files().stream()
               .filter(file -> file.relativePath().startsWith("java-library.v22-before-v23-"))
@@ -190,7 +193,8 @@ class ManagedTextIngestionMigrationTest {
     try (var reopened = new SqliteAuthorityStore(directory)) {
       reopened.transaction(
           () -> {
-            assertEquals(25, reopened.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, reopened.count("PRAGMA user_version"));
             assertEquals(
                 1,
                 reopened.count(
@@ -201,7 +205,8 @@ class ManagedTextIngestionMigrationTest {
             assertEquals(0, reopened.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
             return null;
           });
-      assertEquals(3, reopened.managedBackups().files().size());
+      HistoricalSchemaV25Fixture.assertMigrationBackups(
+          directory, reopened.managedBackups().files(), 22);
     }
   }
 

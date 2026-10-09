@@ -4,7 +4,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record KnowledgeAnswerResult(
-    @JsonProperty("answer_id") String answerId, String status, String answer, String reason,
+    @JsonProperty("answer_id") String answerId,
+    String status,
+    String answer,
+    String reason,
     List<KnowledgeCitation> citations) {
   public KnowledgeAnswerResult {
     citations = List.copyOf(citations);

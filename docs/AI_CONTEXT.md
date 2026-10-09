@@ -1,5 +1,9 @@
 # AI Context：从这里理解仓库
 
+2026-10-09当前本地主线为[0055 Wiki工作区](changes/0055-wiki-workspace/spec.md)：Controller/Service/Repository/Model明确分层，完整已发布原文编译成待审提案，人工采纳产生不可变页版本及逐章节来源。Schema31仅本地临时库验证；线上仍0054/schema30，保留已授权免登录。模型协议和原问答保留，派生页面不作原文证明。API见[WIKI_WORKSPACE](WIKI_WORKSPACE.md)，真实质量/前端接线/部署边界见0055 REVIEW。
+
+最新合同为[0053共享工作区](changes/0053-shared-workspace-rag/spec.md)：保留登录、组织隔离、来源/版本/删除状态；组织内不分角色/逐文档权限，普通知识问答与召回固定全库。统一问答通过TextModels.answerKnowledge一次综合原始检索片段，不再调用摘录/手写事实证明/二次核验；旧专门媒体模式独立。schema30取消全库128份与普通回答32引用存储上限，Milvus按128份过滤批次查询、全局融合，TopK不是权限范围。当前本地实现未发布，验证见[REVIEW](changes/0053-shared-workspace-rag/REVIEW.md)。下方旧合同保留历史，不作为回退新需求的依据。
+
 2026-10-03当前0035：[保存材料重建](changes/0035-saved-source-reindex/verification.md)。已发布资料可明确重建保存的完整文本索引，处理期间旧索引可用，成功才切换；失败、取消和重启中断保留旧版本。入口核对真实能力及当前资格，成功后提示重新查询，保留问题、范围与整理草稿。模型配置、逐角色测试、明确应用和召回测试继续沿既有流程。首切不支持已有独立图片/音频向量的资料及真正嵌入/投影迁移；后续receipt迁移与原文件版本替换继续保留。未部署，页面用户验收，0新增真实provider调用，完整目标ACTIVE。
 
 当前0034已本机修复文字角色切换后的旧图片、视频/OCR/字幕来源回读，来源cap与新问答分开；已有媒体POST门禁保持。实际3075 Java、431前端及六Native各1和原门禁通过，详情见[验证](changes/0034-media-role-switch-sources/verification.md)。交接以工作区`.tools/media-role-switch-handoff`实际manifest为准，未部署、真实模型未验、页面用户验收，目标active。下一切继续基础召回范围入口；通用重建、嵌入迁移及同资料版本更新仍依原范围待完成。下方为历史记录。

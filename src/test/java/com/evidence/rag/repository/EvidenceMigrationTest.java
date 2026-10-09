@@ -27,8 +27,9 @@ class EvidenceMigrationTest {
   void v3UpgradeBacksUpRealPublicationAndPreservesSourceAndActiveConstraints() throws Exception {
     versionThree();
     try (var fixture = new PublishedCorpusFixture(directory)) {
-      assertEquals(25, scalar("PRAGMA user_version"));
-      assertEquals(25, scalar("SELECT version FROM format_info"));
+      assertEquals(HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar("PRAGMA user_version"));
+      assertEquals(
+          HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar("SELECT version FROM format_info"));
       assertEquals(
           1,
           fixture

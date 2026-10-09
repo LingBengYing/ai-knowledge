@@ -17,15 +17,22 @@ class ImageVectorMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             assertEquals(
                 16,
                 store.count("SELECT COUNT(*) FROM pragma_table_info('image_vector_publications')"));
             assertEquals(
-                4,
+                5,
                 store.count(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'image_vector_publications_%'"));
+            assertEquals(
+                4,
+                store.count(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('image_vector_publications_identity','image_vector_publications_no_replace','image_vector_publications_no_update','image_vector_publications_no_delete')"));
             assertEquals(
                 0,
                 store.count(
@@ -51,7 +58,8 @@ class ImageVectorMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(25, store.count("PRAGMA user_version"));
+              assertEquals(
+                  HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM image_vector_publications"));
               assertEquals(
                   1,

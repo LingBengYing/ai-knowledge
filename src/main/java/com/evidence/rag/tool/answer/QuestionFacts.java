@@ -49,6 +49,10 @@ final class QuestionFacts {
       Pattern.compile("^(.*?)(?:是|为)?((?:每人)?(?:每天|每日|每晚|每月|每年))?(多少|多久)(钱|元|天|小时|分钟|秒|次|个)?$");
   private static final Pattern PROCEDURE_SUFFIX =
       Pattern.compile("^(.+?)(?:需要)?(?:怎么|如何)(?:操作|处理|做|进行)?$");
+  private static final Pattern SUBJECT_PROCEDURE =
+      Pattern.compile("^(.{2,80}?)(?:如何|怎么)(.{2,80})$");
+  private static final Pattern COMPOUND_PROCEDURE =
+      Pattern.compile("如果|假如|除非|仅当|仅在|只有|一旦|分别|各自|同时|以及|还有|并且|之前|之后|前提|[和与及、,，:：]");
   private static final Pattern PROCEDURE_ACTION =
       Pattern.compile(
           "按|点击|选择|进入|打开|关闭|输入|执行|连接|断开|等待|松开|重启|press|click|select|enter|open|close|type|connect|wait|release",
@@ -198,9 +202,20 @@ final class QuestionFacts {
 
   private static Fact procedureQuestion(String stem) {
     var suffix = PROCEDURE_SUFFIX.matcher(stem);
+    var subjectProcedure = SUBJECT_PROCEDURE.matcher(stem);
     String operation = null;
     if (suffix.matches()) {
       operation = suffix.group(1);
+    } else if (subjectProcedure.matches()) {
+      String subject = subjectProcedure.group(1).strip();
+      String action = subjectProcedure.group(2).strip();
+      if (subject.length() < 2
+          || action.length() < 2
+          || COMPOUND_PROCEDURE.matcher(subject).find()
+          || COMPOUND_PROCEDURE.matcher(action).find()) {
+        return null;
+      }
+      return new NaturalProcedureFact(subject, action);
     } else if (stem.startsWith("如何") || stem.startsWith("怎么")) {
       operation = stem.substring(2);
     } else if (stem.matches("(?i)^how (?:do i|can i|to) .+")) {
@@ -212,26 +227,41 @@ final class QuestionFacts {
     return new ProcedureFact(operation.replaceFirst("^(?:设备|系统|装置|机器|终端)", ""));
   }
 
-  sealed interface Fact permits ScalarFact, ColorFact, BooleanFact, ProcedureFact, LaunchDateFact {
+  sealed interface Fact
+      permits ScalarFact,
+          ColorFact,
+          BooleanFact,
+          ProcedureFact,
+          NaturalProcedureFact,
+          LaunchDateFact {
     String value(String field);
 
     String requirement();
 
     default String value(
-        SourceFields.Field field, String page, List<SourceFields.Field> fields,
-        int fragmentStart, int fragmentEnd) {
+        SourceFields.Field field,
+        String page,
+        List<SourceFields.Field> fields,
+        int fragmentStart,
+        int fragmentEnd) {
       return value(field.text());
     }
 
     default SourceFields.Field subjectBinding(
-        SourceFields.Field field, String page, List<SourceFields.Field> fields,
-        int fragmentStart, int fragmentEnd) {
+        SourceFields.Field field,
+        String page,
+        List<SourceFields.Field> fields,
+        int fragmentStart,
+        int fragmentEnd) {
       return null;
     }
 
     default boolean matches(
-        SourceFields.Field field, String page, List<SourceFields.Field> fields,
-        int fragmentStart, int fragmentEnd) {
+        SourceFields.Field field,
+        String page,
+        List<SourceFields.Field> fields,
+        int fragmentStart,
+        int fragmentEnd) {
       return value(field, page, fields, fragmentStart, fragmentEnd) != null;
     }
 
@@ -287,14 +317,18 @@ final class QuestionFacts {
 
     @Override
     public String value(
-        SourceFields.Field field, String page, List<SourceFields.Field> fields,
-        int fragmentStart, int fragmentEnd) {
+        SourceFields.Field field,
+        String page,
+        List<SourceFields.Field> fields,
+        int fragmentStart,
+        int fragmentEnd) {
       String direct = value(field.text());
       if (direct != null) {
         return direct;
       }
       var qualified = qualified();
-      if (qualified == null || subjectBinding(field, page, fields, fragmentStart, fragmentEnd) == null) {
+      if (qualified == null
+          || subjectBinding(field, page, fields, fragmentStart, fragmentEnd) == null) {
         return null;
       }
       String value = scalarValue(field.text(), qualified.field());
@@ -311,14 +345,19 @@ final class QuestionFacts {
 
     @Override
     public SourceFields.Field subjectBinding(
-        SourceFields.Field field, String page, List<SourceFields.Field> fields,
-        int fragmentStart, int fragmentEnd) {
+        SourceFields.Field field,
+        String page,
+        List<SourceFields.Field> fields,
+        int fragmentStart,
+        int fragmentEnd) {
       if (value(field.text()) != null) {
         return null;
       }
       var qualified = qualified();
-      return qualified == null ? null
-          : SourceFields.projectBinding(page, fields, qualified.subject(), fragmentStart, fragmentEnd);
+      return qualified == null
+          ? null
+          : SourceFields.projectBinding(
+              page, fields, qualified.subject(), fragmentStart, fragmentEnd);
     }
 
     private Qualified qualified() {
@@ -344,8 +383,11 @@ final class QuestionFacts {
     }
 
     private String accepted(String value) {
-      return value == null || REFERENCE_ONLY.matcher(value).find()
-          || (quantity != null && !quantity.accepts(value)) ? null : value;
+      return value == null
+              || REFERENCE_ONLY.matcher(value).find()
+              || (quantity != null && !quantity.accepts(value))
+          ? null
+          : value;
     }
 
     private static String scalarValue(String field, String relation) {
@@ -373,8 +415,11 @@ final class QuestionFacts {
 
     @Override
     public boolean matches(
-        SourceFields.Field field, String page, List<SourceFields.Field> fields,
-        int fragmentStart, int fragmentEnd) {
+        SourceFields.Field field,
+        String page,
+        List<SourceFields.Field> fields,
+        int fragmentStart,
+        int fragmentEnd) {
       String value = value(field, page, fields, fragmentStart, fragmentEnd);
       // Excluded numeric sequences may conflict, but never supply a positive sequence answer.
       return value != null && !EXCLUDED_NUMERIC_SEQUENCE.matcher(value).matches();
@@ -437,6 +482,24 @@ final class QuestionFacts {
     @Override
     public String requirement() {
       return "procedure\n" + operation;
+    }
+
+    @Override
+    public boolean wholeSentence() {
+      return true;
+    }
+  }
+
+  /** Complete owner and requested action; evidence matching is delegated to the numbered source. */
+  record NaturalProcedureFact(String subject, String action) implements Fact {
+    @Override
+    public String value(String field) {
+      return null;
+    }
+
+    @Override
+    public String requirement() {
+      return "natural-procedure\n" + subject + "\n" + action;
     }
 
     @Override

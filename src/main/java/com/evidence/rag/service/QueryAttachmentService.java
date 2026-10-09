@@ -85,21 +85,42 @@ public final class QueryAttachmentService {
       AudioEmbeddingModels audioModels,
       RetrievalProjection audioProjection,
       IndexTarget audioTarget) {
-    this(preparation, ranking, text, projection, target, imageModels, imageProjection, imageTarget,
-        audioModels, audioProjection, audioTarget, null);
+    this(
+        preparation,
+        ranking,
+        text,
+        projection,
+        target,
+        imageModels,
+        imageProjection,
+        imageTarget,
+        audioModels,
+        audioProjection,
+        audioTarget,
+        null);
   }
 
   private QueryAttachmentService(
-      QueryPreparationService preparation, QueryRankingModels ranking, TextModels text,
-      RetrievalProjection projection, IndexTarget target, ImageEmbeddingModels imageModels,
-      RetrievalProjection imageProjection, IndexTarget imageTarget, AudioEmbeddingModels audioModels,
-      RetrievalProjection audioProjection, IndexTarget audioTarget, TextIndexAnchor anchor) {
+      QueryPreparationService preparation,
+      QueryRankingModels ranking,
+      TextModels text,
+      RetrievalProjection projection,
+      IndexTarget target,
+      ImageEmbeddingModels imageModels,
+      RetrievalProjection imageProjection,
+      IndexTarget imageTarget,
+      AudioEmbeddingModels audioModels,
+      RetrievalProjection audioProjection,
+      IndexTarget audioTarget,
+      TextIndexAnchor anchor) {
     if (preparation == null
         || ranking == null
         || text == null
         || projection == null
         || target == null
-        || (anchor == null ? !target.modelRevision().equals(text.revision()) : !target.equals(anchor.target()))
+        || (anchor == null
+            ? !target.modelRevision().equals(text.revision())
+            : !target.equals(anchor.target()))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -137,26 +158,58 @@ public final class QueryAttachmentService {
 
   /** Keep independent media preparation and vector clients on the installed text bundle. */
   public static QueryAttachmentService managed(
-      QueryPreparationService preparation, QueryRankingModels ranking, TextModels text,
-      RetrievalProjection projection, IndexTarget target, ImageEmbeddingModels imageModels,
-      RetrievalProjection imageProjection, IndexTarget imageTarget, AudioEmbeddingModels audioModels,
-      RetrievalProjection audioProjection, IndexTarget audioTarget, TextIndexAnchor anchor) {
-    if (anchor == null) {
-      throw ModelValues.invalid();
-    }
-    return new QueryAttachmentService(preparation, ranking, text, projection, target,
-        imageModels, imageProjection, imageTarget, audioModels, audioProjection, audioTarget, anchor);
-  }
-
-  /** Rebind an existing legacy template when an explicit caller already owns that graph. */
-  public QueryAttachmentService withTextBundle(
-      TextModels models, RetrievalProjection currentProjection, IndexTarget currentTarget,
+      QueryPreparationService preparation,
+      QueryRankingModels ranking,
+      TextModels text,
+      RetrievalProjection projection,
+      IndexTarget target,
+      ImageEmbeddingModels imageModels,
+      RetrievalProjection imageProjection,
+      IndexTarget imageTarget,
+      AudioEmbeddingModels audioModels,
+      RetrievalProjection audioProjection,
+      IndexTarget audioTarget,
       TextIndexAnchor anchor) {
     if (anchor == null) {
       throw ModelValues.invalid();
     }
-    return new QueryAttachmentService(preparation, ranking, models, currentProjection, currentTarget,
-        imageModels, imageProjection, imageTarget, audioModels, audioProjection, audioTarget, anchor);
+    return new QueryAttachmentService(
+        preparation,
+        ranking,
+        text,
+        projection,
+        target,
+        imageModels,
+        imageProjection,
+        imageTarget,
+        audioModels,
+        audioProjection,
+        audioTarget,
+        anchor);
+  }
+
+  /** Rebind an existing legacy template when an explicit caller already owns that graph. */
+  public QueryAttachmentService withTextBundle(
+      TextModels models,
+      RetrievalProjection currentProjection,
+      IndexTarget currentTarget,
+      TextIndexAnchor anchor) {
+    if (anchor == null) {
+      throw ModelValues.invalid();
+    }
+    return new QueryAttachmentService(
+        preparation,
+        ranking,
+        models,
+        currentProjection,
+        currentTarget,
+        imageModels,
+        imageProjection,
+        imageTarget,
+        audioModels,
+        audioProjection,
+        audioTarget,
+        anchor);
   }
 
   public PreparedQuery prepare(

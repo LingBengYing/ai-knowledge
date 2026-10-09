@@ -49,9 +49,9 @@ class ModelConfigurationRepositoryBoundaryTest {
           switch (corruption) {
             case "root_array" -> "[]";
             case "format_type" ->
-                original.replace("\"format\":\"java-text-configuration-v1\"", "\"format\":1");
+                original.replace("\"format\":\"java-text-configuration-v5\"", "\"format\":1");
             case "format_version" ->
-                original.replace("java-text-configuration-v1", "java-text-configuration-v99");
+                original.replace("java-text-configuration-v5", "java-text-configuration-v99");
             case "role_shape" ->
                 original.replace("\"model\":\"rerank-model\"", "\"unexpected\":\"rerank-model\"");
             case "secret_type" ->

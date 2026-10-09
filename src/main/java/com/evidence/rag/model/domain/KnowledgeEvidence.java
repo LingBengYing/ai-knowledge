@@ -3,7 +3,9 @@ package com.evidence.rag.model.domain;
 /** One original typed candidate plus its complete conflict/applicability context. */
 public record KnowledgeEvidence(ProductHelpEvidence source, GroundingText context) {
   public KnowledgeEvidence {
-    if (source == null || context == null || !source.physicalId().equals(context.physicalId())
+    if (source == null
+        || context == null
+        || !source.physicalId().equals(context.physicalId())
         || !source.text().equals(context.snippet())) {
       throw ModelValues.invalid();
     }

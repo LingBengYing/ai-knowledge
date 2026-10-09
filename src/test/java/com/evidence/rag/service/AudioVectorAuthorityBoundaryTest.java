@@ -228,8 +228,37 @@ class AudioVectorAuthorityBoundaryTest {
                       context.evidence.audioVectorScope(
                           scope, OTHER, AudioVectorQueryFixture.DECODER))
               .code());
+      if (defect.equals("vector-generation")) {
+        assertEquals(
+            "invalid_request",
+            assertThrows(
+                    ApplicationException.class,
+                    () ->
+                        new AudioVectorScope(
+                            scope, OTHER, AudioVectorQueryFixture.DECODER, List.of(forged)))
+                .code());
+      }
+      // Even a structurally valid caller scope cannot authorize a corrupted persisted receipt.
+      // The stored forged rows above remain unchanged; no candidate is qualified or published.
+      var candidateEntry = remap(saved.entries().getFirst(), generation);
+      var candidate =
+          new AudioVectorPublication(
+              forged.id(),
+              saved.basePublication(),
+              OTHER,
+              generation,
+              AudioVectorQueryFixture.DECODER,
+              List.of(candidateEntry),
+              new RetrievalProjection.RevisionManifest(
+                      context.owner.workspaceId(),
+                      audio.documentId(),
+                      generation,
+                      Map.of(
+                          candidateEntry.vectorPhysicalSegmentId(), candidateEntry.entrySha256()))
+                  .sha256(),
+              forged.createdAt());
       var unqualified =
-          new AudioVectorScope(scope, OTHER, AudioVectorQueryFixture.DECODER, List.of(forged));
+          new AudioVectorScope(scope, OTHER, AudioVectorQueryFixture.DECODER, List.of(candidate));
       assertEquals(
           "audio_vector_required",
           assertThrows(

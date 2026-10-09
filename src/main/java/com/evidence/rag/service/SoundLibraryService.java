@@ -239,11 +239,14 @@ public final class SoundLibraryService {
     }
   }
 
-  private SoundState buildWithinOperation(
-      Actor actor, String documentId, String replacementId) {
+  private SoundState buildWithinOperation(Actor actor, String documentId, String replacementId) {
     require(actor, documentId);
     long started = System.nanoTime();
-    var initial = store.transaction(() -> stateForBuild(actor, originalForBuild(actor, documentId, replacementId), replacementId));
+    var initial =
+        store.transaction(
+            () ->
+                stateForBuild(
+                    actor, originalForBuild(actor, documentId, replacementId), replacementId));
     if (initial.publication() != null) {
       return initial;
     }
@@ -256,15 +259,21 @@ public final class SoundLibraryService {
       if (!acquired) {
         throw busy();
       }
-      var captured = store.transaction(() -> stateForBuild(actor, originalForBuild(actor, documentId, replacementId), replacementId));
+      var captured =
+          store.transaction(
+              () ->
+                  stateForBuild(
+                      actor, originalForBuild(actor, documentId, replacementId), replacementId));
       if (captured.publication() != null) {
         return captured;
       }
       if (replacementId != null) {
-        store.transaction(() -> {
-          new DocumentUpdateRepository(store).markIndexing(replacementId, Instant.now().toString());
-          return null;
-        });
+        store.transaction(
+            () -> {
+              new DocumentUpdateRepository(store)
+                  .markIndexing(replacementId, Instant.now().toString());
+              return null;
+            });
       }
       DocumentOriginal frozen = captured.original();
       var spans =
@@ -272,7 +281,8 @@ public final class SoundLibraryService {
               frozen,
               () -> {
                 check(started);
-                return store.transaction(() -> same(frozen, originalForBuild(actor, documentId, replacementId)));
+                return store.transaction(
+                    () -> same(frozen, originalForBuild(actor, documentId, replacementId)));
               });
       check(started);
       var claim =
@@ -292,22 +302,24 @@ public final class SoundLibraryService {
             if (!same(frozen, originalForBuild(actor, documentId, replacementId))) {
               throw stale();
             }
-            java.util.function.Supplier<Void> register = () -> {
-            var registry = new DocumentCleanupRepository(store);
-            registry.registerProjectionAttempt(
-                new ProjectionAttempt(
-                    documentId,
-                    actor.workspaceId(),
-                    frozen.revisionId(),
-                    frozen.sourceSha256(),
-                    claim.generationId(),
-                    "sound",
-                    MilvusProjectionCleanup.qualified(cleanupProjection),
-                    false));
-            registry.markProjectionWriteIssued(claim.generationId(), "sound");
-            return null;
-            };
-            return replacementId == null ? register.get()
+            java.util.function.Supplier<Void> register =
+                () -> {
+                  var registry = new DocumentCleanupRepository(store);
+                  registry.registerProjectionAttempt(
+                      new ProjectionAttempt(
+                          documentId,
+                          actor.workspaceId(),
+                          frozen.revisionId(),
+                          frozen.sourceSha256(),
+                          claim.generationId(),
+                          "sound",
+                          MilvusProjectionCleanup.qualified(cleanupProjection),
+                          false));
+                  registry.markProjectionWriteIssued(claim.generationId(), "sound");
+                  return null;
+                };
+            return replacementId == null
+                ? register.get()
                 : new DocumentUpdateRepository(store).withCandidateSource(replacementId, register);
           });
       var receipt = execute(claim, started, replacementId);
@@ -358,32 +370,35 @@ public final class SoundLibraryService {
                     receipt.verified().manifestSha256(),
                     profile,
                     Instant.now().toString());
-            java.util.function.Supplier<SoundState> persist = () -> {
-            sounds.insertPublication(publication);
-            if (replacementId != null) {
-              new DocumentUpdateRepository(store).activate(
-                  replacementId, publication.id(), Instant.now().toString());
-            }
-            management.insertAudit(
-                AuditEventEntity.create(
-                    actor,
-                    documentId,
-                    "sound_index",
-                    null,
-                    Map.of(
-                        "publication_id",
-                        publication.id(),
-                        "manifest_sha256",
-                        publication.manifestSha256()),
-                    Set.of("publication_id", "manifest_sha256")));
-            var result = state(actor, original(actor, documentId, true));
-            if (!publication.equals(result.publication()) || !same(frozen, result.original())) {
-              throw stale();
-            }
-            check(started);
-            return result;
-            };
-            return replacementId == null ? persist.get()
+            java.util.function.Supplier<SoundState> persist =
+                () -> {
+                  sounds.insertPublication(publication);
+                  if (replacementId != null) {
+                    new DocumentUpdateRepository(store)
+                        .activate(replacementId, publication.id(), Instant.now().toString());
+                  }
+                  management.insertAudit(
+                      AuditEventEntity.create(
+                          actor,
+                          documentId,
+                          "sound_index",
+                          null,
+                          Map.of(
+                              "publication_id",
+                              publication.id(),
+                              "manifest_sha256",
+                              publication.manifestSha256()),
+                          Set.of("publication_id", "manifest_sha256")));
+                  var result = state(actor, original(actor, documentId, true));
+                  if (!publication.equals(result.publication())
+                      || !same(frozen, result.original())) {
+                    throw stale();
+                  }
+                  check(started);
+                  return result;
+                };
+            return replacementId == null
+                ? persist.get()
                 : new DocumentUpdateRepository(store).withCandidateSource(replacementId, persist);
           });
     } catch (TextParser.Failure parser) {
@@ -403,8 +418,7 @@ public final class SoundLibraryService {
     }
   }
 
-  private SoundReceipt execute(
-      SoundBuildClaim claim, long started, String replacementId) {
+  private SoundReceipt execute(SoundBuildClaim claim, long started, String replacementId) {
     var reserved =
         LibraryOperationGate.protectCurrent(
             () -> {
@@ -425,7 +439,8 @@ public final class SoundLibraryService {
             () ->
                 same(
                     claim.original(),
-                    originalForBuild(claim.actor(), claim.original().documentId(), replacementId)))) {
+                    originalForBuild(
+                        claim.actor(), claim.original().documentId(), replacementId)))) {
           throw stale();
         }
         try {
@@ -457,21 +472,23 @@ public final class SoundLibraryService {
     if (replacementId == null) {
       return;
     }
-    store.transaction(() -> {
-      var updates = new DocumentUpdateRepository(store);
-      var replacement = updates.find(replacementId).orElse(null);
-      if (replacement != null
-          && "indexing".equals(replacement.state())
-          && updates.current(replacement.documentId())
-              .map(value -> replacementId.equals(value.id())).orElse(false)) {
-        updates.markFailed(replacementId, Instant.now().toString());
-      }
-      return null;
-    });
+    store.transaction(
+        () -> {
+          var updates = new DocumentUpdateRepository(store);
+          var replacement = updates.find(replacementId).orElse(null);
+          if (replacement != null
+              && "indexing".equals(replacement.state())
+              && updates
+                  .current(replacement.documentId())
+                  .map(value -> replacementId.equals(value.id()))
+                  .orElse(false)) {
+            updates.markFailed(replacementId, Instant.now().toString());
+          }
+          return null;
+        });
   }
 
-  private DocumentOriginal originalForBuild(
-      Actor actor, String documentId, String replacementId) {
+  private DocumentOriginal originalForBuild(Actor actor, String documentId, String replacementId) {
     if (replacementId == null) {
       return original(actor, documentId, true);
     }
@@ -484,12 +501,15 @@ public final class SoundLibraryService {
         || !updates.sourceCurrent(replacementId)) {
       throw stale();
     }
-    return updates.original(documentId, replacement.candidateRevisionId()).orElseThrow(ModelValues::notFound);
+    return updates
+        .original(documentId, replacement.candidateRevisionId())
+        .orElseThrow(ModelValues::notFound);
   }
 
-  private SoundState stateForBuild(
-      Actor actor, DocumentOriginal original, String replacementId) {
-    return replacementId == null ? state(actor, original) : new SoundState(original, target, profile, null);
+  private SoundState stateForBuild(Actor actor, DocumentOriginal original, String replacementId) {
+    return replacementId == null
+        ? state(actor, original)
+        : new SoundState(original, target, profile, null);
   }
 
   private DocumentOriginal original(Actor actor, String documentId, boolean edit) {

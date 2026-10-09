@@ -4,21 +4,23 @@ import com.evidence.rag.model.domain.GroundedQuote;
 import com.evidence.rag.model.domain.GroundingQuote;
 import com.evidence.rag.model.domain.GroundingResult;
 import com.evidence.rag.model.domain.GroundingText;
+import com.evidence.rag.model.domain.KnowledgeEvidence;
+import com.evidence.rag.model.domain.KnowledgeGroundingResult;
 import com.evidence.rag.model.domain.PublishedEvidence;
 import com.evidence.rag.model.domain.QuestionFact;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /** Pure full-question proof and source-fragment validation; callers own current authorization. */
 public final class TextGrounding {
-  public static final String VERSION = "java-text-grounding-v9-single-colors";
+  public static final String VERSION = "java-text-grounding-v11-video-procedures";
   private static final int MAX_QUESTION_BYTES = 4096;
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;
@@ -59,6 +61,21 @@ public final class TextGrounding {
     return verifyMapped(question, candidates, quotes, Function.identity());
   }
 
+  public KnowledgeGroundingResult verifyKnowledge(
+      String question, List<KnowledgeEvidence> candidates, List<GroundingQuote> quotes) {
+    var dependencies = new ArrayList<KnowledgeGroundingResult.Dependency>();
+    var proof =
+        verifyMapped(
+            question,
+            candidates,
+            quotes,
+            KnowledgeEvidence::context,
+            null,
+            candidates,
+            dependencies);
+    return new KnowledgeGroundingResult(proof, proof.supported() ? dependencies : List.of());
+  }
+
   public GroundingResult verify(
       String question, List<PublishedEvidence> candidates, List<GroundingQuote> quotes) {
     return verifyMapped(
@@ -89,6 +106,17 @@ public final class TextGrounding {
       List<GroundingQuote> quotes,
       Function<T, GroundingText> contextMapping,
       Integer factOrdinal) {
+    return verifyMapped(question, candidates, quotes, contextMapping, factOrdinal, null, null);
+  }
+
+  private <T> GroundingResult verifyMapped(
+      String question,
+      List<T> candidates,
+      List<GroundingQuote> quotes,
+      Function<T, GroundingText> contextMapping,
+      Integer factOrdinal,
+      List<KnowledgeEvidence> knowledge,
+      List<KnowledgeGroundingResult.Dependency> citationDependencies) {
     if (question == null
         || question.length() > MAX_QUESTION_BYTES
         || question.getBytes(StandardCharsets.UTF_8).length > MAX_QUESTION_BYTES
@@ -175,8 +203,10 @@ public final class TextGrounding {
         }
         var supporting =
             requirements.stream()
-                .filter(fact -> !fact.wholeSentence()
-                    && fact.matches(field, page, fields, fragmentStart, fragmentEnd))
+                .filter(
+                    fact ->
+                        !fact.wholeSentence()
+                            && fact.matches(field, page, fields, fragmentStart, fragmentEnd))
                 .toList();
         if (supporting.isEmpty()) {
           continue;
@@ -193,9 +223,13 @@ public final class TextGrounding {
             if (page.codePointCount(binding.start(), binding.end()) > 1200) {
               return refused("invalid_quote");
             }
-            dependencies.add(new GroundedQuote(
-                quote.physicalId(), page.codePointCount(0, binding.start()),
-                page.codePointCount(0, binding.end()), binding.text(), List.of(fact.sha256())));
+            dependencies.add(
+                new GroundedQuote(
+                    quote.physicalId(),
+                    page.codePointCount(0, binding.start()),
+                    page.codePointCount(0, binding.end()),
+                    binding.text(),
+                    List.of(fact.sha256())));
           }
         }
         verified.add(
@@ -214,6 +248,28 @@ public final class TextGrounding {
           return refused(proof.reason());
         }
         verified.addAll(proof.quotes());
+      } else if (fact instanceof QuestionFacts.NaturalProcedureFact procedure) {
+        var proof = NaturalProcedureEvidence.prove(procedure, sources, quotedRanges);
+        if (knowledge == null || facts.size() != 1) {
+          if (proof.reason() != null) {
+            return refused(proof.reason());
+          }
+          verified.addAll(proof.quotes());
+          continue;
+        }
+        if (proof.reason() != null && !"incomplete_evidence".equals(proof.reason())) {
+          return refused(proof.reason());
+        }
+        var video = VideoProcedureEvidence.prove(procedure, knowledge, quotedRanges);
+        if (!video.proof().supported() && !"incomplete_evidence".equals(video.proof().reason())) {
+          return refused(video.proof().reason());
+        }
+        if (proof.quotes().isEmpty() && !video.proof().supported()) {
+          return refused("incomplete_evidence");
+        }
+        verified.addAll(proof.quotes());
+        verified.addAll(video.proof().quotes());
+        citationDependencies.addAll(video.dependencies());
       }
     }
     if (verified.size() > MAX_QUOTES) {
@@ -248,8 +304,14 @@ public final class TextGrounding {
     }
     var hashes = new LinkedHashSet<>(previous.factHashes());
     hashes.addAll(next.factHashes());
-    quotes.put(identity, new GroundedQuote(
-        previous.physicalId(), previous.start(), previous.end(), previous.quote(), List.copyOf(hashes)));
+    quotes.put(
+        identity,
+        new GroundedQuote(
+            previous.physicalId(),
+            previous.start(),
+            previous.end(),
+            previous.quote(),
+            List.copyOf(hashes)));
   }
 
   private static boolean validUnicode(String text) {

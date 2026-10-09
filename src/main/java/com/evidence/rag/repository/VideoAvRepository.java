@@ -209,23 +209,18 @@ public final class VideoAvRepository {
           store
               .rows(
                   """
-          SELECT d.id FROM documents d JOIN document_acl a ON a.document_id=d.id
-          WHERE d.workspace_id=? AND a.principal_id=? AND a.role IN ('owner','editor','reader')
+          SELECT d.id FROM documents d
+          WHERE d.workspace_id=?
             AND d.document_type='video'
             AND (EXISTS(SELECT 1 FROM video_av_originals s WHERE s.document_id=d.id)
               OR EXISTS(SELECT 1 FROM corpus_documents c WHERE c.document_id=d.id))
             AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
-          ORDER BY d.id LIMIT 129
+          ORDER BY d.id
           """,
-                  actor.workspaceId(),
-                  actor.principalId())
+                  actor.workspaceId())
               .stream()
               .map(row -> text(row, "id"))
               .toList();
-      if (ids.size() > 128) {
-        throw new ApplicationException(
-            FailureKind.CAPACITY_EXCEEDED, "evidence_capacity_exceeded", "视频音画资料范围超过处理容量。");
-      }
     }
     var publications = new ArrayList<VideoAvPublication>();
     for (String id : ids) {
@@ -388,10 +383,9 @@ public final class VideoAvRepository {
     }
     var traces =
         store.rows(
-            "SELECT * FROM video_av_traces WHERE id=? AND workspace_id=? AND actor_id=? AND status='answered'",
+            "SELECT * FROM video_av_traces WHERE id=? AND workspace_id=? AND status='answered'",
             traceId,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (traces.size() != 1) {
       throw ModelValues.notFound();
     }
@@ -633,15 +627,14 @@ public final class VideoAvRepository {
     if (scope.selection().all()
         && store.count(
                 """
-        SELECT count(*) FROM documents d JOIN document_acl a ON a.document_id=d.id
-        WHERE d.workspace_id=? AND a.principal_id=? AND a.role IN ('owner','editor','reader')
+        SELECT count(*) FROM documents d
+        WHERE d.workspace_id=?
           AND d.document_type='video'
           AND (EXISTS(SELECT 1 FROM video_av_originals s WHERE s.document_id=d.id)
             OR EXISTS(SELECT 1 FROM corpus_documents c WHERE c.document_id=d.id))
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
-                scope.actor().workspaceId(),
-                scope.actor().principalId())
+                scope.actor().workspaceId())
             != 0) {
       throw changed();
     }
@@ -777,10 +770,10 @@ public final class VideoAvRepository {
         .rows(
             """
         SELECT d.id,d.workspace_id,d.active_revision_id,d.source_sha256,d.filename,d.mime_type,d.size_bytes
-        FROM documents d JOIN document_acl a ON a.document_id=d.id
+        FROM documents d
         LEFT JOIN video_av_originals s ON s.document_id=d.id
         LEFT JOIN corpus_documents c ON c.document_id=d.id
-        WHERE d.id=? AND d.workspace_id=? AND a.principal_id=? AND a.role IN ('owner','editor','reader')
+        WHERE d.id=? AND d.workspace_id=?
           AND d.document_type='video'
           AND ((s.source_revision_id=d.active_revision_id AND s.source_sha256=d.source_sha256
               AND s.filename=d.filename AND s.media_type=d.mime_type AND s.size_bytes=d.size_bytes AND length(s.original_blob)=d.size_bytes)
@@ -791,8 +784,7 @@ public final class VideoAvRepository {
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
             id,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(

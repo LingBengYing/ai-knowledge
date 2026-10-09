@@ -72,9 +72,18 @@ public final class ImageVectorIndexingService {
       Duration processingBudget,
       int maxConcurrent) {
     this(
-        store, vectors, evidence, management, ingestion, permissions,
-        fixedTextTarget(textTarget, imageTarget), imageTarget, models, projection,
-        processingBudget, maxConcurrent);
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
+        fixedTextTarget(textTarget, imageTarget),
+        imageTarget,
+        models,
+        projection,
+        processingBudget,
+        maxConcurrent);
   }
 
   public static ImageVectorIndexingService managed(
@@ -91,8 +100,18 @@ public final class ImageVectorIndexingService {
       Duration processingBudget,
       int maxConcurrent) {
     return new ImageVectorIndexingService(
-        store, vectors, evidence, management, ingestion, permissions, textTarget,
-        imageTarget, models, projection, processingBudget, maxConcurrent);
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
+        textTarget,
+        imageTarget,
+        models,
+        projection,
+        processingBudget,
+        maxConcurrent);
   }
 
   private ImageVectorIndexingService(
@@ -154,9 +173,18 @@ public final class ImageVectorIndexingService {
       Supplier<IndexTarget> profiles,
       BiFunction<ImageVectorBuildClaim, Duration, ImageVectorReceipt> worker) {
     this(
-        store, vectors, evidence, management, ingestion, permissions,
-        fixedTextTarget(textTarget, imageTarget), imageTarget,
-        processingBudget, maxConcurrent, profiles, worker);
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
+        fixedTextTarget(textTarget, imageTarget),
+        imageTarget,
+        processingBudget,
+        maxConcurrent,
+        profiles,
+        worker);
   }
 
   private ImageVectorIndexingService(
@@ -345,7 +373,9 @@ public final class ImageVectorIndexingService {
   }
 
   private static Supplier<IndexTarget> fixedTextTarget(IndexTarget text, IndexTarget media) {
-    if (text == null || media == null || text.projectionIdentity().equals(media.projectionIdentity())) {
+    if (text == null
+        || media == null
+        || text.projectionIdentity().equals(media.projectionIdentity())) {
       throw ModelValues.invalid();
     }
     return () -> text;
@@ -354,7 +384,8 @@ public final class ImageVectorIndexingService {
   private IndexTarget currentTextTarget() {
     IndexTarget current = managedTextTarget == null ? textTarget.get() : managedTextTarget.get();
     if (current == null) {
-      throw new ApplicationException(FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
+      throw new ApplicationException(
+          FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
     }
     if (current.projectionIdentity().equals(imageTarget.projectionIdentity())) {
       throw stale();

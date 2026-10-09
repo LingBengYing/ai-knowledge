@@ -1,6 +1,7 @@
 package com.evidence.rag.model.dto;
 
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.domain.RetrievalSettings;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.HashSet;
 import java.util.List;
@@ -15,7 +16,27 @@ public record RetrievalTestResult(
     String reason,
     @JsonProperty("scope_count") int scopeCount,
     @JsonProperty("score_kind") String scoreKind,
-    List<RetrievalTestMatch> matches) {
+    List<RetrievalTestMatch> matches,
+    @JsonProperty("effective_settings") RetrievalSettingsResult effectiveSettings) {
+  public RetrievalTestResult(
+      String testId,
+      long configurationVersion,
+      String status,
+      String reason,
+      int scopeCount,
+      String scoreKind,
+      List<RetrievalTestMatch> matches) {
+    this(
+        testId,
+        configurationVersion,
+        status,
+        reason,
+        scopeCount,
+        scoreKind,
+        matches,
+        RetrievalSettingsResult.from(RetrievalSettings.defaults()));
+  }
+
   public RetrievalTestResult {
     try {
       if (!UUID.fromString(testId).toString().equals(testId)) {
@@ -27,8 +48,9 @@ public record RetrievalTestResult(
     if (configurationVersion < 1
         || configurationVersion > 9_007_199_254_740_991L
         || scopeCount < 0
-        || scopeCount > 128
-        || !"rrf".equals(scoreKind)
+        || scoreKind == null
+        || !Set.of("rrf", "vector_similarity", "bm25", "weighted_score").contains(scoreKind)
+        || effectiveSettings == null
         || matches == null
         || matches.size() > 20
         || matches.stream().anyMatch(match -> match == null)

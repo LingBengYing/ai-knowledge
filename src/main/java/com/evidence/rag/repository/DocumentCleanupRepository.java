@@ -40,12 +40,10 @@ public final class DocumentCleanupRepository {
         store.rows(
             """
         SELECT t.requested_at FROM document_tombstones t JOIN documents d ON d.id=t.document_id
-        JOIN document_acl a ON a.document_id=d.id
-        WHERE d.id=? AND d.workspace_id=? AND a.principal_id=? AND a.role IN ('owner','editor')
+        WHERE d.id=? AND d.workspace_id=?
         """,
             documentId,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (rows.isEmpty()) {
       return Optional.empty();
     }
@@ -64,14 +62,13 @@ public final class DocumentCleanupRepository {
       throw ModelValues.invalid();
     }
     String scope =
-        " FROM document_tombstones t JOIN documents d ON d.id=t.document_id JOIN document_acl a ON a.document_id=d.id WHERE d.workspace_id=? AND a.principal_id=? AND a.role IN ('owner','editor')";
-    long total = store.count("SELECT COUNT(*)" + scope, actor.workspaceId(), actor.principalId());
+        " FROM document_tombstones t JOIN documents d ON d.id=t.document_id WHERE d.workspace_id=?";
+    long total = store.count("SELECT COUNT(*)" + scope, actor.workspaceId());
     var items = new ArrayList<DocumentCleanupState>();
     for (var row :
         store.rows(
             "SELECT d.id" + scope + " ORDER BY t.requested_at DESC,d.id LIMIT ? OFFSET ?",
             actor.workspaceId(),
-            actor.principalId(),
             pageSize,
             ((long) page - 1) * pageSize)) {
       items.add(find(actor, text(row, "id")).orElseThrow(ModelValues::notFound));

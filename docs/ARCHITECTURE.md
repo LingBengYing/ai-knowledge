@@ -1,5 +1,11 @@
 # Architecture：当前实现与未来边界
 
+## 0053：共享组织与普通RAG路径
+
+登录/组织身份仍由security建立；Repository只按组织、删除状态及真实版本查询，不再读document_acl作授权；组织成员平等维护资料和模型配置。Controller不接受客户端角色替代身份。普通问答和召回固定全组织已发布资料，旧document_ids不收窄范围。
+
+KnowledgeAnswerService只编排检索→TextModels.answerKnowledge→服务器引用/trace，OpenAI Adapter完成一次标准chat/completions。已取消统一入口的问句分类、摘录和二次核验依赖，原专门媒体证明Module保留且不冒称统一回答的验证层。源标识、页码和时间由Repository原始记录派生，模型仅选择候选ID。Milvus的128是filter分批大小，批次合并每条召回路线后再全局RRF，不是知识库总量上限。schema30保留旧trace数据并放宽全库scope及普通引用存储数量约束；不触发旧资料重解析/索引。实现及验证边界见[0053](changes/0053-shared-workspace-rag/REVIEW.md)，以下分层与历史特定能力说明在冲突时以此新合同为准。
+
 [0027原声向量](AUDIO_VECTOR_RETRIEVAL.md)增加独立AudioEmbeddingModels、AudioVectorIndexingService/worker/protocol、AudioVectorRepository和不可变v18 sidecar；旧文字与图片协议保持原字节。实际原音频重新解码取全部已发布speech spans，外部完整embedding/投影核验后短事务复验原publication、raw SHA、profile、映射和ACL才封存receipt。查询同次解码/ASR保留所有PCM（含静音），全scope receipt合格后每路完整authority映射再融合，最终仍沿旧转录事实证明与原音频来源。模块默认关闭，非语音事实没有由此实现。
 
 0025新增VoiceQuestionService，只有AudioCompilationService依赖，返回完整临时转录和来源/转录SHA；不依赖authority、retrieval或answer。VoiceQuestionConfiguration与旧QueryAttachmentConfiguration分别装配BoundedMediaQueryServlet，各自拥有限额、路由和准入；原IMAGE分派留在附件配置。旧QueryAttachmentServlet已被共享实现替代，不保留兼容壳。前端确认后才沿原完整scope问答及来源链。合同见[VOICE_QUESTIONS](VOICE_QUESTIONS.md)。

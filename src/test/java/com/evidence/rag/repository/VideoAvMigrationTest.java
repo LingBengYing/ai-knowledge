@@ -41,8 +41,11 @@ class VideoAvMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             for (String table : TABLES) {
               assertEquals(0, store.count("SELECT COUNT(*) FROM " + table));
             }
@@ -84,7 +87,8 @@ class VideoAvMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
             assertEquals(
                 1,
                 store.count(
@@ -441,6 +445,7 @@ class VideoAvMigrationTest {
 
   /** Test-only downgrade never discards new source, publication, or trace data. */
   static void restoreVersionNineteen(Path directory) throws SQLException {
+    HistoricalSchemaV25Fixture.restoreVersionTwentyFive(directory);
     try (var connection =
             DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
         var statement = connection.createStatement()) {

@@ -28,8 +28,7 @@ import org.springframework.core.env.Environment;
 @ConditionalOnProperty(prefix = "rag.image-embedding", name = "enabled", havingValue = "true")
 public class ImageEmbeddingConfiguration {
   @Bean
-  ImageEmbeddingSettings imageEmbeddingSettings(
-      Environment environment, RagProperties properties) {
+  ImageEmbeddingSettings imageEmbeddingSettings(Environment environment, RagProperties properties) {
     try {
       requireLocal(environment);
       String prefix = "rag.image-embedding.";
@@ -46,8 +45,9 @@ public class ImageEmbeddingConfiguration {
               environment.getProperty(prefix + "max-response-bytes", Integer.class, 4194304),
               environment.getProperty(prefix + "allow-loopback-http", Boolean.class, false));
       String collection = environment.getRequiredProperty(prefix + "milvus.collection");
-      String textCollection = environment.getProperty("RAG_MILVUS_COLLECTION",
-          environment.getProperty("rag.milvus.collection"));
+      String textCollection =
+          environment.getProperty(
+              "RAG_MILVUS_COLLECTION", environment.getProperty("rag.milvus.collection"));
       if (!collection.startsWith("java_image")
           || textCollection != null && collection.equals(textCollection)) {
         throw invalid();
@@ -121,15 +121,24 @@ public class ImageEmbeddingConfiguration {
       IngestionRepository ingestion,
       DocumentPermissionPolicy permissions,
       @Qualifier("indexingTarget") ObjectProvider<IndexTarget> textTarget,
-      ImageEmbeddingSettings settings, ObjectProvider<ManagedTextRuntime> managed) {
+      ImageEmbeddingSettings settings,
+      ObjectProvider<ManagedTextRuntime> managed) {
     return ImageVectorIndexingService.managed(
-        store, vectors, evidence, management, ingestion, permissions,
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
         () -> {
           var runtime = managed.getIfAvailable();
           return runtime == null ? textTarget.getIfAvailable() : runtime.currentTarget();
         },
-        settings.target(), settings.models(), settings.projection(),
-        settings.processingBudget(), settings.maxConcurrent());
+        settings.target(),
+        settings.models(),
+        settings.projection(),
+        settings.processingBudget(),
+        settings.maxConcurrent());
   }
 
   private static void requireLocal(Environment environment) {

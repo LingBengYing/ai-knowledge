@@ -2,8 +2,7 @@ package com.evidence.rag.web;
 
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
-import com.evidence.rag.repository.ModelRebuildRepository;
-import com.evidence.rag.repository.SqliteAuthorityStore;
+import com.evidence.rag.service.ModelRebuildService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,15 +20,14 @@ import tools.jackson.databind.json.JsonMapper;
 @Order(-55)
 @ConditionalOnProperty(prefix = "rag.model-configuration", name = "enabled", havingValue = "true")
 public final class ModelRebuildMutationFilter extends OncePerRequestFilter {
-  private final SqliteAuthorityStore store;
-  private final ModelRebuildRepository rebuilds;
+  private final ModelRebuildService rebuilds;
   private final ProblemHandler errors;
   private final JsonMapper json;
   private final UrlPathHelper paths = new UrlPathHelper();
 
-  public ModelRebuildMutationFilter(SqliteAuthorityStore store, ProblemHandler errors, JsonMapper json) {
-    this.store = store;
-    this.rebuilds = new ModelRebuildRepository(store);
+  public ModelRebuildMutationFilter(
+      ModelRebuildService rebuilds, ProblemHandler errors, JsonMapper json) {
+    this.rebuilds = rebuilds;
     this.errors = errors;
     this.json = json;
   }
@@ -49,16 +47,21 @@ public final class ModelRebuildMutationFilter extends OncePerRequestFilter {
         || path.equals("/v1/sound-documents")
         || path.equals("/v1/video-av-documents")
         || path.equals("/v1/management/document-cleanups")
-        || path.matches("/v1/documents/[^/]+/(index|reindex|replacement|replacement/index|cleanup|image-vector|audio-vector|sound-index|video-av-index)")
+        || path.matches(
+            "/v1/documents/[^/]+/(index|reindex|replacement|replacement/index|cleanup|image-vector|audio-vector|sound-index|video-av-index)")
         || path.matches("/v1/(ingestions|indexings)/[^/]+/retry"));
   }
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    if (store.transaction(rebuilds::hasPending)) {
-      var failure = new ApplicationException(
-          FailureKind.CONFLICT, "model_rebuild_in_progress", "模型索引正在重建；完成后可继续导入、更新和索引。现有资料仍可查询。");
+    if (rebuilds.mutationsBlocked()) {
+      var failure =
+          new ApplicationException(
+              FailureKind.CONFLICT,
+              "model_rebuild_in_progress",
+              "模型索引正在重建；完成后可继续导入、更新和索引。现有资料仍可查询。");
       var problem = errors.problem(failure, request);
       response.setStatus(problem.getStatusCode().value());
       response.setHeader("Cache-Control", "private, no-store");

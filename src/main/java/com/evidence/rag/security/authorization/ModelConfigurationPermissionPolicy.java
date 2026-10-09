@@ -6,26 +6,17 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
 import java.util.Set;
 
-/** Server-owned operator policy, deliberately unrelated to document ACL roles. */
+/** Model configuration belongs to the authenticated workspace, not a privileged role. */
 public final class ModelConfigurationPermissionPolicy {
   private final String workspaceId;
-  private final Set<String> administrators;
 
   public ModelConfigurationPermissionPolicy(String workspaceId, Set<String> administrators) {
     this.workspaceId = ModelValues.identifier(workspaceId, 200);
-    this.administrators = Set.copyOf(administrators);
-    if (this.administrators.isEmpty()) {
-      throw ModelValues.invalid();
-    }
-    for (String administrator : this.administrators) {
-      new Actor(workspaceId, administrator);
-    }
+    // Retain the constructor parameter for existing configuration compatibility only.
   }
 
   public boolean canEdit(Actor actor) {
-    return actor != null
-        && workspaceId.equals(actor.workspaceId())
-        && administrators.contains(actor.principalId());
+    return actor != null && workspaceId.equals(actor.workspaceId());
   }
 
   public void requireRead(Actor actor) {
@@ -42,6 +33,6 @@ public final class ModelConfigurationPermissionPolicy {
 
   private static ApplicationException denied() {
     return new ApplicationException(
-        FailureKind.FORBIDDEN, "model_configuration_forbidden", "此模型配置操作需要授权管理员。");
+        FailureKind.FORBIDDEN, "model_configuration_forbidden", "此模型配置操作需要登录当前组织。");
   }
 }

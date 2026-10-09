@@ -150,6 +150,11 @@ class SynopsisFileMaterialRepositoryTest {
             file.evidence().stream().map(SynopsisEvidence::sha256).toList());
       }
       var privateFile = fixture.text("私有");
+      assertTrue(
+          store
+              .transaction(
+                  () -> repository.document(new Actor(OWNER.workspaceId(), "member"), privateFile))
+              .bounded());
       assertEquals(
           "not_found",
           assertThrows(
@@ -158,11 +163,16 @@ class SynopsisFileMaterialRepositoryTest {
                       store.transaction(
                           () ->
                               repository.document(
-                                  new Actor(OWNER.workspaceId(), "outsider"), privateFile)))
+                                  new Actor("other-workspace", "outsider"), privateFile)))
               .code());
       store.transaction(
           () -> {
-            store.execute("DELETE FROM document_acl WHERE document_id=?", privateFile.documentId());
+            store.execute(
+                "INSERT INTO document_tombstones VALUES(?,?,?,?)",
+                privateFile.documentId(),
+                OWNER.workspaceId(),
+                OWNER.principalId(),
+                "2026-10-08T00:00:00Z");
             return null;
           });
       assertEquals(

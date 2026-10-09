@@ -63,26 +63,39 @@ public class DocumentCleanupConfiguration {
           targets.add(settings.visualProjection());
           targets.add(settings.audioProjection());
         });
-    return new MilvusProjectionCleanup(targets, target -> {
-      var settings = managed.getIfAvailable();
-      if (settings == null || !properties.workspaceId().equals(target.workspaceId())
-          || !target.collection().matches("java_text_v[0-9]+_[a-f0-9]+")
-          || !store.transaction(() -> new ModelRebuildRepository(store).registeredTarget(target))) {
-        return Optional.empty();
-      }
-      var connection = settings.projection();
-      if (connection == null
-          || !connection.endpoint().resolve("/").toASCIIString().equals(target.endpoint())
-          || !connection.database().equals(target.database())) {
-        return Optional.empty();
-      }
-      var candidate = new MilvusRestProjection.Settings(
-          connection.endpoint(), connection.token(), connection.database(), target.collection(),
-          target.workspaceId(), target.embeddingIdentity(), target.dimensions(),
-          settings.deadline(), settings.maxBytes(), settings.loopback());
-      return MilvusProjectionCleanup.qualified(candidate).equals(target)
-          ? Optional.of(candidate) : Optional.empty();
-    });
+    return new MilvusProjectionCleanup(
+        targets,
+        target -> {
+          var settings = managed.getIfAvailable();
+          if (settings == null
+              || !properties.workspaceId().equals(target.workspaceId())
+              || !target.collection().matches("java_text_v[0-9]+_[a-f0-9]+")
+              || !store.transaction(
+                  () -> new ModelRebuildRepository(store).registeredTarget(target))) {
+            return Optional.empty();
+          }
+          var connection = settings.projection();
+          if (connection == null
+              || !connection.endpoint().resolve("/").toASCIIString().equals(target.endpoint())
+              || !connection.database().equals(target.database())) {
+            return Optional.empty();
+          }
+          var candidate =
+              new MilvusRestProjection.Settings(
+                  connection.endpoint(),
+                  connection.token(),
+                  connection.database(),
+                  target.collection(),
+                  target.workspaceId(),
+                  target.embeddingIdentity(),
+                  target.dimensions(),
+                  settings.deadline(),
+                  settings.maxBytes(),
+                  settings.loopback());
+          return MilvusProjectionCleanup.qualified(candidate).equals(target)
+              ? Optional.of(candidate)
+              : Optional.empty();
+        });
   }
 
   @Bean

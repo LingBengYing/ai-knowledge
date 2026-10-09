@@ -6,10 +6,21 @@ public record ImageVectorBinding(
     ImageVectorPublication origin,
     String currentBasePhysicalSegmentId,
     String inheritedFromPublicationId,
-    String bindingSha256, String modelRebuildId) {
-  public ImageVectorBinding(PublicationVersion basePublication, ImageVectorPublication origin,
-      String currentBasePhysicalSegmentId, String inheritedFromPublicationId, String bindingSha256) {
-    this(basePublication,origin,currentBasePhysicalSegmentId,inheritedFromPublicationId,bindingSha256,null);
+    String bindingSha256,
+    String modelRebuildId) {
+  public ImageVectorBinding(
+      PublicationVersion basePublication,
+      ImageVectorPublication origin,
+      String currentBasePhysicalSegmentId,
+      String inheritedFromPublicationId,
+      String bindingSha256) {
+    this(
+        basePublication,
+        origin,
+        currentBasePhysicalSegmentId,
+        inheritedFromPublicationId,
+        bindingSha256,
+        null);
   }
 
   public ImageVectorBinding {
@@ -19,11 +30,11 @@ public record ImageVectorBinding(
     if (modelRebuildId == null) {
       VectorBindingIdentity.requireSameSource(basePublication, origin.basePublication());
     } else {
-      ModelValues.identifier(modelRebuildId,128);
+      ModelValues.identifier(modelRebuildId, 128);
       if (inheritedFromPublicationId == null) {
         throw ModelValues.invalid();
       }
-      VectorBindingIdentity.requireSameMaterials(basePublication,origin.basePublication());
+      VectorBindingIdentity.requireSameMaterials(basePublication, origin.basePublication());
     }
     VectorBindingIdentity.requireProvenance(
         basePublication, origin.basePublication(), inheritedFromPublicationId);
@@ -37,7 +48,11 @@ public record ImageVectorBinding(
                 origin.vectorGenerationId(), origin.imageEvidenceId())
             .equals(origin.vectorPhysicalSegmentId())
         || !VectorBindingIdentity.imageSha256(
-                basePublication, origin, currentBasePhysicalSegmentId, inheritedFromPublicationId, modelRebuildId)
+                basePublication,
+                origin,
+                currentBasePhysicalSegmentId,
+                inheritedFromPublicationId,
+                modelRebuildId)
             .equals(bindingSha256)) {
       throw ModelValues.invalid();
     }

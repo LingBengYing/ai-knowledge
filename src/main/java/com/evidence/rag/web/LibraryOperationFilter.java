@@ -50,7 +50,8 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
     this.errors = Objects.requireNonNull(errors);
     this.json = Objects.requireNonNull(json);
     this.legacy = legacy.getIfAvailable();
-    this.visualPresent = visual.getIfAvailable() != null || (this.legacy != null && this.legacy.visualConfigured());
+    this.visualPresent =
+        visual.getIfAvailable() != null || (this.legacy != null && this.legacy.visualConfigured());
   }
 
   @Override

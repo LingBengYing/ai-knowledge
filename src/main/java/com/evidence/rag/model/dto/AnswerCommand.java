@@ -2,7 +2,6 @@ package com.evidence.rag.model.dto;
 
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.ModelValues;
-import java.nio.charset.StandardCharsets;
 
 /** Validated question and explicit selection; the trusted Actor is never client input. */
 public record AnswerCommand(String question, DocumentSelection selection) {
@@ -10,7 +9,6 @@ public record AnswerCommand(String question, DocumentSelection selection) {
     if (question == null
         || question.isBlank()
         || selection == null
-        || question.getBytes(StandardCharsets.UTF_8).length > 4096
         || question
             .codePoints()
             .anyMatch(

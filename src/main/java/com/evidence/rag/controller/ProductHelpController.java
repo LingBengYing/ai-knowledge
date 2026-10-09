@@ -24,7 +24,9 @@ public final class ProductHelpController {
     this.service = service;
   }
 
-  @PostMapping(value = "/v1/product-help/search", consumes = MediaType.APPLICATION_JSON_VALUE,
+  @PostMapping(
+      value = "/v1/product-help/search",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ProductHelpResult> search(HttpServletRequest request) {
     if (request.getQueryString() != null) {
@@ -32,9 +34,11 @@ public final class ProductHelpController {
     }
     var actor = AuthenticatedActor.require(request);
     try {
-      var command = ProductHelpRequestMapper.command(
-          request.getInputStream().readNBytes(ProductHelpRequestMapper.MAX_BYTES + 1));
-      return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+      var command =
+          ProductHelpRequestMapper.command(
+              request.getInputStream().readNBytes(ProductHelpRequestMapper.MAX_BYTES + 1));
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
           .body(service.search(actor, command));
     } catch (IOException failed) {
       throw ModelValues.invalid();

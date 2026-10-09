@@ -63,7 +63,8 @@ class ReindexMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
             assertEquals(
                 oldJobs, store.rows("SELECT " + oldColumns + " FROM indexing_jobs ORDER BY id"));
             assertEquals(
@@ -78,12 +79,12 @@ class ReindexMigrationTest {
                 oldActive,
                 store.rows("SELECT * FROM active_corpus_publications ORDER BY document_id"));
             for (var object : oldObjects) {
+              // v26+ deliberately changes these guards; retain the original v23 -> v25 assertion
+              // against the real intermediate backup before also verifying current rows above.
               assertEquals(
                   List.of(object),
-                  store.rows(
-                      "SELECT type,name,sql FROM sqlite_master WHERE type=? AND name=?",
-                      object.get("type"),
-                      object.get("name")));
+                  HistoricalSchemaV25Fixture.versionTwentyFiveObject(
+                      directory, object.get("type"), object.get("name")));
             }
             assertEquals(
                 1,
@@ -99,7 +100,7 @@ class ReindexMigrationTest {
               () -> new IngestionRepository(store).original(publication.documentId())));
       var backups = store.managedBackups();
       assertTrue(backups.known());
-      assertEquals(2, backups.files().size());
+      HistoricalSchemaV25Fixture.assertMigrationBackups(directory, backups.files(), 23);
       var backup =
           backups.files().stream()
               .filter(file -> file.relativePath().startsWith("java-library.v23-before-v24-"))
@@ -119,7 +120,8 @@ class ReindexMigrationTest {
     }
     try (var reopened = new SqliteAuthorityStore(directory)) {
       ReindexSqlFixture.requireVersionTwentyFour(reopened);
-      assertEquals(2, reopened.managedBackups().files().size());
+      HistoricalSchemaV25Fixture.assertMigrationBackups(
+          directory, reopened.managedBackups().files(), 23);
     }
   }
 
@@ -183,7 +185,8 @@ class ReindexMigrationTest {
         scalar(
             database,
             "SELECT COUNT(*) FROM indexing_jobs WHERE id='" + queued + "' AND state='queued'"));
-    assertEquals(25, scalar(database, "PRAGMA user_version"));
+    assertEquals(
+        HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar(database, "PRAGMA user_version"));
   }
 
   private static long scalar(Path database, String sql) throws SQLException {

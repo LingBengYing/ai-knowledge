@@ -30,7 +30,6 @@ public record AudioVectorScope(
         || target == null
         || publications == null
         || bindings == null
-        || publications.size() > 128
         || publications.size() != bindings.size()) {
       throw ModelValues.invalid();
     }

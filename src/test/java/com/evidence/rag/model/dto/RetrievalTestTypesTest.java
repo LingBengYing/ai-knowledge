@@ -19,7 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 class RetrievalTestTypesTest {
   @Test
-  void wireHasExactlySevenResultAndThirteenMatchFieldsWithNullableRerank() {
+  void wireHasSettingsSnapshotAndThirteenMatchFieldsWithNullableRerank() {
     var result =
         new RetrievalTestResult(
             UUID.randomUUID().toString(),
@@ -39,6 +39,7 @@ class RetrievalTestTypesTest {
             "reason",
             "scope_count",
             "score_kind",
+            "effective_settings",
             "matches"),
         new HashSet<>(json.propertyNames()));
     var hit = json.get("matches").get(0);
@@ -65,15 +66,15 @@ class RetrievalTestTypesTest {
   }
 
   @Test
-  void commandKeepsQuestionByteLimitAndExplicitEmptyScope() {
+  void commandKeepsRankingOptionsButAcceptsQuestionsBeyondOldByteLimit() {
     var answer = new AnswerCommand("预算？", DocumentSelection.selected(List.of()));
     assertTrue(
         new RetrievalTestCommand(answer, 1, false).answer().selection().documentIds().isEmpty());
     assertThrows(ApplicationException.class, () -> new RetrievalTestCommand(answer, 0, false));
     assertThrows(ApplicationException.class, () -> new RetrievalTestCommand(answer, 21, false));
-    assertThrows(
-        ApplicationException.class,
-        () -> new AnswerCommand("x".repeat(4097), DocumentSelection.allDocuments()));
+    assertEquals(
+        "x".repeat(4097),
+        new AnswerCommand("x".repeat(4097), DocumentSelection.allDocuments()).question());
     assertFalse(new RetrievalTestCommand(answer, 20, true).toString().contains("预算"));
   }
 

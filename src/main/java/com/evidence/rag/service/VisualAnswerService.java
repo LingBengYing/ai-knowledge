@@ -11,13 +11,13 @@ import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.ImageVectorScope;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.PublishedImageEvidence;
 import com.evidence.rag.model.domain.QueryAttachment;
 import com.evidence.rag.model.domain.QueryRankCandidate;
 import com.evidence.rag.model.domain.QueryTrace;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TraceDraft;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.model.domain.VisualTraceEvidence;
@@ -87,9 +87,15 @@ public final class VisualAnswerService implements AutoCloseable {
   }
 
   private VisualAnswerService(
-      EvidenceService evidence, TextModels text, VisionModels vision,
-      RetrievalProjection projection, IndexTarget target, Duration deadline, int concurrency,
-      QueryAttachmentService queries, TextIndexAnchor anchor) {
+      EvidenceService evidence,
+      TextModels text,
+      VisionModels vision,
+      RetrievalProjection projection,
+      IndexTarget target,
+      Duration deadline,
+      int concurrency,
+      QueryAttachmentService queries,
+      TextIndexAnchor anchor) {
     if (evidence == null
         || text == null
         || vision == null
@@ -100,7 +106,9 @@ public final class VisualAnswerService implements AutoCloseable {
         || deadline.compareTo(Duration.ofMinutes(10)) > 0
         || concurrency < 1
         || concurrency > 8
-        || (anchor == null ? !target.modelRevision().equals(text.revision()) : !target.equals(anchor.target()))
+        || (anchor == null
+            ? !target.modelRevision().equals(text.revision())
+            : !target.equals(anchor.target()))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -122,25 +130,42 @@ public final class VisualAnswerService implements AutoCloseable {
 
   /** Reuse the configured visual model while retrieval follows the active text collection. */
   public static VisualAnswerService managed(
-      EvidenceService evidence, TextModels text, VisionModels vision,
-      RetrievalProjection projection, IndexTarget target, Duration deadline, int concurrency,
-      QueryAttachmentService queries, TextIndexAnchor anchor) {
+      EvidenceService evidence,
+      TextModels text,
+      VisionModels vision,
+      RetrievalProjection projection,
+      IndexTarget target,
+      Duration deadline,
+      int concurrency,
+      QueryAttachmentService queries,
+      TextIndexAnchor anchor) {
     if (anchor == null) {
       throw ModelValues.invalid();
     }
-    return new VisualAnswerService(evidence, text, vision, projection, target, deadline,
-        concurrency, queries, anchor);
+    return new VisualAnswerService(
+        evidence, text, vision, projection, target, deadline, concurrency, queries, anchor);
   }
 
   /** Rebind an explicitly configured legacy template without replacing its visual client. */
   public VisualAnswerService withTextBundle(
-      TextModels models, RetrievalProjection currentProjection, IndexTarget currentTarget,
-      QueryAttachmentService currentQueries, TextIndexAnchor anchor) {
+      TextModels models,
+      RetrievalProjection currentProjection,
+      IndexTarget currentTarget,
+      QueryAttachmentService currentQueries,
+      TextIndexAnchor anchor) {
     if (anchor == null) {
       throw ModelValues.invalid();
     }
-    return new VisualAnswerService(evidence, models, vision, currentProjection, currentTarget,
-        Duration.ofNanos(timeoutNanos), concurrency, currentQueries, anchor);
+    return new VisualAnswerService(
+        evidence,
+        models,
+        vision,
+        currentProjection,
+        currentTarget,
+        Duration.ofNanos(timeoutNanos),
+        concurrency,
+        currentQueries,
+        anchor);
   }
 
   public VisualAnswerResult answer(Actor actor, AnswerCommand command) {

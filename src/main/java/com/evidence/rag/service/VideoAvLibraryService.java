@@ -253,11 +253,14 @@ public final class VideoAvLibraryService implements AutoCloseable {
     }
   }
 
-  private VideoAvState buildWithinOperation(
-      Actor actor, String documentId, String replacementId) {
+  private VideoAvState buildWithinOperation(Actor actor, String documentId, String replacementId) {
     require(actor, documentId);
     long started = System.nanoTime();
-    var initial = store.transaction(() -> stateForBuild(actor, originalForBuild(actor, documentId, replacementId), replacementId));
+    var initial =
+        store.transaction(
+            () ->
+                stateForBuild(
+                    actor, originalForBuild(actor, documentId, replacementId), replacementId));
     if (initial.publication() != null) {
       return initial;
     }
@@ -270,15 +273,21 @@ public final class VideoAvLibraryService implements AutoCloseable {
       if (!acquired) {
         throw busy();
       }
-      var captured = store.transaction(() -> stateForBuild(actor, originalForBuild(actor, documentId, replacementId), replacementId));
+      var captured =
+          store.transaction(
+              () ->
+                  stateForBuild(
+                      actor, originalForBuild(actor, documentId, replacementId), replacementId));
       if (captured.publication() != null) {
         return captured;
       }
       if (replacementId != null) {
-        store.transaction(() -> {
-          new DocumentUpdateRepository(store).markIndexing(replacementId, Instant.now().toString());
-          return null;
-        });
+        store.transaction(
+            () -> {
+              new DocumentUpdateRepository(store)
+                  .markIndexing(replacementId, Instant.now().toString());
+              return null;
+            });
       }
       DocumentOriginal frozen = captured.original();
       var compiled =
@@ -286,7 +295,8 @@ public final class VideoAvLibraryService implements AutoCloseable {
               frozen,
               () -> {
                 check(started);
-                return store.transaction(() -> same(frozen, originalForBuild(actor, documentId, replacementId)));
+                return store.transaction(
+                    () -> same(frozen, originalForBuild(actor, documentId, replacementId)));
               });
       check(started);
       var claim =
@@ -306,37 +316,39 @@ public final class VideoAvLibraryService implements AutoCloseable {
             if (!same(frozen, originalForBuild(actor, documentId, replacementId))) {
               throw stale();
             }
-            java.util.function.Supplier<Void> register = () -> {
-            var registry = new DocumentCleanupRepository(store);
-            if (compiled.windows().stream().anyMatch(window -> window.video() != null)) {
-              registry.registerProjectionAttempt(
-                  new ProjectionAttempt(
-                      documentId,
-                      actor.workspaceId(),
-                      frozen.revisionId(),
-                      frozen.sourceSha256(),
-                      claim.generationId(),
-                      "video_av_visual",
-                      MilvusProjectionCleanup.qualified(cleanupVisualProjection),
-                      false));
-              registry.markProjectionWriteIssued(claim.generationId(), "video_av_visual");
-            }
-            if (compiled.windows().stream().anyMatch(window -> window.audio() != null)) {
-              registry.registerProjectionAttempt(
-                  new ProjectionAttempt(
-                      documentId,
-                      actor.workspaceId(),
-                      frozen.revisionId(),
-                      frozen.sourceSha256(),
-                      claim.generationId(),
-                      "video_av_audio",
-                      MilvusProjectionCleanup.qualified(cleanupAudioProjection),
-                      false));
-              registry.markProjectionWriteIssued(claim.generationId(), "video_av_audio");
-            }
-            return null;
-            };
-            return replacementId == null ? register.get()
+            java.util.function.Supplier<Void> register =
+                () -> {
+                  var registry = new DocumentCleanupRepository(store);
+                  if (compiled.windows().stream().anyMatch(window -> window.video() != null)) {
+                    registry.registerProjectionAttempt(
+                        new ProjectionAttempt(
+                            documentId,
+                            actor.workspaceId(),
+                            frozen.revisionId(),
+                            frozen.sourceSha256(),
+                            claim.generationId(),
+                            "video_av_visual",
+                            MilvusProjectionCleanup.qualified(cleanupVisualProjection),
+                            false));
+                    registry.markProjectionWriteIssued(claim.generationId(), "video_av_visual");
+                  }
+                  if (compiled.windows().stream().anyMatch(window -> window.audio() != null)) {
+                    registry.registerProjectionAttempt(
+                        new ProjectionAttempt(
+                            documentId,
+                            actor.workspaceId(),
+                            frozen.revisionId(),
+                            frozen.sourceSha256(),
+                            claim.generationId(),
+                            "video_av_audio",
+                            MilvusProjectionCleanup.qualified(cleanupAudioProjection),
+                            false));
+                    registry.markProjectionWriteIssued(claim.generationId(), "video_av_audio");
+                  }
+                  return null;
+                };
+            return replacementId == null
+                ? register.get()
                 : new DocumentUpdateRepository(store).withCandidateSource(replacementId, register);
           });
       var receipt = execute(claim, started, replacementId);
@@ -417,32 +429,35 @@ public final class VideoAvLibraryService implements AutoCloseable {
                     receipt.visualReceipt(),
                     receipt.audioReceipt(),
                     Instant.now().toEpochMilli());
-            java.util.function.Supplier<VideoAvState> persist = () -> {
-            videos.insertPublication(publication);
-            if (replacementId != null) {
-              new DocumentUpdateRepository(store).activate(
-                  replacementId, publication.id(), Instant.now().toString());
-            }
-            management.insertAudit(
-                AuditEventEntity.create(
-                    actor,
-                    documentId,
-                    "video_av_index",
-                    null,
-                    Map.of(
-                        "publication_id",
-                        publication.id(),
-                        "manifest_sha256",
-                        publication.manifestSha256()),
-                    Set.of("publication_id", "manifest_sha256")));
-            var result = state(actor, original(actor, documentId, true));
-            if (!publication.equals(result.publication()) || !same(frozen, result.original())) {
-              throw stale();
-            }
-            check(started);
-            return result;
-            };
-            return replacementId == null ? persist.get()
+            java.util.function.Supplier<VideoAvState> persist =
+                () -> {
+                  videos.insertPublication(publication);
+                  if (replacementId != null) {
+                    new DocumentUpdateRepository(store)
+                        .activate(replacementId, publication.id(), Instant.now().toString());
+                  }
+                  management.insertAudit(
+                      AuditEventEntity.create(
+                          actor,
+                          documentId,
+                          "video_av_index",
+                          null,
+                          Map.of(
+                              "publication_id",
+                              publication.id(),
+                              "manifest_sha256",
+                              publication.manifestSha256()),
+                          Set.of("publication_id", "manifest_sha256")));
+                  var result = state(actor, original(actor, documentId, true));
+                  if (!publication.equals(result.publication())
+                      || !same(frozen, result.original())) {
+                    throw stale();
+                  }
+                  check(started);
+                  return result;
+                };
+            return replacementId == null
+                ? persist.get()
                 : new DocumentUpdateRepository(store).withCandidateSource(replacementId, persist);
           });
     } catch (TextParser.Failure parser) {
@@ -462,8 +477,7 @@ public final class VideoAvLibraryService implements AutoCloseable {
     }
   }
 
-  private VideoAvReceipt execute(
-      VideoAvBuildClaim claim, long started, String replacementId) {
+  private VideoAvReceipt execute(VideoAvBuildClaim claim, long started, String replacementId) {
     var reserved =
         LibraryOperationGate.protectCurrent(
             () -> {
@@ -484,7 +498,8 @@ public final class VideoAvLibraryService implements AutoCloseable {
             () ->
                 same(
                     claim.original(),
-                    originalForBuild(claim.actor(), claim.original().documentId(), replacementId)))) {
+                    originalForBuild(
+                        claim.actor(), claim.original().documentId(), replacementId)))) {
           throw stale();
         }
         try {
@@ -516,21 +531,23 @@ public final class VideoAvLibraryService implements AutoCloseable {
     if (replacementId == null) {
       return;
     }
-    store.transaction(() -> {
-      var updates = new DocumentUpdateRepository(store);
-      var replacement = updates.find(replacementId).orElse(null);
-      if (replacement != null
-          && "indexing".equals(replacement.state())
-          && updates.current(replacement.documentId())
-              .map(value -> replacementId.equals(value.id())).orElse(false)) {
-        updates.markFailed(replacementId, Instant.now().toString());
-      }
-      return null;
-    });
+    store.transaction(
+        () -> {
+          var updates = new DocumentUpdateRepository(store);
+          var replacement = updates.find(replacementId).orElse(null);
+          if (replacement != null
+              && "indexing".equals(replacement.state())
+              && updates
+                  .current(replacement.documentId())
+                  .map(value -> replacementId.equals(value.id()))
+                  .orElse(false)) {
+            updates.markFailed(replacementId, Instant.now().toString());
+          }
+          return null;
+        });
   }
 
-  private DocumentOriginal originalForBuild(
-      Actor actor, String documentId, String replacementId) {
+  private DocumentOriginal originalForBuild(Actor actor, String documentId, String replacementId) {
     if (replacementId == null) {
       return original(actor, documentId, true);
     }
@@ -543,12 +560,15 @@ public final class VideoAvLibraryService implements AutoCloseable {
         || !updates.sourceCurrent(replacementId)) {
       throw stale();
     }
-    return updates.original(documentId, replacement.candidateRevisionId()).orElseThrow(ModelValues::notFound);
+    return updates
+        .original(documentId, replacement.candidateRevisionId())
+        .orElseThrow(ModelValues::notFound);
   }
 
-  private VideoAvState stateForBuild(
-      Actor actor, DocumentOriginal original, String replacementId) {
-    return replacementId == null ? state(actor, original) : new VideoAvState(original, targets.visual(), targets.audio(), null);
+  private VideoAvState stateForBuild(Actor actor, DocumentOriginal original, String replacementId) {
+    return replacementId == null
+        ? state(actor, original)
+        : new VideoAvState(original, targets.visual(), targets.audio(), null);
   }
 
   private DocumentOriginal original(Actor actor, String documentId, boolean edit) {

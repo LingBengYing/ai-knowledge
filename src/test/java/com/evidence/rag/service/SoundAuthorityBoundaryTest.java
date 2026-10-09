@@ -69,14 +69,14 @@ class SoundAuthorityBoundaryTest {
   }
 
   @Test
-  void allScopeCapacityFailsBeforeAnyIndexQualificationOrProviderCall() {
+  void libraryBeyond128ProceedsToIndexQualificationWithoutProviderCalls() {
     try (var fixture = new SoundTestFixture(directory);
         var answers = fixture.answers()) {
       for (int index = 0; index < 129; index++) {
         fixture.register("sound-" + index, SoundTestFixture.pcm(2, 1), false);
       }
       assertEquals(
-          "evidence_capacity_exceeded",
+          "sound_index_required",
           assertThrows(
                   ApplicationException.class,
                   () ->
@@ -186,7 +186,9 @@ class SoundAuthorityBoundaryTest {
       String mutation = "UPDATE documents SET " + assignment + " WHERE id='library'";
       var blocked = assertThrows(AssertionError.class, () -> ordinarySql(fixture.store, mutation));
       assertTrue(blocked.getCause() instanceof SQLException);
-      assertTrue(blocked.getCause().getMessage().contains("immutable source identity"));
+      assertTrue(
+          blocked.getCause().getMessage().contains("immutable source identity"),
+          blocked.getCause().getMessage());
       assertEquals(
           before, scope(fixture, before.selection()), "The normal SQL guard preserves identity");
       // Simulate an offline damaged restore only in this synthetic temporary database. The
@@ -212,7 +214,8 @@ class SoundAuthorityBoundaryTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"foreign-publication", "duplicate-proof", "changed-model", "uncited-acl"})
+  @ValueSource(
+      strings = {"foreign-publication", "duplicate-proof", "changed-model", "uncited-withdrawn"})
   void traceSealRejectsProofsOutsideTheExactCurrentAuthority(String defect) {
     try (var fixture = new SoundTestFixture(directory)) {
       fixture.register("cited", SoundTestFixture.pcm(2, 1), true);
@@ -236,7 +239,9 @@ class SoundAuthorityBoundaryTest {
                             fixture.publications.getLast().spans().getFirst())));
         case "duplicate-proof" -> proofs = List.of(proof, proof);
         case "changed-model" -> model = "other-analysis-model";
-        case "uncited-acl" -> fixture.sql("DELETE FROM document_acl WHERE document_id='uncited'");
+        case "uncited-withdrawn" ->
+            fixture.sql(
+                "INSERT INTO document_tombstones SELECT id,workspace_id,'owner','2026-10-08T00:00:00Z' FROM documents WHERE id='uncited'");
         default -> throw new AssertionError(defect);
       }
       var draft =
@@ -464,6 +469,17 @@ class SoundAuthorityBoundaryTest {
 
   private static void ordinarySql(SqliteAuthorityStore store, String sql) {
     try (var connection = DriverManager.getConnection("jdbc:sqlite:" + store.libraryPath())) {
+      // This direct connection has no authorized replacement transaction. Register the v26
+      // predicate as false so the actual immutable-identity guard rejects ordinary writes.
+      Function.create(
+          connection,
+          "java_replacement_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() throws SQLException {
+              result(0);
+            }
+          });
       Function.create(
           connection,
           "java_cleanup_authorized",

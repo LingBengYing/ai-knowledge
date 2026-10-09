@@ -446,27 +446,48 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
   private List<Candidate> search(Query query, long deadline) {
     if (query == null
         || !settings.workspaceId().equals(query.scope().workspaceId())
-        || query.vector().size() != settings.dimension()) {
+        || (query.mode() != SearchMode.SPARSE_ONLY
+            && query.vector().size() != settings.dimension())) {
       throw new ProjectionException("projection_invalid_input");
     }
     if (query.scope().documentRevisions().isEmpty()) {
       return List.of();
     }
     requireInitialized();
-    String filter = filter(query.scope());
     var identities = new HashMap<String, String>();
     List<Hit> dense =
-        searchRoute(
-            "dense", List.of(query.vector()), "COSINE", query, filter, identities, deadline);
+        query.mode() == SearchMode.SPARSE_ONLY
+            ? List.of()
+            : searchAcrossScope(
+                "dense", List.of(query.vector()), "COSINE", query, identities, deadline);
     List<Hit> sparse =
-        query.mode() == SearchMode.HYBRID
-            ? searchRoute(
-                "sparse", List.of(query.text()), "BM25", query, filter, identities, deadline)
+        query.mode() != SearchMode.DENSE_ONLY
+            ? searchAcrossScope(
+                "sparse", List.of(query.text()), "BM25", query, identities, deadline)
             : List.of();
     var scores = new HashMap<String, Double>();
-    for (List<Hit> route : List.of(dense, sparse)) {
-      for (int index = 0; index < route.size(); index++) {
-        scores.merge(route.get(index).id(), 1.0 / (61 + index), Double::sum);
+    if (query.fusionMode() == FusionMode.RRF) {
+      for (List<Hit> route : List.of(dense, sparse)) {
+        for (int index = 0; index < route.size(); index++) {
+          scores.merge(route.get(index).id(), 1.0 / (61 + index), Double::sum);
+        }
+      }
+    } else {
+      for (Hit hit : dense) {
+        double normalized = (1 + Math.max(-1, Math.min(1, hit.score()))) / 2;
+        double weight = query.mode() == SearchMode.HYBRID ? query.denseWeight() : 1;
+        if (weight > 0) {
+          scores.merge(hit.id(), weight * normalized, Double::sum);
+        }
+      }
+      for (Hit hit : sparse) {
+        responseCheck(hit.score() >= 0);
+        double normalized =
+            query.mode() == SearchMode.HYBRID ? 2 * Math.atan(hit.score()) / Math.PI : hit.score();
+        double weight = query.mode() == SearchMode.HYBRID ? 1 - query.denseWeight() : 1;
+        if (weight > 0) {
+          scores.merge(hit.id(), weight * normalized, Double::sum);
+        }
       }
     }
     return scores.entrySet().stream()
@@ -483,6 +504,39 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
     if (!initialized) {
       throw new ProjectionException("projection_not_initialized");
     }
+  }
+
+  /** Search every publication batch, then globally rank each route before RRF fusion. */
+  private List<Hit> searchAcrossScope(
+      String field,
+      List<?> data,
+      String metric,
+      Query query,
+      Map<String, String> identities,
+      long deadline) {
+    var publications = new ArrayList<>(query.scope().documentRevisions().entrySet());
+    var hits = new ArrayList<Hit>();
+    for (int offset = 0; offset < publications.size(); offset += MAX_SCOPE) {
+      var batch = new LinkedHashMap<String, String>();
+      publications
+          .subList(offset, Math.min(publications.size(), offset + MAX_SCOPE))
+          .forEach(entry -> batch.put(entry.getKey(), entry.getValue()));
+      var part =
+          new Query(
+              query.text(),
+              query.vector(),
+              new AuthorizedScope(query.scope().workspaceId(), batch),
+              query.limit(),
+              query.mode(),
+              query.fusionMode(),
+              query.denseWeight());
+      hits.addAll(
+          searchRoute(field, data, metric, part, filter(part.scope()), identities, deadline));
+    }
+    return hits.stream()
+        .sorted(Comparator.comparingDouble(Hit::score).reversed().thenComparing(Hit::id))
+        .limit(query.limit())
+        .toList();
   }
 
   private static String filter(AuthorizedScope scope) {

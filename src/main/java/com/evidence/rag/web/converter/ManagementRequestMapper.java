@@ -64,7 +64,8 @@ public final class ManagementRequestMapper {
     }
     var result = new LinkedHashMap<String, String>();
     for (var entry : values.entrySet()) {
-      if (!(entry.getKey() instanceof String id) || !(entry.getValue() instanceof String publication)) {
+      if (!(entry.getKey() instanceof String id)
+          || !(entry.getValue() instanceof String publication)) {
         throw invalid();
       }
       result.put(id, publication);

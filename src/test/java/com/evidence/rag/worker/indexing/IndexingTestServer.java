@@ -36,6 +36,9 @@ public final class IndexingTestServer implements AutoCloseable {
   private final java.util.concurrent.ExecutorService executor =
       Executors.newVirtualThreadPerTaskExecutor();
   private final Map<String, JsonNode> rows = new ConcurrentHashMap<>();
+  private final Map<String, JsonNode> createdCollections = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, JsonNode>> collectionRows = new ConcurrentHashMap<>();
+  private final boolean managedCollections;
   private final int dimensions;
   private final int maxResponseBytes;
   private final URI modelEndpoint;
@@ -61,7 +64,18 @@ public final class IndexingTestServer implements AutoCloseable {
 
   public IndexingTestServer(int dimensions, int maxResponseBytes, URI modelEndpoint)
       throws IOException {
+    this(dimensions, maxResponseBytes, modelEndpoint, false);
+  }
+
+  /**
+   * Opt-in collection lifecycle for explicit model migration integration; legacy fixtures
+   * unchanged.
+   */
+  public IndexingTestServer(
+      int dimensions, int maxResponseBytes, URI modelEndpoint, boolean managedCollections)
+      throws IOException {
     this.modelEndpoint = modelEndpoint;
+    this.managedCollections = managedCollections;
     this.dimensions = dimensions;
     this.maxResponseBytes = maxResponseBytes;
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -149,6 +163,21 @@ public final class IndexingTestServer implements AutoCloseable {
       var body = JSON.readTree(exchange.getRequestBody().readAllBytes());
       String path = exchange.getRequestURI().getPath();
       requests.add(new Request(path, body));
+      String collection = body.path("collectionName").asString();
+      boolean baseCollection = collection.equals("java_index_process_fixture");
+      boolean collectionExists = baseCollection || createdCollections.containsKey(collection);
+      if (managedCollections
+          && !path.equals("/embeddings")
+          && !path.endsWith("/collections/has")
+          && !path.endsWith("/collections/create")
+          && !collectionExists) {
+        exchange.sendResponseHeaders(404, -1);
+        return;
+      }
+      Map<String, JsonNode> targetRows =
+          managedCollections
+              ? collectionRows.computeIfAbsent(collection, ignored -> new ConcurrentHashMap<>())
+              : rows;
       Object data;
       boolean model = path.equals("/embeddings");
       if (model) {
@@ -172,24 +201,40 @@ public final class IndexingTestServer implements AutoCloseable {
         }
         data = vectors;
       } else if (path.endsWith("/collections/has")) {
-        data = Map.of("has", true);
+        data = Map.of("has", !managedCollections || collectionExists);
+      } else if (managedCollections && path.endsWith("/collections/create")) {
+        if (collectionExists
+            || !collection.matches("java_[A-Za-z0-9_]{1,122}")
+            || !body.path("schema").isObject()
+            || !body.path("indexParams").isArray()) {
+          exchange.sendResponseHeaders(409, -1);
+          return;
+        }
+        createdCollections.put(collection, body);
+        data = Map.of();
       } else if (path.endsWith("/collections/describe")) {
-        data = description();
+        data =
+            managedCollections && !baseCollection
+                ? createdDescription(createdCollections.get(collection))
+                : description();
       } else if (path.endsWith("/indexes/describe")) {
         boolean dense = body.path("indexName").asString().equals("dense_index");
         data =
-            List.of(
-                Map.of(
-                    "indexName",
-                    dense ? "dense_index" : "sparse_index",
-                    "fieldName",
-                    dense ? "dense" : "sparse",
-                    "indexType",
-                    dense ? "FLAT" : "SPARSE_INVERTED_INDEX",
-                    "metricType",
-                    dense ? "COSINE" : "BM25",
-                    "indexState",
-                    "Finished"));
+            managedCollections && !baseCollection
+                ? createdIndex(
+                    createdCollections.get(collection), body.path("indexName").asString())
+                : List.of(
+                    Map.of(
+                        "indexName",
+                        dense ? "dense_index" : "sparse_index",
+                        "fieldName",
+                        dense ? "dense" : "sparse",
+                        "indexType",
+                        dense ? "FLAT" : "SPARSE_INVERTED_INDEX",
+                        "metricType",
+                        dense ? "COSINE" : "BM25",
+                        "indexState",
+                        "Finished"));
       } else if (path.endsWith("/collections/load")) {
         data = Map.of();
       } else if (path.endsWith("/entities/upsert")) {
@@ -201,7 +246,7 @@ public final class IndexingTestServer implements AutoCloseable {
         var ids = new ArrayList<String>();
         for (var row : body.path("data")) {
           String id = row.path("id").asString();
-          rows.put(id, row);
+          targetRows.put(id, row);
           ids.add(id);
         }
         if (failureMode.equals("partial-upsert")) {
@@ -213,7 +258,7 @@ public final class IndexingTestServer implements AutoCloseable {
         }
         data = Map.of("upsertCount", ids.size(), "upsertIds", ids);
       } else if (path.endsWith("/entities/search")) {
-        data = search(body);
+        data = search(body, targetRows);
       } else if (path.endsWith("/entities/query")) {
         String filter = body.path("filter").asString();
         var result = new ArrayList<Map<String, Object>>();
@@ -240,7 +285,8 @@ public final class IndexingTestServer implements AutoCloseable {
         }
         var fields = new ArrayList<String>();
         body.path("outputFields").forEach(value -> fields.add(value.asString()));
-        for (var entry : rows.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
+        for (var entry :
+            targetRows.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
           if (revision != null
               && !entry.getValue().path("revision_id").asString().equals(revision)) {
             continue;
@@ -281,7 +327,7 @@ public final class IndexingTestServer implements AutoCloseable {
     }
   }
 
-  private List<Map<String, Object>> search(JsonNode request) {
+  private List<Map<String, Object>> search(JsonNode request, Map<String, JsonNode> targetRows) {
     String filter = request.path("filter").asString();
     if (!filter.startsWith("workspace_id == \"org-main\" && (")) {
       return List.of();
@@ -291,7 +337,7 @@ public final class IndexingTestServer implements AutoCloseable {
     while (matcher.find()) {
       scope.put(matcher.group(1), matcher.group(2));
     }
-    return rows.values().stream()
+    return targetRows.values().stream()
         .filter(
             row ->
                 row.path("workspace_id").asString().equals("org-main")
@@ -314,6 +360,89 @@ public final class IndexingTestServer implements AutoCloseable {
                     "distance",
                     0.9))
         .toList();
+  }
+
+  private static List<Map<String, Object>> createdIndex(JsonNode created, String name) {
+    for (var index : created.path("indexParams")) {
+      if (index.path("indexName").asString().equals(name)) {
+        return List.of(
+            Map.of(
+                "indexName",
+                name,
+                "fieldName",
+                index.path("fieldName").asString(),
+                "indexType",
+                index.path("indexType").asString(),
+                "metricType",
+                index.path("metricType").asString(),
+                "indexState",
+                "Finished"));
+      }
+    }
+    return List.of();
+  }
+
+  private static Map<String, Object> createdDescription(JsonNode created) {
+    var schema = created.path("schema");
+    var fields = new ArrayList<Map<String, Object>>();
+    for (var field : schema.path("fields")) {
+      var description = new LinkedHashMap<String, Object>();
+      description.put("name", field.path("fieldName").asString());
+      description.put("type", field.path("dataType").asString());
+      description.put("primaryKey", field.path("isPrimary").asBoolean(false));
+      description.put("autoId", schema.path("autoID").asBoolean());
+      description.put("nullable", field.path("nullable").asBoolean(false));
+      var params = new ArrayList<Map<String, String>>();
+      for (var entry : field.path("elementTypeParams").properties()) {
+        params.add(
+            Map.of(
+                "key",
+                entry.getKey(),
+                "value",
+                entry.getValue().isString()
+                    ? entry.getValue().asString()
+                    : entry.getValue().toString()));
+      }
+      description.put("params", params);
+      boolean output = false;
+      for (var function : schema.path("functions")) {
+        for (var name : function.path("outputFieldNames")) {
+          output |= name.asString().equals(field.path("fieldName").asString());
+        }
+      }
+      if (output) description.put("isFunctionOutput", true);
+      fields.add(description);
+    }
+    var functions = new ArrayList<Map<String, Object>>();
+    for (var function : schema.path("functions")) {
+      functions.add(
+          Map.of(
+              "name",
+              function.path("name").asString(),
+              "type",
+              function.path("type").asString(),
+              "inputFieldNames",
+              function.path("inputFieldNames"),
+              "outputFieldNames",
+              function.path("outputFieldNames"),
+              "params",
+              List.of()));
+    }
+    return Map.of(
+        "collectionName",
+        created.path("collectionName").asString(),
+        "description",
+        created.path("description").asString(),
+        "consistencyLevel",
+        created.path("params").path("consistencyLevel").asString(),
+        "autoId",
+        schema.path("autoID").asBoolean(),
+        "enableDynamicField",
+        schema.path("enableDynamicField").asBoolean(),
+        "fields",
+        fields,
+        "functions",
+        functions);
   }
 
   private Map<String, Object> description() {

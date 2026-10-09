@@ -11,6 +11,17 @@ import org.junit.jupiter.api.Test;
 
 class QuestionPlanningTest {
   @Test
+  void preservesProductAndActionForANaturalProcedureQuestion() {
+    var plan = QuestionPlanning.plan("青榆X1如何开启夜间模式？").orElseThrow();
+    assertEquals(
+        List.of("natural-procedure\n青榆X1\n开启夜间模式"),
+        plan.facts().stream().map(fact -> fact.requirement()).toList());
+    assertTrue(QuestionPlanning.plan("如果设备获批，青榆X1如何开启夜间模式？").isEmpty());
+    assertTrue(QuestionPlanning.plan("青榆X1和青榆X2如何开启夜间模式？").isEmpty());
+    assertTrue(QuestionPlanning.plan("青榆X1如何开启夜间模式以及关闭电源？").isEmpty());
+  }
+
+  @Test
   void preservesCompleteChineseQuestionAndEveryTrailingRequirement() {
     String question = "指示灯的颜色是什么？重启操作是什么？";
     var plan = QuestionPlanning.plan(question).orElseThrow();

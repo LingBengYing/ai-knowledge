@@ -28,7 +28,7 @@ class ModelConfigurationAnchorRepositoryTest {
   @TempDir Path directory;
 
   @Test
-  void firstActivationWritesExactV2AnchorWithoutCredentialDuplicationAndRestarts()
+  void firstActivationWritesExactV5AnchorWithoutCredentialDuplicationAndRestarts()
       throws Exception {
     Path file = directory.resolve("private/models.json");
     var roles = roles("generation-one", "rerank-one", "original-synthetic-key");
@@ -38,7 +38,7 @@ class ModelConfigurationAnchorRepositoryTest {
       var active = repository.activate(1, anchor);
       assertEquals(anchor, active.indexAnchor());
       JsonNode saved = JSON.readTree(Files.readAllBytes(file));
-      assertEquals("java-text-configuration-v2", saved.path("format").stringValue());
+      assertEquals("java-text-configuration-v5", saved.path("format").stringValue());
       assertEquals(
           Set.of("format", "version", "draft", "active_version", "active", "index_anchor"),
           Set.copyOf(saved.propertyNames()));
@@ -52,8 +52,17 @@ class ModelConfigurationAnchorRepositoryTest {
               "dimensions",
               "rerank_model",
               "generation_model",
-              "target"),
+              "target",
+              "rerank_provider_base_url",
+              "generation_provider_base_url",
+              "projection_collection"),
           Set.copyOf(basis.propertyNames()));
+      assertEquals(
+          anchor.rerankProviderBaseUrl(), basis.path("rerank_provider_base_url").asString());
+      assertEquals(
+          anchor.generationProviderBaseUrl(),
+          basis.path("generation_provider_base_url").asString());
+      assertTrue(basis.path("projection_collection").isNull());
       assertEquals(
           Set.of("embedding_identity", "projection_identity", "model_revision", "dimensions"),
           Set.copyOf(basis.path("target").propertyNames()));
@@ -101,6 +110,9 @@ class ModelConfigurationAnchorRepositoryTest {
       repository.save(0, original);
       repository.activate(1);
       repository.save(1, changed);
+      ObjectNode legacy =
+          legacyConfiguration((ObjectNode) JSON.readTree(Files.readAllBytes(file)), 1);
+      Files.write(file, JSON.writeValueAsBytes(legacy));
       v1 = Files.readAllBytes(file);
     }
     try (var repository = new ModelConfigurationRepository(file)) {
@@ -239,7 +251,11 @@ class ModelConfigurationAnchorRepositoryTest {
     try (var repository = new ModelConfigurationRepository(file)) {
       repository.save(0, original);
       repository.activate(1, anchor(1, original));
-      ObjectNode root = (ObjectNode) JSON.readTree(Files.readAllBytes(file));
+      ObjectNode root =
+          legacyConfiguration((ObjectNode) JSON.readTree(Files.readAllBytes(file)), 2);
+      Files.write(file, JSON.writeValueAsBytes(root));
+      assertEquals(anchor(1, original), repository.read().indexAnchor());
+      assertEquals(original, repository.read().active());
       ObjectNode basis = (ObjectNode) root.path("index_anchor");
       switch (corruption) {
         case "missing" -> {
@@ -270,7 +286,7 @@ class ModelConfigurationAnchorRepositoryTest {
           basis.put("generation_model", "guessed-generation");
         }
         case "unknown_format" -> {
-          root.put("format", "java-text-configuration-v3");
+          root.put("format", "java-text-configuration-v99");
         }
         default -> {
           throw new AssertionError(corruption);
@@ -285,6 +301,24 @@ class ModelConfigurationAnchorRepositoryTest {
       assertArrayEquals(corrupted, Files.readAllBytes(file));
       assertTrue(Files.exists(file));
     }
+  }
+
+  private static ObjectNode legacyConfiguration(ObjectNode root, int version) {
+    root.put("format", "java-text-configuration-v" + version);
+    for (String configuration : Set.of("draft", "active")) {
+      for (String role : Set.of("embedding", "rerank", "generation")) {
+        ((ObjectNode) root.path(configuration).path(role)).remove("provider");
+      }
+    }
+    if (version == 1) {
+      root.remove("index_anchor");
+    } else {
+      ObjectNode basis = (ObjectNode) root.path("index_anchor");
+      basis.remove("rerank_provider_base_url");
+      basis.remove("generation_provider_base_url");
+      basis.remove("projection_collection");
+    }
+    return root;
   }
 
   private static TextModelConfiguration roles(String generation, String rerank, String key) {

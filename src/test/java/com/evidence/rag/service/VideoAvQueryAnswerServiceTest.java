@@ -222,7 +222,7 @@ class VideoAvQueryAnswerServiceTest {
   }
 
   @Test
-  void missingUncitedLibraryIndexAndPrivateSelectionFailBeforeReferenceDecode() {
+  void missingUncitedLibraryIndexAndForeignWorkspaceSelectionFailBeforeReferenceDecode() {
     try (var fixture = new VideoAvQueryTestFixture(directory);
         var answers = fixture.answers()) {
       fixture.base.register("built", 1, 1, 16000, true);
@@ -242,7 +242,7 @@ class VideoAvQueryAnswerServiceTest {
           ApplicationException.class,
           () ->
               answers.answerAttached(
-                  new Actor(VideoAvTestFixture.OWNER.workspaceId(), "stranger"),
+                  new Actor("other-workspace", "stranger"),
                   command(VideoAvMode.JOINT, "built"),
                   List.of(reference)));
       assertEquals(0, fixture.base.decodes);
@@ -366,7 +366,7 @@ class VideoAvQueryAnswerServiceTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"acl", "profile"})
+  @ValueSource(strings = {"withdrawn", "profile"})
   void referenceEmbeddingCannotCommitAfterUncitedScopeOrProfileChanges(String change) {
     try (var fixture = new VideoAvQueryTestFixture(directory);
         var answers = fixture.answers()) {
@@ -375,14 +375,15 @@ class VideoAvQueryAnswerServiceTest {
       var reference = fixture.reference("reference", 1, 1, 16000);
       fixture.onClip =
           clip -> {
-            if (change.equals("acl")) {
-              fixture.base.sql("DELETE FROM document_acl WHERE document_id='uncited'");
+            if (change.equals("withdrawn")) {
+              fixture.base.sql(
+                  "INSERT INTO document_tombstones SELECT id,workspace_id,'owner','2026-10-08T00:00:00Z' FROM documents WHERE id='uncited'");
             } else {
               fixture.base.embeddingRevision = "changed";
             }
           };
       assertEquals(
-          change.equals("acl") ? "scope_changed" : "configuration_changed",
+          change.equals("withdrawn") ? "scope_changed" : "configuration_changed",
           assertThrows(
                   ApplicationException.class,
                   () ->

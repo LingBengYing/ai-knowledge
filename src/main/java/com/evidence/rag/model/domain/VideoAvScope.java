@@ -6,7 +6,7 @@ import java.util.List;
 public record VideoAvScope(
     Actor actor, DocumentSelection selection, List<VideoAvPublication> publications) {
   public VideoAvScope {
-    if (actor == null || selection == null || publications == null || publications.size() > 128) {
+    if (actor == null || selection == null || publications == null) {
       throw ModelValues.invalid();
     }
     var ids = new HashSet<String>();

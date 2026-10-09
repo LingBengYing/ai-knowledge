@@ -45,7 +45,9 @@ class SynopsisMigrationTest {
             .store()
             .transaction(
                 () -> {
-                  assertEquals(25, fixture.authority.store().count("PRAGMA user_version"));
+                  assertEquals(
+                      HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                      fixture.authority.store().count("PRAGMA user_version"));
                   assertEquals(
                       ocrEntries,
                       fixture

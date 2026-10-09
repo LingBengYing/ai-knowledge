@@ -53,11 +53,12 @@ public final class ModelConfigurationService {
     permissions.requireEdit(actor);
     synchronized (repository) {
       requireNoRebuild();
-    var before = repository.read();
-    if (command.baseVersion() != before.version()) {
-      throw ModelConfigurationRepository.conflict();
-    }
-    return response(actor, repository.save(command.baseVersion(), command.resolve(before.draft())));
+      var before = repository.read();
+      if (command.baseVersion() != before.version()) {
+        throw ModelConfigurationRepository.conflict();
+      }
+      return response(
+          actor, repository.save(command.baseVersion(), command.resolve(before.draft())));
     }
   }
 
@@ -87,41 +88,41 @@ public final class ModelConfigurationService {
     permissions.requireEdit(actor);
     synchronized (repository) {
       requireNoRebuild();
-    var selected = repository.read();
-    requireVersion(selected, version);
-    try (var maintenance =
-        store.operationGate().tryMaintenance().orElseThrow(ModelConfigurationService::busy)) {
-      var anchor = activeAnchor(selected);
-      var candidate = runtime.prepare(version, selected.draft(), anchor);
-      boolean installed = false;
-      try {
-        store.transaction(
-            () -> {
-              targets.requireCompatible(actor.workspaceId(), candidate.target());
-              return null;
-            });
-        runtime.install(
-            candidate,
-            maintenance,
-            () -> {
-              if (runtime.anchored()) {
-                repository.activate(version, candidate.indexAnchor());
-              } else {
-                repository.activate(version);
-              }
-            });
-        installed = true;
-      } finally {
-        if (!installed) {
-          try {
-            candidate.close();
-          } catch (RuntimeException ignored) {
-            /* Preserve the original rejected activation. */
+      var selected = repository.read();
+      requireVersion(selected, version);
+      try (var maintenance =
+          store.operationGate().tryMaintenance().orElseThrow(ModelConfigurationService::busy)) {
+        var anchor = activeAnchor(selected);
+        var candidate = runtime.prepare(version, selected.draft(), anchor);
+        boolean installed = false;
+        try {
+          store.transaction(
+              () -> {
+                targets.requireCompatible(actor.workspaceId(), candidate.target());
+                return null;
+              });
+          runtime.install(
+              candidate,
+              maintenance,
+              () -> {
+                if (runtime.anchored()) {
+                  repository.activate(version, candidate.indexAnchor());
+                } else {
+                  repository.activate(version);
+                }
+              });
+          installed = true;
+        } finally {
+          if (!installed) {
+            try {
+              candidate.close();
+            } catch (RuntimeException ignored) {
+              /* Preserve the original rejected activation. */
+            }
           }
         }
+        return response(actor, repository.read());
       }
-      return response(actor, repository.read());
-    }
     }
   }
 

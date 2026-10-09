@@ -89,11 +89,9 @@ final class ManagedTextSettings {
                       .getProperty("rag.model-configuration.administrators", "")
                       .split(",", -1))
               .map(String::strip)
+              .filter(value -> !value.isEmpty())
               .collect(Collectors.toUnmodifiableSet());
-      if (administrators.isEmpty()
-          || administrators.stream()
-              .anyMatch(value -> !value.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}"))
-          || deadline.toMillis() < 1
+      if (deadline.toMillis() < 1
           || deadline.toMillis() > 60000
           || maxBytes < 1024
           || maxBytes > 4194304) {

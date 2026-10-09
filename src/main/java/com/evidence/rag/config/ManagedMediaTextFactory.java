@@ -70,55 +70,59 @@ public final class ManagedMediaTextFactory {
     this.audioTarget = audioTarget;
   }
 
-  public Bundle build(
-      TextModels text, RetrievalProjection projection, TextIndexAnchor anchor) {
+  public Bundle build(TextModels text, RetrievalProjection projection, TextIndexAnchor anchor) {
     Objects.requireNonNull(text);
     Objects.requireNonNull(projection);
     Objects.requireNonNull(anchor);
     var prepared = preparation.getIfAvailable();
     var ranks = ranking.getIfAvailable();
-    var queries = prepared == null || ranks == null ? null
-        : QueryAttachmentService.managed(
-            prepared,
-            ranks,
-            text,
-            projection,
-            anchor.target(),
-            imageModels.getIfAvailable(),
-            imageProjection.getIfAvailable(),
-            imageTarget.getIfAvailable(),
-            audioModels.getIfAvailable(),
-            audioProjection.getIfAvailable(),
-            audioTarget.getIfAvailable(),
-            anchor);
+    var queries =
+        prepared == null || ranks == null
+            ? null
+            : QueryAttachmentService.managed(
+                prepared,
+                ranks,
+                text,
+                projection,
+                anchor.target(),
+                imageModels.getIfAvailable(),
+                imageProjection.getIfAvailable(),
+                imageTarget.getIfAvailable(),
+                audioModels.getIfAvailable(),
+                audioProjection.getIfAvailable(),
+                audioTarget.getIfAvailable(),
+                anchor);
     var videoResources = videos.getIfAvailable();
     VideoAnswerProposalService video = null;
     if (videoResources != null && videoResources.vision != null && limits.enabled()) {
       if (!(text instanceof FactTextModels facts)) {
         throw new IllegalArgumentException("Video answers require fact-scoped text models");
       }
-      video = VideoAnswerProposalService.managed(
-          evidence,
-          text,
-          facts,
-          videoResources.vision,
-          projection,
-          anchor.target(),
-          Duration.ofMillis(limits.timeoutMs()),
-          anchor);
+      video =
+          VideoAnswerProposalService.managed(
+              evidence,
+              text,
+              facts,
+              videoResources.vision,
+              projection,
+              anchor.target(),
+              Duration.ofMillis(limits.timeoutMs()),
+              anchor);
     }
     var images = vision.getIfAvailable();
-    var visual = images == null || !limits.enabled() ? null
-        : VisualAnswerService.managed(
-            evidence,
-            text,
-            images,
-            projection,
-            anchor.target(),
-            Duration.ofMillis(limits.timeoutMs()),
-            limits.maxConcurrent(),
-            queries,
-            anchor);
+    var visual =
+        images == null || !limits.enabled()
+            ? null
+            : VisualAnswerService.managed(
+                evidence,
+                text,
+                images,
+                projection,
+                anchor.target(),
+                Duration.ofMillis(limits.timeoutMs()),
+                limits.maxConcurrent(),
+                queries,
+                anchor);
     return new Bundle(queries, video, visual);
   }
 

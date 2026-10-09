@@ -3,6 +3,8 @@ package com.evidence.rag.worker.parser;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -62,6 +64,11 @@ class PdfWorkerLifetimeProtocolTest {
       assertFalse(Files.exists(directory.resolve("calls")));
       assertFalse(Files.exists(directory.resolve("ocr.pid")));
     }
+  }
+
+  @Test
+  void measurementRejectsCoverageDestinationsOutsideTheConfiguredBuildDirectory() {
+    assertThrows(AssertionError.class, () -> measurement(directory.toString()));
   }
 
   private byte[] run(List<String> arguments, boolean request) throws Exception {
@@ -155,6 +162,14 @@ class PdfWorkerLifetimeProtocolTest {
   }
 
   private static Measurement measurement() {
+    return measurement(System.getProperty("rag.test.build.directory"));
+  }
+
+  private static Measurement measurement(String configuredBuildDirectory) {
+    assertNotNull(configuredBuildDirectory, "Surefire must supply the Maven build directory");
+    assertFalse(configuredBuildDirectory.isBlank());
+    Path buildDirectory = Path.of(configuredBuildDirectory);
+    assertTrue(buildDirectory.isAbsolute(), "Maven build directory must be absolute");
     var agents =
         ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
             .filter(
@@ -176,7 +191,7 @@ class PdfWorkerLifetimeProtocolTest {
     assertEquals("true", options.getOrDefault("dumponexit", "true"));
     assertEquals("file", options.getOrDefault("output", "file"));
     Path destination = Path.of(options.get("destfile")).toAbsolutePath().normalize();
-    assertEquals(Path.of("target", "jacoco.exec").toAbsolutePath().normalize(), destination);
+    assertEquals(buildDirectory.resolve("jacoco.exec").normalize(), destination);
     // Retain only this explicitly verified agent, with append made explicit. No other JVM
     // arguments from the Surefire process are copied to the parser JVM.
     String argument = original;

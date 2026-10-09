@@ -101,7 +101,15 @@ public final class ManagementService {
       DocumentPermissionPolicy permissions,
       boolean reindexEnabled,
       BiPredicate<Actor, String> reindexEligibility) {
-    this(store, management, ingestion, indexing, permissions, reindexEnabled, reindexEligibility, null);
+    this(
+        store,
+        management,
+        ingestion,
+        indexing,
+        permissions,
+        reindexEnabled,
+        reindexEligibility,
+        null);
   }
 
   /** The processor is resolved only for an admitted explicit batch action. */
@@ -349,7 +357,8 @@ public final class ManagementService {
       throw invalid();
     }
     if (action.equals("reindex")) {
-      if (command.folderIdPresent() || command.tags() != null
+      if (command.folderIdPresent()
+          || command.tags() != null
           || command.basePublicationIds() == null
           || !command.basePublicationIds().keySet().equals(ids)) {
         throw invalid();
@@ -405,8 +414,7 @@ public final class ManagementService {
       try {
         if (store.transaction(() -> new ModelRebuildRepository(store).hasPending())) {
           throw new ApplicationException(
-              FailureKind.CONFLICT, "model_rebuild_in_progress",
-              "模型索引正在重建；完成后可继续重建资料。现有资料仍可查询。");
+              FailureKind.CONFLICT, "model_rebuild_in_progress", "模型索引正在重建；完成后可继续重建资料。现有资料仍可查询。");
         }
         processor = reindexEnabled && reindexProcessor != null ? reindexProcessor.get() : null;
         if (processor == null) {
@@ -422,8 +430,7 @@ public final class ManagementService {
       for (String id : documentIds) {
         try {
           processor.reindex(actor, id, basePublicationIds.get(id));
-          results.add(new DocumentActionResult(
-              id, true, null, "已创建后台文本索引任务；当前索引仍可查询，完整重建成功后才切换。"));
+          results.add(new DocumentActionResult(id, true, null, "已创建后台文本索引任务；当前索引仍可查询，完整重建成功后才切换。"));
         } catch (ApplicationException failure) {
           results.add(new DocumentActionResult(id, false, failure.code(), failure.getMessage()));
         }
@@ -628,19 +635,13 @@ public final class ManagementService {
 
   private List<FolderResult> folderResults(Actor actor) {
     return management.findFolders(actor).stream()
-        .map(
-            folder ->
-                new FolderResult(
-                    folder.id(),
-                    folder.name(),
-                    folder.documentCount(),
-                    actor.principalId().equals(folder.ownerId())))
+        .map(folder -> new FolderResult(folder.id(), folder.name(), folder.documentCount(), true))
         .toList();
   }
 
   private void checkFolderConflict(Actor actor, String name, String except) {
     if (management.folderNameExists(actor, fold(name), except)) {
-      throw new ApplicationException(FailureKind.CONFLICT, "folder_name_conflict", "你已创建同名目录。");
+      throw new ApplicationException(FailureKind.CONFLICT, "folder_name_conflict", "组织中已存在同名目录。");
     }
   }
 

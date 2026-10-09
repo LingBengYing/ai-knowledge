@@ -75,7 +75,8 @@ class ManagementServiceTest {
       assertEquals("revision-a", result.get("registered_revision_id"));
       assertNull(result.get("active_revision_id"));
       assertNull(result.get("index_publication_id"));
-      assertEquals(false, result.get("can_edit"));
+      assertEquals(true, result.get("can_edit"));
+      assertEquals("member", result.get("current_role"));
       assertEquals(2, items(module.auditEvents(owner)).size());
       var audit = items(module.auditEvents(editor)).getFirst();
       assertEquals("document_updated", audit.get("action"));
@@ -85,7 +86,7 @@ class ManagementServiceTest {
   }
 
   @Test
-  void authorizationPrecedesPaginationCountsTagsAndFolderVisibility() {
+  void workspaceMembershipPrecedesPaginationCountsTagsAndSharedFolderVisibility() {
     try (var module = new AuthorityTestContext(directory)) {
       seed(module, "a", "Same.pdf", Map.of("reader", "reader"));
       seed(module, "b", "Same.pdf", Map.of());
@@ -103,36 +104,43 @@ class ManagementServiceTest {
                 List.of(id.equals("b") ? "secret" : "public")));
       }
       var first = module.listDocuments(reader, Map.of("page_size", "1", "sort", "name_asc"));
-      assertEquals(2L, first.get("total"));
-      assertEquals(2L, first.get("total_pages"));
+      assertEquals(3L, first.get("total"));
+      assertEquals(3L, first.get("total_pages"));
       assertEquals("a", items(first).getFirst().get("document_id"));
       assertEquals(
-          "c",
+          "b",
           items(
                   module.listDocuments(
                       reader, Map.of("page_size", "1", "page", "2", "sort", "name_asc")))
               .getFirst()
               .get("document_id"));
-      assertEquals(List.of("public"), module.listTags(reader).get("items"));
+      assertEquals(List.of("public", "secret"), module.listTags(reader).get("items"));
       var folders = items(module.listFolders(reader));
-      assertEquals(1, folders.size());
-      assertEquals(2L, folders.getFirst().get("document_count"));
-      assertEquals(false, folders.getFirst().get("can_edit"));
-      assertTrue(items(module.listFolders(stranger)).isEmpty());
+      assertEquals(2, folders.size());
+      assertEquals(3L, folders.stream().mapToLong(item -> (long) item.get("document_count")).sum());
+      assertTrue(folders.stream().allMatch(item -> (boolean) item.get("can_edit")));
+      assertEquals(2, items(module.listFolders(stranger)).size());
       assertTrue(items(module.listDocuments(other, Map.of())).isEmpty());
       assertTrue(items(module.listFolders(other)).isEmpty());
       assertEquals(List.of(), module.listTags(other).get("items"));
-      fails(404, () -> module.updateDocument(reader, "a", Map.of("display_name", "bad")));
+      assertEquals(
+          "shared",
+          module.updateDocument(reader, "a", Map.of("display_name", "shared")).get("display_name"));
       fails(404, () -> module.updateDocument(other, "a", Map.of("display_name", "bad")));
-      fails(404, () -> module.updateDocument(reader, "b", Map.of("display_name", "bad")));
-      fails(
-          404,
-          () ->
-              module.renameFolder(reader, (String) folder.get("folder_id"), Map.of("name", "bad")));
-      fails(404, () -> module.removeFolder(reader, (String) folder.get("folder_id")));
-      fails(
-          404,
-          () -> module.updateDocument(stranger, "a", Map.of("folder_id", empty.get("folder_id"))));
+      assertEquals(
+          "shared",
+          module.updateDocument(reader, "b", Map.of("display_name", "shared")).get("display_name"));
+      assertEquals(
+          "renamed",
+          module
+              .renameFolder(reader, (String) folder.get("folder_id"), Map.of("name", "renamed"))
+              .get("name"));
+      fails(409, () -> module.removeFolder(reader, (String) folder.get("folder_id")));
+      assertEquals(
+          empty.get("folder_id"),
+          module
+              .updateDocument(stranger, "a", Map.of("folder_id", empty.get("folder_id")))
+              .get("folder_id"));
     }
   }
 
@@ -261,21 +269,37 @@ class ManagementServiceTest {
               module.documentActions(
                   owner, Map.of("document_ids", List.of("a"), "action", "delete")));
       fails(
-          501,
+          422,
           () ->
               module.documentActions(
                   owner, Map.of("document_ids", List.of("a"), "action", "reindex")));
+      var before = items(module.listDocuments(owner, Map.of())).getFirst();
+      var auditBefore = items(module.auditEvents(owner));
+      var unavailable =
+          items(
+              module.documentActions(
+                  owner,
+                  Map.of(
+                      "document_ids", List.of("a"),
+                      "action", "reindex",
+                      "base_publication_ids", Map.of("a", "observed-publication"))));
+      assertEquals(1, unavailable.size());
+      assertEquals("a", unavailable.getFirst().get("document_id"));
+      assertEquals(false, unavailable.getFirst().get("ok"));
+      assertEquals("indexing_unavailable", unavailable.getFirst().get("error_code"));
+      assertEquals(before, items(module.listDocuments(owner, Map.of())).getFirst());
+      assertEquals(auditBefore, items(module.auditEvents(owner)));
     }
   }
 
   @Test
-  void folderConflictsOwnershipAndNonEmptyProtection() {
+  void sharedFolderConflictsAndNonEmptyProtection() {
     try (var module = new AuthorityTestContext(directory)) {
       seed(module, "a", "a.pdf", Map.of());
       String folder =
           (String) module.createFolder(owner, Map.of("name", "Folder")).get("folder_id");
       fails(409, () -> module.createFolder(owner, Map.of("name", "folder")));
-      module.createFolder(reader, Map.of("name", "folder"));
+      fails(409, () -> module.createFolder(reader, Map.of("name", "folder")));
       var second = module.createFolder(owner, Map.of("name", "Second"));
       fails(
           409,
@@ -384,26 +408,27 @@ class ManagementServiceTest {
   }
 
   @Test
-  void foldersDoNotGrantPermissionAndBulkMoveMayUnfile() {
+  void allWorkspaceMembersMayUseSharedFoldersAndBulkMoveMayUnfile() {
     try (var module = new AuthorityTestContext(directory)) {
       seed(module, "a", "a.pdf", Map.of("editor", "editor"));
       seed(module, "b", "b.pdf", Map.of());
       String folder =
           (String) module.createFolder(owner, Map.of("name", "owner-folder")).get("folder_id");
-      fails(404, () -> module.updateDocument(editor, "a", Map.of("folder_id", folder)));
+      assertEquals(
+          folder, module.updateDocument(editor, "a", Map.of("folder_id", folder)).get("folder_id"));
       module.updateDocument(owner, "a", Map.of("folder_id", folder));
       module.updateDocument(owner, "b", Map.of("folder_id", folder));
-      assertEquals(1L, module.listDocuments(editor, Map.of("folder_id", folder)).get("total"));
+      assertEquals(2L, module.listDocuments(editor, Map.of("folder_id", folder)).get("total"));
       var patch = new HashMap<String, Object>();
       patch.put("document_ids", List.of("a", "b"));
       patch.put("action", "move");
       patch.put("folder_id", null);
       var result = items(module.documentActions(editor, patch));
       assertEquals(true, result.getFirst().get("ok"));
-      assertEquals(false, result.get(1).get("ok"));
-      assertTrue(items(module.listFolders(editor)).isEmpty());
-      fails(409, () -> module.removeFolder(owner, folder));
-      assertEquals(1L, module.listDocuments(owner, Map.of("folder_id", folder)).get("total"));
+      assertEquals(true, result.get(1).get("ok"));
+      assertEquals(1, items(module.listFolders(editor)).size());
+      assertEquals(0L, module.listDocuments(owner, Map.of("folder_id", folder)).get("total"));
+      assertEquals("removed", module.removeFolder(editor, folder).get("status"));
     }
   }
 

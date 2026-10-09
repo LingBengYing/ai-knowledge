@@ -1,7 +1,6 @@
 package com.evidence.rag.web.converter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,33 +15,36 @@ import org.junit.jupiter.api.Test;
 
 class AnswerRequestMapperTest {
   @Test
-  void missingSelectionAndExplicitEmptyHaveDifferentMeaning() {
+  void missingAndDeprecatedEmptySelectionBothUseTheSharedWorkspace() {
     var all = AnswerRequestMapper.command(Map.of("question", "政策？"));
     var empty = AnswerRequestMapper.command(Map.of("question", "政策？", "document_ids", List.of()));
     assertTrue(all.selection().all());
-    assertFalse(empty.selection().all());
+    assertTrue(empty.selection().all());
     assertTrue(empty.selection().documentIds().isEmpty());
     assertEquals("政策？", empty.question());
   }
 
   @Test
-  void preservesEverySelectedIdAndRejectsAmbiguousOrOversizedSelection() {
+  void deprecatedIdsNeverLimitTheWorkspaceButStillRequireValidJsonShape() {
     var ids = new ArrayList<String>();
     for (int index = 0; index < 128; index++) {
       ids.add("doc-" + index);
     }
     var command = AnswerRequestMapper.command(Map.of("question", "政策？", "document_ids", ids));
-    assertEquals(ids, command.selection().documentIds());
+    assertTrue(command.selection().all());
     ids.add("doc-128");
-    assertEquals(128, command.selection().documentIds().size());
-    assertInvalid(Map.of("question", "政策？", "document_ids", ids));
+    assertTrue(command.selection().documentIds().isEmpty());
+    assertTrue(
+        AnswerRequestMapper.command(Map.of("question", "政策？", "document_ids", ids))
+            .selection()
+            .all());
+    assertTrue(
+        AnswerRequestMapper.command(
+                Map.of("question", "政策？", "document_ids", List.of("doc-one", "doc-one")))
+            .selection()
+            .all());
     for (Object value :
-        List.of(
-            List.of("doc-one", "doc-one"),
-            List.of("../private"),
-            List.of(3),
-            "doc-one",
-            Arrays.asList("doc-one", null))) {
+        List.of(List.of("../private"), List.of(3), "doc-one", Arrays.asList("doc-one", null))) {
       assertInvalid(Map.of("question", "政策？", "document_ids", value));
     }
     var nullSelection = new LinkedHashMap<String, Object>();
@@ -52,14 +54,14 @@ class AnswerRequestMapperTest {
   }
 
   @Test
-  void validatesQuestionUnicodeAndExactUtf8BudgetWithoutCoercion() {
+  void validatesQuestionUnicodeWithoutAnArtificialUtf8LengthLimitOrCoercion() {
     String boundary = "中".repeat(1365) + "a";
     assertEquals(boundary, AnswerRequestMapper.command(Map.of("question", boundary)).question());
+    assertEquals(
+        boundary + "a", AnswerRequestMapper.command(Map.of("question", boundary + "a")).question());
     assertEquals("政策😀？", AnswerRequestMapper.command(Map.of("question", "政策😀？")).question());
     for (Object question :
-        new Object[] {
-          null, true, 3, List.of("text"), "", "  \n", "\uD800", "\uDC00", "\u0000", boundary + "a"
-        }) {
+        new Object[] {null, true, 3, List.of("text"), "", "  \n", "\uD800", "\uDC00", "\u0000"}) {
       var body = new LinkedHashMap<String, Object>();
       body.put("question", question);
       assertInvalid(body);

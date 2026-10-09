@@ -90,10 +90,19 @@ public final class AudioVectorIndexingService {
       Duration processingBudget,
       int maxConcurrent) {
     this(
-        store, vectors, evidence, management, ingestion, permissions,
-        fixedTextTarget(textTarget, audioTarget), audioTarget, models, projection,
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
+        fixedTextTarget(textTarget, audioTarget),
+        audioTarget,
+        models,
+        projection,
         decoder,
-        processingBudget, maxConcurrent);
+        processingBudget,
+        maxConcurrent);
   }
 
   public static AudioVectorIndexingService managed(
@@ -111,8 +120,19 @@ public final class AudioVectorIndexingService {
       Duration processingBudget,
       int maxConcurrent) {
     return new AudioVectorIndexingService(
-        store, vectors, evidence, management, ingestion, permissions, textTarget,
-        audioTarget, models, projection, decoder, processingBudget, maxConcurrent);
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
+        textTarget,
+        audioTarget,
+        models,
+        projection,
+        decoder,
+        processingBudget,
+        maxConcurrent);
   }
 
   private AudioVectorIndexingService(
@@ -177,10 +197,19 @@ public final class AudioVectorIndexingService {
       Supplier<IndexTarget> profiles,
       BiFunction<AudioVectorBuildClaim, Duration, AudioVectorReceipt> worker) {
     this(
-        store, vectors, evidence, management, ingestion, permissions,
-        fixedTextTarget(textTarget, audioTarget), audioTarget,
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
+        fixedTextTarget(textTarget, audioTarget),
+        audioTarget,
         decoder,
-        processingBudget, maxConcurrent, profiles, worker);
+        processingBudget,
+        maxConcurrent,
+        profiles,
+        worker);
   }
 
   private AudioVectorIndexingService(
@@ -375,7 +404,9 @@ public final class AudioVectorIndexingService {
   }
 
   private static Supplier<IndexTarget> fixedTextTarget(IndexTarget text, IndexTarget media) {
-    if (text == null || media == null || text.projectionIdentity().equals(media.projectionIdentity())) {
+    if (text == null
+        || media == null
+        || text.projectionIdentity().equals(media.projectionIdentity())) {
       throw ModelValues.invalid();
     }
     return () -> text;
@@ -384,7 +415,8 @@ public final class AudioVectorIndexingService {
   private IndexTarget currentTextTarget() {
     IndexTarget current = managedTextTarget == null ? textTarget.get() : managedTextTarget.get();
     if (current == null) {
-      throw new ApplicationException(FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
+      throw new ApplicationException(
+          FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
     }
     if (current.projectionIdentity().equals(audioTarget.projectionIdentity())) {
       throw stale();

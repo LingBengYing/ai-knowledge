@@ -144,15 +144,29 @@ class DocumentRemovalHttpTest {
     assertFalse(document.path("can_reindex").asBoolean());
     assertFalse(document.path("can_answer").asBoolean());
     for (String action : List.of("delete", "reindex")) {
+      var command = new java.util.LinkedHashMap<String, Object>();
+      command.put("document_ids", List.of("capability-fixture"));
+      command.put("action", action);
+      if (action.equals("reindex")) {
+        command.put("base_publication_ids", Map.of("capability-fixture", "observed-publication"));
+      }
       var result =
           request(
               base,
               "POST",
               "/v1/management/document-actions",
               identity("owner"),
-              json.writeValueAsString(
-                  Map.of("document_ids", List.of("capability-fixture"), "action", action)));
-      assertProblem(result, 501, "migration_incomplete");
+              json.writeValueAsString(command));
+      if (action.equals("delete")) {
+        assertProblem(result, 501, "migration_incomplete");
+      } else {
+        assertEquals(200, result.statusCode());
+        var items = json.readTree(result.body()).path("items");
+        assertEquals(1, items.size());
+        assertEquals("capability-fixture", items.get(0).path("document_id").asString());
+        assertFalse(items.get(0).path("ok").asBoolean());
+        assertEquals("indexing_unavailable", items.get(0).path("error_code").asString());
+      }
     }
   }
 

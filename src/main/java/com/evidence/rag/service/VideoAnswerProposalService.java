@@ -8,13 +8,13 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.PublishedVideoCandidate;
 import com.evidence.rag.model.domain.PublishedVideoEvidence;
 import com.evidence.rag.model.domain.PublishedVideoGroup;
 import com.evidence.rag.model.domain.QueryRankCandidate;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TraceDraft;
 import com.evidence.rag.model.domain.VideoAnswerProposal;
 import com.evidence.rag.model.domain.VideoAssessment;
@@ -64,8 +64,13 @@ public final class VideoAnswerProposalService {
   }
 
   private VideoAnswerProposalService(
-      EvidenceService evidence, TextModels text, FactTextModels factText, FactVisionModels vision,
-      RetrievalProjection projection, IndexTarget target, Duration assessmentBudget,
+      EvidenceService evidence,
+      TextModels text,
+      FactTextModels factText,
+      FactVisionModels vision,
+      RetrievalProjection projection,
+      IndexTarget target,
+      Duration assessmentBudget,
       TextIndexAnchor anchor) {
     if (evidence == null
         || text == null
@@ -73,7 +78,9 @@ public final class VideoAnswerProposalService {
         || vision == null
         || projection == null
         || target == null
-        || (anchor == null ? !target.modelRevision().equals(text.revision()) : !target.equals(anchor.target()))
+        || (anchor == null
+            ? !target.modelRevision().equals(text.revision())
+            : !target.equals(anchor.target()))
         || !target.projectionIdentity().equals(projection.identity())) {
       throw ModelValues.invalid();
     }
@@ -95,23 +102,39 @@ public final class VideoAnswerProposalService {
 
   /** Video fact generation and retrieval use the currently installed managed text roles. */
   public static VideoAnswerProposalService managed(
-      EvidenceService evidence, TextModels text, FactTextModels facts, FactVisionModels vision,
-      RetrievalProjection projection, IndexTarget target, Duration budget, TextIndexAnchor anchor) {
+      EvidenceService evidence,
+      TextModels text,
+      FactTextModels facts,
+      FactVisionModels vision,
+      RetrievalProjection projection,
+      IndexTarget target,
+      Duration budget,
+      TextIndexAnchor anchor) {
     if (anchor == null) {
       throw ModelValues.invalid();
     }
-    return new VideoAnswerProposalService(evidence, text, facts, vision, projection, target, budget, anchor);
+    return new VideoAnswerProposalService(
+        evidence, text, facts, vision, projection, target, budget, anchor);
   }
 
   /** Rebind an explicitly configured legacy video graph to the installed text roles. */
   public VideoAnswerProposalService withTextBundle(
-      TextModels models, RetrievalProjection currentProjection, IndexTarget currentTarget,
+      TextModels models,
+      RetrievalProjection currentProjection,
+      IndexTarget currentTarget,
       TextIndexAnchor anchor) {
     if (!(models instanceof FactTextModels facts) || anchor == null) {
       throw ModelValues.invalid();
     }
-    return new VideoAnswerProposalService(evidence, models, facts, vision, currentProjection,
-        currentTarget, assessmentBudget, anchor);
+    return new VideoAnswerProposalService(
+        evidence,
+        models,
+        facts,
+        vision,
+        currentProjection,
+        currentTarget,
+        assessmentBudget,
+        anchor);
   }
 
   public VideoAnswerProposal propose(

@@ -3,18 +3,19 @@ package com.evidence.rag.security.authorization;
 import static com.evidence.rag.model.domain.ModelValues.notFound;
 
 /**
- * Pure policy over the role read in the current authority transaction. Organization and principal
- * scope are applied by Repository SQL before this snapshot can be supplied.
+ * Shared-workspace policy over a document snapshot. Repositories establish organization and current
+ * lifecycle membership before supplying the member marker; legacy roles are no longer restrictions.
  */
 public final class DocumentPermissionPolicy {
   public boolean canRead(String currentRole) {
-    return "owner".equals(currentRole)
+    return "member".equals(currentRole)
+        || "owner".equals(currentRole)
         || "editor".equals(currentRole)
         || "reader".equals(currentRole);
   }
 
   public boolean canEdit(String currentRole) {
-    return "owner".equals(currentRole) || "editor".equals(currentRole);
+    return canRead(currentRole);
   }
 
   public void require(String currentRole, boolean edit) {

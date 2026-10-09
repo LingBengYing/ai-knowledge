@@ -94,6 +94,32 @@ public final class AnswerProtocolServer implements AutoCloseable {
                   "quote",
                   evidence.path("text").asString()));
         }
+        Object generated = Map.of("refused", quotes.isEmpty(), "quotes", quotes);
+        if (input.has("title") && input.path("evidence").isArray()) {
+          var sections = new ArrayList<Object>();
+          for (var evidence : input.path("evidence")) {
+            sections.add(
+                Map.of(
+                    "heading", "本机协议联调原文 " + (sections.size() + 1),
+                    "body", evidence.path("text").asString(),
+                    "evidence_ids", List.of(evidence.path("evidence_id").asString())));
+          }
+          generated = Map.of("sections", sections);
+        }
+        if (!input.path("evidence").isEmpty()
+            && input.path("contexts").isArray()
+            && input.path("evidence").get(0).has("context_id")) {
+          var statements = new ArrayList<Object>();
+          for (var evidence : input.path("evidence")) {
+            statements.add(
+                Map.of(
+                    "text",
+                    evidence.path("text").asString(),
+                    "evidence_ids",
+                    List.of(evidence.path("evidence_id").asString())));
+          }
+          generated = Map.of("refused", statements.isEmpty(), "statements", statements);
+        }
         response =
             Map.of(
                 "choices",
@@ -105,11 +131,7 @@ public final class AnswerProtocolServer implements AutoCloseable {
                         "stop",
                         "message",
                         Map.of(
-                            "role",
-                            "assistant",
-                            "content",
-                            JSON.writeValueAsString(
-                                Map.of("refused", quotes.isEmpty(), "quotes", quotes))))));
+                            "role", "assistant", "content", JSON.writeValueAsString(generated)))));
       } else {
         Object data;
         if (path.endsWith("/collections/has")) {

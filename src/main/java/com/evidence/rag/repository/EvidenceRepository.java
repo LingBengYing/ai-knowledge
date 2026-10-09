@@ -196,10 +196,9 @@ public final class EvidenceRepository {
       Actor actor, String traceId, int ordinal) {
     var rows =
         store.rows(
-            "SELECT e.* FROM video_subtitle_trace_evidence e JOIN query_traces t ON t.id=e.trace_id WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND e.citation_ordinal=? AND t.outcome='answered'",
+            "SELECT e.* FROM video_subtitle_trace_evidence e JOIN query_traces t ON t.id=e.trace_id WHERE t.id=? AND t.workspace_id=? AND e.citation_ordinal=? AND t.outcome='answered'",
             traceId,
             actor.workspaceId(),
-            actor.principalId(),
             ordinal);
     if (rows.isEmpty()) {
       return null;
@@ -307,10 +306,9 @@ public final class EvidenceRepository {
       Actor actor, String traceId, int ordinal) {
     var rows =
         store.rows(
-            "SELECT e.* FROM video_ocr_trace_evidence e JOIN query_traces t ON t.id=e.trace_id WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND e.citation_ordinal=? AND t.outcome='answered'",
+            "SELECT e.* FROM video_ocr_trace_evidence e JOIN query_traces t ON t.id=e.trace_id WHERE t.id=? AND t.workspace_id=? AND e.citation_ordinal=? AND t.outcome='answered'",
             traceId,
             actor.workspaceId(),
-            actor.principalId(),
             ordinal);
     if (rows.isEmpty()) {
       return null;
@@ -342,7 +340,6 @@ public final class EvidenceRepository {
                 + VIDEO_AUTHORIZATION
                 + " AND p.id=? AND p.document_id=? AND p.revision_id=? AND p.source_sha256=? AND f.id=?",
             actor.workspaceId(),
-            actor.principalId(),
             publication.publicationId(),
             publication.documentId(),
             publication.sourceRevisionId(),
@@ -370,7 +367,6 @@ public final class EvidenceRepository {
   private static final String CURRENT_PUBLICATIONS =
       """
       FROM documents d
-      JOIN document_acl acl ON acl.document_id=d.id
       JOIN corpus_documents c ON c.document_id=d.id
       JOIN active_corpus_publications a ON a.document_id=d.id
       JOIN index_publications p ON p.id=a.publication_id AND p.document_id=d.id
@@ -378,7 +374,7 @@ public final class EvidenceRepository {
       JOIN corpus_revisions r ON r.id=p.revision_id AND r.document_id=d.id
       JOIN indexing_jobs j ON j.id=p.job_id AND j.state='indexed'
         AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id
-      WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+      WHERE d.workspace_id=?
         AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         AND c.parsed_revision_id=r.id AND r.parsed_at IS NOT NULL
         AND d.source_sha256=p.source_sha256 AND r.source_sha256=p.source_sha256
@@ -403,10 +399,9 @@ public final class EvidenceRepository {
       JOIN index_publications p ON p.id=e.publication_id
       JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
       JOIN documents d ON d.id=p.document_id
-      JOIN document_acl acl ON acl.document_id=d.id
       JOIN corpus_segments s ON s.id=e.source_segment_id AND s.revision_id=p.revision_id
       JOIN corpus_pages pg ON pg.revision_id=s.revision_id AND pg.page_number=s.page_number
-      WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+      WHERE d.workspace_id=?
         AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
       """;
   private static final String PUBLISHED_IMAGES =
@@ -415,9 +410,8 @@ public final class EvidenceRepository {
       JOIN index_publications p ON p.id=e.publication_id
       JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
       JOIN documents d ON d.id=p.document_id
-      JOIN document_acl acl ON acl.document_id=d.id
       JOIN image_evidence i ON i.id=e.image_evidence_id AND i.revision_id=p.revision_id
-      WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+      WHERE d.workspace_id=?
         AND d.document_type='image' AND d.mime_type IN ('image/png','image/jpeg')
         AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
       """;
@@ -427,10 +421,9 @@ public final class EvidenceRepository {
       JOIN index_publications p ON p.id=e.publication_id
       JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
       JOIN documents d ON d.id=p.document_id
-      JOIN document_acl acl ON acl.document_id=d.id
       JOIN audio_spans s ON s.id=e.audio_span_id AND s.revision_id=p.revision_id AND s.index_ordinal IS NOT NULL
       JOIN audio_compilations h ON h.revision_id=s.revision_id AND h.source_sha256=p.source_sha256 AND h.compiler_revision=p.parser_revision
-      WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+      WHERE d.workspace_id=?
         AND d.document_type='audio'
         AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
       """;
@@ -440,12 +433,11 @@ public final class EvidenceRepository {
       """
       JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
       JOIN documents d ON d.id=p.document_id
-      JOIN document_acl acl ON acl.document_id=d.id
       JOIN video_compilations h ON h.revision_id=p.revision_id AND h.source_sha256=p.source_sha256 AND h.compiler_revision=p.parser_revision
       JOIN corpus_documents c ON c.document_id=d.id AND c.parsed_revision_id=p.revision_id
       JOIN corpus_revisions r ON r.id=p.revision_id AND r.document_id=d.id AND r.parsed_at IS NOT NULL
       JOIN indexing_jobs j ON j.id=p.job_id AND j.state='indexed' AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id
-      WHERE d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+      WHERE d.workspace_id=?
         AND d.document_type='video' AND d.source_sha256=p.source_sha256
         AND r.source_sha256=p.source_sha256 AND r.parser_revision=p.parser_revision
         AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
@@ -489,8 +481,11 @@ public final class EvidenceRepository {
     }
     return store
         .rows(
-            "SELECT p.* " + CURRENT_PUBLICATIONS
-                + " AND p.id IN (" + placeholders(scope.publications().size()) + ")"
+            "SELECT p.* "
+                + CURRENT_PUBLICATIONS
+                + " AND p.id IN ("
+                + placeholders(scope.publications().size())
+                + ")"
                 + " AND (EXISTS(SELECT 1 FROM video_transcript_publication_entries e WHERE e.publication_id=p.id)"
                 + " OR EXISTS(SELECT 1 FROM video_ocr_publication_entries e WHERE e.publication_id=p.id)"
                 + " OR EXISTS(SELECT 1 FROM video_subtitle_publication_entries e WHERE e.publication_id=p.id)) ORDER BY d.id",
@@ -503,21 +498,27 @@ public final class EvidenceRepository {
   /** Called only after the same-transaction publication candidate has been authorized. */
   public VideoTranscriptEvidence findVideoTranscriptSpan(
       PublicationVersion publication, String sourceId) {
-    var rows = store.rows(
-        "SELECT * FROM video_transcript_spans WHERE revision_id=? AND id=?",
-        publication.sourceRevisionId(), sourceId);
+    var rows =
+        store.rows(
+            "SELECT * FROM video_transcript_spans WHERE revision_id=? AND id=?",
+            publication.sourceRevisionId(),
+            sourceId);
     if (rows.size() != 1) {
       throw ModelValues.invalid();
     }
     var row = rows.getFirst();
-    var span = new AudioTranscriptSpan(
-        integer(row, "ordinal"), AuthorityRows.number(row, "start_ms"),
-        AuthorityRows.number(row, "end_ms"), text(row, "text"));
+    var span =
+        new AudioTranscriptSpan(
+            integer(row, "ordinal"), AuthorityRows.number(row, "start_ms"),
+            AuthorityRows.number(row, "end_ms"), text(row, "text"));
     if (!span.textSha256().equals(text(row, "text_sha256"))) {
       throw ModelValues.invalid();
     }
     return new VideoTranscriptEvidence(
-        text(row, "id"), publication.sourceRevisionId(), span, nullableInteger(row, "index_ordinal"));
+        text(row, "id"),
+        publication.sourceRevisionId(),
+        span,
+        nullableInteger(row, "index_ordinal"));
   }
 
   public List<PublishedVideoCandidate> findPublishedVideoCandidates(
@@ -694,9 +695,8 @@ public final class EvidenceRepository {
         store.rows(
             """
         SELECT c.original_blob FROM corpus_documents c JOIN documents d ON d.id=c.document_id
-        JOIN document_acl acl ON acl.document_id=d.id
         JOIN active_corpus_publications a ON a.document_id=d.id AND a.publication_id=? AND a.revision_id=?
-        WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+        WHERE d.id=? AND d.workspace_id=?
           AND d.document_type='video' AND c.initial_revision_id=? AND d.source_sha256=?
           AND LENGTH(c.original_blob) BETWEEN 1 AND ?
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
@@ -705,7 +705,6 @@ public final class EvidenceRepository {
             publication.sourceRevisionId(),
             publication.documentId(),
             actor.workspaceId(),
-            actor.principalId(),
             publication.sourceRevisionId(),
             publication.sourceSha256(),
             maximumBytes);
@@ -718,11 +717,10 @@ public final class EvidenceRepository {
         store.rows(
             """
         SELECT e.* FROM video_trace_evidence e JOIN query_traces t ON t.id=e.trace_id
-        WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND t.outcome='answered' AND e.citation_ordinal=?
+        WHERE t.id=? AND t.workspace_id=? AND t.outcome='answered' AND e.citation_ordinal=?
         """,
             traceId,
             actor.workspaceId(),
-            actor.principalId(),
             citationOrdinal);
     if (rows.isEmpty()) {
       return null;
@@ -754,11 +752,10 @@ public final class EvidenceRepository {
         store.rows(
             """
         SELECT p.* FROM video_trace_proofs p JOIN query_traces t ON t.id=p.trace_id
-        WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND t.outcome='answered'
+        WHERE t.id=? AND t.workspace_id=? AND t.outcome='answered'
         """,
             traceId,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (rows.isEmpty()) {
       return null;
     }
@@ -834,8 +831,7 @@ public final class EvidenceRepository {
     if (scope.publications().isEmpty()) {
       return List.of();
     }
-    var args =
-        new ArrayList<Object>(List.of(scope.actor().workspaceId(), scope.actor().principalId()));
+    var args = new ArrayList<Object>(List.of(scope.actor().workspaceId()));
     args.addAll(scope.publications().stream().map(PublicationVersion::publicationId).toList());
     return store
         .rows(
@@ -911,15 +907,13 @@ public final class EvidenceRepository {
             """
         SELECT c.original_blob FROM corpus_documents c
         JOIN documents d ON d.id=c.document_id
-        JOIN document_acl acl ON acl.document_id=d.id
-        WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+        WHERE d.id=? AND d.workspace_id=?
           AND d.document_type='audio' AND c.initial_revision_id=? AND d.source_sha256=?
           AND LENGTH(c.original_blob) BETWEEN 1 AND ?
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
             publication.documentId(),
             actor.workspaceId(),
-            actor.principalId(),
             publication.sourceRevisionId(),
             publication.sourceSha256(),
             maximumBytes);
@@ -932,11 +926,10 @@ public final class EvidenceRepository {
         store.rows(
             """
         SELECT e.* FROM audio_trace_evidence e JOIN query_traces t ON t.id=e.trace_id
-        WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND t.outcome='answered' AND e.citation_ordinal=?
+        WHERE t.id=? AND t.workspace_id=? AND t.outcome='answered' AND e.citation_ordinal=?
         """,
             traceId,
             actor.workspaceId(),
-            actor.principalId(),
             citationOrdinal);
     if (rows.isEmpty()) {
       return null;
@@ -1009,21 +1002,19 @@ public final class EvidenceRepository {
     }
   }
 
-  /** ACL filtering precedes the 129th-row capacity sentinel; no silent full-library truncation. */
+  /** Complete current organization scope; retrieval batches do not truncate the library. */
   public List<PublicationVersion> findActivePublications(Actor actor, DocumentSelection selection) {
     if (!selection.all() && selection.documentIds().isEmpty()) {
       return List.of();
     }
-    var args = new ArrayList<Object>(List.of(actor.workspaceId(), actor.principalId()));
+    var args = new ArrayList<Object>(List.of(actor.workspaceId()));
     String selected = "";
     if (!selection.all()) {
       selected = " AND d.id IN (" + placeholders(selection.documentIds().size()) + ")";
       args.addAll(selection.documentIds());
     }
     return store
-        .rows(
-            "SELECT p.* " + CURRENT_PUBLICATIONS + selected + " ORDER BY d.id LIMIT 129",
-            args.toArray())
+        .rows("SELECT p.* " + CURRENT_PUBLICATIONS + selected + " ORDER BY d.id", args.toArray())
         .stream()
         .map(EvidenceRepository::publication)
         .toList();
@@ -1055,8 +1046,7 @@ public final class EvidenceRepository {
     if (scope.publications().isEmpty()) {
       return List.of();
     }
-    var args =
-        new ArrayList<Object>(List.of(scope.actor().workspaceId(), scope.actor().principalId()));
+    var args = new ArrayList<Object>(List.of(scope.actor().workspaceId()));
     args.addAll(scope.publications().stream().map(PublicationVersion::publicationId).toList());
     return store
         .rows(
@@ -1077,8 +1067,7 @@ public final class EvidenceRepository {
     if (scope.publications().isEmpty()) {
       return List.of();
     }
-    var args =
-        new ArrayList<Object>(List.of(scope.actor().workspaceId(), scope.actor().principalId()));
+    var args = new ArrayList<Object>(List.of(scope.actor().workspaceId()));
     args.addAll(scope.publications().stream().map(PublicationVersion::publicationId).toList());
     return store
         .rows(
@@ -1201,9 +1190,7 @@ public final class EvidenceRepository {
             """
             SELECT c.original_blob FROM corpus_documents c
             JOIN documents d ON d.id=c.document_id
-            JOIN document_acl acl ON acl.document_id=d.id
-            WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=?
-              AND acl.role IN ('owner','editor','reader')
+            WHERE d.id=? AND d.workspace_id=?
               AND d.document_type='image' AND d.mime_type IN ('image/png','image/jpeg')
               AND c.initial_revision_id=? AND d.source_sha256=?
               AND LENGTH(c.original_blob) BETWEEN 1 AND ?
@@ -1211,7 +1198,6 @@ public final class EvidenceRepository {
             """,
             publication.documentId(),
             actor.workspaceId(),
-            actor.principalId(),
             publication.sourceRevisionId(),
             publication.sourceSha256(),
             maximumBytes);
@@ -1250,8 +1236,7 @@ public final class EvidenceRepository {
   }
 
   private static Object[] sourceArguments(EvidenceScope scope, List<String> physicalIds) {
-    var args =
-        new ArrayList<Object>(List.of(scope.actor().workspaceId(), scope.actor().principalId()));
+    var args = new ArrayList<Object>(List.of(scope.actor().workspaceId()));
     args.addAll(scope.publications().stream().map(PublicationVersion::publicationId).toList());
     args.addAll(physicalIds);
     return args.toArray();
@@ -1553,16 +1538,15 @@ public final class EvidenceRepository {
   }
 
   /**
-   * Only the trace's original actor may recover its frozen metadata. Current ACL is checked by
-   * Service.
+   * Workspace members may recover a shared source's frozen metadata. Current lifecycle and version
+   * are checked by Service; the original actor remains recorded in the immutable audit.
    */
   public EvidenceScope findTraceScope(Actor actor, String traceId) {
     var headers =
         store.rows(
-            "SELECT selection_all FROM query_traces WHERE id=? AND workspace_id=? AND actor_id=? AND outcome='answered'",
+            "SELECT selection_all FROM query_traces WHERE id=? AND workspace_id=? AND outcome='answered'",
             traceId,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (headers.isEmpty()) {
       return null;
     }
@@ -1587,11 +1571,10 @@ public final class EvidenceRepository {
         store.rows(
             """
         SELECT e.* FROM query_trace_evidence e JOIN query_traces t ON t.id=e.trace_id
-        WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND t.outcome='answered' AND e.citation_ordinal=?
+        WHERE t.id=? AND t.workspace_id=? AND t.outcome='answered' AND e.citation_ordinal=?
         """,
             traceId,
             actor.workspaceId(),
-            actor.principalId(),
             citationOrdinal);
     if (rows.isEmpty()) {
       return null;
@@ -1620,11 +1603,10 @@ public final class EvidenceRepository {
         store.rows(
             """
         SELECT e.* FROM image_trace_evidence e JOIN query_traces t ON t.id=e.trace_id
-        WHERE t.id=? AND t.workspace_id=? AND t.actor_id=? AND t.outcome='answered' AND e.citation_ordinal=?
+        WHERE t.id=? AND t.workspace_id=? AND t.outcome='answered' AND e.citation_ordinal=?
         """,
             traceId,
             actor.workspaceId(),
-            actor.principalId(),
             citationOrdinal);
     if (rows.isEmpty()) {
       return null;

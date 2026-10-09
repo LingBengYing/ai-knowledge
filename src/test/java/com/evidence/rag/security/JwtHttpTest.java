@@ -179,18 +179,21 @@ class JwtHttpTest {
   }
 
   @Test
-  void validStrangerSessionDoesNotInheritOwnerOrDevelopmentHeaderAccess() throws Exception {
+  void sameOrganizationMemberSharesDocumentsWithoutChangingTheirVerifiedIdentity()
+      throws Exception {
     String cookie = sessionCookie(token("stranger", ISSUER, "org-main"));
-    var documents =
-        request(
-            "GET",
-            "/v1/management/documents",
-            Map.of("Cookie", cookie, "X-Workspace-Id", "org-main", "X-Principal-Id", "owner"),
-            null);
+    var headers =
+        Map.of("Cookie", cookie, "X-Workspace-Id", "other-organization", "X-Principal-Id", "owner");
+    var documents = request("GET", "/v1/management/documents", headers, null);
     assertEquals(200, documents.statusCode());
-    assertEquals(0, body(documents).path("total").asInt());
-    assertEquals(0, body(documents).path("items").size());
-    assertFalse(documents.body().contains("Jwt-visible.pdf"));
+    assertEquals(1, body(documents).path("total").asInt());
+    assertEquals(
+        "jwt-fixture", body(documents).path("items").get(0).path("document_id").asString());
+    assertTrue(documents.body().contains("Jwt-visible.pdf"));
+    var session = request("GET", "/v1/session", headers, null);
+    assertEquals(200, session.statusCode());
+    assertEquals("stranger", body(session).path("principal_id").asString());
+    assertEquals("org-main", body(session).path("workspace_id").asString());
   }
 
   @Test

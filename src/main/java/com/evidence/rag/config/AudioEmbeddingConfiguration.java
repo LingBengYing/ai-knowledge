@@ -52,8 +52,9 @@ public class AudioEmbeddingConfiguration {
               environment.getProperty(prefix + "allow-loopback-http", Boolean.class, false));
       String collection = environment.getRequiredProperty(prefix + "milvus.collection");
       var image = images.getIfAvailable();
-      String textCollection = environment.getProperty("RAG_MILVUS_COLLECTION",
-          environment.getProperty("rag.milvus.collection"));
+      String textCollection =
+          environment.getProperty(
+              "RAG_MILVUS_COLLECTION", environment.getProperty("rag.milvus.collection"));
       if (!collection.startsWith("java_audio")
           || textCollection != null && collection.equals(textCollection)
           || image != null && collection.equals(image.projection().collection())
@@ -94,8 +95,11 @@ public class AudioEmbeddingConfiguration {
 
   // Existing callers can still bind an explicit complete legacy text configuration.
   AudioEmbeddingSettings audioEmbeddingSettings(
-      Environment environment, RagProperties properties, TextAdapterSettings text,
-      AudioDecoder decoder, ObjectProvider<ImageEmbeddingSettings> images) {
+      Environment environment,
+      RagProperties properties,
+      TextAdapterSettings text,
+      AudioDecoder decoder,
+      ObjectProvider<ImageEmbeddingSettings> images) {
     if (text == null) {
       throw invalid();
     }
@@ -131,15 +135,25 @@ public class AudioEmbeddingConfiguration {
       DocumentPermissionPolicy permissions,
       @Qualifier("indexingTarget") ObjectProvider<IndexTarget> textTarget,
       AudioEmbeddingSettings settings,
-      AudioDecoder decoder, ObjectProvider<ManagedTextRuntime> managed) {
+      AudioDecoder decoder,
+      ObjectProvider<ManagedTextRuntime> managed) {
     return AudioVectorIndexingService.managed(
-        store, vectors, evidence, management, ingestion, permissions,
+        store,
+        vectors,
+        evidence,
+        management,
+        ingestion,
+        permissions,
         () -> {
           var runtime = managed.getIfAvailable();
           return runtime == null ? textTarget.getIfAvailable() : runtime.currentTarget();
         },
-        settings.target(), settings.models(), settings.projection(), decoder,
-        settings.processingBudget(), settings.maxConcurrent());
+        settings.target(),
+        settings.models(),
+        settings.projection(),
+        decoder,
+        settings.processingBudget(),
+        settings.maxConcurrent());
   }
 
   private static void requireLocal(Environment environment) {

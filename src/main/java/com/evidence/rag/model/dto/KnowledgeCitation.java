@@ -18,7 +18,9 @@ public record KnowledgeCitation(
     @JsonProperty("media_type") String mediaType,
     String quote,
     @JsonProperty("text_sha256") String textSha256,
-    Integer page, Integer start, Integer end,
+    Integer page,
+    Integer start,
+    Integer end,
     @JsonProperty("start_ms") BigDecimal startMs,
     @JsonProperty("end_ms") BigDecimal endMs,
     @JsonProperty("time_precision") String timePrecision,
@@ -29,15 +31,29 @@ public record KnowledgeCitation(
     var source = reference.evidence().source();
     var publication = source.publication();
     boolean document = source.kind() == ProductHelpEvidence.Kind.DOCUMENT_TEXT;
-    return new KnowledgeCitation(reference.citationId(), source.kind().name().toLowerCase(Locale.ROOT),
-        publication.documentId(), publication.sourceRevisionId(), source.filename(),
-        publication.sourceSha256(), publication.parserRevision(), source.mediaType(),
-        reference.quote(), reference.quoteSha256(), source.page(),
-        document ? reference.start() : null, document ? reference.end() : null,
+    return new KnowledgeCitation(
+        reference.citationId(),
+        source.kind().name().toLowerCase(Locale.ROOT),
+        publication.documentId(),
+        publication.sourceRevisionId(),
+        source.filename(),
+        publication.sourceSha256(),
+        publication.parserRevision(),
+        source.mediaType(),
+        reference.quote(),
+        reference.quoteSha256(),
+        source.page(),
+        document ? reference.start() : null,
+        document ? reference.end() : null,
         source.startUs() == null ? null : BigDecimal.valueOf(source.startUs(), 3),
         source.endUs() == null ? null : BigDecimal.valueOf(source.endUs(), 3),
-        source.timePrecision(), source.origin(),
-        "/v1/documents/" + publication.documentId() + "/revisions/" + publication.sourceRevisionId() + "/content",
+        source.timePrecision(),
+        source.origin(),
+        "/v1/documents/"
+            + publication.documentId()
+            + "/revisions/"
+            + publication.sourceRevisionId()
+            + "/content",
         "/v1/knowledge-sources/" + answerId + "/" + reference.citationId());
   }
 

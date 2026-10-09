@@ -16,6 +16,11 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 public class DocumentReplacementConfiguration {
+  @Bean("documentReplacementUploadTimeoutMs")
+  Integer documentReplacementUploadTimeoutMs(IngestionSettings settings) {
+    return settings.uploadTimeoutMs();
+  }
+
   @Bean
   DocumentUpdateRepository documentUpdateRepository(SqliteAuthorityStore store) {
     return new DocumentUpdateRepository(store);

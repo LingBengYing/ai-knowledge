@@ -3,6 +3,7 @@ package com.evidence.rag.repository;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -200,7 +201,7 @@ class SynopsisMaterialRepositoryTest {
   }
 
   @Test
-  void currentPublicationAclAndExactSavedReferenceAreRequiredForMaterialAndSource() {
+  void currentWorkspacePublicationAndExactSavedReferenceAreRequiredForMaterialAndSource() {
     try (var fixture = new AuthorityTestContext(directory)) {
       var published = text(fixture, "private original");
       var repository = new SynopsisMaterialRepository(fixture.store());
@@ -235,7 +236,11 @@ class SynopsisMaterialRepositoryTest {
           assertThrows(
                   ApplicationException.class, () -> tx(fixture, () -> repository.load(OWNER, old)))
               .code());
-      var outsider = new Actor(OWNER.workspaceId(), "outsider");
+      var member = new Actor(OWNER.workspaceId(), "second-member");
+      assertTrue(
+          tx(fixture, () -> repository.publication(member, published.documentId())).isPresent());
+      assertNotNull(tx(fixture, () -> repository.source(member, published, reference(item))));
+      var outsider = new Actor("other-workspace", "outsider");
       assertTrue(
           tx(fixture, () -> repository.publication(outsider, published.documentId())).isEmpty());
       assertEquals(
@@ -249,7 +254,12 @@ class SynopsisMaterialRepositoryTest {
           () -> {
             fixture
                 .store()
-                .execute("DELETE FROM document_acl WHERE document_id=?", published.documentId());
+                .execute(
+                    "INSERT INTO document_tombstones VALUES(?,?,?,?)",
+                    published.documentId(),
+                    OWNER.workspaceId(),
+                    OWNER.principalId(),
+                    "2026-10-08T00:00:00Z");
             return null;
           });
       assertTrue(

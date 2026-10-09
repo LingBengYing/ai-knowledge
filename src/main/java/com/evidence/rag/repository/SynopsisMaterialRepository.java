@@ -189,16 +189,13 @@ public final class SynopsisMaterialRepository {
         ) e JOIN index_publications p ON p.id=e.publication_id
         JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
         JOIN documents d ON d.id=p.document_id
-        JOIN document_acl acl ON acl.document_id=d.id
-        WHERE p.id=? AND p.revision_id=? AND d.workspace_id=? AND acl.principal_id=?
-          AND acl.role IN ('owner','editor','reader')
+        WHERE p.id=? AND p.revision_id=? AND d.workspace_id=?
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         ORDER BY e.kind_order,e.primary_order,e.secondary_order,e.source_id
         """,
             publication.publicationId(),
             publication.sourceRevisionId(),
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (rows.size() != publication.segmentCount()) {
       throw ModelValues.notFound();
     }
@@ -229,18 +226,16 @@ public final class SynopsisMaterialRepository {
         SELECT d.filename,d.mime_type,c.original_blob FROM index_publications p
         JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
         JOIN documents d ON d.id=p.document_id
-        JOIN document_acl acl ON acl.document_id=d.id
         JOIN corpus_documents c ON c.document_id=d.id AND c.initial_revision_id=p.revision_id
         WHERE p.id=? AND p.revision_id=? AND p.source_sha256=? AND d.source_sha256=p.source_sha256
-          AND d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+          AND d.workspace_id=?
           AND LENGTH(c.original_blob) BETWEEN 1 AND 20971520
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
             publication.publicationId(),
             publication.sourceRevisionId(),
             publication.sourceSha256(),
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (rows.size() != 1) {
       throw ModelValues.notFound();
     }
@@ -412,16 +407,15 @@ public final class SynopsisMaterialRepository {
         JOIN index_publications p ON p.id=e.publication_id
         JOIN video_transcript_spans s ON s.id=e.video_transcript_span_id AND s.revision_id=p.revision_id
         JOIN active_corpus_publications a ON a.publication_id=p.id AND a.document_id=p.document_id AND a.revision_id=p.revision_id
-        JOIN documents d ON d.id=p.document_id JOIN document_acl acl ON acl.document_id=d.id
+        JOIN documents d ON d.id=p.document_id
         WHERE p.id=? AND e.physical_segment_id=? AND s.id=? AND s.index_ordinal IS NOT NULL
-          AND d.workspace_id=? AND acl.principal_id=? AND acl.role IN ('owner','editor','reader')
+          AND d.workspace_id=?
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
                 publication.publicationId(),
                 entry.id(),
                 entry.sourceId(),
-                scope.actor().workspaceId(),
-                scope.actor().principalId()));
+                scope.actor().workspaceId()));
     var span =
         new AudioTranscriptSpan(
             AuthorityRows.integer(row, "ordinal"),

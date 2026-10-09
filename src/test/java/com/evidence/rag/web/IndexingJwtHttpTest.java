@@ -115,7 +115,7 @@ class IndexingJwtHttpTest {
   }
 
   @Test
-  void bearerCookieAndCurrentAclProtectCreateCancelRetryAndPublication() throws Exception {
+  void bearerCookieAndOrganizationProtectSharedCreateCancelRetryAndPublication() throws Exception {
     var authority = context.getBean(IngestionService.class);
     var owner = new Actor("org-main", "owner");
     byte[] content = "合成JWT索引证据650元".getBytes(StandardCharsets.UTF_8);
@@ -156,20 +156,6 @@ class IndexingJwtHttpTest {
                 null)
             .statusCode());
     assertEquals(
-        404,
-        request(
-                "POST",
-                path,
-                Map.of(
-                    "Authorization",
-                    "Bearer " + strangerToken,
-                    "X-Principal-Id",
-                    "owner",
-                    "X-Workspace-Id",
-                    "org-main"),
-                null)
-            .statusCode());
-    assertEquals(
         403,
         request("POST", path, Map.of("Cookie", cookie, "Origin", "https://untrusted.invalid"), null)
             .statusCode());
@@ -178,27 +164,39 @@ class IndexingJwtHttpTest {
     external.failureMode = "block-embedding";
     var created =
         request(
-            "POST", path, Map.of("Authorization", "Bearer " + ownerToken, "Origin", base), null);
+            "POST",
+            path,
+            Map.of(
+                "Authorization",
+                "Bearer " + strangerToken,
+                "X-Principal-Id",
+                "owner",
+                "X-Workspace-Id",
+                "org-main",
+                "Origin",
+                base),
+            null);
     assertEquals(202, created.statusCode());
     String task = json.readTree(created.body()).path("task_id").asString();
     assertTrue(external.embeddingStarted.await(8, TimeUnit.SECONDS));
     String taskPath = "/v1/indexings/" + task;
     assertEquals(
-        404,
+        200,
         request("GET", taskPath, Map.of("Authorization", "Bearer " + strangerToken), null)
             .statusCode());
-    assertEquals(
-        404,
-        request(
-                "POST",
-                taskPath + "/cancel",
-                Map.of("Authorization", "Bearer " + strangerToken),
-                null)
-            .statusCode());
     var cancelled =
-        request("POST", taskPath + "/cancel", Map.of("Cookie", cookie, "Origin", base), null);
+        request(
+            "POST",
+            taskPath + "/cancel",
+            Map.of("Authorization", "Bearer " + strangerToken, "Origin", base),
+            null);
     assertEquals(200, cancelled.statusCode());
     assertEquals("cancelled", json.readTree(cancelled.body()).path("state").asString());
+    assertEquals(
+        "cancelled",
+        json.readTree(request("GET", taskPath, Map.of("Cookie", cookie), null).body())
+            .path("state")
+            .asString());
     assertNull(first(managementPage(owner, Map.of())).get("active_revision_id"));
     external.failureMode = "";
     external.releaseEmbedding.countDown();

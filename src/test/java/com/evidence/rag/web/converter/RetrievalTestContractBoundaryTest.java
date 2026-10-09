@@ -33,18 +33,39 @@ class RetrievalTestContractBoundaryTest {
   private static final String SOURCE_SHA = "a".repeat(64);
 
   @Test
-  void defaultsPreserveTheFullQuestionAndExplicitEmptySelectionNeverBecomesAll() {
+  void completeTemporarySettingsAreTypedAndCannotMixWithLegacyOptions() {
+    String settings =
+        "{\"search_method\":\"full_text\",\"ranking_mode\":\"weighted\","
+            + "\"dense_weight\":0.2,\"top_k\":6,\"score_threshold_enabled\":true,\"score_threshold\":0.7}";
+    var command = request("{\"question\":\"q\",\"retrieval_settings\":" + settings + "}");
+    assertEquals("full_text", command.retrievalSettings().searchMethod());
+    assertEquals(6, command.retrievalSettings().topK());
+    assertNull(command.topK());
+    assertNull(command.rerank());
+    assertInvalid(
+        () -> request("{\"question\":\"q\",\"top_k\":3,\"retrieval_settings\":" + settings + "}"));
+    assertInvalid(
+        () ->
+            request(
+                "{\"question\":\"q\",\"rerank\":false,\"retrieval_settings\":" + settings + "}"));
+    assertInvalid(() -> request("{\"question\":\"q\",\"retrieval_settings\":{\"top_k\":3}}"));
+    assertInvalid(() -> request("{\"question\":\"q\",\"retrieval_settings\":null}"));
+  }
+
+  @Test
+  void defaultsPreserveTheFullQuestionAndDeprecatedSelectionAlwaysUsesWorkspaceAll() {
     String question = "  合成预算😀？\n请保留全部范围。  ";
     var all = request(JSON.writeValueAsString(Map.of("question", question)));
     assertEquals(question, all.answer().question());
     assertTrue(all.answer().selection().all());
-    assertEquals(5, all.topK());
-    assertTrue(all.rerank());
+    assertNull(all.topK());
+    assertNull(all.rerank());
+    assertNull(all.retrievalSettings());
     var empty =
         request(
             JSON.writeValueAsString(
                 Map.of("question", question, "document_ids", List.of(), "rerank", false)));
-    assertFalse(empty.answer().selection().all());
+    assertTrue(empty.answer().selection().all());
     assertTrue(empty.answer().selection().documentIds().isEmpty());
     assertFalse(empty.rerank());
     assertFalse(empty.toString().contains("合成预算"));
@@ -107,39 +128,43 @@ class RetrievalTestContractBoundaryTest {
   }
 
   @Test
-  void theWholeSelectedSetIsPreservedAndAnInvalidTailCannotBeDropped() {
+  void deprecatedSelectionCannotRestrictTheWorkspaceButInvalidShapesAreRejected() {
     var ids = new ArrayList<String>();
     for (int i = 0; i < 128; i++) {
       ids.add("synthetic-doc-" + i);
     }
     var command = request(JSON.writeValueAsString(Map.of("question", "q", "document_ids", ids)));
-    assertFalse(command.answer().selection().all());
-    assertEquals(ids, command.answer().selection().documentIds());
+    assertTrue(command.answer().selection().all());
+    assertTrue(command.answer().selection().documentIds().isEmpty());
     assertThrows(
         UnsupportedOperationException.class,
         () -> command.answer().selection().documentIds().clear());
     ids.add("synthetic-doc-128");
-    assertInvalid(
-        () -> request(JSON.writeValueAsString(Map.of("question", "q", "document_ids", ids))));
-    assertEquals(128, command.answer().selection().documentIds().size());
+    assertTrue(
+        request(JSON.writeValueAsString(Map.of("question", "q", "document_ids", ids)))
+            .answer()
+            .selection()
+            .all());
+    assertTrue(
+        request("{\"question\":\"q\",\"document_ids\":[\"doc-one\",\"doc-one\"]}")
+            .answer()
+            .selection()
+            .all());
     for (String selected :
-        List.of(
-            "null",
-            "\"doc-one\"",
-            "[\"doc-one\",null]",
-            "[\"doc-one\",\"doc-one\"]",
-            "[\"doc-one\",\"../tail\"]")) {
+        List.of("null", "\"doc-one\"", "[\"doc-one\",null]", "[\"doc-one\",\"../tail\"]")) {
       assertInvalid(() -> request("{\"question\":\"q\",\"document_ids\":" + selected + "}"));
     }
   }
 
   @Test
-  void questionBudgetUsesCompleteUtf8AndRejectsUnpairedUnicodeInsteadOfReplacingIt() {
+  void questionKeepsCompleteUtf8BeyondOldBudgetAndRejectsUnpairedUnicode() {
     String complete = "😀".repeat(1024);
     assertEquals(
         complete,
         request(JSON.writeValueAsString(Map.of("question", complete))).answer().question());
-    assertInvalid(() -> request(JSON.writeValueAsString(Map.of("question", complete + "a"))));
+    assertEquals(
+        complete + "a",
+        request(JSON.writeValueAsString(Map.of("question", complete + "a"))).answer().question());
     assertInvalid(() -> request("{\"question\":\"\\uD800\"}"));
     assertInvalid(() -> request("{\"question\":\"\\u0000\"}"));
   }
@@ -158,6 +183,7 @@ class RetrievalTestContractBoundaryTest {
             "reason",
             "scope_count",
             "score_kind",
+            "effective_settings",
             "matches"),
         new HashSet<>(wire.propertyNames()));
     var hit = wire.path("matches").get(0);
@@ -256,9 +282,8 @@ class RetrievalTestContractBoundaryTest {
               new RetrievalTestResult(
                   TEST_ID, version, "empty", "empty_scope", 0, "rrf", List.of()));
     }
-    for (int scopeCount : new int[] {-1, 129}) {
-      assertInvalid(() -> result("empty", "no_matches", scopeCount, List.of()));
-    }
+    assertInvalid(() -> result("empty", "no_matches", -1, List.of()));
+    assertEquals(129, result("empty", "no_matches", 129, List.of()).scopeCount());
     assertInvalid(
         () ->
             new RetrievalTestResult(

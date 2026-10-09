@@ -204,6 +204,10 @@ class PdfOcrMainlineHttpTest {
           var source = json("GET", citation.path("source_url").asString(), null, null, 200);
           assertEquals(citation, source.path("citation"));
           assertTrue(source.path("image").isMissingNode());
+          var sharedSource =
+              request("GET", citation.path("source_url").asString(), null, null, "other-owner");
+          assertEquals(200, sharedSource.statusCode());
+          assertEquals(source, JSON.readTree(sharedSource.body()));
         }
         var original = json("GET", "/v1/documents/" + doc + "/original", null, null, 200);
         assertEquals(revision, original.path("revision_id").asString());
@@ -213,10 +217,13 @@ class PdfOcrMainlineHttpTest {
         assertEquals(200, binary.statusCode());
         assertArrayEquals(pdf, binary.body());
         assertEquals("application/pdf", binary.headers().firstValue("Content-Type").orElseThrow());
+        String contentUrl = original.path("content_url").asString();
+        var sharedOriginal = request("GET", contentUrl, null, null, "other-owner");
+        assertEquals(200, sharedOriginal.statusCode());
+        assertArrayEquals(pdf, sharedOriginal.body());
+        assertEquals(422, request("GET", contentUrl, null, null, null).statusCode());
         assertEquals(
-            404,
-            request("GET", original.path("content_url").asString(), null, null, "other-owner")
-                .statusCode());
+            401, request("GET", contentUrl, null, null, "other-org", "pdf-owner").statusCode());
       }
     }
   }
@@ -278,12 +285,19 @@ class PdfOcrMainlineHttpTest {
 
   private HttpResponse<byte[]> request(
       String method, String path, byte[] body, String type, String actor) throws Exception {
+    return request(method, path, body, type, "org-main", actor);
+  }
+
+  private HttpResponse<byte[]> request(
+      String method, String path, byte[] body, String type, String workspace, String actor)
+      throws Exception {
     var request =
         HttpRequest.newBuilder(URI.create(base + path))
             .timeout(Duration.ofSeconds(35))
-            .header("X-Workspace-Id", "org-main")
-            .header("X-Principal-Id", actor)
             .header("Origin", base);
+    if (actor != null) {
+      request.header("X-Workspace-Id", workspace).header("X-Principal-Id", actor);
+    }
     if (type != null) {
       request.header("Content-Type", type);
     }

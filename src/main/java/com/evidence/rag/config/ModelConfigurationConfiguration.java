@@ -11,20 +11,21 @@ import com.evidence.rag.model.domain.ModelConfigurationState;
 import com.evidence.rag.repository.ModelConfigurationRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.TextModelTargetRepository;
-import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IndexingTaskProcessor;
-import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.KnowledgeAnswerService;
 import com.evidence.rag.service.KnowledgeTraceService;
+import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.ModelConfigurationService;
 import com.evidence.rag.service.ModelRebuildService;
 import com.evidence.rag.service.ProductHelpService;
 import com.evidence.rag.service.ReindexVectorVerifier;
+import com.evidence.rag.service.RetrievalSettingsService;
 import com.evidence.rag.service.TextRetrievalTestService;
 import com.evidence.rag.service.TextRuntimeSnapshot;
 import com.evidence.rag.service.VisualAnswerService;
@@ -225,7 +226,9 @@ public class ModelConfigurationConfiguration {
 
   @Bean
   LegacyTextProfileGuard legacyTextProfileGuard(
-      ManagedTextRuntime runtime, ConfigurableEnvironment environment, RagProperties properties,
+      ManagedTextRuntime runtime,
+      ConfigurableEnvironment environment,
+      RagProperties properties,
       ManagedMediaTextFactory media) {
     IndexTarget target = null;
     try {
@@ -264,8 +267,13 @@ public class ModelConfigurationConfiguration {
       RagProperties properties,
       ManagedTextSettings settings) {
     return new ModelRebuildService(
-        store, repository, permissions, runtime, indexing,
-        properties.workspaceId(), settings.administrators(),
+        store,
+        repository,
+        permissions,
+        runtime,
+        indexing,
+        properties.workspaceId(),
+        settings.administrators(),
         (version, roles) -> settings.rebuildAnchor(version, roles, properties.workspaceId()));
   }
 
@@ -284,7 +292,10 @@ public class ModelConfigurationConfiguration {
 
   @Bean(destroyMethod = "close")
   TextRetrievalTestService textRetrievalTestService(
-      EvidenceService evidence, ManagedTextRuntime runtime, ConfigurableEnvironment environment) {
+      EvidenceService evidence,
+      ManagedTextRuntime runtime,
+      ConfigurableEnvironment environment,
+      RetrievalSettingsService retrievalSettings) {
     return new TextRetrievalTestService(
         evidence,
         runtime,
@@ -292,18 +303,25 @@ public class ModelConfigurationConfiguration {
             environment.getProperty(
                 "rag.model-configuration.retrieval-timeout-ms", Long.class, 60000L)),
         environment.getProperty(
-            "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2));
+            "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2),
+        retrievalSettings::snapshot);
   }
 
   @Bean(destroyMethod = "close")
   ProductHelpService productHelpService(
-      EvidenceService evidence, ManagedTextRuntime runtime, ConfigurableEnvironment environment) {
+      EvidenceService evidence,
+      ManagedTextRuntime runtime,
+      ConfigurableEnvironment environment,
+      RetrievalSettingsService retrievalSettings) {
     return new ProductHelpService(
-        evidence, runtime,
-        Duration.ofMillis(environment.getProperty(
-            "rag.model-configuration.retrieval-timeout-ms", Long.class, 60000L)),
+        evidence,
+        runtime,
+        Duration.ofMillis(
+            environment.getProperty(
+                "rag.model-configuration.retrieval-timeout-ms", Long.class, 60000L)),
         environment.getProperty(
-            "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2));
+            "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2),
+        retrievalSettings::snapshot);
   }
 
   @Bean
@@ -314,10 +332,17 @@ public class ModelConfigurationConfiguration {
 
   @Bean(destroyMethod = "close")
   KnowledgeAnswerService knowledgeAnswerService(
-      EvidenceService evidence, ProductHelpService retrieval, ManagedTextRuntime runtime,
-      KnowledgeTraceService traces, AnswersSettings limits) {
+      EvidenceService evidence,
+      ProductHelpService retrieval,
+      ManagedTextRuntime runtime,
+      KnowledgeTraceService traces,
+      AnswersSettings limits) {
     return new KnowledgeAnswerService(
-        evidence, retrieval, runtime, traces,
-        Duration.ofMillis(limits.timeoutMs()), limits.maxConcurrent());
+        evidence,
+        retrieval,
+        runtime,
+        traces,
+        Duration.ofMillis(limits.timeoutMs()),
+        limits.maxConcurrent());
   }
 }

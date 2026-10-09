@@ -1,6 +1,5 @@
 package com.evidence.rag.controller;
 
-import com.evidence.rag.config.IngestionSettings;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
@@ -15,6 +14,7 @@ import com.evidence.rag.web.converter.DocumentReplacementResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,11 +32,11 @@ public final class DocumentReplacementController {
   public DocumentReplacementController(
       DocumentReplacementService replacements,
       IngestionService ingestion,
-      IngestionSettings settings,
+      @Qualifier("documentReplacementUploadTimeoutMs") int uploadTimeoutMs,
       JsonMapper json,
       ProblemHandler errors) {
     this.replacements = replacements;
-    uploads = new UploadServlet(ingestion, settings.uploadTimeoutMs(), json, errors, replacements);
+    uploads = new UploadServlet(ingestion, uploadTimeoutMs, json, errors, replacements);
   }
 
   @GetMapping("/v1/documents/{documentId}/replacement")
@@ -49,9 +49,7 @@ public final class DocumentReplacementController {
 
   @PostMapping("/v1/documents/{documentId}/replacement")
   public void upload(
-      HttpServletRequest request,
-      HttpServletResponse response,
-      @PathVariable String documentId)
+      HttpServletRequest request, HttpServletResponse response, @PathVariable String documentId)
       throws IOException {
     uploads.replacement(request, response, documentId);
   }

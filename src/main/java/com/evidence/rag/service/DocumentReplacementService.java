@@ -70,11 +70,7 @@ public final class DocumentReplacementService {
   }
 
   public String prepareUpload(
-      Actor actor,
-      String documentId,
-      String baseRevisionId,
-      String filename,
-      String contentType) {
+      Actor actor, String documentId, String baseRevisionId, String filename, String contentType) {
     require(actor, documentId);
     ModelValues.identifier(baseRevisionId, 100);
     return store.transaction(
@@ -89,9 +85,7 @@ public final class DocumentReplacementService {
           String mime = canonicalMime(pipeline, filename, contentType);
           if (!current.documentType().equals(type(mime))) {
             throw new ApplicationException(
-                FailureKind.INVALID_INPUT,
-                "unsupported_document",
-                "更新文件必须与当前资料属于同一类别。");
+                FailureKind.INVALID_INPUT, "unsupported_document", "更新文件必须与当前资料属于同一类别。");
           }
           return mime;
         });
@@ -128,9 +122,7 @@ public final class DocumentReplacementService {
             if (new IngestionRepository(store).storedBytes(actor.workspaceId())
                 > 256L * 1024 * 1024 - original.length) {
               throw new ApplicationException(
-                  FailureKind.CONFLICT,
-                  "ingestion_quota_exceeded",
-                  "当前组织的原文件存储已达到开发配额。");
+                  FailureKind.CONFLICT, "ingestion_quota_exceeded", "当前组织的原文件存储已达到开发配额。");
             }
             String now = Instant.now().toString();
             var candidate =
@@ -179,8 +171,7 @@ public final class DocumentReplacementService {
               () -> {
                 authorizedOriginal(actor, documentId, true);
                 var value =
-                    updates.current(documentId)
-                        .orElseThrow(DocumentReplacementService::conflict);
+                    updates.current(documentId).orElseThrow(DocumentReplacementService::conflict);
                 if (!candidateRevisionId.equals(value.candidateRevisionId())
                     || !baseRevisionId.equals(value.baseRevisionId())
                     || !updates.sourceCurrent(value.id())) {
@@ -246,7 +237,8 @@ public final class DocumentReplacementService {
           null);
     }
     var candidate =
-        updates.original(documentId, value.candidateRevisionId())
+        updates
+            .original(documentId, value.candidateRevisionId())
             .orElseThrow(ModelValues::notFound);
     TaskResult ingestionTask = ingestionTask(actor, value.ingestionJobId());
     TaskResult indexTask = indexTask(actor, value.indexJobId());
@@ -295,7 +287,8 @@ public final class DocumentReplacementService {
       return null;
     }
     var task =
-        new IngestionRepository(store).findAuthorizedTask(actor, taskId, false)
+        new IngestionRepository(store)
+            .findAuthorizedTask(actor, taskId, false)
             .orElseThrow(ModelValues::notFound);
     return TaskResults.ingestion(
         task,

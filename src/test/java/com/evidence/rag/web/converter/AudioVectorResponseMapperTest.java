@@ -10,6 +10,7 @@ import com.evidence.rag.model.domain.AudioVectorState;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.VectorBindingIdentity;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
@@ -69,20 +70,24 @@ class AudioVectorResponseMapperTest {
 
   @Test
   void availableReceiptExposesItsIndependentGenerationAndVerifiedManifest() {
+    String generation = "00000000-0000-0000-0000-000000000001";
+    String evidenceId =
+        "audio-"
+            + ModelValues.sha256(
+                (base.sourceRevisionId() + "\0" + 1).getBytes(StandardCharsets.UTF_8));
     var receipt =
         new AudioVectorPublication(
             "receipt",
             base,
             target,
-            "00000000-0000-0000-0000-000000000001",
+            generation,
             "decoder-v1",
             List.of(
                 new AudioVectorEntry(
-                    "audio-"
-                        + ModelValues.sha256(
-                            (base.sourceRevisionId() + "\0" + 1).getBytes(StandardCharsets.UTF_8)),
-                    "base-physical",
-                    "vector-physical",
+                    evidenceId,
+                    VectorBindingIdentity.physicalSegmentId(
+                        base.projectionGenerationId(), evidenceId),
+                    VectorBindingIdentity.physicalSegmentId(generation, evidenceId),
                     1,
                     0,
                     16000,

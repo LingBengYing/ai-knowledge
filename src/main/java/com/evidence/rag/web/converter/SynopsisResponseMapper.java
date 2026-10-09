@@ -103,7 +103,7 @@ public final class SynopsisResponseMapper {
         material.frame() == null ? null : base + "/frame");
   }
 
-  private static SynopsisSourceResponse.Locator locator(SynopsisSourceMaterial.Locator locator) {
+  public static SynopsisSourceResponse.Locator locator(SynopsisSourceMaterial.Locator locator) {
     return switch (locator) {
       case SynopsisSourceMaterial.Page page ->
           new SynopsisSourceResponse.Page(

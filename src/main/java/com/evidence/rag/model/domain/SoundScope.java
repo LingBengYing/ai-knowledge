@@ -7,7 +7,7 @@ import java.util.List;
 public record SoundScope(
     Actor actor, DocumentSelection selection, List<SoundPublication> publications) {
   public SoundScope {
-    if (actor == null || selection == null || publications == null || publications.size() > 128) {
+    if (actor == null || selection == null || publications == null) {
       throw ModelValues.invalid();
     }
     var ids = new HashSet<String>();

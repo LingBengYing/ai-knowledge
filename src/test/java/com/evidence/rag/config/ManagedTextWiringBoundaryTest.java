@@ -1,6 +1,7 @@
 package com.evidence.rag.config;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -68,17 +69,17 @@ class ManagedTextWiringBoundaryTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"", " ", "owner,", "bad principal", "owner\nsecond"})
-  void organizationAdministratorsAreExplicitAndCannotDefaultToDocumentOwner(String administrators) {
+  void deprecatedAdministratorListDoesNotGateSharedWorkspaceStartup(String administrators) {
     var environment =
         local().withProperty("rag.model-configuration.administrators", administrators);
-    assertThrows(IllegalArgumentException.class, () -> new ManagedTextSettings(environment));
+    assertDoesNotThrow(() -> new ManagedTextSettings(environment));
     if (administrators.isEmpty()) {
       var omitted =
           new MockEnvironment()
               .withProperty("server.address", "127.0.0.1")
               .withProperty("rag.environment", "test")
               .withProperty("rag.model-configuration.enabled", "true");
-      assertThrows(IllegalArgumentException.class, () -> new ManagedTextSettings(omitted));
+      assertTrue(new ManagedTextSettings(omitted).administrators().isEmpty());
     }
   }
 
@@ -157,6 +158,7 @@ class ManagedTextWiringBoundaryTest {
     var controller = new RuntimeController(runtime);
     var missing = controller.configuration();
     assertTrue(missing.capabilities().contains("model_configuration"));
+    assertTrue(missing.capabilities().contains("retrieval_settings"));
     assertFalse(missing.capabilities().contains("text_index"));
     assertFalse(missing.capabilities().contains("retrieval_test"));
     assertTrue(missing.unavailable().contains("retrieval_test"));

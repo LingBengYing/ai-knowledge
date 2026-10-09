@@ -35,11 +35,11 @@ class ImageRegionMigrationTest {
         var statement = database.createStatement()) {
       try (var version = statement.executeQuery("PRAGMA user_version")) {
         assertTrue(version.next());
-        assertEquals(25, version.getInt(1));
+        assertEquals(HistoricalSchemaV25Fixture.CURRENT_VERSION, version.getInt(1));
       }
       try (var format = statement.executeQuery("SELECT version FROM format_info")) {
         assertTrue(format.next());
-        assertEquals(25, format.getInt(1));
+        assertEquals(HistoricalSchemaV25Fixture.CURRENT_VERSION, format.getInt(1));
       }
       try (var table =
           statement.executeQuery(
@@ -74,7 +74,8 @@ class ImageRegionMigrationTest {
                 .snapshot(actor, DocumentSelection.allDocuments(), PublishedCorpusFixture.TARGET)
                 .publications());
       }
-      assertEquals(25, scalar(database(), "PRAGMA user_version"));
+      assertEquals(
+          HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar(database(), "PRAGMA user_version"));
       assertEquals(1, backups().size());
     }
     Path backup = backups().getFirst();

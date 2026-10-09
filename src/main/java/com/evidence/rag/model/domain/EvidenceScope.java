@@ -7,7 +7,7 @@ import java.util.List;
 public record EvidenceScope(
     Actor actor, DocumentSelection selection, List<PublicationVersion> publications) {
   public EvidenceScope {
-    if (actor == null || selection == null || publications == null || publications.size() > 128) {
+    if (actor == null || selection == null || publications == null) {
       throw ModelValues.invalid();
     }
     var ids = new HashSet<String>();

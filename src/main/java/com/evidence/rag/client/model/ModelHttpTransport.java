@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -21,6 +22,8 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.core.StreamReadConstraints;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.core.json.JsonFactory;
@@ -30,6 +33,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Shared bounded model HTTP transport; protocol payloads and revisions belong to each Adapter. */
 final class ModelHttpTransport implements AutoCloseable {
+  private static final Logger LOG = LoggerFactory.getLogger(ModelHttpTransport.class);
   private static final JsonMapper JSON =
       JsonMapper.builder(
               JsonFactory.builder()
@@ -111,6 +115,9 @@ final class ModelHttpTransport implements AutoCloseable {
     long started = System.nanoTime();
     var body = new BoundedBody(maxResponseBytes);
     CompletableFuture<HttpResponse<byte[]>> exchange = null;
+    String attemptId = null;
+    var status = new java.util.concurrent.atomic.AtomicInteger(-1);
+    boolean transportOk = false;
     try {
       byte[] requestBytes = payload.get();
       if (requestBytes == null || requestBytes.length > maxRequestBytes) {
@@ -127,10 +134,18 @@ final class ModelHttpTransport implements AutoCloseable {
                   googleEmbedding ? endpoint.apiKey() : "Bearer " + endpoint.apiKey())
               .POST(HttpRequest.BodyPublishers.ofByteArray(requestBytes))
               .build();
+      // Reserve/count the attempt before dispatch. Never log URLs, credentials or model content.
+      attemptId = UUID.randomUUID().toString();
+      LOG.info(
+          "model_http_started id={} provider={} operation={}",
+          attemptId,
+          provider(endpoint.baseUrl().getHost()),
+          operation(path));
       exchange =
           client.sendAsync(
               request,
               info -> {
+                status.set(info.statusCode());
                 if (info.statusCode() != 200) {
                   body.fail(new Failure("model_http_failed", info.statusCode()));
                 } else if (!info.headers()
@@ -159,6 +174,7 @@ final class ModelHttpTransport implements AutoCloseable {
       if (System.nanoTime() - started > deadline.toNanos()) {
         throw new TimeoutException();
       }
+      transportOk = true;
       return parsed;
     } catch (InterruptedException interrupted) {
       Thread.currentThread().interrupt();
@@ -183,11 +199,37 @@ final class ModelHttpTransport implements AutoCloseable {
     } catch (RuntimeException failed) {
       throw new Failure("model_transport_failed");
     } finally {
+      if (attemptId != null) {
+        LOG.info(
+            "model_http_finished id={} status={} transport_ok={} elapsed_ms={}",
+            attemptId,
+            status.get(),
+            transportOk,
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
+      }
       body.cancel();
       if (exchange != null && !exchange.isDone()) {
         exchange.cancel(true);
       }
     }
+  }
+
+  private static String provider(String host) {
+    return switch (host == null ? "" : host) {
+      case "api.siliconflow.cn", "api.siliconflow.com" -> "siliconflow";
+      case "api.deepseek.com" -> "deepseek";
+      default -> "compatible";
+    };
+  }
+
+  private static String operation(String path) {
+    return switch (path) {
+      case "embeddings" -> "embedding";
+      case "rerank" -> "rerank";
+      case "chat/completions" -> "generation";
+      case "audio/transcriptions" -> "transcription";
+      default -> "model";
+    };
   }
 
   static void validateEndpoint(Endpoint endpoint, boolean local) {

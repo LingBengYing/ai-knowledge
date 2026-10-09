@@ -19,7 +19,7 @@ public final class RetrievalTestRequestMapper {
                   .streamReadConstraints(
                       StreamReadConstraints.builder()
                           .maxNestingDepth(8)
-                          .maxStringLength(20000)
+                          .maxStringLength(MAX_BYTES)
                           .maxNumberLength(20)
                           .build())
                   .build())
@@ -36,11 +36,14 @@ public final class RetrievalTestRequestMapper {
       var node = JSON.readTree(bytes);
       if (!node.isObject()
           || !node.has("question")
-          || !Set.of("question", "document_ids", "top_k", "rerank")
+          || !Set.of("question", "document_ids", "top_k", "rerank", "retrieval_settings")
               .containsAll(node.propertyNames())) {
         throw ModelValues.invalid();
       }
-      int topK = 5;
+      if (node.has("retrieval_settings") && (node.has("top_k") || node.has("rerank"))) {
+        throw ModelValues.invalid();
+      }
+      Integer topK = null;
       if (node.has("top_k")) {
         var number = node.path("top_k");
         if (!number.isIntegralNumber() || !number.canConvertToInt()) {
@@ -48,7 +51,7 @@ public final class RetrievalTestRequestMapper {
         }
         topK = number.intValue();
       }
-      boolean rerank = true;
+      Boolean rerank = null;
       if (node.has("rerank")) {
         if (!node.path("rerank").isBoolean()) {
           throw ModelValues.invalid();
@@ -60,7 +63,13 @@ public final class RetrievalTestRequestMapper {
       if (node.has("document_ids")) {
         body.put("document_ids", JSON.convertValue(node.path("document_ids"), Object.class));
       }
-      return new RetrievalTestCommand(AnswerRequestMapper.command(body), topK, rerank);
+      return new RetrievalTestCommand(
+          AnswerRequestMapper.command(body),
+          topK,
+          rerank,
+          node.has("retrieval_settings")
+              ? RetrievalSettingsRequestMapper.override(node.path("retrieval_settings"), 0)
+              : null);
     } catch (RuntimeException invalid) {
       throw ModelValues.invalid();
     }

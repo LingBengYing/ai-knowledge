@@ -8,6 +8,7 @@ import com.evidence.rag.model.domain.ImageVectorPublication;
 import com.evidence.rag.model.domain.ImageVectorState;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.PublicationVersion;
+import com.evidence.rag.model.domain.VectorBindingIdentity;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -65,14 +66,16 @@ class ImageVectorResponseMapperTest {
 
   @Test
   void availableReceiptExposesItsIndependentGenerationAndVerifiedManifest() {
+    String generation = "00000000-0000-0000-0000-000000000001";
     var receipt =
         new ImageVectorPublication(
             "receipt",
             base,
             "image-evidence",
-            "base-physical",
-            "00000000-0000-0000-0000-000000000001",
-            "vector-physical",
+            VectorBindingIdentity.physicalSegmentId(
+                base.projectionGenerationId(), "image-evidence"),
+            generation,
+            VectorBindingIdentity.physicalSegmentId(generation, "image-evidence"),
             target,
             "e".repeat(64),
             "f".repeat(64),

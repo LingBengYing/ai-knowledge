@@ -3,6 +3,7 @@ package com.evidence.rag.model.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.exception.ApplicationException;
 import java.util.ArrayList;
@@ -119,7 +120,99 @@ class VideoDomainTest {
     assertThrows(
         ApplicationException.class,
         () -> new VideoFrameRecall(null, new ImageRecall("Recall.", "vision-v1")));
-    assertThrows(ApplicationException.class, () -> new VideoFrameRecall(frame(0, 0, 1), null));
+    assertThrows(
+        ApplicationException.class,
+        () ->
+            new VideoCompilation(
+                SOURCE,
+                DECODER,
+                COMPILER,
+                0,
+                1,
+                List.of(new VideoFrameRecall(frame(0, 0, 1), null)),
+                null));
+  }
+
+  @Test
+  void textEvidenceCompilationRetainsEveryFrameAndAudioWithoutInventingCaptions() {
+    var first = new VideoFrameRecall(frame(0, 0, 100_000), null);
+    var last = new VideoFrameRecall(frame(1, 1_500_000, 100_000), null);
+    var frames = new ArrayList<>(List.of(first, last));
+    var audio = transcription(SOURCE, DECODER, 32_001);
+    var compiled =
+        new VideoCompilation(
+            SOURCE,
+            DECODER,
+            VideoCompilation.TEXT_EVIDENCE_COMPILER_PREFIX + SOURCE,
+            2_000_000,
+            2_000_001,
+            frames,
+            audio);
+    frames.clear();
+    assertTrue(compiled.textEvidenceOnly());
+    assertEquals(List.of(first, last), compiled.frames());
+    assertNull(compiled.frames().getFirst().recall());
+    assertNull(compiled.frames().getLast().recall());
+    assertEquals(IMAGE.sha256(), compiled.frames().getLast().frame().image().sha256());
+    assertEquals(1_500_000, compiled.frames().getLast().frame().presentationUs());
+    assertEquals(100_000, compiled.frames().getLast().frame().durationUs());
+    assertEquals(audio, compiled.audio());
+    assertEquals(2_000_000, compiled.timelineOriginUs());
+    assertEquals(2_000_001, compiled.durationUs());
+    assertThrows(UnsupportedOperationException.class, () -> compiled.frames().clear());
+  }
+
+  @Test
+  void legacyCompilersStillRequireRecallForEveryFrame() {
+    var caption = new ImageRecall("Synthetic recall.", "vision-v1");
+    var first = new VideoFrameRecall(frame(0, 0, 100), caption);
+    var last = new VideoFrameRecall(frame(1, 100, 100), caption);
+    for (int version : List.of(1, 2, 3)) {
+      String compiler = "java-video-compiler-v" + version + ":" + SOURCE;
+      assertEquals(
+          List.of(first, last),
+          new VideoCompilation(SOURCE, DECODER, compiler, 0, 200, List.of(first, last), null)
+              .frames());
+      for (var incomplete :
+          List.of(
+              List.of(new VideoFrameRecall(first.frame(), null), last),
+              List.of(first, new VideoFrameRecall(last.frame(), null)),
+              List.of(
+                  new VideoFrameRecall(first.frame(), null),
+                  new VideoFrameRecall(last.frame(), null)))) {
+        assertThrows(
+            ApplicationException.class,
+            () -> new VideoCompilation(SOURCE, DECODER, compiler, 0, 200, incomplete, null));
+      }
+    }
+  }
+
+  @Test
+  void textEvidenceModeRejectsMixedCaptionsAndMalformedCompilerIdentity() {
+    var caption = new ImageRecall("Synthetic recall.", "vision-v1");
+    var first = new VideoFrameRecall(frame(0, 0, 100), null);
+    var last = new VideoFrameRecall(frame(1, 100, 100), null);
+    String compiler = VideoCompilation.TEXT_EVIDENCE_COMPILER_PREFIX + SOURCE;
+    for (var captions :
+        List.of(
+            List.of(new VideoFrameRecall(first.frame(), caption), last),
+            List.of(first, new VideoFrameRecall(last.frame(), caption)),
+            List.of(
+                new VideoFrameRecall(first.frame(), caption),
+                new VideoFrameRecall(last.frame(), caption)))) {
+      assertThrows(
+          ApplicationException.class,
+          () -> new VideoCompilation(SOURCE, DECODER, compiler, 0, 200, captions, null));
+    }
+    for (String invalid :
+        List.of(
+            VideoCompilation.TEXT_EVIDENCE_COMPILER_PREFIX,
+            VideoCompilation.TEXT_EVIDENCE_COMPILER_PREFIX + "a".repeat(63),
+            VideoCompilation.TEXT_EVIDENCE_COMPILER_PREFIX + "g".repeat(64))) {
+      assertThrows(
+          ApplicationException.class,
+          () -> new VideoCompilation(SOURCE, DECODER, invalid, 0, 200, List.of(first, last), null));
+    }
   }
 
   @Test

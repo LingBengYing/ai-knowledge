@@ -2,6 +2,7 @@ package com.evidence.rag.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -103,30 +104,19 @@ class SoundLibraryServiceTest {
   }
 
   @Test
-  void readerCanReadButCannotBuildOrDisclosePrivateSource() {
+  void memberWithoutDocumentGrantCanReadAndBuildButForeignWorkspaceCannot() {
     var decoded = new AtomicInteger();
     try (var store = new SqliteAuthorityStore(directory);
         var compilation = compilation(decoded)) {
-      var service =
-          service(
-              store,
-              compilation,
-              (claim, budget) -> {
-                throw new AssertionError();
-              });
+      var service = service(store, compilation, (claim, budget) -> receipt(claim));
       var original = service.upload(OWNER, "tone.wav", "audio/wav", raw());
-      store.transaction(
-          () -> {
-            new ManagementRepository(store).insertGrant(original.documentId(), "reader", "reader");
-            return null;
-          });
       var reader = new Actor("org", "reader");
       assertNull(service.get(reader, original.documentId()).publication());
-      assertThrows(ApplicationException.class, () -> service.build(reader, original.documentId()));
+      assertNotNull(service.build(reader, original.documentId()).publication());
       assertThrows(
           ApplicationException.class,
           () -> service.get(new Actor("other", "owner"), original.documentId()));
-      assertEquals(0, decoded.get());
+      assertEquals(1, decoded.get());
     }
   }
 
@@ -189,7 +179,7 @@ class SoundLibraryServiceTest {
   }
 
   @Test
-  void revokedEditorAfterWorkerCannotCommit() {
+  void historicalAclRemovalDoesNotPreventWorkspaceWorkerCommit() {
     try (var store = new SqliteAuthorityStore(directory);
         var compilation = compilation(new AtomicInteger())) {
       var service =
@@ -204,8 +194,8 @@ class SoundLibraryServiceTest {
                 return receipt(claim);
               });
       String id = service.upload(OWNER, "tone.wav", "audio/wav", raw()).documentId();
-      assertThrows(ApplicationException.class, () -> service.build(OWNER, id));
-      assertEquals(0, scalar("SELECT COUNT(*) FROM sound_publications"));
+      assertNotNull(service.build(OWNER, id).publication());
+      assertEquals(1, scalar("SELECT COUNT(*) FROM sound_publications"));
     }
   }
 

@@ -113,14 +113,14 @@ class VideoAvScopeSealBoundaryTest {
   }
 
   @Test
-  void capacityCountsEveryAuthorizedRawVideoBeforeMissingReceiptOrProviderWork() {
+  void libraryBeyond128ProceedsToMissingReceiptCheckWithoutProviderWork() {
     try (var fixture = new VideoAvTestFixture(directory);
         var answers = fixture.answers()) {
       for (int index = 0; index < 129; index++) {
         fixture.register("raw-" + index, 1, 1, 0, false);
       }
       assertEquals(
-          "evidence_capacity_exceeded",
+          "video_av_index_required",
           assertThrows(
                   ApplicationException.class,
                   () ->
@@ -235,7 +235,9 @@ class VideoAvScopeSealBoundaryTest {
               + "' WHERE document_id='uncited'";
       var blocked = assertThrows(AssertionError.class, () -> ordinarySql(fixture.store, mutation));
       assertTrue(blocked.getCause() instanceof SQLException);
-      assertFalse(blocked.getCause().getMessage().contains("no such function"));
+      assertFalse(
+          blocked.getCause().getMessage().contains("no such function"),
+          blocked.getCause().getMessage());
       // Only this synthetic DB's ordinary and v22 blob guards are removed for offline corruption.
       ordinarySql(fixture.store, "DROP TRIGGER video_av_originals_no_update");
       ordinarySql(fixture.store, "DROP TRIGGER cleanup_video_av_originals_purge");
@@ -257,6 +259,17 @@ class VideoAvScopeSealBoundaryTest {
 
   private static void ordinarySql(SqliteAuthorityStore store, String sql) {
     try (var connection = DriverManager.getConnection("jdbc:sqlite:" + store.libraryPath())) {
+      // This direct connection has no authorized replacement transaction. Register the v26
+      // predicate as false so the actual original-blob guards reject ordinary writes.
+      Function.create(
+          connection,
+          "java_replacement_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() throws SQLException {
+              result(0);
+            }
+          });
       Function.create(
           connection,
           "java_cleanup_authorized",

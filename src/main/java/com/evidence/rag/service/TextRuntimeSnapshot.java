@@ -42,13 +42,30 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
       IndexingTaskProcessor indexing,
       Runnable releaseClients,
       TextIndexAnchor indexAnchor) {
-    this(version, models, projection, target, answers, indexing, releaseClients, indexAnchor, null, false);
+    this(
+        version,
+        models,
+        projection,
+        target,
+        answers,
+        indexing,
+        releaseClients,
+        indexAnchor,
+        null,
+        false);
   }
 
   public TextRuntimeSnapshot(
-      long version, TextModels models, RetrievalProjection projection, IndexTarget target,
-      AnswerService answers, IndexingTaskProcessor indexing, Runnable releaseClients,
-      TextIndexAnchor indexAnchor, VisualAnswerService visual, boolean mediaRebound) {
+      long version,
+      TextModels models,
+      RetrievalProjection projection,
+      IndexTarget target,
+      AnswerService answers,
+      IndexingTaskProcessor indexing,
+      Runnable releaseClients,
+      TextIndexAnchor indexAnchor,
+      VisualAnswerService visual,
+      boolean mediaRebound) {
     if (version < 1
         || version > 9_007_199_254_740_991L
         || models == null

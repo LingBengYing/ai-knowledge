@@ -58,7 +58,8 @@ class ReindexVectorMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
             assertEquals(jobs, store.rows("SELECT " + columns + " FROM indexing_jobs ORDER BY id"));
             assertEquals(publications, store.rows("SELECT * FROM index_publications ORDER BY id"));
             assertEquals(
@@ -67,12 +68,11 @@ class ReindexVectorMigrationTest {
                 active,
                 store.rows("SELECT * FROM active_corpus_publications ORDER BY document_id"));
             for (Map<String, Object> object : objects) {
+              // Verify the unchanged v24 -> v25 contract before later intentional migrations.
               assertEquals(
                   List.of(object),
-                  store.rows(
-                      "SELECT type,name,sql FROM sqlite_master WHERE type=? AND name=?",
-                      object.get("type"),
-                      object.get("name")));
+                  HistoricalSchemaV25Fixture.versionTwentyFiveObject(
+                      directory, object.get("type"), object.get("name")));
             }
             assertEquals(
                 0,
@@ -90,7 +90,7 @@ class ReindexVectorMigrationTest {
           original, store.transaction(() -> new IngestionRepository(store).original(document)));
       assertTrue(store.managedBackups().known());
       var backups = store.managedBackups().files();
-      assertEquals(1, backups.size());
+      HistoricalSchemaV25Fixture.assertMigrationBackups(directory, backups, 24);
       var backup = backups.getFirst();
       assertTrue(backup.relativePath().startsWith("java-library.v24-before-v25-"));
       Path file = directory.resolve(backup.relativePath());
@@ -101,8 +101,11 @@ class ReindexVectorMigrationTest {
           jobs, ReindexVersion23Fixture.rows(file, "SELECT * FROM indexing_jobs ORDER BY id"));
     }
     try (var reopened = new SqliteAuthorityStore(directory)) {
-      assertEquals(25, reopened.transaction(() -> reopened.count("PRAGMA user_version")));
-      assertEquals(1, reopened.managedBackups().files().size());
+      assertEquals(
+          HistoricalSchemaV25Fixture.CURRENT_VERSION,
+          reopened.transaction(() -> reopened.count("PRAGMA user_version")));
+      HistoricalSchemaV25Fixture.assertMigrationBackups(
+          directory, reopened.managedBackups().files(), 24);
     }
   }
 
@@ -123,7 +126,8 @@ class ReindexVectorMigrationTest {
         scalar(
             database,
             "SELECT COUNT(*) FROM indexing_jobs WHERE id='" + queued + "' AND state='queued'"));
-    assertEquals(25, scalar(database, "PRAGMA user_version"));
+    assertEquals(
+        HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar(database, "PRAGMA user_version"));
   }
 
   @Test
@@ -155,7 +159,9 @@ class ReindexVectorMigrationTest {
     assertThrows(
         AssertionError.class,
         () -> ReindexVectorVersion24Fixture.restoreVersionTwentyFour(directory));
-    assertEquals(25, scalar(directory.resolve("java-library.db"), "PRAGMA user_version"));
+    assertEquals(
+        HistoricalSchemaV25Fixture.CURRENT_VERSION,
+        scalar(directory.resolve("java-library.db"), "PRAGMA user_version"));
   }
 
   private static long scalar(Path database, String sql) throws SQLException {

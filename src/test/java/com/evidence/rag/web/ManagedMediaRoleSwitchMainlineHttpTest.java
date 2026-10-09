@@ -72,6 +72,7 @@ import tools.jackson.databind.json.JsonMapper;
 class ManagedMediaRoleSwitchMainlineHttpTest {
   private static final JsonMapper JSON = JsonMapper.builder().build();
   private static final Actor OWNER = new Actor("org-main", "owner");
+  private static final Actor MEMBER = new Actor("org-main", "member-without-acl");
   private static final String INITIAL = "fixture-model";
   private static final String GENERATION = "fixture-generation-v2";
   private static final String RERANK = "fixture-rerank-v3";
@@ -106,6 +107,9 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
             saved.stream().map(s -> s.citation().path("kind").asString()).toList());
         for (var source : saved) {
           assertSource(http, base, source);
+          assertSource(http, base, source, MEMBER);
+          json(http, base, "GET", source.url(), null, 422, null);
+          json(http, base, "GET", source.url(), null, 401, new Actor("other-org", "owner"));
         }
         protectedRows = protectedRows(context, saved);
         upserts = projection.committedUpserts.size();
@@ -119,7 +123,7 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
         }
         assertEquals(calls, calls(text, vision, projection));
         assertCapabilities(http, base);
-        assertNoLegacyProcessing(http, base, seed, text, vision, projection);
+        assertVisualUsesCurrentRoles(http, base, seed, text, vision, INITIAL, GENERATION);
         assertTextUsesCurrentRoles(http, base, seed.text(), text, INITIAL, GENERATION);
         assertEquals(protectedRows, protectedRows(context, saved));
         assertEquals(upserts, projection.committedUpserts.size());
@@ -151,22 +155,58 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
         assertEquals(calls, calls(text, vision, projection));
         assertEquals(protectedRows, protectedRows(context, saved));
         assertEquals(upserts, projection.committedUpserts.size());
-        assertNoLegacyProcessing(http, base, seed, text, vision, projection);
+        assertVisualUsesCurrentRoles(http, base, seed, text, vision, RERANK, GENERATION);
         assertFalse(Files.exists(directory.resolve("native-called")));
-        revoke(context, seed.video());
+        calls = calls(text, vision, projection);
+        var image = saved.get(3);
+        assertEquals(
+            JSON.writeValueAsString(
+                List.of(seed.video(), seed.image(), seed.text()).stream()
+                    .sorted()
+                    .map(id -> List.of(id))
+                    .toList()),
+            rows(
+                context.getBean(SqliteAuthorityStore.class).libraryPath(),
+                "SELECT p.document_id FROM query_trace_documents q JOIN index_publications p ON p.id=q.publication_id WHERE q.trace_id=? ORDER BY p.document_id",
+                image.metadata().path("answer_id").asString()));
+        var removed =
+            json(http, base, "DELETE", "/v1/documents/" + seed.video(), null, 202, MEMBER);
+        assertEquals("deleting", removed.path("status").asString());
         for (var source : saved.subList(0, 3)) {
           json(http, base, "GET", source.url(), null, 404);
           assertEquals(404, bytes(http, base, source.url() + "/content").statusCode());
           assertEquals(404, bytes(http, base, source.url() + "/frame").statusCode());
+          json(http, base, "GET", source.url(), null, 404, MEMBER);
+          assertEquals(404, bytes(http, base, source.url() + "/content", MEMBER).statusCode());
+          assertEquals(404, bytes(http, base, source.url() + "/frame", MEMBER).statusCode());
         }
-        assertSource(http, base, saved.get(3));
+        // The frozen full-library answer included the withdrawn video. Its old source must fail
+        // revalidation even though the independently stored image original remains available.
+        for (var actor : List.of(OWNER, MEMBER)) {
+          json(http, base, "GET", image.url(), null, 404, actor);
+          assertEquals(404, bytes(http, base, image.url() + "/content", actor).statusCode());
+          var original =
+              json(
+                  http,
+                  base,
+                  "GET",
+                  "/v1/documents/" + seed.image() + "/original",
+                  null,
+                  200,
+                  actor);
+          assertEquals(image.citation().path("revision_id"), original.path("revision_id"));
+          assertEquals(image.citation().path("source_sha256"), original.path("source_sha256"));
+          var content = bytes(http, base, original.path("content_url").asString(), actor);
+          assertEquals(200, content.statusCode());
+          assertArrayEquals(image.content(), content.body());
+        }
         assertEquals(calls, calls(text, vision, projection));
       }
     }
   }
 
   @Test
-  void roleChangeRefusesLegacyVisualAndAttachmentBodiesBeforeAnyProviderOrDecoder()
+  void unconfiguredMediaIsRefusedButAppliedRolesEnableVisualAndAttachmentProcessing()
       throws Exception {
     try (var text = new AnswerProtocolServer();
         var vision = new VisionServer();
@@ -174,14 +214,20 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
         var context = start(text, vision, projection)) {
       String base = base(context);
+      assertMediaProcessing(
+          http,
+          base,
+          new Seed("unconfigured-video", "unconfigured-image", "unconfigured-text"),
+          text,
+          vision,
+          projection,
+          false);
       activate(http, base, 1);
       var seed = publish(context, http, base);
       var initial = answer(http, base, "/v1/visual-answers", seed.image(), IMAGE_QUESTION, null);
       assertEquals("answered", initial.path("status").asString(), initial.toString());
       switchRoles(http, base, 1, INITIAL, GENERATION);
-      // A separate RED reaches the old visual POST even while the video read test fails first.
-      assertNoLegacyProcessing(http, base, seed, text, vision, projection);
-      assertFalse(Files.exists(directory.resolve("native-called")));
+      assertMediaProcessing(http, base, seed, text, vision, projection, true);
     }
   }
 
@@ -351,16 +397,21 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
 
   private static void assertSource(HttpClient http, String base, SavedSource source)
       throws Exception {
-    assertEquals(source.metadata(), json(http, base, "GET", source.url(), null, 200));
+    assertSource(http, base, source, OWNER);
+  }
+
+  private static void assertSource(HttpClient http, String base, SavedSource source, Actor actor)
+      throws Exception {
+    assertEquals(source.metadata(), json(http, base, "GET", source.url(), null, 200, actor));
     assertEquals(source.citation(), source.metadata().path("citation"));
-    var content = bytes(http, base, source.url() + "/content");
+    var content = bytes(http, base, source.url() + "/content", actor);
     assertEquals(200, content.statusCode());
     assertEquals("no-store", content.headers().firstValue("Cache-Control").orElseThrow());
     assertArrayEquals(source.content(), content.body());
     assertEquals(
         source.citation().path("source_sha256").asString(), ModelValues.sha256(content.body()));
     if (source.url().startsWith("/v1/video-sources/")) {
-      var frame = bytes(http, base, source.url() + "/frame");
+      var frame = bytes(http, base, source.url() + "/frame", actor);
       if (source.frame()) {
         assertEquals(200, frame.statusCode());
         assertArrayEquals(VideoCompilationFixture.image().content(), frame.body());
@@ -369,20 +420,24 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
       }
       var ranged =
           http.send(
-              headers(base, source.url() + "/content").header("Range", "bytes=0-7").GET().build(),
+              headers(base, source.url() + "/content", actor)
+                  .header("Range", "bytes=0-7")
+                  .GET()
+                  .build(),
               HttpResponse.BodyHandlers.ofByteArray());
       assertEquals(206, ranged.statusCode());
       assertArrayEquals(java.util.Arrays.copyOf(source.content(), 8), ranged.body());
     }
   }
 
-  private void assertNoLegacyProcessing(
+  private void assertMediaProcessing(
       HttpClient http,
       String base,
       Seed seed,
       AnswerProtocolServer text,
       VisionServer vision,
-      IndexingTestServer projection)
+      IndexingTestServer projection,
+      boolean configured)
       throws Exception {
     int before = calls(text, vision, projection);
     int modelBefore = text.requests.size() + vision.requests.size();
@@ -431,20 +486,55 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
     int modelsAfterAttached = text.requests.size() + vision.requests.size();
     var visualBody = JSON.readTree(visual.body());
     var attachedBody = JSON.readTree(attached.body());
-    // Collect both real responses before checking, so the RED retains both routes' call evidence.
+    if (configured) {
+      assertAll(
+          () -> assertEquals(200, visual.statusCode(), visual.body()),
+          () -> assertEquals("answered", visualBody.path("status").asString()),
+          () -> assertEquals(IMAGE_FACT, visualBody.path("answer").asString()),
+          () ->
+              assertEquals(
+                  seed.image(), visualBody.path("citations").get(0).path("document_id").asString()),
+          () ->
+              assertEquals(
+                  "image_region", visualBody.path("citations").get(0).path("kind").asString()),
+          () -> assertTrue(modelsAfterVisual > modelBefore),
+          () -> assertTrue(afterVisual > before),
+          () -> assertEquals(200, attached.statusCode(), attached.body()),
+          () -> assertEquals("image", attachedBody.path("mode").asString()),
+          () -> assertEquals("abstained", attachedBody.path("result").path("status").asString()),
+          () ->
+              assertEquals("parser_failed", attachedBody.path("result").path("reason").asString()),
+          () -> assertEquals(1, attachedBody.path("query_attachments").size()),
+          () ->
+              assertEquals(
+                  "failed",
+                  attachedBody.path("query_attachments").get(0).path("status").asString()),
+          () ->
+              assertEquals(
+                  "parser_failed",
+                  attachedBody.path("query_attachments").get(0).path("reason").asString()),
+          () ->
+              assertEquals(
+                  modelsAfterVisual, modelsAfterAttached, "failed decoding must not call a model"),
+          () ->
+              assertEquals(
+                  afterVisual, afterAttached, "failed decoding must not retrieve evidence"),
+          () ->
+              assertTrue(
+                  Files.exists(directory.resolve("native-called")),
+                  "the applied configuration must reach the controlled failing decoder"));
+      return;
+    }
     assertAll(
         () -> assertEquals(503, visual.statusCode(), "visual response: " + visual.body()),
-        () ->
-            assertEquals(
-                "media_text_configuration_mismatch", visualBody.path("error_code").asString()),
+        () -> assertEquals("text_configuration_required", visualBody.path("error_code").asString()),
         () ->
             assertEquals(
                 0, modelsAfterVisual - modelBefore, "legacy visual model calls after role switch"),
         () -> assertEquals(before, afterVisual, "legacy visual model/projection calls"),
         () -> assertEquals(503, attached.statusCode(), "attachment response: " + attached.body()),
         () ->
-            assertEquals(
-                "media_text_configuration_mismatch", attachedBody.path("error_code").asString()),
+            assertEquals("text_configuration_required", attachedBody.path("error_code").asString()),
         () ->
             assertEquals(
                 0,
@@ -464,9 +554,50 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
         .forEach(value -> values.add(value.asString()));
     assertTrue(values.contains("visual_sources"));
     assertTrue(values.contains("video_sources"));
-    assertFalse(values.contains("visual_answers"));
-    assertFalse(values.contains("video_answers"));
-    assertFalse(values.contains("query_attachments"));
+    assertTrue(values.contains("visual_answers"));
+    assertTrue(values.contains("video_answers"));
+    assertTrue(values.contains("query_attachments"));
+  }
+
+  private static void assertVisualUsesCurrentRoles(
+      HttpClient http,
+      String base,
+      Seed seed,
+      AnswerProtocolServer text,
+      VisionServer vision,
+      String rerank,
+      String generation)
+      throws Exception {
+    int before = text.requests.size();
+    int visionBefore = vision.requests.size();
+    var result = answer(http, base, "/v1/visual-answers", seed.image(), IMAGE_QUESTION, null);
+    assertEquals(IMAGE_FACT, result.path("answer").asString());
+    var citation = result.path("citations").get(0);
+    assertEquals(seed.image(), citation.path("document_id").asString());
+    assertEquals("image_region", citation.path("kind").asString());
+    String url = citation.path("source_url").asString();
+    assertSource(
+        http,
+        base,
+        new SavedSource(
+            url,
+            citation,
+            json(http, base, "GET", url, null, 200),
+            VideoCompilationFixture.image().content(),
+            false));
+    assertTrue(vision.requests.size() > visionBefore);
+    var calls = text.requests.subList(before, text.requests.size());
+    assertTrue(calls.stream().anyMatch(c -> c.path().equals("/rerank")));
+    for (var call : calls) {
+      String expected =
+          switch (call.path()) {
+            case "/embeddings" -> INITIAL;
+            case "/rerank" -> rerank;
+            case "/chat/completions" -> generation;
+            default -> throw new AssertionError("Unexpected text model route");
+          };
+      assertEquals(expected, call.body().path("model").asString());
+    }
   }
 
   private static void assertTextUsesCurrentRoles(
@@ -563,6 +694,7 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
             "ingestion",
             "indexing",
             "answers",
+            "document-removal",
             "visual",
             "audio",
             "video",
@@ -663,19 +795,6 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
     }
   }
 
-  private static void revoke(ConfigurableApplicationContext context, String document)
-      throws Exception {
-    Path path = context.getBean(SqliteAuthorityStore.class).libraryPath();
-    try (var connection = DriverManager.getConnection("jdbc:sqlite:" + path);
-        var statement =
-            connection.prepareStatement(
-                "DELETE FROM document_acl WHERE document_id=? AND principal_id=?")) {
-      statement.setString(1, document);
-      statement.setString(2, OWNER.principalId());
-      assertEquals(1, statement.executeUpdate());
-    }
-  }
-
   private static int calls(
       AnswerProtocolServer text, VisionServer vision, IndexingTestServer projection) {
     return text.requests.size() + vision.requests.size() + projection.requests.size();
@@ -701,17 +820,38 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
   }
 
   private static HttpRequest.Builder headers(String base, String path) {
-    return HttpRequest.newBuilder(URI.create(base + path))
-        .timeout(Duration.ofSeconds(20))
-        .header("X-Workspace-Id", OWNER.workspaceId())
-        .header("X-Principal-Id", OWNER.principalId())
-        .header("Origin", base);
+    return headers(base, path, OWNER);
+  }
+
+  private static HttpRequest.Builder headers(String base, String path, Actor actor) {
+    var request =
+        HttpRequest.newBuilder(URI.create(base + path))
+            .timeout(Duration.ofSeconds(20))
+            .header("Origin", base);
+    if (actor != null) {
+      request
+          .header("X-Workspace-Id", actor.workspaceId())
+          .header("X-Principal-Id", actor.principalId());
+    }
+    return request;
   }
 
   private static JsonNode json(
       HttpClient http, String base, String method, String path, Object body, int status)
       throws Exception {
-    var request = headers(base, path);
+    return json(http, base, method, path, body, status, OWNER);
+  }
+
+  private static JsonNode json(
+      HttpClient http,
+      String base,
+      String method,
+      String path,
+      Object body,
+      int status,
+      Actor actor)
+      throws Exception {
+    var request = headers(base, path, actor);
     if (body != null) {
       request.header("Content-Type", "application/json");
     }
@@ -728,7 +868,13 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
 
   private static HttpResponse<byte[]> bytes(HttpClient http, String base, String path)
       throws Exception {
-    return http.send(headers(base, path).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+    return bytes(http, base, path, OWNER);
+  }
+
+  private static HttpResponse<byte[]> bytes(HttpClient http, String base, String path, Actor actor)
+      throws Exception {
+    return http.send(
+        headers(base, path, actor).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
   }
 
   private static final class VisionServer implements AutoCloseable {

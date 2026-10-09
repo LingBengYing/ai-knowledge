@@ -39,18 +39,22 @@ class EvidenceServiceTest {
   private static final String TEXT = "😀退货政策：签收后14天内可以退货。";
 
   @Test
-  void allUsesOnlyCurrentAuthorizedPublicationsAndGenerationNotSourceRevision() {
+  void allUsesEveryCurrentWorkspacePublicationAndGenerationNotSourceRevision() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var visible = fixture.publish(owner, TEXT);
       fixture.publish(new Actor("other", "owner"), "Foreign corpus.");
-      fixture.publish(new Actor("org", "someone-else"), "Private corpus.");
+      fixture.publish(new Actor("org", "someone-else"), "Shared corpus.");
       fixture
           .authority
           .ingestion()
           .uploadDocument(owner, "queued.txt", "text/plain", new byte[] {65});
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
-      assertEquals(1, scope.publications().size());
-      var binding = scope.publications().getFirst();
+      assertEquals(2, scope.publications().size());
+      var binding =
+          scope.publications().stream()
+              .filter(item -> item.documentId().equals(visible.documentId()))
+              .findFirst()
+              .orElseThrow();
       assertEquals(visible.documentId(), binding.documentId());
       assertEquals(visible.revisionId(), binding.sourceRevisionId());
       assertEquals(visible.projectionGenerationId(), binding.projectionGenerationId());
@@ -60,10 +64,10 @@ class EvidenceServiceTest {
   }
 
   @Test
-  void selectedSetFailsWholeForMissingPrivateUnpublishedOrTargetMismatch() {
+  void selectedSetFailsWholeForMissingForeignUnpublishedOrTargetMismatch() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var visible = fixture.publish(owner, TEXT);
-      var privateDoc = fixture.publish(new Actor("org", "someone-else"), "Private.");
+      var privateDoc = fixture.publish(new Actor("foreign-org", "someone-else"), "Foreign.");
       var unpublished =
           fixture
               .authority
@@ -109,14 +113,18 @@ class EvidenceServiceTest {
   }
 
   @Test
-  void authorizedAllOverCapacityFailsInsteadOfTruncating() {
+  void workspaceLibraryBeyondOld128LimitRemainsComplete() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       for (int index = 0; index < 129; index++) {
         fixture.publish(owner, "Published " + index);
       }
-      fails(
-          FailureKind.CAPACITY_EXCEEDED,
-          () -> fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET));
+      assertEquals(
+          129,
+          fixture
+              .evidence
+              .snapshot(owner, DocumentSelection.allDocuments(), TARGET)
+              .publications()
+              .size());
     }
   }
 
@@ -158,13 +166,13 @@ class EvidenceServiceTest {
   }
 
   @Test
-  void noncandidateRevocationInvalidatesHydrationAndAtomicFinalAnswer() throws Exception {
+  void noncandidateWithdrawalInvalidatesHydrationAndAtomicFinalAnswer() throws Exception {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var candidate = fixture.publish(owner, TEXT);
       var noncandidate = fixture.publish(owner, "Other scope member.");
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       fixture.evidence.hydrate(scope, physicalIds(candidate));
-      revoke(noncandidate.documentId());
+      withdraw(noncandidate.documentId());
       assertEquals(
           "scope_changed",
           fails(FailureKind.CONFLICT, () -> fixture.evidence.hydrate(scope, physicalIds(candidate)))
@@ -204,7 +212,8 @@ class EvidenceServiceTest {
   }
 
   @Test
-  void answeredTraceRestoresExactQuoteAndOnlyOriginalActorMayReadIt() throws Exception {
+  void answeredTraceRestoresExactQuoteForWorkspaceMembersButNotAnotherOrganization()
+      throws Exception {
     String traceId;
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var claim = fixture.publish(owner, TEXT);
@@ -219,13 +228,14 @@ class EvidenceServiceTest {
       assertEquals(1, source.start());
       assertEquals(5, source.end());
       assertEquals(TEXT, source.evidence().page().text());
-      sql(
-          "INSERT INTO document_acl(document_id,principal_id,role) VALUES('"
-              + claim.documentId()
-              + "','reader','reader')");
-      fails(
-          FailureKind.NOT_FOUND,
-          () -> fixture.evidence.source(new Actor("org", "reader"), receipt.traceId(), 1));
+      assertEquals(
+          TEXT,
+          fixture
+              .evidence
+              .source(new Actor("org", "reader"), receipt.traceId(), 1)
+              .evidence()
+              .page()
+              .text());
       fails(
           FailureKind.NOT_FOUND,
           () -> fixture.evidence.source(new Actor("other", "owner"), receipt.traceId(), 1));
@@ -252,7 +262,7 @@ class EvidenceServiceTest {
       var receipt =
           fixture.evidence.finish(
               scope, answered(physicalIds(claim).getFirst()), () -> AnswerEligibility.ELIGIBLE);
-      revoke(noncandidate.documentId());
+      withdraw(noncandidate.documentId());
       fails(FailureKind.NOT_FOUND, () -> fixture.evidence.source(owner, receipt.traceId(), 1));
     }
   }
@@ -492,14 +502,16 @@ class EvidenceServiceTest {
     return error;
   }
 
-  private void revoke(String documentId) throws SQLException {
+  private void withdraw(String documentId) throws SQLException {
     try (var db =
             DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
         var statement =
             db.prepareStatement(
-                "DELETE FROM document_acl WHERE document_id=? AND principal_id=?")) {
+                "INSERT INTO document_tombstones(document_id,workspace_id,requested_by,requested_at) VALUES(?,?,?,?)")) {
       statement.setString(1, documentId);
-      statement.setString(2, owner.principalId());
+      statement.setString(2, owner.workspaceId());
+      statement.setString(3, owner.principalId());
+      statement.setString(4, java.time.Instant.now().toString());
       assertEquals(1, statement.executeUpdate());
     }
   }

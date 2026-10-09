@@ -203,8 +203,7 @@ public final class IndexingService {
         () -> {
           permissions.require(management.currentRole(actor, documentId), true);
           var updates = new DocumentUpdateRepository(store);
-          var replacement =
-              updates.current(documentId).orElseThrow(IndexingService::indexConflict);
+          var replacement = updates.current(documentId).orElseThrow(IndexingService::indexConflict);
           if (!"corpus".equals(replacement.pipeline())
               || !"parsed".equals(replacement.state())
               || !candidateRevisionId.equals(replacement.candidateRevisionId())
@@ -215,7 +214,8 @@ public final class IndexingService {
             throw indexConflict();
           }
           var revision =
-              indexing.parsedRevision(documentId, candidateRevisionId)
+              indexing
+                  .parsedRevision(documentId, candidateRevisionId)
                   .orElseThrow(IndexingService::indexConflict);
           var base = indexing.activePublication(documentId).orElse(null);
           if (!Objects.equals(replacement.basePublicationId(), base == null ? null : base.id())) {
@@ -223,9 +223,7 @@ public final class IndexingService {
           }
           if (base != null && !base.target().equals(target)) {
             throw new ApplicationException(
-                FailureKind.CONFLICT,
-                "index_configuration_changed",
-                "当前索引配置与已发布索引不一致。");
+                FailureKind.CONFLICT, "index_configuration_changed", "当前索引配置与已发布索引不一致。");
           }
           String jobId = UUID.randomUUID().toString();
           String now = Instant.now().toString();
@@ -283,7 +281,8 @@ public final class IndexingService {
           }
           if (indexing.modelRebuildIdForJob(task.id()).isPresent()) {
             var plan = new ModelRebuildRepository(store).plan(task.id());
-            if (plan.isPresent() && !plan.orElseThrow().isEmpty()
+            if (plan.isPresent()
+                && !plan.orElseThrow().isEmpty()
                 && !configured(plan.orElseThrow())) {
               throw configurationChanged();
             }
@@ -316,8 +315,10 @@ public final class IndexingService {
           if (indexing.hasProcessing()) {
             return Optional.empty();
           }
-          var queued = batchId == null ? indexing.queuedIds(workspaceId)
-              : indexing.queuedModelRebuildIds(workspaceId, batchId);
+          var queued =
+              batchId == null
+                  ? indexing.queuedIds(workspaceId)
+                  : indexing.queuedModelRebuildIds(workspaceId, batchId);
           for (String jobId : queued) {
             var task = indexing.findInternalTask(jobId).orElseThrow();
             if (!creatorCanWrite(task)) {
@@ -450,76 +451,80 @@ public final class IndexingService {
             throw invalidIndexOutput();
           }
           final ReindexVectorPlan verifiedPlan = plan;
-          return persistCandidate(claim, () -> {
-          String publicationId = UUID.randomUUID().toString(), now = Instant.now().toString();
-          indexing.insertPublication(
-              new IndexPublicationEntity(
-                  publicationId,
-                  claim.jobId(),
-                  claim.documentId(),
-                  claim.revisionId(),
-                  claim.attempt(),
-                  claim.projectionGenerationId(),
-                  claim.sourceSha256(),
-                  claim.parserRevision(),
-                  claim.target(),
-                  manifest.sha256(),
-                  authoritative.size(),
-                  now));
-          for (var segment : authoritative) {
-            String physicalId =
-                RetrievalProjection.physicalSegmentId(
-                    claim.projectionGenerationId(), segment.evidenceId());
-            indexing.insertPublicationEntry(
-                publicationId, segment.evidenceId(), physicalId, full.get(physicalId));
-          }
-          if (verifiedPlan != null) {
-            var newPublication = new PublicationVersion(
+          return persistCandidate(
+              claim,
+              () -> {
+                String publicationId = UUID.randomUUID().toString(), now = Instant.now().toString();
+                indexing.insertPublication(
+                    new IndexPublicationEntity(
+                        publicationId,
+                        claim.jobId(),
+                        claim.documentId(),
+                        claim.revisionId(),
+                        claim.attempt(),
+                        claim.projectionGenerationId(),
+                        claim.sourceSha256(),
+                        claim.parserRevision(),
+                        claim.target(),
+                        manifest.sha256(),
+                        authoritative.size(),
+                        now));
+                for (var segment : authoritative) {
+                  String physicalId =
+                      RetrievalProjection.physicalSegmentId(
+                          claim.projectionGenerationId(), segment.evidenceId());
+                  indexing.insertPublicationEntry(
+                      publicationId, segment.evidenceId(), physicalId, full.get(physicalId));
+                }
+                if (verifiedPlan != null) {
+                  var newPublication =
+                      new PublicationVersion(
+                          claim.documentId(),
+                          publicationId,
+                          claim.revisionId(),
+                          claim.projectionGenerationId(),
+                          claim.sourceSha256(),
+                          claim.parserRevision(),
+                          claim.target(),
+                          manifest.sha256(),
+                          authoritative.size());
+                  if (modelRebuild) {
+                    indexing.insertModelRebuildBindings(
+                        claim.jobId(), newPublication, verifiedPlan);
+                  } else {
+                    indexing.insertInheritedBindings(newPublication, verifiedPlan);
+                  }
+                }
+                if (modelRebuild) {
+                  indexing.sealModelRebuildPublication(claim.jobId(), publicationId, now);
+                  return true;
+                }
+                indexing.activatePublication(claim.documentId(), publicationId, claim.revisionId());
+                audit(
+                    new Actor(claim.workspaceId(), "system:indexing"),
                     claim.documentId(),
-                    publicationId,
-                    claim.revisionId(),
-                    claim.projectionGenerationId(),
-                    claim.sourceSha256(),
-                    claim.parserRevision(),
-                    claim.target(),
-                    manifest.sha256(),
-                    authoritative.size());
-            if (modelRebuild) {
-              indexing.insertModelRebuildBindings(claim.jobId(), newPublication, verifiedPlan);
-            } else {
-              indexing.insertInheritedBindings(newPublication, verifiedPlan);
-            }
-          }
-          if (modelRebuild) {
-            indexing.sealModelRebuildPublication(claim.jobId(), publicationId, now);
-            return true;
-          }
-          indexing.activatePublication(claim.documentId(), publicationId, claim.revisionId());
-          audit(
-              new Actor(claim.workspaceId(), "system:indexing"),
-              claim.documentId(),
-              "indexing_published",
-              values("state", "processing"),
-              values(
-                  "state",
-                  "indexed",
-                  "publication_id",
-                  publicationId,
-                  "revision_id",
-                  claim.revisionId(),
-                  "projection_generation_id",
-                  claim.projectionGenerationId(),
-                  "manifest_sha256",
-                  manifest.sha256()),
-              Set.of(
-                  "state",
-                  "publication_id",
-                  "revision_id",
-                  "projection_generation_id",
-                  "manifest_sha256"));
-          indexing.markIndexed(claim.jobId(), now);
-          return true;
-          });
+                    "indexing_published",
+                    values("state", "processing"),
+                    values(
+                        "state",
+                        "indexed",
+                        "publication_id",
+                        publicationId,
+                        "revision_id",
+                        claim.revisionId(),
+                        "projection_generation_id",
+                        claim.projectionGenerationId(),
+                        "manifest_sha256",
+                        manifest.sha256()),
+                    Set.of(
+                        "state",
+                        "publication_id",
+                        "revision_id",
+                        "projection_generation_id",
+                        "manifest_sha256"));
+                indexing.markIndexed(claim.jobId(), now);
+                return true;
+              });
         });
   }
 
@@ -548,21 +553,23 @@ public final class IndexingService {
           if (task == null || !creatorCanWrite(task)) {
             return false;
           }
-          return persistCandidate(claim, () -> {
-          var registry = new DocumentCleanupRepository(store);
-          registry.registerProjectionAttempt(
-              new ProjectionAttempt(
-                  claim.documentId(),
-                  claim.workspaceId(),
-                  claim.revisionId(),
-                  claim.sourceSha256(),
-                  claim.projectionGenerationId(),
-                  "legacy",
-                  MilvusProjectionCleanup.qualified(projection),
-                  false));
-          registry.markProjectionWriteIssued(claim.projectionGenerationId(), "legacy");
-          return true;
-          });
+          return persistCandidate(
+              claim,
+              () -> {
+                var registry = new DocumentCleanupRepository(store);
+                registry.registerProjectionAttempt(
+                    new ProjectionAttempt(
+                        claim.documentId(),
+                        claim.workspaceId(),
+                        claim.revisionId(),
+                        claim.sourceSha256(),
+                        claim.projectionGenerationId(),
+                        "legacy",
+                        MilvusProjectionCleanup.qualified(projection),
+                        false));
+                registry.markProjectionWriteIssued(claim.projectionGenerationId(), "legacy");
+                return true;
+              });
         });
   }
 

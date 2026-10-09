@@ -6,7 +6,7 @@ import java.util.List;
 /** Explicit empty selection is distinct from the full authorized library. */
 public record DocumentSelection(boolean all, List<String> documentIds) {
   public DocumentSelection {
-    if (documentIds == null || documentIds.size() > 128 || (all && !documentIds.isEmpty())) {
+    if (documentIds == null || (all && !documentIds.isEmpty())) {
       throw ModelValues.invalid();
     }
     var unique = new HashSet<String>();

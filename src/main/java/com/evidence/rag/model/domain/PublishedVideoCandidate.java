@@ -17,10 +17,12 @@ public record PublishedVideoCandidate(
     ModelValues.identifier(filename, 255);
     if (publication == null
         || kind == null
-        || !publication.parserRevision().matches(
-            kind == VideoTraceEvidence.Kind.TRANSCRIPT
-                ? "java-video-compiler-v[1234]:[a-f0-9]{64}"
-                : "java-video-compiler-v[123]:[a-f0-9]{64}")
+        || !publication
+            .parserRevision()
+            .matches(
+                kind == VideoTraceEvidence.Kind.TRANSCRIPT
+                    ? "java-video-compiler-v[1234]:[a-f0-9]{64}"
+                    : "java-video-compiler-v[123]:[a-f0-9]{64}")
         || sourceId == null
         || !sourceId.matches(
             kind == VideoTraceEvidence.Kind.VISUAL

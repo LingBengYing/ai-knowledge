@@ -18,8 +18,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -80,14 +80,14 @@ public class VideoConfiguration {
                       "rag.video.asr.allow-loopback-http", Boolean.class, false)));
       if (!textEvidenceOnly) {
         vision =
-          new OpenAiCompatibleVisionModels(
-              new OpenAiCompatibleVisionModels.Configuration(
-                  endpoint(environment, "rag.video.vision"),
-                  duration(environment, "rag.video.vision.deadline-ms", 30000),
-                  environment.getProperty(
-                      "rag.video.vision.max-response-bytes", Integer.class, 262144),
-                  environment.getProperty(
-                      "rag.video.vision.allow-loopback-http", Boolean.class, false)));
+            new OpenAiCompatibleVisionModels(
+                new OpenAiCompatibleVisionModels.Configuration(
+                    endpoint(environment, "rag.video.vision"),
+                    duration(environment, "rag.video.vision.deadline-ms", 30000),
+                    environment.getProperty(
+                        "rag.video.vision.max-response-bytes", Integer.class, 262144),
+                    environment.getProperty(
+                        "rag.video.vision.allow-loopback-http", Boolean.class, false)));
       }
       Duration budget = duration(environment, "rag.video.compilation-budget-ms", 600000);
       var transcription =
@@ -99,12 +99,13 @@ public class VideoConfiguration {
           vision,
           ocr,
           textEvidenceOnly
-              ? VideoCompilationService.textEvidenceOnly(decoder, transcription, ocr, budget, subtitles)
+              ? VideoCompilationService.textEvidenceOnly(
+                  decoder, transcription, ocr, budget, subtitles)
               : subtitles
-              ? new VideoCompilationService(decoder, transcription, vision, ocr, budget, true)
-              : ocr == null
-                  ? new VideoCompilationService(decoder, transcription, vision, budget)
-                  : new VideoCompilationService(decoder, transcription, vision, ocr, budget));
+                  ? new VideoCompilationService(decoder, transcription, vision, ocr, budget, true)
+                  : ocr == null
+                      ? new VideoCompilationService(decoder, transcription, vision, budget)
+                      : new VideoCompilationService(decoder, transcription, vision, ocr, budget));
     } catch (RuntimeException invalid) {
       if (ocr != null) {
         ocr.close();

@@ -14,8 +14,8 @@ import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.ModelConfigurationRepository;
 import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
-import com.evidence.rag.repository.TextRuntimeSelectionRepository;
 import com.evidence.rag.repository.TextModelTargetRepository;
+import com.evidence.rag.repository.TextRuntimeSelectionRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
 import java.time.Instant;
@@ -67,10 +67,16 @@ public final class ModelRebuildService implements AutoCloseable {
     batches = new ModelRebuildRepository(store);
     tasks = new IndexingRepository(store);
     management = new ManagementRepository(store);
-    store.transaction(() -> {
-      batches.recoverInterrupted(Instant.now().toString());
-      return null;
-    });
+    store.transaction(
+        () -> {
+          batches.recoverInterrupted(Instant.now().toString());
+          return null;
+        });
+  }
+
+  /** Content mutations share the same global pending-rebuild gate as repository writes. */
+  public boolean mutationsBlocked() {
+    return store.transaction(batches::hasPending);
   }
 
   public synchronized ModelRebuildResult get(Actor actor) {
@@ -88,8 +94,8 @@ public final class ModelRebuildService implements AutoCloseable {
 
   private ModelRebuildResult startLocked(Actor actor, long version) {
     operators.requireEdit(actor);
-    try (var maintenance = store.operationGate().tryMaintenance()
-        .orElseThrow(() -> conflict("tasks_pending"))) {
+    try (var maintenance =
+        store.operationGate().tryMaintenance().orElseThrow(() -> conflict("tasks_pending"))) {
       var saved = configurations.read();
       if (saved.version() != version || saved.draft() == null) {
         throw ModelConfigurationRepository.conflict();
@@ -106,52 +112,84 @@ public final class ModelRebuildService implements AutoCloseable {
         }
       }
       var sealed = configurations.seal(version, saved.draft(), anchor);
-      store.transaction(() -> {
-        if (batches.hasPending(workspace)) {
-          throw conflict("rebuild_in_progress");
-        }
-        if (!batches.canStart(workspace)) {
-          throw conflict("tasks_pending");
-        }
-        var selected = new TextRuntimeSelectionRepository(store).read();
-        if (!Objects.equals(selected.activeVersion(), saved.activeVersion())
-            || !Objects.equals(runtime.currentVersion(), saved.activeVersion())) {
-          throw ModelConfigurationRepository.conflict();
-        }
-        var materials = batches.snapshot(workspace);
-        requireAllWritable(actor, materials);
-        String batchId = UUID.randomUUID().toString();
-        String now = Instant.now().toString();
-        var items = new ArrayList<ModelRebuildItemEntity>();
-        for (var material : materials) {
-          String jobId = UUID.randomUUID().toString();
-          if (material.basePublicationId() != null
-              && !indexing.supportsModelRebuildPlanInTransaction(
-                  tasks.vectorPlanForBase(jobId, workspace, material.basePublicationId()))) {
-            throw conflict("projection_configuration_required");
-          }
-          items.add(new ModelRebuildItemEntity(
-              batchId, material.ordinal(), material.documentId(), material.revisionId(),
-              material.sourceSha256(), material.parserRevision(), material.basePublicationId(),
-              material.baseVectorSetSha256(), jobId, null, "queued"));
-        }
-        batches.insert(new ModelRebuildEntity(
-            batchId, workspace, actor.principalId(), selected, version,
-            sealed.configurationSha256(), sealed.anchorSha256(), anchor.target(), "queued",
-            items.size(), 0, null, now, now), items);
-        for (var item : items) {
-          var revision = tasks.parsedRevision(item.documentId()).orElseThrow();
-          tasks.insertModelRebuildJob(
-              item.jobId(), item.documentId(), revision, anchor.target(), actor.principalId(),
-              item.basePublicationId(), tasks.nextRebuildSequence(item.documentId()), now, batchId);
-        }
-        return null;
-      });
+      store.transaction(
+          () -> {
+            if (batches.hasPending(workspace)) {
+              throw conflict("rebuild_in_progress");
+            }
+            if (!batches.canStart(workspace)) {
+              throw conflict("tasks_pending");
+            }
+            var selected = new TextRuntimeSelectionRepository(store).read();
+            if (!Objects.equals(selected.activeVersion(), saved.activeVersion())
+                || !Objects.equals(runtime.currentVersion(), saved.activeVersion())) {
+              throw ModelConfigurationRepository.conflict();
+            }
+            var materials = batches.snapshot(workspace);
+            requireAllWritable(actor, materials);
+            String batchId = UUID.randomUUID().toString();
+            String now = Instant.now().toString();
+            var items = new ArrayList<ModelRebuildItemEntity>();
+            for (var material : materials) {
+              String jobId = UUID.randomUUID().toString();
+              if (material.basePublicationId() != null
+                  && !indexing.supportsModelRebuildPlanInTransaction(
+                      tasks.vectorPlanForBase(jobId, workspace, material.basePublicationId()))) {
+                throw conflict("projection_configuration_required");
+              }
+              items.add(
+                  new ModelRebuildItemEntity(
+                      batchId,
+                      material.ordinal(),
+                      material.documentId(),
+                      material.revisionId(),
+                      material.sourceSha256(),
+                      material.parserRevision(),
+                      material.basePublicationId(),
+                      material.baseVectorSetSha256(),
+                      jobId,
+                      null,
+                      "queued"));
+            }
+            batches.insert(
+                new ModelRebuildEntity(
+                    batchId,
+                    workspace,
+                    actor.principalId(),
+                    selected,
+                    version,
+                    sealed.configurationSha256(),
+                    sealed.anchorSha256(),
+                    anchor.target(),
+                    "queued",
+                    items.size(),
+                    0,
+                    null,
+                    now,
+                    now),
+                items);
+            for (var item : items) {
+              var revision = tasks.parsedRevision(item.documentId()).orElseThrow();
+              tasks.insertModelRebuildJob(
+                  item.jobId(),
+                  item.documentId(),
+                  revision,
+                  anchor.target(),
+                  actor.principalId(),
+                  item.basePublicationId(),
+                  tasks.nextRebuildSequence(item.documentId()),
+                  now,
+                  batchId);
+            }
+            return null;
+          });
       return get(actor);
     }
   }
 
-  /** One actual indexing body per tick; the active bundle remains installed until all are sealed. */
+  /**
+   * One actual indexing body per tick; the active bundle remains installed until all are sealed.
+   */
   public boolean processNext() {
     if (closed) {
       return false;
@@ -164,8 +202,9 @@ public final class ModelRebuildService implements AutoCloseable {
     try {
       if (candidate == null || !batch.id().equals(candidateBatch)) {
         discardCandidate();
-        var sealed = configurations.sealed(batch.targetVersion(),
-            batch.configurationSha256(), batch.anchorSha256());
+        var sealed =
+            configurations.sealed(
+                batch.targetVersion(), batch.configurationSha256(), batch.anchorSha256());
         candidate = runtime.prepare(sealed.version(), sealed.configuration(), sealed.anchor());
         if (!candidate.target().equals(batch.target())) {
           throw conflict("model_configuration_unavailable");
@@ -177,25 +216,29 @@ public final class ModelRebuildService implements AutoCloseable {
         return false;
       }
       try (var operation = admission.orElseThrow()) {
-        store.transaction(() -> {
-          requireAllWritable(new Actor(workspace, batch.createdBy()), batches.items(batch.id()));
-          batches.markRunning(batch.id(), Instant.now().toString());
-          return null;
-        });
+        store.transaction(
+            () -> {
+              requireAllWritable(
+                  new Actor(workspace, batch.createdBy()), batches.items(batch.id()));
+              batches.markRunning(batch.id(), Instant.now().toString());
+              return null;
+            });
         var claim = candidate.indexing().claimModelRebuild(batch.id());
         if (claim.isPresent()) {
           candidate.indexing().process(claim.orElseThrow());
         }
-        var states = store.transaction(() -> {
-          var items = batches.items(batch.id());
-          for (var item : items) {
-            var task = tasks.findInternalTask(item.jobId()).orElseThrow();
-            if (!Set.of("queued", "prepared").contains(task.state())) {
-              throw conflict("indexing_failed");
-            }
-          }
-          return items;
-        });
+        var states =
+            store.transaction(
+                () -> {
+                  var items = batches.items(batch.id());
+                  for (var item : items) {
+                    var task = tasks.findInternalTask(item.jobId()).orElseThrow();
+                    if (!Set.of("queued", "prepared").contains(task.state())) {
+                      throw conflict("indexing_failed");
+                    }
+                  }
+                  return items;
+                });
         if (states.stream().anyMatch(item -> !"prepared".equals(item.state()))) {
           return true;
         }
@@ -208,25 +251,31 @@ public final class ModelRebuildService implements AutoCloseable {
         if (!candidate.identityCurrent()) {
           throw conflict("model_configuration_unavailable");
         }
-        store.transaction(() -> {
-          requireAllWritable(new Actor(workspace, batch.createdBy()), batches.items(batch.id()));
-          batches.publishAll(batch.id(), lease, Instant.now().toString());
-          return null;
-        });
+        store.transaction(
+            () -> {
+              requireAllWritable(
+                  new Actor(workspace, batch.createdBy()), batches.items(batch.id()));
+              batches.publishAll(batch.id(), lease, Instant.now().toString());
+              return null;
+            });
         runtime.install(candidate, lease, () -> {});
         candidate = null;
         candidateBatch = null;
       }
       return true;
     } catch (RuntimeException failure) {
-      String code = Thread.currentThread().isInterrupted() ? "worker_interrupted"
-          : failure instanceof ApplicationException problem
-              && "authorization_changed".equals(problem.code())
-                  ? "authorization_changed" : "model_rebuild_failed";
-      store.transaction(() -> {
-        batches.fail(batch.id(), code, Instant.now().toString());
-        return null;
-      });
+      String code =
+          Thread.currentThread().isInterrupted()
+              ? "worker_interrupted"
+              : failure instanceof ApplicationException problem
+                      && "authorization_changed".equals(problem.code())
+                  ? "authorization_changed"
+                  : "model_rebuild_failed";
+      store.transaction(
+          () -> {
+            batches.fail(batch.id(), code, Instant.now().toString());
+            return null;
+          });
       discardCandidate();
       return true;
     }
@@ -239,8 +288,13 @@ public final class ModelRebuildService implements AutoCloseable {
     try {
       materials = batches.snapshot(workspace);
     } catch (RuntimeException unavailable) {
-      return result(saved, batch, "rebuild_required".equals(configurationReason), false,
-          "source_unavailable", 0);
+      return result(
+          saved,
+          batch,
+          "rebuild_required".equals(configurationReason),
+          false,
+          "source_unavailable",
+          0);
     }
     boolean required = "rebuild_required".equals(configurationReason);
     String reason = configurationReason;
@@ -268,34 +322,52 @@ public final class ModelRebuildService implements AutoCloseable {
     if (saved.draft() == null) {
       return "configuration_required";
     }
-    try (var compatible = runtime.prepare(saved.version(), saved.draft(), runtime.currentAnchor())) {
-      store.transaction(() -> {
-        new TextModelTargetRepository(store).requireCompatible(workspace, compatible.target());
-        return null;
-      });
+    try (var compatible =
+        runtime.prepare(saved.version(), saved.draft(), runtime.currentAnchor())) {
+      store.transaction(
+          () -> {
+            new TextModelTargetRepository(store).requireCompatible(workspace, compatible.target());
+            return null;
+          });
       return "no_rebuild_required";
     } catch (ApplicationException problem) {
-      return "model_rebuild_required".equals(problem.code()) ? "rebuild_required"
+      return "model_rebuild_required".equals(problem.code())
+          ? "rebuild_required"
           : "projection_configuration_required".equals(problem.code())
-              ? "projection_configuration_required" : "model_configuration_unavailable";
+              ? "projection_configuration_required"
+              : "model_configuration_unavailable";
     } catch (RuntimeException invalid) {
       return "model_configuration_unavailable";
     }
   }
 
-  private static ModelRebuildResult result(ModelConfigurationState saved, ModelRebuildEntity batch,
-      boolean required, boolean canStart, String reason, int count) {
-    var job = batch == null ? null : new ModelRebuildResult.Job(
-        batch.id(), batch.baseSelection().activeVersion(), batch.targetVersion(), batch.state(),
-        batch.totalDocuments(), batch.completedDocuments(), batch.errorCode(), batch.createdAt(),
-        batch.updatedAt());
-    return new ModelRebuildResult(saved.version(), saved.activeVersion(), required, canStart,
-        reason, count, job);
+  private static ModelRebuildResult result(
+      ModelConfigurationState saved,
+      ModelRebuildEntity batch,
+      boolean required,
+      boolean canStart,
+      String reason,
+      int count) {
+    var job =
+        batch == null
+            ? null
+            : new ModelRebuildResult.Job(
+                batch.id(),
+                batch.baseSelection().activeVersion(),
+                batch.targetVersion(),
+                batch.state(),
+                batch.totalDocuments(),
+                batch.completedDocuments(),
+                batch.errorCode(),
+                batch.createdAt(),
+                batch.updatedAt());
+    return new ModelRebuildResult(
+        saved.version(), saved.activeVersion(), required, canStart, reason, count, job);
   }
 
   private boolean allWritable(Actor actor, List<ModelRebuildItemEntity> items) {
-    return items.stream().allMatch(item ->
-        permissions.canEdit(management.currentRole(actor, item.documentId())));
+    return items.stream()
+        .allMatch(item -> permissions.canEdit(management.currentRole(actor, item.documentId())));
   }
 
   private void requireAllWritable(Actor actor, List<ModelRebuildItemEntity> items) {
@@ -305,8 +377,7 @@ public final class ModelRebuildService implements AutoCloseable {
   }
 
   private static ApplicationException conflict(String code) {
-    return new ApplicationException(FailureKind.CONFLICT, code,
-        "暂不能切换索引配置；当前已应用配置和资料索引继续保留。");
+    return new ApplicationException(FailureKind.CONFLICT, code, "暂不能切换索引配置；当前已应用配置和资料索引继续保留。");
   }
 
   private void discardCandidate() {

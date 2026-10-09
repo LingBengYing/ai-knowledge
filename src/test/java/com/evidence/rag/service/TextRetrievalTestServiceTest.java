@@ -9,19 +9,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.RetrievalTestCommand;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,6 +34,82 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class TextRetrievalTestServiceTest {
   @TempDir Path directory;
+
+  @Test
+  void savedSettingsAndTemporaryOverridesFilterDeduplicateAndKeepRequestSnapshot() {
+    try (var fixture = new ManagedTextTestFixture(directory)) {
+      fixture.context.publish("relevant.txt", "相关灯塔材料");
+      fixture.context.publish("duplicate.txt", "相关灯塔材料");
+      fixture.context.publish("noise.txt", "无关噪声");
+      fixture.activate(1);
+      var original = new RetrievalSettings(7, "hybrid", "rerank", 0.5, 2, true, 0.5);
+      var saved = new AtomicReference<>(original);
+      fixture.context.models.ranking =
+          texts ->
+              IntStream.range(0, texts.size())
+                  .mapToObj(
+                      i -> new TextModels.Ranked(i, texts.get(i).equals("相关灯塔材料") ? 0.5 : 0.000001))
+                  .toList();
+      fixture.context.models.onRerank =
+          () -> saved.set(new RetrievalSettings(8, "hybrid", "rerank", 0.5, 1, true, 1.0));
+      try (var retrieval =
+          new TextRetrievalTestService(
+              fixture.context.evidence, fixture.runtime, Duration.ofSeconds(3), 1, saved::get)) {
+        var inherited =
+            new RetrievalTestCommand(
+                new AnswerCommand("灯塔", DocumentSelection.allDocuments()), null, null);
+        var first = retrieval.test(fixture.context.owner, inherited);
+        assertEquals(7, first.effectiveSettings().version());
+        assertEquals(2, first.effectiveSettings().topK());
+        assertEquals(1, first.matches().size());
+        assertEquals("相关灯塔材料", first.matches().getFirst().text());
+        assertEquals(0.5, first.matches().getFirst().rerankScore());
+        var next = retrieval.test(fixture.context.owner, inherited);
+        assertEquals("no_matches", next.reason());
+        assertEquals(8, next.effectiveSettings().version());
+        var overridden =
+            retrieval.test(
+                fixture.context.owner,
+                new RetrievalTestCommand(
+                    inherited.answer(),
+                    null,
+                    null,
+                    new RetrievalSettings(0, "hybrid", "rerank", 0.5, 3, false, 1.0)));
+        assertEquals(8, overridden.effectiveSettings().version());
+        assertEquals(3, overridden.effectiveSettings().topK());
+        assertEquals(2, overridden.matches().size());
+        assertTrue(saved.get().scoreThresholdEnabled());
+      }
+    }
+  }
+
+  @Test
+  void fullTextWeightedUsesNoModelAndVectorModeReportsItsOwnScore() {
+    try (var fixture = new ManagedTextTestFixture(directory)) {
+      fixture.context.publish("lighthouse.txt", "synthetic lighthouse launch");
+      fixture.activate(1);
+      var saved =
+          new AtomicReference<>(
+              new RetrievalSettings(1, "full_text", "weighted", 0.5, 5, false, 0.5));
+      try (var retrieval =
+          new TextRetrievalTestService(
+              fixture.context.evidence, fixture.runtime, Duration.ofSeconds(3), 1, saved::get)) {
+        var command =
+            new RetrievalTestCommand(
+                new AnswerCommand("lighthouse", DocumentSelection.allDocuments()), null, null);
+        var fullText = retrieval.test(fixture.context.owner, command);
+        assertEquals("completed", fullText.status());
+        assertEquals("bm25", fullText.scoreKind());
+        assertEquals(1, fullText.matches().size());
+        assertTrue(fixture.context.models.calls.isEmpty());
+        assertNull(fullText.matches().getFirst().rerankScore());
+        saved.set(new RetrievalSettings(2, "vector", "weighted", 0.5, 5, false, 0.5));
+        var vector = retrieval.test(fixture.context.owner, command);
+        assertEquals("vector_similarity", vector.scoreKind());
+        assertEquals(List.of("embed"), fixture.context.models.calls);
+      }
+    }
+  }
 
   @Test
   void returnsAuthorityUnicodeLocatorAndUtf8ShaWithoutGenerationOrTrace() {
@@ -45,7 +126,7 @@ class TextRetrievalTestServiceTest {
         assertEquals(1, result.configurationVersion());
         assertEquals("completed", result.status());
         assertNull(result.reason());
-        assertEquals("rrf", result.scoreKind());
+        assertEquals("weighted_score", result.scoreKind());
         assertEquals(1, result.scopeCount());
         assertEquals(1, result.matches().size());
         var match = result.matches().getFirst();
@@ -64,7 +145,7 @@ class TextRetrievalTestServiceTest {
   }
 
   @Test
-  void explicitEmptyAndNoHitsAreDistinctAndNeverExtract() {
+  void deprecatedEmptySelectionSearchesSharedWorkspaceAndNoHitsNeverExtracts() {
     try (var fixture = new ManagedTextTestFixture(directory)) {
       fixture.context.publish("policy.txt", "上海住宿上限650元。");
       fixture.activate(1);
@@ -72,9 +153,10 @@ class TextRetrievalTestServiceTest {
         var empty =
             retrieval.test(
                 fixture.context.owner, command(DocumentSelection.selected(List.of()), 5, true));
-        assertEquals("empty_scope", empty.reason());
-        assertTrue(fixture.context.models.calls.isEmpty());
-        assertTrue(fixture.context.projection.calls.isEmpty());
+        assertEquals("completed", empty.status());
+        assertEquals(1, empty.scopeCount());
+        assertEquals(List.of("embed", "rerank"), fixture.context.models.calls);
+        fixture.context.models.calls.clear();
         fixture.context.projection.results = ignored -> List.of();
         var noHits =
             retrieval.test(
@@ -88,29 +170,36 @@ class TextRetrievalTestServiceTest {
   }
 
   @Test
-  void fullSelectionUnknownOrRevokedRejectsBeforeProvider() {
+  void deprecatedSelectionAndHistoricalAclCannotRestrictSharedRetrieval() {
     try (var fixture = new ManagedTextTestFixture(directory)) {
       String document = fixture.context.publish("policy.txt", "上海住宿上限650元。");
       fixture.activate(1);
       try (var retrieval = service(fixture, Duration.ofSeconds(3))) {
-        assertThrows(
-            ApplicationException.class,
-            () ->
-                retrieval.test(
+        assertEquals(
+            1,
+            retrieval
+                .test(
                     fixture.context.owner,
                     command(
-                        DocumentSelection.selected(List.of(document, "unknown-document")),
-                        1,
-                        true)));
+                        DocumentSelection.selected(List.of(document, "unknown-document")), 1, true))
+                .scopeCount());
         fixture.context.revoke(document);
-        assertThrows(
-            ApplicationException.class,
-            () ->
-                retrieval.test(
+        assertEquals(
+            1,
+            retrieval
+                .test(
                     fixture.context.owner,
-                    command(DocumentSelection.selected(List.of(document)), 1, true)));
-        assertTrue(fixture.context.models.calls.isEmpty());
-        assertTrue(fixture.context.projection.calls.isEmpty());
+                    command(DocumentSelection.selected(List.of(document)), 1, true))
+                .scopeCount());
+        assertEquals(List.of("embed", "rerank", "embed", "rerank"), fixture.context.models.calls);
+        assertEquals(
+            0,
+            retrieval
+                .test(
+                    new Actor("other-workspace", "member"),
+                    command(DocumentSelection.allDocuments(), 1, true))
+                .scopeCount());
+        assertEquals(List.of("embed", "rerank", "embed", "rerank"), fixture.context.models.calls);
       }
     }
   }
@@ -163,13 +252,28 @@ class TextRetrievalTestServiceTest {
   }
 
   @Test
-  void uncitedScopeRevocationDuringRerankRejectsWholeResult() {
+  void uncitedScopeWithdrawalDuringRerankRejectsWholeResult() {
     try (var fixture = new ManagedTextTestFixture(directory)) {
       String first = fixture.context.publish("first.txt", "上海住宿上限650元。");
       String second = fixture.context.publish("second.txt", "北京住宿上限450元。");
       fixture.activate(1);
       fixture.context.projection.results = hits -> hits.subList(0, 1);
-      fixture.context.models.onRerank = () -> fixture.context.revoke(second);
+      fixture.context.models.onRerank =
+          () -> {
+            try (var connection =
+                    DriverManager.getConnection(
+                        "jdbc:sqlite:" + directory.resolve("java-library.db"));
+                var statement =
+                    connection.prepareStatement(
+                        "INSERT INTO document_tombstones SELECT id,workspace_id,?,? FROM documents WHERE id=?")) {
+              statement.setString(1, fixture.context.owner.principalId());
+              statement.setString(2, "2026-10-08T00:00:00Z");
+              statement.setString(3, second);
+              statement.executeUpdate();
+            } catch (Exception failure) {
+              throw new AssertionError("Synthetic withdrawal fixture failed", failure);
+            }
+          };
       try (var retrieval = service(fixture, Duration.ofSeconds(3))) {
         assertEquals(
             "scope_changed",

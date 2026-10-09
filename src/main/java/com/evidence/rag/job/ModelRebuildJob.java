@@ -13,11 +13,13 @@ public final class ModelRebuildJob implements AutoCloseable {
 
   public ModelRebuildJob(ModelRebuildService service) {
     this.service = Objects.requireNonNull(service);
-    executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-      var thread = new Thread(runnable, "model-index-rebuild");
-      thread.setDaemon(true);
-      return thread;
-    });
+    executor =
+        Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+              var thread = new Thread(runnable, "model-index-rebuild");
+              thread.setDaemon(true);
+              return thread;
+            });
     executor.scheduleWithFixedDelay(this::tick, 250, 250, TimeUnit.MILLISECONDS);
   }
 

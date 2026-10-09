@@ -21,6 +21,7 @@ import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AudioVectorIndexingService;
 import com.evidence.rag.service.ImageVectorIndexingService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.RuntimeService;
 import com.evidence.rag.worker.parser.AudioDecoder;
 import java.net.URI;
@@ -220,6 +221,7 @@ class AudioEmbeddingConfigurationTest {
     var environment = runtimeEnvironment();
     var settings = settings(environment, text(), null);
     var beans = new DefaultListableBeanFactory();
+    beans.registerSingleton("indexingTarget", new IndexingConfiguration().indexingTarget(text()));
     try (var store = new SqliteAuthorityStore(directory.resolve("authority"))) {
       var service =
           new AudioEmbeddingConfiguration()
@@ -230,9 +232,10 @@ class AudioEmbeddingConfigurationTest {
                   new ManagementRepository(store),
                   new IngestionRepository(store),
                   new DocumentPermissionPolicy(),
-                  new IndexingConfiguration().indexingTarget(text()),
+                  beans.getBeanProvider(IndexTarget.class),
                   settings,
-                  decoder());
+                  decoder(),
+                  beans.getBeanProvider(ManagedTextRuntime.class));
       beans.registerSingleton("audioVectorIndexingService", service);
       assertTrue(
           configuredRuntime(environment, beans)

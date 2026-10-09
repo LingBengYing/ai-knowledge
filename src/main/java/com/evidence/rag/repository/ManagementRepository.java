@@ -47,21 +47,18 @@ public final class ManagementRepository {
   public String currentRole(Actor actor, String documentId) {
     var rows =
         store.rows(
-            "SELECT acl.role FROM documents d JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
+            "SELECT 'member' AS role FROM documents d WHERE d.id=? AND d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             documentId,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     return rows.isEmpty() ? null : AuthorityRows.text(rows.getFirst(), "role");
   }
 
   public Optional<DocumentEntity> findAuthorizedDocument(Actor actor, String id, boolean edit) {
     var rows =
         store.rows(
-            "SELECT d.*,acl.role AS current_role,f.name AS folder_name FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN folders f ON f.id=d.folder_id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
-                + (edit ? " AND acl.role IN ('owner','editor')" : ""),
+            "SELECT d.*,'member' AS current_role,f.name AS folder_name FROM documents d LEFT JOIN folders f ON f.id=d.folder_id AND f.workspace_id=d.workspace_id WHERE d.id=? AND d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             id,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     return rows.stream().findFirst().map(AuthorityRows::document);
   }
 
@@ -71,18 +68,16 @@ public final class ManagementRepository {
             """
         SELECT d.id,d.filename,d.document_type,d.mime_type,d.source_sha256,d.size_bytes,
           s.source_revision_id,s.original_blob
-        FROM documents d JOIN document_acl a ON a.document_id=d.id
+        FROM documents d
         JOIN video_av_originals s ON s.document_id=d.id AND s.source_revision_id=d.active_revision_id
           AND s.source_sha256=d.source_sha256 AND s.filename=d.filename
           AND s.media_type=d.mime_type AND s.size_bytes=d.size_bytes
-        WHERE d.id=? AND d.workspace_id=? AND a.principal_id=?
-          AND a.role IN ('owner','editor','reader') AND d.document_type='video'
+        WHERE d.id=? AND d.workspace_id=? AND d.document_type='video'
           AND length(s.original_blob)=d.size_bytes AND d.size_bytes BETWEEN 1 AND 20971520
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
             id,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (!videoAv.isEmpty()) {
       var row = videoAv.getFirst();
       return Optional.of(
@@ -101,18 +96,16 @@ public final class ManagementRepository {
             """
         SELECT d.id,d.filename,d.document_type,d.mime_type,d.source_sha256,d.size_bytes,
           s.source_revision_id,s.original_blob
-        FROM documents d JOIN document_acl a ON a.document_id=d.id
+        FROM documents d
         JOIN sound_originals s ON s.document_id=d.id AND s.source_revision_id=d.active_revision_id
           AND s.source_sha256=d.source_sha256 AND s.filename=d.filename
           AND s.media_type=d.mime_type AND s.size_bytes=d.size_bytes
-        WHERE d.id=? AND d.workspace_id=? AND a.principal_id=?
-          AND a.role IN ('owner','editor','reader') AND d.document_type='audio'
+        WHERE d.id=? AND d.workspace_id=? AND d.document_type='audio'
           AND length(s.original_blob)=d.size_bytes AND d.size_bytes BETWEEN 1 AND 20971520
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
             id,
-            actor.workspaceId(),
-            actor.principalId());
+            actor.workspaceId());
     if (!sound.isEmpty()) {
       var row = sound.getFirst();
       return Optional.of(
@@ -131,19 +124,17 @@ public final class ManagementRepository {
             """
         SELECT d.id,d.filename,d.document_type,d.mime_type,d.source_sha256,d.size_bytes,
           c.initial_revision_id,c.original_blob
-        FROM documents d JOIN document_acl acl ON acl.document_id=d.id
+        FROM documents d
         JOIN corpus_documents c ON c.document_id=d.id AND c.initial_revision_id=d.active_revision_id
         JOIN corpus_revisions r ON r.id=c.initial_revision_id AND r.document_id=d.id
           AND r.source_sha256=d.source_sha256
-        WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=?
-          AND acl.role IN ('owner','editor','reader')
+        WHERE d.id=? AND d.workspace_id=?
           AND LENGTH(c.original_blob) BETWEEN 1 AND 20971520
           AND LENGTH(c.original_blob)=d.size_bytes
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         """,
             id,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(
@@ -179,7 +170,7 @@ public final class ManagementRepository {
         };
     return store
         .rows(
-            "SELECT d.*,acl.role AS current_role,f.name AS folder_name"
+            "SELECT d.*,'member' AS current_role,f.name AS folder_name"
                 + DOCUMENT_FROM
                 + " LEFT JOIN folders f ON f.id=d.folder_id AND f.workspace_id=d.workspace_id"
                 + filter.sql()
@@ -193,15 +184,15 @@ public final class ManagementRepository {
   }
 
   private static final String DOCUMENT_FROM =
-      " FROM documents d JOIN document_acl acl ON acl.document_id=d.id LEFT JOIN ingestion_jobs j ON j.document_id=d.id AND j.revision_id=d.active_revision_id";
+      " FROM documents d LEFT JOIN ingestion_jobs j ON j.document_id=d.id AND j.revision_id=d.active_revision_id";
 
   private record Filter(String sql, List<Object> args) {}
 
   private Filter filter(Actor actor, DocumentQuery query) {
-    var args = new ArrayList<Object>(List.of(actor.workspaceId(), actor.principalId()));
+    var args = new ArrayList<Object>(List.of(actor.workspaceId()));
     var predicate =
         new StringBuilder(
-            " WHERE d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)");
+            " WHERE d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)");
     if (!query.q().isEmpty()) {
       predicate.append(
           " AND (instr(lower(d.filename),lower(?))>0 OR instr(lower(d.display_name),lower(?))>0)");
@@ -280,16 +271,13 @@ public final class ManagementRepository {
     return store
         .rows(
             """
-        SELECT f.id,f.workspace_id,f.name,f.owner_id,COUNT(acl.document_id) AS document_count
+        SELECT f.id,f.workspace_id,f.name,f.owner_id,COUNT(d.id) AS document_count
         FROM folders f LEFT JOIN documents d ON d.folder_id=f.id AND d.workspace_id=f.workspace_id
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
-        LEFT JOIN document_acl acl ON acl.document_id=d.id AND acl.principal_id=?
-        WHERE f.workspace_id=? GROUP BY f.id HAVING f.owner_id=? OR COUNT(acl.document_id)>0
+        WHERE f.workspace_id=? GROUP BY f.id
         ORDER BY f.name COLLATE NOCASE,f.id
         """,
-            actor.principalId(),
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .map(AuthorityRows::folder)
         .toList();
@@ -299,16 +287,10 @@ public final class ManagementRepository {
     return store
         .rows(
             """
-        SELECT f.* FROM folders f WHERE f.id=? AND f.workspace_id=? AND (f.owner_id=? OR
-        (?=0 AND EXISTS(SELECT 1 FROM documents d JOIN document_acl acl ON acl.document_id=d.id
-        WHERE d.folder_id=f.id AND d.workspace_id=f.workspace_id AND acl.principal_id=?
-          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))))
+        SELECT f.* FROM folders f WHERE f.id=? AND f.workspace_id=?
         """,
             id,
-            actor.workspaceId(),
-            actor.principalId(),
-            ownerOnly ? 1 : 0,
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(AuthorityRows::folder);
@@ -316,9 +298,8 @@ public final class ManagementRepository {
 
   public boolean folderNameExists(Actor actor, String key, String except) {
     return store.count(
-            "SELECT COUNT(*) FROM folders WHERE workspace_id=? AND owner_id=? AND name_key=? AND id!=?",
+            "SELECT COUNT(*) FROM folders WHERE workspace_id=? AND name_key=? AND id!=?",
             actor.workspaceId(),
-            actor.principalId(),
             key,
             except)
         != 0;
@@ -353,13 +334,11 @@ public final class ManagementRepository {
         .rows(
             """
         SELECT DISTINCT t.tag FROM document_tags t JOIN documents d ON d.id=t.document_id
-        JOIN document_acl acl ON acl.document_id=d.id
-        WHERE d.workspace_id=? AND acl.principal_id=?
+        WHERE d.workspace_id=?
           AND NOT EXISTS(SELECT 1 FROM document_tombstones removed WHERE removed.document_id=d.id)
         ORDER BY t.tag
         """,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .map(row -> AuthorityRows.text(row, "tag"))
         .toList();

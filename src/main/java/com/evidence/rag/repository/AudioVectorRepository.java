@@ -245,8 +245,9 @@ public final class AudioVectorRepository {
       }
       String from = AuthorityRows.text(row, "inherited_from_publication_id");
       VectorBindingRows.requireProvenance(store, base, from, origin.id(), false);
-      String modelRebuild = AuthorityRows.text(row,"model_rebuild_id");
-      VectorBindingRows.requireModelRebuildProvenance(store,base,from,origin.id(),modelRebuild,false);
+      String modelRebuild = AuthorityRows.text(row, "model_rebuild_id");
+      VectorBindingRows.requireModelRebuildProvenance(
+          store, base, from, origin.id(), modelRebuild, false);
       String digest = VectorBindingIdentity.audioSha256(base, origin, current, from, modelRebuild);
       if (from != null && !digest.equals(AuthorityRows.text(row, "binding_sha256"))) {
         throw ModelValues.invalid();

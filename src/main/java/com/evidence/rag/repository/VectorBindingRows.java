@@ -97,13 +97,27 @@ final class VectorBindingRows {
     }
   }
 
-  static void requireModelRebuildProvenance(SqliteAuthorityStore store,PublicationVersion base,
-      String from,String originId,String modelRebuildId,boolean image) {
+  static void requireModelRebuildProvenance(
+      SqliteAuthorityStore store,
+      PublicationVersion base,
+      String from,
+      String originId,
+      String modelRebuildId,
+      boolean image) {
     if (modelRebuildId == null) {
       return;
     }
-    String bindings=image?"image_vector_bindings":"audio_vector_bindings";
-    if (from == null || store.count("SELECT COUNT(*) FROM index_publications p JOIN indexing_jobs j ON j.id=p.job_id JOIN model_rebuilds b ON b.id=? WHERE p.id=? AND j.base_publication_id=? AND ((j.model_rebuild_id=b.id AND p.embedding_identity=b.embedding_identity AND p.projection_identity=b.projection_identity AND p.model_revision=b.model_revision AND p.dimensions=b.dimensions AND EXISTS(SELECT 1 FROM model_rebuild_items i WHERE i.batch_id=b.id AND i.job_id=j.id AND i.document_id=p.document_id AND i.revision_id=p.revision_id AND i.base_publication_id=j.base_publication_id AND i.base_vector_set_sha256=j.base_vector_set_sha256)) OR (j.model_rebuild_id IS NULL AND b.state='completed' AND EXISTS(SELECT 1 FROM "+bindings+" previous JOIN index_publications prior ON prior.id=previous.publication_id WHERE previous.publication_id=j.base_publication_id AND previous.origin_vector_publication_id=? AND previous.model_rebuild_id=b.id AND prior.embedding_identity=p.embedding_identity AND prior.projection_identity=p.projection_identity AND prior.model_revision=p.model_revision AND prior.dimensions=p.dimensions)))",modelRebuildId,base.publicationId(),from,originId)!=1) {
+    String bindings = image ? "image_vector_bindings" : "audio_vector_bindings";
+    if (from == null
+        || store.count(
+                "SELECT COUNT(*) FROM index_publications p JOIN indexing_jobs j ON j.id=p.job_id JOIN model_rebuilds b ON b.id=? WHERE p.id=? AND j.base_publication_id=? AND ((j.model_rebuild_id=b.id AND p.embedding_identity=b.embedding_identity AND p.projection_identity=b.projection_identity AND p.model_revision=b.model_revision AND p.dimensions=b.dimensions AND EXISTS(SELECT 1 FROM model_rebuild_items i WHERE i.batch_id=b.id AND i.job_id=j.id AND i.document_id=p.document_id AND i.revision_id=p.revision_id AND i.base_publication_id=j.base_publication_id AND i.base_vector_set_sha256=j.base_vector_set_sha256)) OR (j.model_rebuild_id IS NULL AND b.state='completed' AND EXISTS(SELECT 1 FROM "
+                    + bindings
+                    + " previous JOIN index_publications prior ON prior.id=previous.publication_id WHERE previous.publication_id=j.base_publication_id AND previous.origin_vector_publication_id=? AND previous.model_rebuild_id=b.id AND prior.embedding_identity=p.embedding_identity AND prior.projection_identity=p.projection_identity AND prior.model_revision=p.model_revision AND prior.dimensions=p.dimensions)))",
+                modelRebuildId,
+                base.publicationId(),
+                from,
+                originId)
+            != 1) {
       throw ModelValues.invalid();
     }
   }
@@ -117,11 +131,19 @@ final class VectorBindingRows {
     var args = new ArrayList<Object>();
     args.add(base.publicationId());
     args.add(base.publicationId());
-    String modelColumn = store.count("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name='model_rebuild_id'",bindings) == 1 ? "b.model_rebuild_id" : "NULL";
+    String modelColumn =
+        store.count(
+                    "SELECT COUNT(*) FROM pragma_table_info(?) WHERE name='model_rebuild_id'",
+                    bindings)
+                == 1
+            ? "b.model_rebuild_id"
+            : "NULL";
     String sql =
         "SELECT v.*,NULL AS inherited_from_publication_id,NULL AS binding_sha256,NULL AS model_rebuild_id FROM "
             + table
-            + " v WHERE v.publication_id=? UNION ALL SELECT v.*,b.inherited_from_publication_id,b.binding_sha256," + modelColumn + " AS model_rebuild_id FROM "
+            + " v WHERE v.publication_id=? UNION ALL SELECT v.*,b.inherited_from_publication_id,b.binding_sha256,"
+            + modelColumn
+            + " AS model_rebuild_id FROM "
             + bindings
             + " b JOIN "
             + table

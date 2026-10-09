@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.sqlite.Function;
 
 /**
  * Real temporary SQL rows and complete saved sources; all receipts are explicit synthetic fixtures.
@@ -302,7 +303,9 @@ class ReindexVectorBindingAuthorityTest {
                 }
               });
       assertEquals(
-          19, denial.getErrorCode() & 255, "The real temporary SQLite guard must reject the write");
+          19,
+          denial.getErrorCode() & 255,
+          "The real temporary SQLite guard must reject the write: " + denial.getMessage());
       assertEquals(
           1, store.transaction(() -> count(store, "SELECT COUNT(*) FROM image_vector_bindings")));
       assertEquals(
@@ -490,12 +493,22 @@ class ReindexVectorBindingAuthorityTest {
 
   private void executeSql(String sql, Object... args) throws SQLException {
     try (var connection =
-            DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
-        var statement = connection.prepareStatement(sql)) {
-      for (int i = 0; i < args.length; i++) {
-        statement.setObject(i + 1, args[i]);
+        DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"))) {
+      Function.create(
+          connection,
+          "java_model_rebuild_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() throws SQLException {
+              result(0);
+            }
+          });
+      try (var statement = connection.prepareStatement(sql)) {
+        for (int i = 0; i < args.length; i++) {
+          statement.setObject(i + 1, args[i]);
+        }
+        statement.executeUpdate();
       }
-      statement.executeUpdate();
     }
   }
 }

@@ -123,12 +123,11 @@ class SoundAnswerServiceTest {
   }
 
   @Test
-  void allScopeExcludesPrivateAndSelectedPrivateNeverDispatches() {
+  void allScopeIncludesWorkspaceDocumentsWithoutPerDocumentGrants() {
     try (var fixture = new SoundTestFixture(directory);
         var answers = fixture.answers()) {
       fixture.register("visible", SoundTestFixture.pcm(32000, 1), true);
       fixture.register("private", SoundTestFixture.pcm(32000, 2), true);
-      fixture.sql("INSERT INTO document_acl VALUES('visible','reader','reader')");
       var reader = new Actor(SoundTestFixture.OWNER.workspaceId(), "reader");
       var result =
           answers.answer(
@@ -136,11 +135,14 @@ class SoundAnswerServiceTest {
               new AnswerCommand(SoundTestFixture.QUESTION, DocumentSelection.allDocuments()));
       assertEquals("answered", result.status());
       assertEquals(
-          java.util.Set.of("visible"),
+          java.util.Set.of("visible", "private"),
           fixture.queries.getFirst().scope().documentRevisions().keySet());
       int before = fixture.textEmbeds;
-      assertThrows(ApplicationException.class, () -> answers.answer(reader, command("private")));
-      assertEquals(before, fixture.textEmbeds);
+      assertEquals("answered", answers.answer(reader, command("private")).status());
+      assertEquals(before + 1, fixture.textEmbeds);
+      assertThrows(
+          ApplicationException.class,
+          () -> answers.answer(new Actor("other-workspace", "reader"), command("private")));
     }
   }
 
@@ -225,7 +227,7 @@ class SoundAnswerServiceTest {
   }
 
   @Test
-  void changedUncitedPermissionAfterVerifyPreventsTraceCommit() {
+  void withdrawnUncitedDocumentAfterVerifyPreventsTraceCommit() {
     try (var fixture = new SoundTestFixture(directory);
         var answers = fixture.answers()) {
       fixture.register("cited", SoundTestFixture.pcm(32000, 1), true);
@@ -233,7 +235,9 @@ class SoundAnswerServiceTest {
       var id = fixture.publications.getFirst().spans().getFirst().physicalSegmentId();
       fixture.search = query -> List.of(new RetrievalProjection.Candidate(id, 1.0));
       fixture.afterVerify =
-          () -> fixture.sql("DELETE FROM document_acl WHERE document_id='uncited'");
+          () ->
+              fixture.sql(
+                  "INSERT INTO document_tombstones SELECT id,workspace_id,'owner','2026-10-08T00:00:00Z' FROM documents WHERE id='uncited'");
       assertEquals(
           "scope_changed",
           assertThrows(

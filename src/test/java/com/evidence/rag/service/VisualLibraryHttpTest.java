@@ -219,11 +219,21 @@ class VisualLibraryHttpTest {
         assertEquals(
             RECALL, answers.requests.getFirst().body().path("documents").get(0).asString());
         assertStoredVisualOnly(data, answerId);
-        assertEquals(404, request("GET", sourceUrl, null, null, "another-owner").statusCode());
-        assertEquals(404, request("GET", contentUrl, null, null, "another-owner").statusCode());
+        var sharedSource = request("GET", sourceUrl, null, null, "another-owner");
+        assertEquals(200, sharedSource.statusCode());
+        assertEquals(source, JSON.readTree(sharedSource.body()));
+        var sharedOriginal = request("GET", contentUrl, null, null, "another-owner");
+        assertEquals(200, sharedOriginal.statusCode());
+        assertArrayEquals(image, sharedOriginal.body());
+        assertEquals(422, request("GET", sourceUrl, null, null, null).statusCode());
+        assertEquals(422, request("GET", contentUrl, null, null, null).statusCode());
+        assertEquals(401, request("GET", sourceUrl, null, null, "other-org", OWNER).statusCode());
+        assertEquals(401, request("GET", contentUrl, null, null, "other-org", OWNER).statusCode());
         json("DELETE", "/v1/documents/" + document, null, null, 202);
         assertEquals(404, request("GET", sourceUrl, null, null, OWNER).statusCode());
         assertEquals(404, request("GET", contentUrl, null, null, OWNER).statusCode());
+        assertEquals(404, request("GET", sourceUrl, null, null, "another-owner").statusCode());
+        assertEquals(404, request("GET", contentUrl, null, null, "another-owner").statusCode());
         assertEquals(3, vision.requests.size(), "Source reads and removal must not call a model");
       }
     }
@@ -317,12 +327,19 @@ class VisualLibraryHttpTest {
 
   private HttpResponse<byte[]> request(
       String method, String path, byte[] body, String type, String actor) throws Exception {
+    return request(method, path, body, type, "org-main", actor);
+  }
+
+  private HttpResponse<byte[]> request(
+      String method, String path, byte[] body, String type, String workspace, String actor)
+      throws Exception {
     var request =
         HttpRequest.newBuilder(URI.create(base + path))
             .timeout(Duration.ofSeconds(20))
-            .header("X-Workspace-Id", "org-main")
-            .header("X-Principal-Id", actor)
             .header("Origin", base);
+    if (actor != null) {
+      request.header("X-Workspace-Id", workspace).header("X-Principal-Id", actor);
+    }
     if (type != null) {
       request.header("Content-Type", type);
     }

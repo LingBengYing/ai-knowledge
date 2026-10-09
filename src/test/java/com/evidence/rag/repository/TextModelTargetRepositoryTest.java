@@ -23,7 +23,7 @@ class TextModelTargetRepositoryTest {
   @TempDir Path directory;
 
   @Test
-  void queuedAndFailedJobsWithoutPublicationStillRequireTheExactExistingTarget() {
+  void unfinishedJobsRequireTheExactTargetButFailedHistoryDoesNotBlockTheNextTarget() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var authority = fixture.authority;
       authority
@@ -55,6 +55,31 @@ class TextModelTargetRepositoryTest {
               .code());
       var claim = authority.indexing().claimIndexing("org").orElseThrow();
       authority.indexing().failIndexing(claim, "indexing_failed");
+      assertDoesNotThrow(
+          () ->
+              authority
+                  .store()
+                  .transaction(
+                      () -> {
+                        repository.requireCompatible("org", changed);
+                        assertEquals(
+                            1,
+                            authority
+                                .store()
+                                .count("SELECT COUNT(*) FROM indexing_jobs WHERE state='failed'"));
+                        return null;
+                      }));
+      authority
+          .ingestion()
+          .uploadDocument(
+              OWNER, "two.txt", "text/plain", "另一个合成正文".getBytes(StandardCharsets.UTF_8));
+      var next = authority.ingestion().claimIngestion("org").orElseThrow();
+      assertTrue(
+          authority
+              .ingestion()
+              .completeIngestion(
+                  next, new TextParser().parse("two.txt", "text/plain", next.content())));
+      authority.indexing().createIndexing(OWNER, next.documentId(), PublishedCorpusFixture.TARGET);
       assertThrows(
           ApplicationException.class,
           () ->
@@ -78,7 +103,7 @@ class TextModelTargetRepositoryTest {
   }
 
   @Test
-  void legacyAttemptMismatchBlocksButIndependentImageProjectionIsNotComparedToText() {
+  void historicalAttemptsNeverOverrideTheCurrentActiveTextPublicationTarget() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var claim = fixture.publish(OWNER, "兼容检查合成正文。");
       var store = fixture.authority.store();
@@ -122,13 +147,22 @@ class TextModelTargetRepositoryTest {
                     false));
             return null;
           });
-      assertThrows(
-          ApplicationException.class,
+      assertDoesNotThrow(
           () ->
               store.transaction(
                   () -> {
                     new TextModelTargetRepository(store)
                         .requireCompatible("org", PublishedCorpusFixture.TARGET);
+                    assertEquals(1, store.count("SELECT COUNT(*) FROM active_corpus_publications"));
+                    return null;
+                  }));
+      var changed = new IndexTarget("other", "c".repeat(64), "model-v2", 3);
+      assertThrows(
+          ApplicationException.class,
+          () ->
+              store.transaction(
+                  () -> {
+                    new TextModelTargetRepository(store).requireCompatible("org", changed);
                     return null;
                   }));
     }

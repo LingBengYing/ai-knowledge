@@ -1,10 +1,13 @@
 package com.evidence.rag.repository;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.support.AuthorityTestContext;
 import java.nio.file.Files;
@@ -21,13 +24,19 @@ class IngestionMigrationTest {
   @TempDir Path directory;
   private final Actor owner = new Actor("org", "owner");
   private final Actor reader = new Actor("org", "reader");
+  private final Actor outsider = new Actor("other-org", "reader");
 
   @Test
   void v1UpgradePreservesSyntheticAclMetadataAndKeepsRestorablePreUpgradeBackup() throws Exception {
     Path original = directory.resolve("original");
     versionOne(original);
+    var historicalAcl =
+        ReindexVersion23Fixture.rows(
+            original.resolve("java-library.db"),
+            "SELECT * FROM document_acl ORDER BY document_id,principal_id");
     try (var authority = new AuthorityTestContext(original)) {
-      assertEquals(25, scalar(original, "PRAGMA user_version"));
+      assertEquals(
+          HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar(original, "PRAGMA user_version"));
       var before = first(authority.listDocuments(reader, Map.of()));
       assertEquals("existing", before.get("document_id"));
       assertEquals("original.pdf", before.get("filename"));
@@ -38,7 +47,17 @@ class IngestionMigrationTest {
       assertEquals("folder", before.get("folder_id"));
       assertEquals(List.of("existing-tag"), before.get("tags"));
       assertEquals(true, before.get("synthetic_fixture"));
-      assertEquals(false, before.get("can_edit"));
+      // 0053 shares capabilities within the organization without rewriting historical ACL rows.
+      assertEquals(true, before.get("can_edit"));
+      assertEquals(
+          historicalAcl,
+          authority
+              .store()
+              .transaction(
+                  () ->
+                      authority
+                          .store()
+                          .rows("SELECT * FROM document_acl ORDER BY document_id,principal_id")));
       assertEquals(
           1L,
           authority.listFolders(reader).get("items") instanceof List<?> list
@@ -47,7 +66,29 @@ class IngestionMigrationTest {
       assertEquals(1, ((List<?>) authority.auditEvents(owner).get("items")).size());
       var added = authority.uploadDocument(owner, "new.txt", "text/plain", new byte[] {65});
       assertEquals("queued", added.get("state"));
-      assertEquals(1L, authority.listDocuments(reader, Map.of()).get("total"));
+      assertEquals(2L, authority.listDocuments(reader, Map.of()).get("total"));
+      assertEquals(0L, authority.listDocuments(outsider, Map.of()).get("total"));
+      assertEquals(List.of(), authority.listDocuments(outsider, Map.of()).get("items"));
+      String documentId = (String) added.get("document_id");
+      String revisionId = (String) added.get("revision_id");
+      assertEquals(
+          authority.management().documentOriginal(owner, documentId),
+          authority.management().documentOriginal(reader, documentId));
+      assertArrayEquals(
+          new byte[] {65},
+          authority.management().documentContent(reader, documentId, revisionId).content());
+      assertEquals(
+          FailureKind.NOT_FOUND,
+          assertThrows(
+                  ApplicationException.class,
+                  () -> authority.management().documentOriginal(outsider, documentId))
+              .kind());
+      assertEquals(
+          FailureKind.NOT_FOUND,
+          assertThrows(
+                  ApplicationException.class,
+                  () -> authority.management().documentContent(outsider, documentId, revisionId))
+              .kind());
       assertThrows(
           SQLException.class,
           () ->
@@ -66,6 +107,10 @@ class IngestionMigrationTest {
               .toList();
     }
     assertEquals(1, backups.size());
+    assertEquals(
+        historicalAcl,
+        ReindexVersion23Fixture.rows(
+            backups.getFirst(), "SELECT * FROM document_acl ORDER BY document_id,principal_id"));
     Path restored = Files.createDirectory(directory.resolve("restored"));
     Files.copy(backups.getFirst(), restored.resolve("java-library.db"));
     assertEquals(1, scalar(restored, "PRAGMA user_version"));
@@ -79,6 +124,8 @@ class IngestionMigrationTest {
     }
     try (var reopened = new AuthorityTestContext(original)) {
       assertEquals(2L, reopened.listDocuments(owner, Map.of()).get("total"));
+      assertEquals(2L, reopened.listDocuments(reader, Map.of()).get("total"));
+      assertEquals(0L, reopened.listDocuments(outsider, Map.of()).get("total"));
     }
     try (var paths = Files.list(original)) {
       assertEquals(
@@ -137,7 +184,7 @@ class IngestionMigrationTest {
     }
   }
 
-  private static void versionOne(Path directory) throws Exception {
+  static void versionOne(Path directory) throws Exception {
     Files.createDirectories(directory);
     for (String statement :
         List.of(

@@ -31,21 +31,41 @@ public record ProductHelpMatch(
     @JsonProperty("rerank_score") Double rerankScore) {
   public static ProductHelpMatch from(
       int rank, ProductHelpEvidence evidence, double retrievalScore, Double rerankScore) {
-    if (rank < 1 || rank > 10 || evidence == null || !Double.isFinite(retrievalScore)
-        || retrievalScore < 0 || (rerankScore != null && !Double.isFinite(rerankScore))) {
+    if (rank < 1
+        || rank > 10
+        || evidence == null
+        || !Double.isFinite(retrievalScore)
+        || retrievalScore < 0
+        || (rerankScore != null && !Double.isFinite(rerankScore))) {
       throw ModelValues.invalid();
     }
     var source = evidence.publication();
     return new ProductHelpMatch(
-        rank, evidence.category(), evidence.kind().name().toLowerCase(Locale.ROOT),
-        source.documentId(), source.sourceRevisionId(), evidence.filename(), source.sourceSha256(),
-        source.parserRevision(), evidence.mediaType(), evidence.text(), evidence.textSha256(),
-        evidence.page(), evidence.start(), evidence.end(),
+        rank,
+        evidence.category(),
+        evidence.kind().name().toLowerCase(Locale.ROOT),
+        source.documentId(),
+        source.sourceRevisionId(),
+        evidence.filename(),
+        source.sourceSha256(),
+        source.parserRevision(),
+        evidence.mediaType(),
+        evidence.text(),
+        evidence.textSha256(),
+        evidence.page(),
+        evidence.start(),
+        evidence.end(),
         evidence.startUs() == null ? null : BigDecimal.valueOf(evidence.startUs(), 3),
         evidence.endUs() == null ? null : BigDecimal.valueOf(evidence.endUs(), 3),
-        evidence.origin(), evidence.timePrecision(),
-        "/v1/documents/" + source.documentId() + "/revisions/" + source.sourceRevisionId() + "/content",
-        retrievalScore, rerankScore);
+        evidence.origin(),
+        evidence.timePrecision(),
+        "/v1/documents/"
+            + source.documentId()
+            + "/revisions/"
+            + source.sourceRevisionId()
+            + "/content",
+        retrievalScore,
+        rerankScore);
   }
 
   @Override

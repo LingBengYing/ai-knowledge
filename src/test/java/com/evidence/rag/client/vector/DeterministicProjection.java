@@ -82,7 +82,7 @@ public final class DeterministicProjection implements RetrievalProjection {
   public List<Candidate> search(Query query) {
     if (query == null
         || !workspace.equals(query.scope().workspaceId())
-        || query.vector().size() != dimension) {
+        || (query.mode() != SearchMode.SPARSE_ONLY && query.vector().size() != dimension)) {
       throw new ProjectionException("projection_invalid_input");
     }
     if (query.scope().documentRevisions().isEmpty()) {

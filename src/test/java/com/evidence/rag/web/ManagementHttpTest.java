@@ -73,9 +73,15 @@ class ManagementHttpTest {
 
   private HttpResponse<String> request(String method, String path, String principal, String body)
       throws Exception {
+    return request(method, path, "org-main", principal, body);
+  }
+
+  private HttpResponse<String> request(
+      String method, String path, String workspace, String principal, String body)
+      throws Exception {
     var builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5));
     if (principal != null) {
-      builder.header("X-Workspace-Id", "org-main").header("X-Principal-Id", principal);
+      builder.header("X-Workspace-Id", workspace).header("X-Principal-Id", principal);
     }
     if (body != null) {
       builder.header("Content-Type", "application/json");
@@ -116,18 +122,42 @@ class ManagementHttpTest {
   }
 
   @Test
-  void aclAndValidationAreEnforcedOverRealHttp() throws Exception {
+  void sharedMembersCanReadAndEditWhileLoginOrganizationAndValidationRemainEnforced()
+      throws Exception {
     assertEquals(422, request("GET", "/v1/management/documents", null, null).statusCode());
     assertEquals(
-        0,
+        401, request("GET", "/v1/management/documents", "other-org", "owner", null).statusCode());
+    assertEquals(
+        1,
         body(request("GET", "/v1/management/documents", "stranger", null)).path("total").asInt());
     var reader = request("GET", "/v1/management/documents?page_size=1", "reader", null);
     assertEquals(200, reader.statusCode());
     assertEquals(1, body(reader).path("total").asInt());
-    assertFalse(body(reader).path("items").get(0).path("can_edit").asBoolean());
+    assertTrue(body(reader).path("items").get(0).path("can_edit").asBoolean());
     assertEquals(
-        404,
-        request("PATCH", "/v1/management/documents/fixture", "reader", "{\"display_name\":\"bad\"}")
+        200,
+        request(
+                "PATCH",
+                "/v1/management/documents/fixture",
+                "reader",
+                "{\"display_name\":\"共享编辑\"}")
+            .statusCode());
+    assertEquals(
+        200,
+        request(
+                "PATCH",
+                "/v1/management/documents/fixture",
+                "stranger",
+                "{\"display_name\":\"无旧ACL成员编辑\"}")
+            .statusCode());
+    assertEquals(
+        401,
+        request(
+                "PATCH",
+                "/v1/management/documents/fixture",
+                "other-org",
+                "owner",
+                "{\"display_name\":\"不可跨组织编辑\"}")
             .statusCode());
     for (String invalid :
         List.of(
@@ -159,12 +189,12 @@ class ManagementHttpTest {
 
   @Test
   void foldersMetadataAndPartialBatchWorkAsAnIntegratedFlow() throws Exception {
-    var created = request("POST", "/v1/management/folders", "owner", "{\"name\":\"HTTP资料\"}");
+    var created = request("POST", "/v1/management/folders", "reader", "{\"name\":\"HTTP资料\"}");
     assertEquals(201, created.statusCode());
     var folderId = body(created).path("folder_id").asString();
     assertEquals(
         200,
-        request("PATCH", "/v1/management/folders/" + folderId, "owner", "{\"name\":\"HTTP整理\"}")
+        request("PATCH", "/v1/management/folders/" + folderId, "stranger", "{\"name\":\"HTTP整理\"}")
             .statusCode());
     var updated =
         request(
@@ -183,7 +213,7 @@ class ManagementHttpTest {
         request(
             "POST",
             "/v1/management/document-actions",
-            "owner",
+            "stranger",
             "{\"document_ids\":[\"fixture\",\"missing\"],\"action\":\"tag\",\"tags\":[\"批量\"]}");
     assertEquals(200, batch.statusCode());
     assertTrue(body(batch).path("items").get(0).path("ok").asBoolean());
@@ -197,14 +227,26 @@ class ManagementHttpTest {
         request("PATCH", "/v1/management/documents/fixture", "owner", "{\"folder_id\":null}")
             .statusCode());
     assertEquals(
-        200, request("DELETE", "/v1/management/folders/" + folderId, "owner", null).statusCode());
+        200, request("DELETE", "/v1/management/folders/" + folderId, "reader", null).statusCode());
     assertEquals(
-        501,
+        422,
         request(
                 "POST",
                 "/v1/management/document-actions",
                 "owner",
                 "{\"document_ids\":[\"fixture\"],\"action\":\"reindex\"}")
             .statusCode());
+    var unavailable =
+        request(
+            "POST",
+            "/v1/management/document-actions",
+            "owner",
+            "{\"document_ids\":[\"fixture\"],\"action\":\"reindex\",\"base_publication_ids\":{\"fixture\":\"observed-publication\"}}");
+    assertEquals(200, unavailable.statusCode());
+    assertEquals(1, body(unavailable).path("items").size());
+    var result = body(unavailable).path("items").get(0);
+    assertEquals("fixture", result.path("document_id").asString());
+    assertFalse(result.path("ok").asBoolean());
+    assertEquals("indexing_unavailable", result.path("error_code").asString());
   }
 }

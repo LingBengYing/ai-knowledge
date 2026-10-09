@@ -94,11 +94,18 @@ final class CleanupPayloadTables {
               List.of(new Body("facts_json", "'[]'"))));
 
   static List<Table> current(SqliteAuthorityStore store) {
-    if (store.count("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='document_original_revisions'") == 0) {
+    if (store.count(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='document_original_revisions'")
+        == 0) {
       return TABLES;
     }
     var tables = new java.util.ArrayList<Table>(TABLES);
-    tables.add(new Table("document_original_revisions",List.of("revision_id"),"$.document_id",List.of(blob("original_blob"))));
+    tables.add(
+        new Table(
+            "document_original_revisions",
+            List.of("revision_id"),
+            "$.document_id",
+            List.of(blob("original_blob"))));
     return List.copyOf(tables);
   }
 

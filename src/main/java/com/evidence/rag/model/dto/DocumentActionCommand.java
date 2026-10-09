@@ -14,8 +14,11 @@ public record DocumentActionCommand(
     List<String> tags,
     Map<String, String> basePublicationIds) {
   public DocumentActionCommand(
-      List<String> documentIds, String action, boolean folderIdPresent,
-      String folderId, List<String> tags) {
+      List<String> documentIds,
+      String action,
+      boolean folderIdPresent,
+      String folderId,
+      List<String> tags) {
     this(documentIds, action, folderIdPresent, folderId, tags, null);
   }
 

@@ -5,7 +5,6 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelConfigurationState;
 import com.evidence.rag.model.domain.ModelValues;
-import java.time.Instant;
 import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import java.io.IOException;
@@ -19,6 +18,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Set;
@@ -140,11 +140,15 @@ public final class ModelConfigurationRepository implements AutoCloseable {
         throw failure();
       }
       TextModelConfiguration active = configuration(root.path("active"), providers);
-      TextIndexAnchor anchor = anchored
-          ? anchor(root.path("index_anchor"), providers, "java-text-configuration-v5".equals(format))
-          : null;
-      if (anchored && !"java-text-configuration-v5".equals(format)
-          && active != null && anchor == null) {
+      TextIndexAnchor anchor =
+          anchored
+              ? anchor(
+                  root.path("index_anchor"), providers, "java-text-configuration-v5".equals(format))
+              : null;
+      if (anchored
+          && !"java-text-configuration-v5".equals(format)
+          && active != null
+          && anchor == null) {
         throw failure();
       }
       return new ModelConfigurationState(
@@ -166,30 +170,44 @@ public final class ModelConfigurationRepository implements AutoCloseable {
     var selections = new TextRuntimeSelectionRepository(store);
     var selection = store.transaction(selections::read);
     if (!selection.initialized()) {
-      var legacy = stored.activeVersion() == null ? null
-          : seal(stored.activeVersion(), stored.active(), stored.indexAnchor());
-      store.transaction(() -> {
-        if (!selections.read().initialized()) {
-          selections.initialize(stored.activeVersion(),
-              legacy == null ? null : legacy.configurationSha256(),
-              legacy == null ? null : legacy.anchorSha256(), Instant.now().toString());
-        }
-        return null;
-      });
+      var legacy =
+          stored.activeVersion() == null
+              ? null
+              : seal(stored.activeVersion(), stored.active(), stored.indexAnchor());
+      store.transaction(
+          () -> {
+            if (!selections.read().initialized()) {
+              selections.initialize(
+                  stored.activeVersion(),
+                  legacy == null ? null : legacy.configurationSha256(),
+                  legacy == null ? null : legacy.anchorSha256(),
+                  Instant.now().toString());
+            }
+            return null;
+          });
       selection = store.transaction(selections::read);
     }
     if (selection.activeVersion() == null) {
       return new ModelConfigurationState(stored.version(), stored.draft(), null, null, null);
     }
-    var active = sealed(selection.activeVersion(), selection.configurationSha256(),
-        selection.anchorSha256());
-    return new ModelConfigurationState(stored.version(), stored.draft(), active.version(),
-        active.configuration(), active.anchor());
+    var active =
+        sealed(
+            selection.activeVersion(), selection.configurationSha256(), selection.anchorSha256());
+    return new ModelConfigurationState(
+        stored.version(),
+        stored.draft(),
+        active.version(),
+        active.configuration(),
+        active.anchor());
   }
 
   /** A private immutable payload, selected only through the authority version and two digests. */
-  public record SealedVersion(long version, TextModelConfiguration configuration,
-      TextIndexAnchor anchor, String configurationSha256, String anchorSha256) {
+  public record SealedVersion(
+      long version,
+      TextModelConfiguration configuration,
+      TextIndexAnchor anchor,
+      String configurationSha256,
+      String anchorSha256) {
     @Override
     public String toString() {
       return "SealedVersion[redacted]";
@@ -199,16 +217,19 @@ public final class ModelConfigurationRepository implements AutoCloseable {
   public synchronized SealedVersion seal(
       long version, TextModelConfiguration configuration, TextIndexAnchor anchor) {
     requireOpen();
-    if (version < 1 || version > ModelConfigurationState.MAX_VERSION || configuration == null
-        || (anchor != null && (!anchor.matchesEmbedding(configuration)
-            || anchor.originatingVersion() > version))) {
+    if (version < 1
+        || version > ModelConfigurationState.MAX_VERSION
+        || configuration == null
+        || (anchor != null
+            && (!anchor.matchesEmbedding(configuration)
+                || anchor.originatingVersion() > version))) {
       throw failure();
     }
     Path temporary = null;
     try {
       String configSha = ModelValues.sha256(JSON.writeValueAsBytes(configuration));
-      String anchorSha = ModelValues.sha256(JSON.writeValueAsBytes(
-          anchor == null ? null : anchorValue(anchor)));
+      String anchorSha =
+          ModelValues.sha256(JSON.writeValueAsBytes(anchor == null ? null : anchorValue(anchor)));
       Path sealed = sealedPath(version, configSha, anchorSha);
       var result = new SealedVersion(version, configuration, anchor, configSha, anchorSha);
       if (Files.exists(sealed, LinkOption.NOFOLLOW_LINKS)) {
@@ -226,10 +247,14 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       if (bytes.length > MAX_BYTES) {
         throw failure();
       }
-      temporary = Files.createTempFile(file.getParent(), ".text-sealed-", ".partial",
-          PosixFilePermissions.asFileAttribute(FILE_MODE));
-      try (var output = FileChannel.open(temporary, StandardOpenOption.WRITE,
-          LinkOption.NOFOLLOW_LINKS)) {
+      temporary =
+          Files.createTempFile(
+              file.getParent(),
+              ".text-sealed-",
+              ".partial",
+              PosixFilePermissions.asFileAttribute(FILE_MODE));
+      try (var output =
+          FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
         var buffer = ByteBuffer.wrap(bytes);
         while (buffer.hasRemaining()) {
           output.write(buffer);
@@ -278,8 +303,9 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       var anchor = anchor(value.path("index_anchor"), true, true);
       if (configuration == null
           || !configSha.equals(ModelValues.sha256(JSON.writeValueAsBytes(configuration)))
-          || !anchorSha.equals(ModelValues.sha256(JSON.writeValueAsBytes(
-              anchor == null ? null : anchorValue(anchor))))) {
+          || !anchorSha.equals(
+              ModelValues.sha256(
+                  JSON.writeValueAsBytes(anchor == null ? null : anchorValue(anchor))))) {
         throw failure();
       }
       return new SealedVersion(version, configuration, anchor, configSha, anchorSha);
@@ -289,13 +315,16 @@ public final class ModelConfigurationRepository implements AutoCloseable {
   }
 
   private Path sealedPath(long version, String configSha, String anchorSha) {
-    if (version < 1 || version > ModelConfigurationState.MAX_VERSION
-        || configSha == null || !configSha.matches("[a-f0-9]{64}")
-        || anchorSha == null || !anchorSha.matches("[a-f0-9]{64}")) {
+    if (version < 1
+        || version > ModelConfigurationState.MAX_VERSION
+        || configSha == null
+        || !configSha.matches("[a-f0-9]{64}")
+        || anchorSha == null
+        || !anchorSha.matches("[a-f0-9]{64}")) {
       throw failure();
     }
-    return file.getParent().resolve("text-version-" + version + "-" + configSha + "-"
-        + anchorSha + ".json");
+    return file.getParent()
+        .resolve("text-version-" + version + "-" + configSha + "-" + anchorSha + ".json");
   }
 
   private void select(ModelConfigurationState next) {
@@ -305,12 +334,18 @@ public final class ModelConfigurationRepository implements AutoCloseable {
     }
     var payload = seal(next.activeVersion(), next.active(), next.indexAnchor());
     var selections = new TextRuntimeSelectionRepository(store);
-    store.transaction(() -> {
-      var expected = selections.read();
-      selections.select(expected, payload.version(), payload.configurationSha256(),
-          payload.anchorSha256(), null, Instant.now().toString());
-      return null;
-    });
+    store.transaction(
+        () -> {
+          var expected = selections.read();
+          selections.select(
+              expected,
+              payload.version(),
+              payload.configurationSha256(),
+              payload.anchorSha256(),
+              null,
+              Instant.now().toString());
+          return null;
+        });
   }
 
   public synchronized ModelConfigurationState save(long baseVersion, TextModelConfiguration draft) {
@@ -385,7 +420,8 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       value.put("draft", state.draft());
       value.put("active_version", state.activeVersion());
       value.put("active", state.active());
-      value.put("index_anchor", state.indexAnchor() == null ? null : anchorValue(state.indexAnchor()));
+      value.put(
+          "index_anchor", state.indexAnchor() == null ? null : anchorValue(state.indexAnchor()));
       byte[] bytes = JSON.writeValueAsBytes(value);
       if (bytes.length > MAX_BYTES) {
         throw failure();
@@ -501,7 +537,8 @@ public final class ModelConfigurationRepository implements AutoCloseable {
             ? text(value.path("generation_provider_base_url"))
             : text(value.path("provider_base_url")),
         collection && !value.path("projection_collection").isNull()
-            ? text(value.path("projection_collection")) : null);
+            ? text(value.path("projection_collection"))
+            : null);
   }
 
   private static TextModelConfiguration configuration(JsonNode value, boolean providers) {

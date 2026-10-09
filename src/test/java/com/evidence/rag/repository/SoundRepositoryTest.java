@@ -58,6 +58,11 @@ class SoundRepositoryTest {
                 repository
                     .findOriginal(
                         new Actor(OWNER.workspaceId(), "private-reader"), original.documentId())
+                    .isPresent());
+            assertTrue(
+                repository
+                    .findOriginal(
+                        new Actor("other-workspace", OWNER.principalId()), original.documentId())
                     .isEmpty());
             assertEquals(
                 "sound_index_required",

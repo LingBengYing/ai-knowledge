@@ -27,7 +27,10 @@ public record ProductHelpEvidence(
     ModelValues.identifier(physicalId, 128);
     ModelValues.identifier(filename, 255);
     ModelValues.identifier(mediaType, 100);
-    if (publication == null || kind == null || text == null || text.isBlank()
+    if (publication == null
+        || kind == null
+        || text == null
+        || text.isBlank()
         || text.codePointCount(0, text.length()) > 4096
         || text.getBytes(StandardCharsets.UTF_8).length > 16384
         || text.codePoints().anyMatch(c -> c == 0 || (c >= 0xD800 && c <= 0xDFFF))) {
@@ -38,16 +41,29 @@ public record ProductHelpEvidence(
     }
     ModelValues.indexIdentity(publication.sourceRevisionId());
     if (kind == Kind.DOCUMENT_TEXT) {
-      if (page == null || page < 1 || page > 500 || start == null || start < 0
-          || end == null || end <= start || end - start > 1200
+      if (page == null
+          || page < 1
+          || page > 500
+          || start == null
+          || start < 0
+          || end == null
+          || end <= start
+          || end - start > 1200
           || end - start != text.codePointCount(0, text.length())
-          || startUs != null || endUs != null
+          || startUs != null
+          || endUs != null
           || !("source_text".equals(origin) || "machine_ocr".equals(origin))) {
         throw ModelValues.invalid();
       }
-    } else if (page != null || start != null || end != null
-        || startUs == null || endUs == null || startUs < 0 || endUs <= startUs
-        || endUs > 600_000_000L || !mediaType.startsWith("video/")
+    } else if (page != null
+        || start != null
+        || end != null
+        || startUs == null
+        || endUs == null
+        || startUs < 0
+        || endUs <= startUs
+        || endUs > 600_000_000L
+        || !mediaType.startsWith("video/")
         || !(switch (kind) {
           case VIDEO_TRANSCRIPT -> "machine_asr".equals(origin);
           case VIDEO_SUBTITLE -> "embedded_subtitle".equals(origin);

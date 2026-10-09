@@ -13,7 +13,8 @@ import java.util.function.Function;
 /** Exact configured targets only; current configuration is never used to guess a past profile. */
 public final class MilvusProjectionCleanup implements ProjectionCleanup {
   private final Map<String, MilvusRestProjection.Settings> configured;
-  private final Function<QualifiedProjectionTarget, Optional<MilvusRestProjection.Settings>> registered;
+  private final Function<QualifiedProjectionTarget, Optional<MilvusRestProjection.Settings>>
+      registered;
 
   public MilvusProjectionCleanup(List<MilvusRestProjection.Settings> targets) {
     this(targets, ignored -> Optional.empty());

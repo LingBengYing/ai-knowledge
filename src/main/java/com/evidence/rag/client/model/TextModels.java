@@ -1,10 +1,15 @@
 package com.evidence.rag.client.model;
 
+import com.evidence.rag.model.dto.AgentMessage;
 import java.util.List;
 
 /** Model seam. Callers own authorization, factual proof and authoritative source locators. */
 public interface TextModels {
-  String SYNTHESIS_PROMPT_REVISION = "java-text-synthesis-v2";
+  String SYNTHESIS_PROMPT_REVISION = "java-text-synthesis-v5-topic-dependencies";
+  String KNOWLEDGE_EXTRACTION_PROMPT_REVISION = "java-knowledge-extraction-v1-linked-video";
+  String TOPIC_EXTRACTION_PROMPT_REVISION = "java-topic-extraction-v1";
+  String KNOWLEDGE_ANSWER_PROMPT_REVISION = "java-knowledge-answer-v2-shared-contexts";
+  String WIKI_COMPILATION_PROMPT_REVISION = "java-wiki-compilation-v1-review-draft";
 
   List<List<Double>> embed(List<String> texts);
 
@@ -12,7 +17,30 @@ public interface TextModels {
 
   Extraction extract(String query, List<Evidence> evidence);
 
+  default Extraction extractTopic(String query, List<Evidence> evidence) {
+    return extract(query, evidence);
+  }
+
+  default Extraction extractKnowledge(String query, List<KnowledgeExtractionEvidence> evidence) {
+    throw new Failure("model_knowledge_extraction_unavailable");
+  }
+
+  /** Answers from original retrieved snippets; no independent semantic verification. */
+  default Synthesis answerKnowledge(String question, List<SynthesisEvidence> evidence) {
+    throw new Failure("model_knowledge_answer_unavailable");
+  }
+
+  /** Produces a derived draft for human review, never authoritative answer evidence. */
+  default WikiDraft compileWiki(String title, List<Evidence> evidence) {
+    throw new Failure("model_wiki_compilation_unavailable");
+  }
+
   default Synthesis synthesize(String question, List<SynthesisEvidence> evidence) {
+    throw new Failure("model_synthesis_unavailable");
+  }
+
+  default Synthesis synthesize(
+      String question, List<SynthesisEvidence> evidence, List<SynthesisContext> contextOnly) {
     throw new Failure("model_synthesis_unavailable");
   }
 
@@ -21,9 +49,44 @@ public interface TextModels {
     throw new Failure("model_synthesis_unavailable");
   }
 
+  default boolean verifySynthesis(
+      String question,
+      Synthesis synthesis,
+      List<SynthesisEvidence> evidence,
+      List<SynthesisContext> contextOnly) {
+    throw new Failure("model_synthesis_unavailable");
+  }
+
+  /** Plain bounded Agent turn. Does not change index identity or existing prompt contracts. */
+  default String agentChat(List<AgentMessage> messages) {
+    throw new Failure("model_agent_unavailable");
+  }
+
   String revision();
 
   record Ranked(int index, double score) {}
+
+  record WikiDraft(List<WikiSectionDraft> sections) {
+    public WikiDraft {
+      sections = List.copyOf(sections);
+    }
+
+    @Override
+    public String toString() {
+      return "WikiDraft[redacted]";
+    }
+  }
+
+  record WikiSectionDraft(String heading, String body, List<String> evidenceIds) {
+    public WikiSectionDraft {
+      evidenceIds = List.copyOf(evidenceIds);
+    }
+
+    @Override
+    public String toString() {
+      return "WikiSectionDraft[redacted]";
+    }
+  }
 
   record Evidence(String id, String text) {
     @Override
@@ -50,10 +113,35 @@ public interface TextModels {
     }
   }
 
-  record SynthesisEvidence(String id, String quote, String context) {
+  record KnowledgeExtractionEvidence(
+      String id, String text, String sourceGroup, String kind, Long startUs, Long endUs) {
+    @Override
+    public String toString() {
+      return "KnowledgeExtractionEvidence[redacted]";
+    }
+  }
+
+  record SynthesisEvidence(
+      String id, String quote, String context, List<String> requiredEvidenceIds) {
+    public SynthesisEvidence {
+      requiredEvidenceIds = List.copyOf(requiredEvidenceIds);
+    }
+
+    public SynthesisEvidence(String id, String quote, String context) {
+      this(id, quote, context, List.of());
+    }
+
     @Override
     public String toString() {
       return "SynthesisEvidence[redacted]";
+    }
+  }
+
+  /** A retrieved original context that may only limit or contradict cited factual support. */
+  record SynthesisContext(String id, String context) {
+    @Override
+    public String toString() {
+      return "SynthesisContext[redacted]";
     }
   }
 

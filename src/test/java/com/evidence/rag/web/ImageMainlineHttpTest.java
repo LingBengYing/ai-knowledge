@@ -226,9 +226,18 @@ class ImageMainlineHttpTest {
         assertEquals(422, anonymous.statusCode());
         assertEquals(
             "invalid_identity", JSON.readTree(anonymous.body()).path("error_code").asString());
-        assertEquals(404, request("GET", contentUrl, null, null, "another-owner").statusCode());
+        var sharedOriginal = request("GET", contentUrl, null, null, "another-owner");
+        assertEquals(200, sharedOriginal.statusCode());
+        assertArrayEquals(image, sharedOriginal.body());
+        var sharedSource = request("GET", sourceUrl, null, null, "another-owner");
+        assertEquals(200, sharedSource.statusCode());
+        assertEquals(source, JSON.readTree(sharedSource.body()));
+        assertEquals(
+            401, request("GET", contentUrl, null, null, "other-org", "image-owner").statusCode());
         json("DELETE", "/v1/documents/" + doc, null, null, 202);
         assertEquals(404, request("GET", contentUrl, null, null, "image-owner").statusCode());
+        assertEquals(404, request("GET", sourceUrl, null, null, "another-owner").statusCode());
+        assertEquals(404, request("GET", contentUrl, null, null, "another-owner").statusCode());
       }
     }
   }
@@ -275,10 +284,16 @@ class ImageMainlineHttpTest {
 
   private HttpResponse<byte[]> request(
       String method, String path, byte[] body, String type, String actor) throws Exception {
+    return request(method, path, body, type, "org-main", actor);
+  }
+
+  private HttpResponse<byte[]> request(
+      String method, String path, byte[] body, String type, String workspace, String actor)
+      throws Exception {
     var request =
         HttpRequest.newBuilder(URI.create(base + path))
             .timeout(Duration.ofSeconds(20))
-            .header("X-Workspace-Id", "org-main")
+            .header("X-Workspace-Id", workspace)
             .header("X-Principal-Id", actor)
             .header("Origin", base);
     if (type != null) {

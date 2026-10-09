@@ -74,7 +74,8 @@ class SynopsisHierarchyMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(25, store.count("PRAGMA user_version"));
+              assertEquals(
+                  HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
               var repository = new SynopsisRepository(store);
               assertEquals(expected, repository.findSynopsis("available-history").orElseThrow());
               assertEquals(processing, repository.findTask("processing-history").orElseThrow());

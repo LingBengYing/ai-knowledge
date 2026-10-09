@@ -2,6 +2,7 @@ package com.evidence.rag.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -34,7 +35,7 @@ class ModelConfigurationControllerTest {
   @TempDir Path directory;
 
   @Test
-  void safeUnconfiguredGetReaderControlsAndExactNoQueryNoBodyRoutes() throws Exception {
+  void sharedMemberControlsKeepLoginOrganizationAndExactNoQueryNoBodyRoutes() throws Exception {
     try (var store = new SqliteAuthorityStore(directory.resolve("authority"));
         var repository =
             new ModelConfigurationRepository(directory.resolve("private/config.json"));
@@ -70,7 +71,7 @@ class ModelConfigurationControllerTest {
               .getResponse();
       var value = JsonMapper.builder().build().readTree(result.getContentAsString());
       assertEquals(9, value.size());
-      assertFalse(value.path("can_edit").booleanValue());
+      assertTrue(value.path("can_edit").booleanValue());
       assertEquals("unconfigured", value.path("state").stringValue());
       assertEquals("private, no-store", result.getHeader("Cache-Control"));
       mvc.perform(
@@ -87,8 +88,19 @@ class ModelConfigurationControllerTest {
                   .requestAttr(AuthenticatedActor.class.getName(), reader)
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"version\":0,\"role\":\"embedding\"}"))
-          .andExpect(status().isForbidden());
+          .andExpect(status().isConflict());
       mvc.perform(get("/v1/model-configuration")).andExpect(status().isUnauthorized());
+      mvc.perform(
+              get("/v1/model-configuration")
+                  .requestAttr(
+                      AuthenticatedActor.class.getName(), new Actor("other-org", "reader")))
+          .andExpect(status().isForbidden());
+      mvc.perform(
+              post("/v1/model-configuration/test")
+                  .requestAttr(AuthenticatedActor.class.getName(), new Actor("other-org", "reader"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"version\":0,\"role\":\"embedding\"}"))
+          .andExpect(status().isForbidden());
     }
   }
 

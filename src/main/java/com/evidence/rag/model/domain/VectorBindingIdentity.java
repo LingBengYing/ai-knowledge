@@ -87,19 +87,35 @@ public final class VectorBindingIdentity {
     return HexFormat.of().formatHex(digest.digest());
   }
 
-  public static String imageSha256(PublicationVersion base,ImageVectorPublication origin,
-      String current,String from,String modelRebuildId) {
-    String ordinary = imageSha256(base,origin,current,from);
-    return modelRebuildId == null ? ordinary : ModelValues.sha256((ordinary+"\0java-model-rebuild-vector-binding-v1\0"+modelRebuildId).getBytes(StandardCharsets.UTF_8));
+  public static String imageSha256(
+      PublicationVersion base,
+      ImageVectorPublication origin,
+      String current,
+      String from,
+      String modelRebuildId) {
+    String ordinary = imageSha256(base, origin, current, from);
+    return modelRebuildId == null
+        ? ordinary
+        : ModelValues.sha256(
+            (ordinary + "\0java-model-rebuild-vector-binding-v1\0" + modelRebuildId)
+                .getBytes(StandardCharsets.UTF_8));
   }
 
-  public static String audioSha256(PublicationVersion base,AudioVectorPublication origin,
-      List<String> current,String from,String modelRebuildId) {
-    String ordinary = audioSha256(base,origin,current,from);
-    return modelRebuildId == null ? ordinary : ModelValues.sha256((ordinary+"\0java-model-rebuild-vector-binding-v1\0"+modelRebuildId).getBytes(StandardCharsets.UTF_8));
+  public static String audioSha256(
+      PublicationVersion base,
+      AudioVectorPublication origin,
+      List<String> current,
+      String from,
+      String modelRebuildId) {
+    String ordinary = audioSha256(base, origin, current, from);
+    return modelRebuildId == null
+        ? ordinary
+        : ModelValues.sha256(
+            (ordinary + "\0java-model-rebuild-vector-binding-v1\0" + modelRebuildId)
+                .getBytes(StandardCharsets.UTF_8));
   }
 
-  static void requireSameMaterials(PublicationVersion current,PublicationVersion origin) {
+  static void requireSameMaterials(PublicationVersion current, PublicationVersion origin) {
     if (!current.documentId().equals(origin.documentId())
         || !current.sourceRevisionId().equals(origin.sourceRevisionId())
         || !current.sourceSha256().equals(origin.sourceSha256())

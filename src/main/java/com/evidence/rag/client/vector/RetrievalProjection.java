@@ -18,10 +18,15 @@ import java.util.TreeMap;
  * verify.
  */
 public interface RetrievalProjection {
+  /** Per-request filter batch, not a workspace document limit. */
   int MAX_SCOPE = 128;
+
   int MAX_BATCH = 64;
   int MAX_TEXT_BYTES = 16_384;
+
+  /** Legacy attachment-derived search text budget; ordinary user questions are not capped here. */
   int MAX_QUERY_BYTES = 4_096;
+
   int MAX_TOP_K = 100;
   int MAX_REVISION_SEGMENTS = 4096;
 
@@ -147,7 +152,7 @@ public interface RetrievalProjection {
   record AuthorizedScope(String workspaceId, Map<String, String> documentRevisions) {
     public AuthorizedScope {
       requireId(workspaceId);
-      if (documentRevisions == null || documentRevisions.size() > MAX_SCOPE) {
+      if (documentRevisions == null) {
         throw invalid();
       }
       var copied = new TreeMap<String, String>();
@@ -190,19 +195,48 @@ public interface RetrievalProjection {
 
   enum SearchMode {
     HYBRID,
-    DENSE_ONLY
+    DENSE_ONLY,
+    SPARSE_ONLY
+  }
+
+  /** RRF preserves legacy rank scores; WEIGHTED uses explicit query-time score semantics. */
+  enum FusionMode {
+    RRF,
+    WEIGHTED
   }
 
   record Query(
-      String text, List<Double> vector, AuthorizedScope scope, int limit, SearchMode mode) {
+      String text,
+      List<Double> vector,
+      AuthorizedScope scope,
+      int limit,
+      SearchMode mode,
+      FusionMode fusionMode,
+      double denseWeight) {
     public Query(String text, List<Double> vector, AuthorizedScope scope, int limit) {
       this(text, vector, scope, limit, SearchMode.HYBRID);
     }
 
+    public Query(
+        String text, List<Double> vector, AuthorizedScope scope, int limit, SearchMode mode) {
+      this(text, vector, scope, limit, mode, FusionMode.RRF, 0.5);
+    }
+
     public Query {
-      requireText(text, MAX_QUERY_BYTES);
-      vector = immutableVector(vector);
-      if (scope == null || limit < 1 || limit > MAX_TOP_K || mode == null) {
+      requireText(text, Integer.MAX_VALUE);
+      if (mode == SearchMode.SPARSE_ONLY && vector != null && vector.isEmpty()) {
+        vector = List.of();
+      } else {
+        vector = immutableVector(vector);
+      }
+      if (scope == null
+          || limit < 1
+          || limit > MAX_TOP_K
+          || mode == null
+          || fusionMode == null
+          || !Double.isFinite(denseWeight)
+          || denseWeight < 0
+          || denseWeight > 1) {
         throw invalid();
       }
     }

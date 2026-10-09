@@ -229,7 +229,8 @@ public final class VideoCompilationService {
         }
         try {
           frames.add(
-              new VideoFrameRecall(frame, new ImageRecall(description.recallText(), modelRevision)));
+              new VideoFrameRecall(
+                  frame, new ImageRecall(description.recallText(), modelRevision)));
         } catch (ApplicationException invalidRecall) {
           throw new TextParser.Failure("parser_invalid_output");
         }
@@ -251,7 +252,12 @@ public final class VideoCompilationService {
             if (parsed.isEmpty()) {
               ocrFrames.add(
                   new VideoFrameOcr(
-                      frame.ordinal(), frame.image().sha256(), dimensions, "", List.of(), List.of()));
+                      frame.ordinal(),
+                      frame.image().sha256(),
+                      dimensions,
+                      "",
+                      List.of(),
+                      List.of()));
             } else {
               var image = parsed.orElseThrow();
               if (!dimensions.equals(image.dimensions())
@@ -341,7 +347,8 @@ public final class VideoCompilationService {
           "model_invalid_input",
           "model_invalid_configuration",
           "model_closed",
-          "invalid_request" -> code;
+          "invalid_request" ->
+          code;
       default -> "unexpected_failure";
     };
   }

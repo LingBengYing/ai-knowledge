@@ -32,12 +32,13 @@ class ModelConfigurationServiceTest {
       var service = service(fixture, repository);
       var reader = service.get(new Actor("org-main", "reader"));
       assertEquals("unconfigured", reader.state());
-      assertFalse(reader.canEdit());
+      assertTrue(reader.canEdit());
       assertNull(reader.embedding().model());
-      var saved = service.save(ADMIN, command(0, "first-synthetic-key"));
+      var member = new Actor("org-main", "second-member-with-no-administrator-role");
+      var saved = service.save(member, command(0, "first-synthetic-key"));
       assertEquals("draft", saved.state());
       assertNull(saved.activeVersion());
-      assertEquals("active", service.activate(ADMIN, 1).state());
+      assertEquals("active", service.activate(member, 1).state());
       var next = service.save(ADMIN, command(1, "second-synthetic-key"));
       assertEquals("draft", next.state());
       assertEquals(1L, next.activeVersion());
@@ -50,7 +51,7 @@ class ModelConfigurationServiceTest {
   }
 
   @Test
-  void staleVersionsAndNonAdminControlsFailBeforeTestingOrTakingMaintenance() {
+  void staleVersionsAndForeignWorkspaceControlsFailBeforeTestingOrTakingMaintenance() {
     try (var fixture = new ManagedTextTestFixture(directory.resolve("authority"));
         var repository =
             new ModelConfigurationRepository(directory.resolve("private/config.json"))) {
@@ -71,7 +72,7 @@ class ModelConfigurationServiceTest {
             "model_configuration_forbidden",
             assertThrows(
                     ApplicationException.class,
-                    () -> service.activate(new Actor("org-main", "owner"), 1))
+                    () -> service.activate(new Actor("other-workspace", "owner"), 1))
                 .code());
         assertEquals(
             "configuration_busy",

@@ -85,7 +85,7 @@ class SynopsisLibraryServiceTest {
   }
 
   @Test
-  void readersCanReadSharedDerivedArtifactButCannotGenerateIt() {
+  void membersWithoutDocumentGrantsCanReadAndGenerateSharedArtifacts() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       String documentId = fixture.publish(owner, "蓝色装置采用太阳能。").documentId();
       var library = service(fixture.authority.store());
@@ -93,35 +93,30 @@ class SynopsisLibraryServiceTest {
       var claim = library.claim(owner.workspaceId()).orElseThrow();
       assertTrue(library.complete(claim, output(claim)));
       var reader = new Actor(owner.workspaceId(), "reader");
-      fixture
-          .authority
-          .store()
-          .transaction(
-              () -> {
-                new ManagementRepository(fixture.authority.store())
-                    .insertGrant(documentId, reader.principalId(), "reader");
-                return null;
-              });
       assertEquals(task.taskId(), library.get(reader, documentId).synopsisId());
       assertNotNull(library.source(reader, task.taskId(), 0, 0));
-      assertThrows(ApplicationException.class, () -> library.create(reader, documentId));
+      assertEquals(task.taskId(), library.create(reader, documentId).taskId());
       assertThrows(
           ApplicationException.class,
           () -> library.get(new Actor("other", reader.principalId()), documentId));
-      assertThrows(
-          ApplicationException.class,
-          () -> library.task(new Actor(owner.workspaceId(), "stranger"), task.taskId()));
+      assertEquals(
+          task.taskId(),
+          library.task(new Actor(owner.workspaceId(), "stranger"), task.taskId()).taskId());
     }
   }
 
   @Test
-  void revokedCreatorCannotSealOrExposePartialSummaryAndIndexedFileIsUntouched() throws Exception {
+  void withdrawnDocumentCannotSealOrExposePartialSummaryAndIndexedFileIsUntouched()
+      throws Exception {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       String documentId = fixture.publish(owner, "蓝色装置采用太阳能。").documentId();
       var library = service(fixture.authority.store());
       var task = library.create(owner, documentId);
       var claim = library.claim(owner.workspaceId()).orElseThrow();
-      sql("DELETE FROM document_acl WHERE document_id='" + documentId + "'");
+      sql(
+          "INSERT INTO document_tombstones VALUES('"
+              + documentId
+              + "','org-main','owner','2026-10-08T00:00:00Z')");
       assertFalse(library.current(claim));
       assertFalse(library.complete(claim, output(claim)));
       assertThrows(ApplicationException.class, () -> library.get(owner, documentId));
@@ -243,13 +238,13 @@ class SynopsisLibraryServiceTest {
   }
 
   @Test
-  void queuedTaskWithRevokedWriterIsConsumedSafelyWithoutClaim() throws Exception {
+  void queuedTaskRemainsAvailableWhenHistoricalWriterRoleChanges() throws Exception {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       String documentId = fixture.publish(owner, "蓝色装置采用太阳能。").documentId();
       var library = service(fixture.authority.store());
       library.create(owner, documentId);
       sql("UPDATE document_acl SET role='reader' WHERE document_id='" + documentId + "'");
-      assertTrue(library.claim(owner.workspaceId()).isEmpty());
+      assertTrue(library.claim(owner.workspaceId()).isPresent());
       assertEquals(0, count("synopsis_entries"));
     }
   }

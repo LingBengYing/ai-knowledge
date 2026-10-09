@@ -49,7 +49,8 @@ final class SourceFields {
             && !LAYOUT_LABEL.matcher(value.text()).matches()
             && !ASSIGNMENT.matcher(value.text()).find()
             && value.text().codePointCount(0, value.text().length()) <= 512) {
-          fields.add(new Field(label.start(), value.end(), text.substring(label.start(), value.end())));
+          fields.add(
+              new Field(label.start(), value.end(), text.substring(label.start(), value.end())));
           index++;
           continue;
         }

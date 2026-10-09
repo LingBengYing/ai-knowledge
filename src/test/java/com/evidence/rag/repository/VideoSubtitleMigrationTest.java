@@ -40,8 +40,11 @@ class VideoSubtitleMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
-            assertEquals(25, store.count("SELECT version FROM format_info"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                store.count("SELECT version FROM format_info"));
             for (String table :
                 List.of(
                     "video_subtitle_compilations",
@@ -136,7 +139,8 @@ class VideoSubtitleMigrationTest {
       try (var store = new SqliteAuthorityStore(directory)) {
         store.transaction(
             () -> {
-              assertEquals(25, store.count("PRAGMA user_version"));
+              assertEquals(
+                  HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
               assertEquals(
                   expected,
                   new SynopsisRepository(store).findSynopsis("available-history").orElseThrow());
@@ -225,7 +229,8 @@ class VideoSubtitleMigrationTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(25, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
             assertEquals(5, store.count("SELECT COUNT(*) FROM video_subtitle_cues"));
             assertEquals(
                 expected.subtitles(),

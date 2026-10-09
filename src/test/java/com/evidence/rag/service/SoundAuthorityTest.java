@@ -51,12 +51,14 @@ class SoundAuthorityTest {
       assertEquals(0, fixture.decodes);
       assertEquals(0, fixture.textEmbeds);
       assertTrue(fixture.drafts.isEmpty());
-      fixture.sql("INSERT INTO document_acl VALUES('library','other-reader','reader')");
+      assertEquals(
+          citation,
+          answers
+              .source(new Actor(SoundTestFixture.OWNER.workspaceId(), "other-reader"), answerId, 1)
+              .citation());
       assertThrows(
           ApplicationException.class,
-          () ->
-              answers.source(
-                  new Actor(SoundTestFixture.OWNER.workspaceId(), "other-reader"), answerId, 1));
+          () -> answers.source(new Actor("other-workspace", "owner"), answerId, 1));
       assertThrows(
           ApplicationException.class, () -> answers.source(SoundTestFixture.OWNER, answerId, 2));
     }
@@ -254,7 +256,8 @@ class SoundAuthorityTest {
                           1,
                           SoundTestFixture.TARGET,
                           "0".repeat(64))));
-      fixture.sql("DELETE FROM document_acl WHERE document_id='uncited'");
+      fixture.sql(
+          "INSERT INTO document_tombstones SELECT id,workspace_id,'owner','2026-10-08T00:00:00Z' FROM documents WHERE id='uncited'");
       assertThrows(
           ApplicationException.class,
           () -> answers.source(SoundTestFixture.OWNER, answer.answerId(), 1));

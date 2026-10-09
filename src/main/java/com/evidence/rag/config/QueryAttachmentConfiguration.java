@@ -14,9 +14,9 @@ import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.dto.QueryAnswerMode;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.AudioCompilationService;
+import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.QueryPreparationService;
-import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.service.VisualAnswerService;
 import com.evidence.rag.web.BoundedMediaQueryServlet;
@@ -27,8 +27,8 @@ import java.net.URI;
 import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -139,7 +139,8 @@ public class QueryAttachmentConfiguration {
       QueryAttachmentSettings transport,
       AnswersSettings processing,
       JsonMapper json,
-      ProblemHandler errors, ObjectProvider<ManagedTextRuntime> managed) {
+      ProblemHandler errors,
+      ObjectProvider<ManagedTextRuntime> managed) {
     var registration =
         new ServletRegistrationBean<>(
             new BoundedMediaQueryServlet(
@@ -156,7 +157,8 @@ public class QueryAttachmentConfiguration {
                       throw new ApplicationException(
                           FailureKind.UNAVAILABLE, "query_attachment_unavailable", "附件提问暂不可用。");
                     }
-                    return currentVisual.answerAttached(actor, command.answer(), command.attachments());
+                    return currentVisual.answerAttached(
+                        actor, command.answer(), command.attachments());
                   }
                   if (currentAnswers == null) {
                     throw new ApplicationException(

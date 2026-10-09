@@ -27,6 +27,49 @@ import org.junit.jupiter.api.Test;
 
 class RetrievalProjectionTest {
   @Test
+  void configurableQueryPreservesLegacyRrfAndValidatesExplicitWeights() {
+    var scope = new AuthorizedScope("org-main", Map.of("d", "r"));
+    assertEquals(
+        RetrievalProjection.FusionMode.RRF,
+        new Query("question", List.of(1.0, 0.0), scope, 5).fusionMode());
+    assertEquals(
+        List.of(),
+        new Query(
+                "question",
+                List.of(),
+                scope,
+                5,
+                RetrievalProjection.SearchMode.SPARSE_ONLY,
+                RetrievalProjection.FusionMode.WEIGHTED,
+                0.5)
+            .vector());
+    assertThrows(
+        ProjectionException.class,
+        () ->
+            new Query(
+                "question",
+                List.of(),
+                scope,
+                5,
+                RetrievalProjection.SearchMode.DENSE_ONLY,
+                RetrievalProjection.FusionMode.WEIGHTED,
+                0.5));
+    for (double value : List.of(-0.1, 1.1, Double.NaN, Double.POSITIVE_INFINITY)) {
+      assertThrows(
+          ProjectionException.class,
+          () ->
+              new Query(
+                  "question",
+                  List.of(1.0, 0.0),
+                  scope,
+                  5,
+                  RetrievalProjection.SearchMode.HYBRID,
+                  RetrievalProjection.FusionMode.WEIGHTED,
+                  value));
+    }
+  }
+
+  @Test
   void physicalIdsAreStableWithinGenerationDisjointAcrossRetriesAndUnambiguous() {
     String first = RetrievalProjection.physicalSegmentId("generation-a", "segment-a");
     assertTrue(first.matches("seg-[a-f0-9]{64}"));
@@ -205,7 +248,7 @@ class RetrievalProjectionTest {
     }
     assertEquals(128, new AuthorizedScope("org-main", complete).documentRevisions().size());
     complete.put("doc-128", "rev-128");
-    assertThrows(ProjectionException.class, () -> new AuthorizedScope("org-main", complete));
+    assertEquals(129, new AuthorizedScope("org-main", complete).documentRevisions().size());
   }
 
   @Test
@@ -231,8 +274,7 @@ class RetrievalProjectionTest {
           ProjectionException.class,
           () -> new Entry("s", "org-main", "d", "r", text, List.of(1.0, 0.0)));
     }
-    assertThrows(
-        ProjectionException.class, () -> new Query("汉".repeat(2000), List.of(1.0, 0.0), scope, 1));
+    assertEquals("汉".repeat(2000), new Query("汉".repeat(2000), List.of(1.0, 0.0), scope, 1).text());
     assertThrows(ProjectionException.class, () -> new Query("text", List.of(1.0, 0.0), null, 1));
     assertThrows(ProjectionException.class, () -> new Query("text", List.of(1.0, 0.0), scope, 0));
     assertThrows(ProjectionException.class, () -> new Query("text", List.of(1.0, 0.0), scope, 101));

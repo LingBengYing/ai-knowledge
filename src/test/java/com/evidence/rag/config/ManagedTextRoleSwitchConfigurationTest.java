@@ -20,8 +20,6 @@ import com.evidence.rag.repository.ModelConfigurationRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.ManagedTextRuntime;
-import com.evidence.rag.service.QueryAttachmentService;
-import com.evidence.rag.service.VideoAnswerProposalService;
 import com.evidence.rag.support.AnswerProtocolServer;
 import com.evidence.rag.support.AuthorityTestContext;
 import com.evidence.rag.tool.parser.TextParser;
@@ -284,6 +282,8 @@ class ManagedTextRoleSwitchConfigurationTest {
 
     ManagedTextRuntime start() {
       var providers = new DefaultListableBeanFactory();
+      providers.registerSingleton("evidenceService", evidence);
+      providers.registerSingleton("answersSettings", new AnswersSettings(true, 10000, 2));
       return configuration.managedTextRuntime(
           authority.store(),
           authority.indexing(),
@@ -293,8 +293,7 @@ class ManagedTextRoleSwitchConfigurationTest {
           new AnswersSettings(true, 10000, 2),
           new IndexingSettings(true, 10000),
           repository,
-          providers.getBeanProvider(VideoAnswerProposalService.class),
-          providers.getBeanProvider(QueryAttachmentService.class));
+          providers.createBean(ManagedMediaTextFactory.class));
     }
 
     String queue(IndexTarget target) {

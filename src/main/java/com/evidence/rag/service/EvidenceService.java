@@ -16,11 +16,11 @@ import com.evidence.rag.model.domain.GroundingText;
 import com.evidence.rag.model.domain.ImageVectorBinding;
 import com.evidence.rag.model.domain.ImageVectorScope;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.KnowledgeEvidence;
+import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.PublicationVersion;
 import com.evidence.rag.model.domain.ProductHelpEvidence;
+import com.evidence.rag.model.domain.PublicationVersion;
 import com.evidence.rag.model.domain.PublishedAudioEvidence;
 import com.evidence.rag.model.domain.PublishedEvidence;
 import com.evidence.rag.model.domain.PublishedImageEvidence;
@@ -35,11 +35,11 @@ import com.evidence.rag.model.domain.SourceImage;
 import com.evidence.rag.model.domain.SourceVideo;
 import com.evidence.rag.model.domain.TraceDraft;
 import com.evidence.rag.model.domain.TraceEvidence;
+import com.evidence.rag.model.domain.VideoCompilation;
 import com.evidence.rag.model.domain.VideoOcrSourceEvidence;
 import com.evidence.rag.model.domain.VideoSourceEvidence;
 import com.evidence.rag.model.domain.VideoSubtitleSourceEvidence;
 import com.evidence.rag.model.domain.VideoTraceEvidence;
-import com.evidence.rag.model.domain.VideoCompilation;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.model.domain.VisualSourceEvidence;
 import com.evidence.rag.model.dto.TraceReceipt;
@@ -510,12 +510,6 @@ public final class EvidenceService {
     return store.transaction(
         () -> {
           var publications = evidence.findActivePublications(actor, selection);
-          if (publications.size() > 128) {
-            throw new ApplicationException(
-                FailureKind.CAPACITY_EXCEEDED,
-                "scope_capacity_exceeded",
-                "当前授权范围超过处理上限，请明确缩小资料范围。");
-          }
           if (!selection.all() && publications.size() != selection.documentIds().size()) {
             throw ModelValues.notFound();
           }
@@ -588,8 +582,10 @@ public final class EvidenceService {
           if (!current(scope)) {
             throw changed();
           }
-          var publications = video
-              ? evidence.findVideoTextPublications(scope) : evidence.findTextPublications(scope);
+          var publications =
+              video
+                  ? evidence.findVideoTextPublications(scope)
+                  : evidence.findTextPublications(scope);
           if (!scope.publications().containsAll(publications)) {
             throw ModelValues.invalid();
           }
@@ -599,7 +595,10 @@ public final class EvidenceService {
 
   /** Read-only final authority decision for product-help snippets, including non-matching scope. */
   public List<ProductHelpEvidence> finishProductHelp(
-      EvidenceScope scope, List<String> physicalIds, boolean video, IndexTarget target,
+      EvidenceScope scope,
+      List<String> physicalIds,
+      boolean video,
+      IndexTarget target,
       BooleanSupplier configurationCurrent) {
     requireScope(scope);
     if (target == null || configurationCurrent == null) {
@@ -637,20 +636,33 @@ public final class EvidenceService {
     var result = new ArrayList<ProductHelpEvidence>();
     for (var source : hydrated(scope, ids)) {
       var publication = source.publication();
-      var document = management.findAuthorizedDocument(scope.actor(), publication.documentId(), false)
-          .orElseThrow(ModelValues::notFound);
+      var document =
+          management
+              .findAuthorizedDocument(scope.actor(), publication.documentId(), false)
+              .orElseThrow(ModelValues::notFound);
       if (!document.registrationRevisionId().equals(publication.sourceRevisionId())
           || !document.sourceSha256().equals(publication.sourceSha256())
           || !document.filename().equals(source.filename())) {
         throw changed();
       }
       var segment = source.segment();
-      result.add(new ProductHelpEvidence(
-          publication, source.physicalSegmentId(), source.filename(), document.mimeType(),
-          ProductHelpEvidence.Kind.DOCUMENT_TEXT, segment.text(), segment.page(),
-          segment.start(), segment.end(), null, null,
-          document.mimeType().startsWith("image/") || publication.parserRevision().contains("ocr")
-              ? "machine_ocr" : "source_text"));
+      result.add(
+          new ProductHelpEvidence(
+              publication,
+              source.physicalSegmentId(),
+              source.filename(),
+              document.mimeType(),
+              ProductHelpEvidence.Kind.DOCUMENT_TEXT,
+              segment.text(),
+              segment.page(),
+              segment.start(),
+              segment.end(),
+              null,
+              null,
+              document.mimeType().startsWith("image/")
+                      || publication.parserRevision().contains("ocr")
+                  ? "machine_ocr"
+                  : "source_text"));
     }
     return List.copyOf(result);
   }
@@ -671,24 +683,55 @@ public final class EvidenceService {
       if (source.indexOrdinal() == null || !source.span().text().equals(candidate.recallText())) {
         throw ModelValues.invalid();
       }
-      sources.put(candidate.physicalSegmentId(), new ProductHelpEvidence(
-          candidate.publication(), candidate.physicalSegmentId(), candidate.filename(),
-          candidate.mediaType(), ProductHelpEvidence.Kind.VIDEO_TRANSCRIPT, source.span().text(),
-          null, null, null, source.span().startMs() * 1000, source.span().endMs() * 1000,
-          "machine_asr"));
+      sources.put(
+          candidate.physicalSegmentId(),
+          new ProductHelpEvidence(
+              candidate.publication(),
+              candidate.physicalSegmentId(),
+              candidate.filename(),
+              candidate.mediaType(),
+              ProductHelpEvidence.Kind.VIDEO_TRANSCRIPT,
+              source.span().text(),
+              null,
+              null,
+              null,
+              source.span().startMs() * 1000,
+              source.span().endMs() * 1000,
+              "machine_asr"));
     }
     for (var source : classified.ocr()) {
-      sources.put(source.physicalSegmentId(), new ProductHelpEvidence(
-          source.publication(), source.physicalSegmentId(), source.filename(), source.mediaType(),
-          ProductHelpEvidence.Kind.VIDEO_FRAME_OCR, source.grounding().snippet(),
-          null, null, null, source.framePresentationUs(),
-          source.framePresentationUs() + source.frameDurationUs(), "machine_ocr"));
+      sources.put(
+          source.physicalSegmentId(),
+          new ProductHelpEvidence(
+              source.publication(),
+              source.physicalSegmentId(),
+              source.filename(),
+              source.mediaType(),
+              ProductHelpEvidence.Kind.VIDEO_FRAME_OCR,
+              source.grounding().snippet(),
+              null,
+              null,
+              null,
+              source.framePresentationUs(),
+              source.framePresentationUs() + source.frameDurationUs(),
+              "machine_ocr"));
     }
     for (var source : classified.subtitles()) {
-      sources.put(source.physicalSegmentId(), new ProductHelpEvidence(
-          source.publication(), source.physicalSegmentId(), source.filename(), source.mediaType(),
-          ProductHelpEvidence.Kind.VIDEO_SUBTITLE, source.grounding().snippet(),
-          null, null, null, source.source().startUs(), source.source().endUs(), "embedded_subtitle"));
+      sources.put(
+          source.physicalSegmentId(),
+          new ProductHelpEvidence(
+              source.publication(),
+              source.physicalSegmentId(),
+              source.filename(),
+              source.mediaType(),
+              ProductHelpEvidence.Kind.VIDEO_SUBTITLE,
+              source.grounding().snippet(),
+              null,
+              null,
+              null,
+              source.source().startUs(),
+              source.source().endUs(),
+              "embedded_subtitle"));
     }
     return ids.stream().filter(sources::containsKey).map(sources::get).toList();
   }
@@ -713,18 +756,31 @@ public final class EvidenceService {
       throw ModelValues.invalid();
     }
     candidateIds(keys.stream().map(KnowledgeEvidence.Key::physicalId).toList());
-    var textIds = keys.stream().filter(key -> key.kind() == ProductHelpEvidence.Kind.DOCUMENT_TEXT)
-        .map(KnowledgeEvidence.Key::physicalId).toList();
-    var videoIds = keys.stream().filter(key -> key.kind() != ProductHelpEvidence.Kind.DOCUMENT_TEXT)
-        .map(KnowledgeEvidence.Key::physicalId).toList();
+    var textIds =
+        keys.stream()
+            .filter(key -> key.kind() == ProductHelpEvidence.Kind.DOCUMENT_TEXT)
+            .map(KnowledgeEvidence.Key::physicalId)
+            .toList();
+    var videoIds =
+        keys.stream()
+            .filter(key -> key.kind() != ProductHelpEvidence.Kind.DOCUMENT_TEXT)
+            .map(KnowledgeEvidence.Key::physicalId)
+            .toList();
     var material = new HashMap<String, ProductHelpEvidence>();
-    productHelpDocuments(scope, textIds).forEach(source -> material.put(source.physicalId(), source));
+    productHelpDocuments(scope, textIds)
+        .forEach(source -> material.put(source.physicalId(), source));
     productHelpVideo(scope, videoIds).forEach(source -> material.put(source.physicalId(), source));
     var contexts = new HashMap<String, GroundingText>();
     for (var source : hydrated(scope, textIds)) {
-      contexts.put(source.physicalSegmentId(), new GroundingText(
-          source.physicalSegmentId(), source.publication().publicationId() + "/page/" + source.page().number(),
-          source.page().text(), source.pageSha256(), source.segment().start(), source.segment().end()));
+      contexts.put(
+          source.physicalSegmentId(),
+          new GroundingText(
+              source.physicalSegmentId(),
+              source.publication().publicationId() + "/page/" + source.page().number(),
+              source.page().text(),
+              source.pageSha256(),
+              source.segment().start(),
+              source.segment().end()));
     }
     var videos = classifiedVideo(scope, videoIds);
     var compilations = new HashMap<String, VideoCompilation>();
@@ -733,16 +789,21 @@ public final class EvidenceService {
         continue;
       }
       var publication = candidate.publication();
-      var compilation = compilations.computeIfAbsent(publication.sourceRevisionId(),
-          revision -> ingestion.findVideoCompilation(revision).orElseThrow(ModelValues::invalid));
-      if (compilation.audio() == null || !compilation.sourceSha256().equals(publication.sourceSha256())
+      var compilation =
+          compilations.computeIfAbsent(
+              publication.sourceRevisionId(),
+              revision ->
+                  ingestion.findVideoCompilation(revision).orElseThrow(ModelValues::invalid));
+      if (compilation.audio() == null
+          || !compilation.sourceSha256().equals(publication.sourceSha256())
           || !compilation.compilerRevision().equals(publication.parserRevision())) {
         throw ModelValues.invalid();
       }
       var selected = evidence.findVideoTranscriptSpan(publication, candidate.sourceId());
-      String body = compilation.audio().spans().stream()
-          .map(AudioTranscriptSpan::text)
-          .collect(Collectors.joining("\n"));
+      String body =
+          compilation.audio().spans().stream()
+              .map(AudioTranscriptSpan::text)
+              .collect(Collectors.joining("\n"));
       int start = 0;
       for (var span : compilation.audio().spans()) {
         if (span.ordinal() >= selected.span().ordinal()) {
@@ -750,13 +811,20 @@ public final class EvidenceService {
         }
         start += span.text().codePointCount(0, span.text().length()) + 1;
       }
-      contexts.put(candidate.physicalSegmentId(), new GroundingText(
-          candidate.physicalSegmentId(), publication.publicationId() + ":video-transcript",
-          body, ModelValues.sha256(body.getBytes(StandardCharsets.UTF_8)), start,
-          start + selected.span().text().codePointCount(0, selected.span().text().length())));
+      contexts.put(
+          candidate.physicalSegmentId(),
+          new GroundingText(
+              candidate.physicalSegmentId(),
+              publication.publicationId() + ":video-transcript",
+              body,
+              ModelValues.sha256(body.getBytes(StandardCharsets.UTF_8)),
+              start,
+              start + selected.span().text().codePointCount(0, selected.span().text().length())));
     }
     videos.ocr().forEach(source -> contexts.put(source.physicalSegmentId(), source.grounding()));
-    videos.subtitles().forEach(source -> contexts.put(source.physicalSegmentId(), source.grounding()));
+    videos
+        .subtitles()
+        .forEach(source -> contexts.put(source.physicalSegmentId(), source.grounding()));
     var result = new ArrayList<KnowledgeEvidence>();
     var uniqueContexts = new HashSet<String>();
     long bytes = 0;
@@ -769,8 +837,8 @@ public final class EvidenceService {
       if (uniqueContexts.add(context.contextId())) {
         bytes += context.contextText().getBytes(StandardCharsets.UTF_8).length;
         if (bytes > MAX_PAGE_BYTES) {
-          throw new ApplicationException(FailureKind.CAPACITY_EXCEEDED,
-              "evidence_capacity_exceeded", "文字证据超过处理上限，请缩小资料范围。");
+          throw new ApplicationException(
+              FailureKind.CAPACITY_EXCEEDED, "evidence_capacity_exceeded", "文字证据超过处理上限，请缩小资料范围。");
         }
       }
       result.add(new KnowledgeEvidence(source, context));
@@ -949,7 +1017,15 @@ public final class EvidenceService {
     if (!scope.publications().containsAll(publications)) {
       throw ModelValues.invalid();
     }
-    var vectors = audioVectors.findBindings(scope.actor().workspaceId(), publications, audioTarget);
+    List<AudioVectorBinding> vectors;
+    try {
+      vectors = audioVectors.findBindings(scope.actor().workspaceId(), publications, audioTarget);
+    } catch (ApplicationException invalid) {
+      if (!"invalid_request".equals(invalid.code())) {
+        throw invalid;
+      }
+      throw audioVectorRequired();
+    }
     if (vectors.size() != publications.size()
         || !new HashSet<>(vectors.stream().map(AudioVectorBinding::basePublication).toList())
             .equals(new HashSet<>(publications))) {
@@ -1090,7 +1166,15 @@ public final class EvidenceService {
     if (!scope.publications().containsAll(publications)) {
       throw ModelValues.invalid();
     }
-    var vectors = imageVectors.findBindings(scope.actor().workspaceId(), publications, imageTarget);
+    List<ImageVectorBinding> vectors;
+    try {
+      vectors = imageVectors.findBindings(scope.actor().workspaceId(), publications, imageTarget);
+    } catch (ApplicationException invalid) {
+      if (!"invalid_request".equals(invalid.code())) {
+        throw invalid;
+      }
+      throw imageVectorRequired();
+    }
     if (vectors.size() != publications.size()
         || !new HashSet<>(vectors.stream().map(ImageVectorBinding::basePublication).toList())
             .equals(new HashSet<>(publications))) {

@@ -100,11 +100,32 @@ public final class IngestionRepository {
         now);
   }
 
-  public void insertReplacementJob(String jobId, String documentId, String revisionId,
-      String creator, String replacementId, String parserRevision, String sourceHash, String now) {
-    store.execute("INSERT INTO corpus_revisions(id,document_id,parser_revision,source_sha256,created_at) VALUES(?,?,?,?,?)", revisionId,documentId,parserRevision,sourceHash,now);
-    store.execute("INSERT INTO ingestion_jobs(id,document_id,revision_id,state,attempt,created_by,created_at,updated_at,replacement_id) VALUES(?,?,?,'queued',1,?,?,?,?)",jobId,documentId,revisionId,creator,now,now,replacementId);
-    new DocumentUpdateRepository(store).attachIngestionJob(replacementId,jobId,now);
+  public void insertReplacementJob(
+      String jobId,
+      String documentId,
+      String revisionId,
+      String creator,
+      String replacementId,
+      String parserRevision,
+      String sourceHash,
+      String now) {
+    store.execute(
+        "INSERT INTO corpus_revisions(id,document_id,parser_revision,source_sha256,created_at) VALUES(?,?,?,?,?)",
+        revisionId,
+        documentId,
+        parserRevision,
+        sourceHash,
+        now);
+    store.execute(
+        "INSERT INTO ingestion_jobs(id,document_id,revision_id,state,attempt,created_by,created_at,updated_at,replacement_id) VALUES(?,?,?,'queued',1,?,?,?,?)",
+        jobId,
+        documentId,
+        revisionId,
+        creator,
+        now,
+        now,
+        replacementId);
+    new DocumentUpdateRepository(store).attachIngestionJob(replacementId, jobId, now);
   }
 
   public boolean replacementCurrent(String jobId) {
@@ -131,7 +152,7 @@ public final class IngestionRepository {
         tokenHash,
         now,
         jobId);
-    replacementState(jobId,"processing",now);
+    replacementState(jobId, "processing", now);
   }
 
   public Optional<TaskEntity> findInternalTask(String jobId) {
@@ -147,11 +168,9 @@ public final class IngestionRepository {
   public Optional<TaskEntity> findAuthorizedTask(Actor actor, String jobId, boolean edit) {
     return store
         .rows(
-            "SELECT j.*,COALESCE(o.filename,d.filename) filename,acl.role AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id JOIN document_acl acl ON acl.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND acl.principal_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)"
-                + (edit ? " AND acl.role IN ('owner','editor')" : ""),
+            "SELECT j.*,COALESCE(o.filename,d.filename) filename,'member' AS current_role FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id LEFT JOIN document_original_revisions o ON o.revision_id=j.revision_id AND o.document_id=d.id WHERE j.id=? AND d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             jobId,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(row -> AuthorityRows.task(row, false));
@@ -167,8 +186,10 @@ public final class IngestionRepository {
   }
 
   public byte[] original(String documentId, String revisionId) {
-    return new DocumentUpdateRepository(store).original(documentId,revisionId)
-        .orElseThrow(ModelValues::invalid).content();
+    return new DocumentUpdateRepository(store)
+        .original(documentId, revisionId)
+        .orElseThrow(ModelValues::invalid)
+        .content();
   }
 
   public void insertPage(String revisionId, TextPage page, String textHash) {
@@ -308,7 +329,9 @@ public final class IngestionRepository {
           frame.width(),
           frame.height(),
           recall == null ? null : recall.recallText(),
-          recall == null ? null : ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8)),
+          recall == null
+              ? null
+              : ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8)),
           recall == null ? null : recall.modelRevision());
     }
     for (var entry : evidence.spans()) {
@@ -477,21 +500,26 @@ public final class IngestionRepository {
         store.rows("SELECT * FROM video_frames WHERE revision_id=? ORDER BY ordinal", revisionId)) {
       var image =
           new VisualImage(AuthorityRows.text(row, "media_type"), (byte[]) row.get("frame_blob"));
-      boolean textOnly = VideoCompilation.isTextEvidenceOnlyRevision(
-          AuthorityRows.text(header, "compiler_revision"));
+      boolean textOnly =
+          VideoCompilation.isTextEvidenceOnlyRevision(
+              AuthorityRows.text(header, "compiler_revision"));
       if (textOnly != (row.get("recall_text") == null)
           || textOnly != (row.get("recall_sha256") == null)
           || textOnly != (row.get("description_revision") == null)) {
         throw ModelValues.invalid();
       }
-      var recall = textOnly ? null : new ImageRecall(
-          AuthorityRows.text(row, "recall_text"),
-          AuthorityRows.text(row, "description_revision"));
+      var recall =
+          textOnly
+              ? null
+              : new ImageRecall(
+                  AuthorityRows.text(row, "recall_text"),
+                  AuthorityRows.text(row, "description_revision"));
       int ordinal = AuthorityRows.integer(row, "ordinal");
       if (!VideoEvidence.frameIdentity(revisionId, ordinal).equals(AuthorityRows.text(row, "id"))
           || !image.sha256().equals(AuthorityRows.text(row, "frame_sha256"))
-          || (recall != null && !ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8))
-              .equals(AuthorityRows.text(row, "recall_sha256")))) {
+          || (recall != null
+              && !ModelValues.sha256(recall.recallText().getBytes(StandardCharsets.UTF_8))
+                  .equals(AuthorityRows.text(row, "recall_sha256")))) {
         throw ModelValues.invalid();
       }
       frames.add(
@@ -905,11 +933,14 @@ public final class IngestionRepository {
         pages,
         segments,
         revisionId);
-    var replacement = new DocumentUpdateRepository(store).findByRevision(documentId,revisionId);
+    var replacement = new DocumentUpdateRepository(store).findByRevision(documentId, revisionId);
     if (replacement.isEmpty()) {
-      store.execute("UPDATE corpus_documents SET parsed_revision_id=? WHERE document_id=?",revisionId,documentId);
+      store.execute(
+          "UPDATE corpus_documents SET parsed_revision_id=? WHERE document_id=?",
+          revisionId,
+          documentId);
     } else {
-      new DocumentUpdateRepository(store).markParsed(replacement.get().id(),now);
+      new DocumentUpdateRepository(store).markParsed(replacement.get().id(), now);
     }
     store.execute(
         "UPDATE ingestion_jobs SET state='parsed',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
@@ -926,7 +957,7 @@ public final class IngestionRepository {
         safeCode,
         now,
         jobId);
-    replacementState(jobId,"failed",now);
+    replacementState(jobId, "failed", now);
   }
 
   public void markCancelled(String jobId, String now) {
@@ -934,7 +965,7 @@ public final class IngestionRepository {
         "UPDATE ingestion_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",
         now,
         jobId);
-    replacementState(jobId,"cancelled",now);
+    replacementState(jobId, "cancelled", now);
   }
 
   public void markQueued(String jobId, int attempt, String now) {
@@ -943,12 +974,20 @@ public final class IngestionRepository {
         attempt,
         now,
         jobId);
-    replacementState(jobId,"queued",now);
+    replacementState(jobId, "queued", now);
   }
 
-  private void replacementState(String jobId,String state,String now) {
-    store.rows("SELECT replacement_id FROM ingestion_jobs WHERE id=? AND replacement_id IS NOT NULL",jobId)
-        .stream().findFirst().ifPresent(row -> new DocumentUpdateRepository(store).state(AuthorityRows.text(row,"replacement_id"),state,now));
+  private void replacementState(String jobId, String state, String now) {
+    store
+        .rows(
+            "SELECT replacement_id FROM ingestion_jobs WHERE id=? AND replacement_id IS NOT NULL",
+            jobId)
+        .stream()
+        .findFirst()
+        .ifPresent(
+            row ->
+                new DocumentUpdateRepository(store)
+                    .state(AuthorityRows.text(row, "replacement_id"), state, now));
   }
 
   public List<String> processingIds() {
@@ -960,10 +999,9 @@ public final class IngestionRepository {
   public Optional<String> authorizedParsedRevision(Actor actor, String documentId) {
     return store
         .rows(
-            "SELECT c.parsed_revision_id FROM corpus_documents c JOIN documents d ON d.id=c.document_id JOIN document_acl acl ON acl.document_id=d.id WHERE d.id=? AND d.workspace_id=? AND acl.principal_id=? AND c.parsed_revision_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
+            "SELECT c.parsed_revision_id FROM corpus_documents c JOIN documents d ON d.id=c.document_id WHERE d.id=? AND d.workspace_id=? AND c.parsed_revision_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
             documentId,
-            actor.workspaceId(),
-            actor.principalId())
+            actor.workspaceId())
         .stream()
         .findFirst()
         .map(row -> AuthorityRows.text(row, "parsed_revision_id"));

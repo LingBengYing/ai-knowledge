@@ -100,44 +100,74 @@ public final class SqliteAuthorityStore implements AutoCloseable {
               }
             }
           });
-      Function.create(connection, "java_replacement_authorized", new Function() {
-        @Override
-        protected void xFunc() {
-          try {
-            result(args() == 1 && transactionOwner == Thread.currentThread()
-                && replacementDocument != null && replacementDocument.equals(value_text(0)) ? 1 : 0);
-          } catch (SQLException failure) {
-            throw unavailable();
-          }
-        }
-      });
-      Function.create(connection,"java_model_rebuild_authorized",new Function() {
-        @Override
-        protected void xFunc() {
-          try {
-            result(args()==1 && transactionOwner==Thread.currentThread() && modelRebuildId!=null
-                && modelRebuildDocuments.contains(value_text(0)) ? 1 : 0);
-          } catch (SQLException failure) {
-            throw unavailable();
-          }
-        }
-      });
-      Function.create(connection,"java_model_rebuild_batch_authorized",new Function() {
-        @Override
-        protected void xFunc() {
-          try {
-            result(args()==1 && transactionOwner==Thread.currentThread() && modelRebuildId!=null
-                && modelRebuildId.equals(value_text(0)) ? 1 : 0);
-          } catch (SQLException failure) {
-            throw unavailable();
-          }
-        }
-      });
+      Function.create(
+          connection,
+          "java_replacement_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() {
+              try {
+                result(
+                    args() == 1
+                            && transactionOwner == Thread.currentThread()
+                            && replacementDocument != null
+                            && replacementDocument.equals(value_text(0))
+                        ? 1
+                        : 0);
+              } catch (SQLException failure) {
+                throw unavailable();
+              }
+            }
+          });
+      Function.create(
+          connection,
+          "java_model_rebuild_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() {
+              try {
+                result(
+                    args() == 1
+                            && transactionOwner == Thread.currentThread()
+                            && modelRebuildId != null
+                            && modelRebuildDocuments.contains(value_text(0))
+                        ? 1
+                        : 0);
+              } catch (SQLException failure) {
+                throw unavailable();
+              }
+            }
+          });
+      Function.create(
+          connection,
+          "java_model_rebuild_batch_authorized",
+          new Function() {
+            @Override
+            protected void xFunc() {
+              try {
+                result(
+                    args() == 1
+                            && transactionOwner == Thread.currentThread()
+                            && modelRebuildId != null
+                            && modelRebuildId.equals(value_text(0))
+                        ? 1
+                        : 0);
+              } catch (SQLException failure) {
+                throw unavailable();
+              }
+            }
+          });
       var schema = new AuthoritySchema(this);
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 29) {
+              if (count("PRAGMA user_version") == 32) {
+                schema.verifyVersionThirtyTwo();
+              } else if (count("PRAGMA user_version") == 31) {
+                schema.verifyVersionThirtyOne();
+              } else if (count("PRAGMA user_version") == 30) {
+                schema.verifyVersionThirty();
+              } else if (count("PRAGMA user_version") == 29) {
                 schema.verifyVersionTwentyNine();
               } else if (count("PRAGMA user_version") == 28) {
                 schema.verifyVersionTwentyEight();
@@ -358,7 +388,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       }
       if (transaction(() -> count("PRAGMA user_version")) == 26) {
         if (exists) {
-          schema.backupVersion(canonicalDirectory,26,27);
+          schema.backupVersion(canonicalDirectory, 26, 27);
         }
         rawExecute("PRAGMA foreign_keys=OFF");
         rawExecute("PRAGMA legacy_alter_table=ON");
@@ -388,9 +418,34 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         }
         schema.migrateVersionTwentyNine();
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 29) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 29, 30);
+        }
+        rawExecute("PRAGMA foreign_keys=OFF");
+        rawExecute("PRAGMA legacy_alter_table=ON");
+        try {
+          schema.migrateVersionThirty();
+        } finally {
+          rawExecute("PRAGMA legacy_alter_table=OFF");
+          rawExecute("PRAGMA foreign_keys=ON");
+        }
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 30) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 30, 31);
+        }
+        schema.migrateVersionThirtyOne();
+      }
+      if (transaction(() -> count("PRAGMA user_version")) == 31) {
+        if (exists) {
+          schema.backupVersion(canonicalDirectory, 31, 32);
+        }
+        schema.migrateVersionThirtyTwo();
+      }
       transaction(
           () -> {
-            schema.verifyVersionTwentyNine();
+            schema.verifyVersionThirtyTwo();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -456,7 +511,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     }
   }
 
-  <T> T modelRebuildScope(String id,List<String> documents,Supplier<T> work) {
+  <T> T modelRebuildScope(String id, List<String> documents, Supplier<T> work) {
     requireTransaction();
     if (modelRebuildId != null) {
       throw ModelValues.invalid();

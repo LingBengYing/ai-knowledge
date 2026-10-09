@@ -14,7 +14,8 @@ public final class LegacyTextProfileGuard {
     this(runtime, legacy, false);
   }
 
-  public LegacyTextProfileGuard(ManagedTextRuntime runtime, IndexTarget legacy, boolean visualConfigured) {
+  public LegacyTextProfileGuard(
+      ManagedTextRuntime runtime, IndexTarget legacy, boolean visualConfigured) {
     this.runtime = runtime;
     this.legacy = legacy;
     this.visualConfigured = visualConfigured;
@@ -28,7 +29,8 @@ public final class LegacyTextProfileGuard {
     var current = runtime.currentTarget();
     return current != null
         && (runtime.mediaRebound()
-            || (current.equals(legacy) && legacy.modelRevision().equals(runtime.currentModelsRevision())));
+            || (current.equals(legacy)
+                && legacy.modelRevision().equals(runtime.currentModelsRevision())));
   }
 
   public void requireCompatible() {

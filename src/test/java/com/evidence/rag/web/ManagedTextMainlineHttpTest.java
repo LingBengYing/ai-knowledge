@@ -40,6 +40,7 @@ class ManagedTextMainlineHttpTest {
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint());
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
       String sourceUrl;
+      String knowledgeSourceUrl;
       String documentId;
       try (var context = start(models, projection)) {
         String base = base(context);
@@ -69,21 +70,12 @@ class ManagedTextMainlineHttpTest {
         assertTrue(projection.requests.isEmpty());
         var reader =
             request(http, base, "reader", "GET", "/v1/model-configuration", null, null, 200);
-        assertFalse(reader.path("can_edit").booleanValue());
-        request(
-            http,
-            base,
-            "reader",
-            "PUT",
-            "/v1/model-configuration",
-            json(configuration(0, "fixture-model", true)),
-            "application/json",
-            403);
+        assertTrue(reader.path("can_edit").booleanValue());
         var saved =
             request(
                 http,
                 base,
-                "owner",
+                "reader",
                 "PUT",
                 "/v1/model-configuration",
                 json(configuration(0, "fixture-model", true)),
@@ -92,6 +84,8 @@ class ManagedTextMainlineHttpTest {
         assertEquals(1, saved.path("version").asInt());
         assertTrue(saved.path("active_version").isNull());
         assertFalse(saved.toString().contains("synthetic-managed-key"));
+        assertEquals(
+            saved, request(http, base, "owner", "GET", "/v1/model-configuration", null, null, 200));
         assertTrue(models.requests.isEmpty());
         for (String role : List.of("embedding", "rerank", "generation", "projection")) {
           int count = models.requests.size() + projection.requests.size();
@@ -99,7 +93,7 @@ class ManagedTextMainlineHttpTest {
               request(
                   http,
                   base,
-                  "owner",
+                  "member-without-acl",
                   "POST",
                   "/v1/model-configuration/test",
                   json(Map.of("version", 1, "role", role)),
@@ -113,7 +107,7 @@ class ManagedTextMainlineHttpTest {
             request(
                 http,
                 base,
-                "owner",
+                "member-without-acl",
                 "POST",
                 "/v1/model-configuration/activate",
                 json(Map.of("version", 1)),
@@ -176,17 +170,21 @@ class ManagedTextMainlineHttpTest {
         assertEquals(
             generations,
             models.requests.stream().filter(r -> r.path().equals("/chat/completions")).count());
-        var empty =
+        var legacyEmptySelection =
             request(
                 http,
                 base,
-                "owner",
+                "member-without-acl",
                 "POST",
                 "/v1/retrieval-tests",
                 json(Map.of("question", "上海住宿标准是多少？", "document_ids", List.of())),
                 "application/json",
                 200);
-        assertEquals("empty_scope", empty.path("reason").asString());
+        assertEquals("completed", legacyEmptySelection.path("status").asString());
+        assertEquals(1, legacyEmptySelection.path("scope_count").asInt());
+        assertEquals(
+            documentId, legacyEmptySelection.path("matches").get(0).path("document_id").asString());
+        assertPersistentRetrievalSettings(models, http, base, question);
         var answer =
             request(
                 http,
@@ -200,6 +198,8 @@ class ManagedTextMainlineHttpTest {
         assertEquals("answered", answer.path("status").asString(), answer.toString());
         sourceUrl = answer.path("citations").get(0).path("source_url").asString();
         request(http, base, "owner", "GET", sourceUrl, null, null, 200);
+        request(http, base, "member-without-acl", "GET", sourceUrl, null, null, 200);
+        knowledgeSourceUrl = assertSharedKnowledgeMainline(models, http, base, documentId);
         request(
             http,
             base,
@@ -272,6 +272,8 @@ class ManagedTextMainlineHttpTest {
                 .path("active_version")
                 .asInt());
         request(http, base, "owner", "GET", sourceUrl, null, null, 200);
+        request(http, base, "reader", "GET", knowledgeSourceUrl, null, null, 200);
+        assertEquals(count, models.requests.size() + projection.requests.size());
         var result =
             request(
                 http,
@@ -292,6 +294,185 @@ class ManagedTextMainlineHttpTest {
         assertTrue(result.path("matches").get(0).path("rerank_score").isNull());
       }
     }
+  }
+
+  private static String assertSharedKnowledgeMainline(
+      AnswerProtocolServer models, HttpClient http, String base, String documentId)
+      throws Exception {
+    String question = "这是合成背景说明。".repeat(3000) + "上海住宿标准是多少？";
+    assertTrue(question.codePointCount(0, question.length()) > 20_000);
+    byte[] body = json(Map.of("question", question, "document_ids", List.of()));
+    int before = models.requests.size();
+    request(http, base, null, "POST", "/v1/knowledge-answers", body, "application/json", 422);
+    request(
+        http,
+        base,
+        "other-org",
+        "owner",
+        "POST",
+        "/v1/knowledge-answers",
+        body,
+        "application/json",
+        401);
+    assertEquals(before, models.requests.size());
+
+    var answer =
+        request(
+            http,
+            base,
+            "member-without-acl",
+            "POST",
+            "/v1/knowledge-answers",
+            body,
+            "application/json",
+            200);
+    assertEquals("answered", answer.path("status").asString(), answer.toString());
+    assertTrue(answer.path("reason").isNull());
+    assertTrue(answer.path("answer").asString().contains("650"));
+    assertTrue(answer.path("answer").asString().contains("[1]"));
+    assertEquals(1, answer.path("citations").size());
+    var citation = answer.path("citations").get(0);
+    assertEquals("document_text", citation.path("evidence_kind").asString());
+    assertEquals(documentId, citation.path("document_id").asString());
+    assertEquals(TEXT, citation.path("quote").asString());
+    assertEquals(
+        ModelValues.sha256(TEXT.getBytes(StandardCharsets.UTF_8)),
+        citation.path("source_sha256").asString());
+    assertEquals(1, citation.path("page").asInt());
+
+    var invoked = List.copyOf(models.requests.subList(before, models.requests.size()));
+    var generations =
+        invoked.stream().filter(row -> row.path().equals("/chat/completions")).toList();
+    assertEquals(1, generations.size(), "Knowledge uses one synthesis, no extraction or verifier");
+    var synthesis = generations.getFirst().body();
+    assertFalse(synthesis.has("max_tokens"));
+    assertFalse(synthesis.has("max_completion_tokens"));
+    var input = JSON.readTree(synthesis.path("messages").get(1).path("content").asString());
+    assertEquals(question, input.path("question").asString());
+    assertEquals(1, input.path("evidence").size());
+    assertEquals(TEXT, input.path("evidence").get(0).path("text").asString());
+    assertFalse(input.path("evidence").get(0).has("context"));
+    assertEquals(1, input.path("contexts").size());
+    assertEquals(TEXT, input.path("contexts").get(0).path("text").asString());
+    assertEquals(
+        input.path("contexts").get(0).path("context_id"),
+        input.path("evidence").get(0).path("context_id"));
+    assertEquals(
+        question,
+        invoked.stream()
+            .filter(row -> row.path().equals("/embeddings"))
+            .findFirst()
+            .orElseThrow()
+            .body()
+            .path("input")
+            .get(0)
+            .asString());
+
+    String sourceUrl = citation.path("source_url").asString();
+    assertEquals("/v1/knowledge-sources/" + answer.path("answer_id").asString() + "/1", sourceUrl);
+    var source = request(http, base, "owner", "GET", sourceUrl, null, null, 200);
+    assertEquals(answer.path("answer_id"), source.path("answer_id"));
+    assertEquals(citation, source.path("citation"));
+    assertEquals(source, request(http, base, "reader", "GET", sourceUrl, null, null, 200));
+    request(http, base, null, "GET", sourceUrl, null, null, 422);
+    request(http, base, "other-org", "owner", "GET", sourceUrl, null, null, 401);
+    assertEquals(before + invoked.size(), models.requests.size());
+    return sourceUrl;
+  }
+
+  private static void assertPersistentRetrievalSettings(
+      AnswerProtocolServer models, HttpClient http, String base, Map<String, Object> question)
+      throws Exception {
+    var original = request(http, base, "owner", "GET", "/v1/retrieval-settings", null, null, 200);
+    assertEquals(0, original.path("version").asInt());
+    var fullText = new LinkedHashMap<String, Object>();
+    fullText.put("version", 0);
+    fullText.put("search_method", "full_text");
+    fullText.put("ranking_mode", "weighted");
+    fullText.put("dense_weight", 0.5);
+    fullText.put("top_k", 1);
+    fullText.put("score_threshold_enabled", false);
+    fullText.put("score_threshold", 0.5);
+    int before = models.requests.size();
+    var saved =
+        request(
+            http,
+            base,
+            "member-without-acl",
+            "PUT",
+            "/v1/retrieval-settings",
+            json(fullText),
+            "application/json",
+            200);
+    assertEquals(1, saved.path("version").asInt());
+    var recalled =
+        request(
+            http,
+            base,
+            "owner",
+            "POST",
+            "/v1/retrieval-tests",
+            json(question),
+            "application/json",
+            200);
+    assertEquals("completed", recalled.path("status").asString());
+    assertEquals("bm25", recalled.path("score_kind").asString());
+    assertEquals(saved, recalled.path("effective_settings"));
+    assertEquals(1, recalled.path("matches").size());
+    assertEquals(before, models.requests.size(), "Full-text weighted recall calls no model");
+
+    fullText.put("version", 1);
+    fullText.put("score_threshold_enabled", true);
+    fullText.put("score_threshold", 1_000_000);
+    request(
+        http,
+        base,
+        "owner",
+        "PUT",
+        "/v1/retrieval-settings",
+        json(fullText),
+        "application/json",
+        200);
+    var rejected =
+        request(
+            http,
+            base,
+            "owner",
+            "POST",
+            "/v1/knowledge-answers",
+            json(question),
+            "application/json",
+            200);
+    assertEquals("abstained", rejected.path("status").asString());
+    assertEquals("no_evidence", rejected.path("reason").asString());
+    assertEquals(0, rejected.path("citations").size());
+    assertEquals(before, models.requests.size(), "Threshold removes all: no generation request");
+
+    var restore = new LinkedHashMap<String, Object>();
+    original
+        .properties()
+        .forEach(
+            entry ->
+                restore.put(entry.getKey(), JSON.convertValue(entry.getValue(), Object.class)));
+    restore.put("version", 2);
+    var restored =
+        request(
+            http,
+            base,
+            "owner",
+            "PUT",
+            "/v1/retrieval-settings",
+            json(restore),
+            "application/json",
+            200);
+    assertEquals(3, restored.path("version").asInt());
+    assertEquals(before, models.requests.size(), "Saving query settings never probes providers");
+    assertEquals(
+        1,
+        request(http, base, "owner", "GET", "/v1/model-configuration", null, null, 200)
+            .path("active_version")
+            .asInt(),
+        "Query settings do not change the active model/index");
   }
 
   private ConfigurableApplicationContext start(
@@ -371,12 +552,27 @@ class ManagedTextMainlineHttpTest {
       String contentType,
       int status)
       throws Exception {
+    return request(http, base, "org-main", principal, method, path, content, contentType, status);
+  }
+
+  private static JsonNode request(
+      HttpClient http,
+      String base,
+      String workspace,
+      String principal,
+      String method,
+      String path,
+      byte[] content,
+      String contentType,
+      int status)
+      throws Exception {
     var builder =
         HttpRequest.newBuilder(URI.create(base + path))
             .timeout(Duration.ofSeconds(20))
-            .header("X-Workspace-Id", "org-main")
-            .header("X-Principal-Id", principal)
             .header("Origin", base);
+    if (principal != null) {
+      builder.header("X-Workspace-Id", workspace).header("X-Principal-Id", principal);
+    }
     if (contentType != null) {
       builder.header("Content-Type", contentType);
     }
