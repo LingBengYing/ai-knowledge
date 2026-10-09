@@ -6,6 +6,8 @@ The pipeline uses local CPU **PP-DocLayoutV3** layout detection and reading orde
 
 ## Runtime
 
+Production sets `OCR_LAYOUT_MODEL_DIR` to the pre-provisioned, checksum-verified PP-DocLayoutV3 directory and `PADDLE_PDX_CACHE_HOME` to a private service-owned cache. Set these before importing Paddle; source-check disabling alone does not prevent downloads when weights are missing.
+
 Use a dedicated Python 3.11 environment; do not add these dependencies to the existing knowledge Agent environment. Install the pinned requirements separately, run `pip check`, and provision the CPU layout model/cache under the service account before accepting production traffic. Only the layout model is local; the remote recognition backend must not download the local VLM weights. Document orientation and unwarping are disabled, while layout detection and reading order remain enabled.
 
 From this directory:

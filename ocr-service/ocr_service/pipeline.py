@@ -58,6 +58,7 @@ class PaddlePagePipeline:
                 pipeline_version="v1.5", paddlex_config=config,
                 device="cpu", cpu_threads=1, use_queues=False,
                 use_doc_orientation_classify=False, use_doc_unwarping=False,
+                layout_detection_model_dir=os.environ.get("OCR_LAYOUT_MODEL_DIR"),
             )
 
     def __call__(self, png, context):
