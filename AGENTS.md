@@ -101,7 +101,7 @@ PDF Blob打开仍被Browser Use策略禁止，未绕过、打开未认证；ASR�
 
 2026-10-03当前增量：[0026原图向量检索](docs/changes/0026-image-vector-retrieval/spec.md)。独立ImageEmbeddingModels、显式构建/新generation、v17不可变receipt与DENSE_ONLY召回；旧文字IndexProtocol/任务/publication保持。完整图片scope所有receipt先合格，每路candidate完整authority映射后融合，原图事实证明和typed来源保持；默认关闭，不自动调用。三代理分工已完成，根代理统一门禁/绑定/冻结，实际证据见[verification](docs/changes/0026-image-vector-retrieval/verification.md)。新image未部署；现网20261003-voice-tags已含标签/语音（报告只读核对），真实ASR失败保留。用户页面验收，Git/部署归原责任方，无新真实模型调用；usage/计费取消。下方为历史快照。
 
-2026-10-03当前增量：[0025语音提问](docs/changes/0025-voice-questions/spec.md)。单音频→完整ASR文字→用户编辑确认→旧完整scope问答/库内来源；输入准备不读库、不入库或trace。共享BoundedMediaQueryServlet替代QueryAttachmentServlet并保留旧附件分派/预算，交接须记录旧文件删除，不能恢复兼容壳。默认关闭，独立audio/ingestion/answers及local依赖，无新增provider/凭据/真实调用。页面用户验收，Git/部署由原责任方处理，usage/计费取消。当前实际已部署20261003-scanned-pdf，标签/语音尚未发布；下方为历史快照。
+2026-10-03当前增量：[0025语音提问](docs/changes/0025-voice-questions/spec.md)（2026-10-10已整体移除：`/v1/voice-questions`、`voice_questions`、`RAG_VOICE_QUESTIONS_*`不再存在；共享BoundedMediaQueryServlet保留）。单音频→完整ASR文字→用户编辑确认→旧完整scope问答/库内来源；输入准备不读库、不入库或trace。共享BoundedMediaQueryServlet替代QueryAttachmentServlet并保留旧附件分派/预算，交接须记录旧文件删除，不能恢复兼容壳。默认关闭，独立audio/ingestion/answers及local依赖，无新增provider/凭据/真实调用。页面用户验收，Git/部署由原责任方处理，usage/计费取消。当前实际已部署20261003-scanned-pdf，标签/语音尚未发布；下方为历史快照。
 
 2026-10-03当前增量：[0024摘要建议标签](docs/changes/0024-tag-suggestions/spec.md)。从当前有效保存摘要取完整短术语/主题→用户选择→单authority事务复验摘要/指纹/编辑ACL后合并最新标签→列表筛选，前端0013配套。无新模型/凭据/表/任务，原20标签与hash-only审计保持；空候选不截断或猜词。0023/前端0012已冻结，旧handoff不改。实际回归与发布状态见[验证记录](docs/changes/0024-tag-suggestions/verification.md)。用户页面验收、无真实模型调用、不改Git/部署/旧数据以及usage/计费取消边界保持。
 

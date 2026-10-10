@@ -342,7 +342,6 @@ public class RuntimeConfiguration {
         environment.getProperty("rag.synopsis.enabled", Boolean.class, false),
         environment.getProperty("rag.query-attachments.enabled", Boolean.class, false),
         PdfOcrConfiguration.options(environment) != null,
-        environment.getProperty("rag.voice-questions.enabled", Boolean.class, false),
         imageVectorAvailable
             && environment.getProperty("rag.image-embedding.enabled", Boolean.class, false),
         audioVectorAvailable

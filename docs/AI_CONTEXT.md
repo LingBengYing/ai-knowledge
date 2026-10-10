@@ -16,7 +16,7 @@
 
 当前本机主线[0026原图向量检索](changes/0026-image-vector-retrieval/spec.md)：当前已发布原PNG/JPEG→编辑者显式独立build→receipt绑定旧publication/source与独立profile/generation→参考图片dense召回→完整authority映射→旧库内原图证明及来源。无参考图继续旧路；完整scope缺当前向量明确image_vector_required。前端0015配套，默认关闭，配置见[IMAGE_VECTOR_RETRIEVAL](IMAGE_VECTOR_RETRIEVAL.md)，验证见[0026](changes/0026-image-vector-retrieval/verification.md)。本切未部署；实际voice-tags已部署含标签/语音，部署报告与只读入口结果核对，完整网页用户验收及真实ASR/provider仍开放。下方为历史记录。
 
-0025[语音输入](VOICE_QUESTIONS.md)只准备用户问题：复用AudioCompilationService完整解码和ASR，逐ordinal原文以LF连接后返回全字节SHA与版本，用户核对确认后沿旧AnswerSession/AnswerCommand。与查询附件辅助检索分开，不借空问题绕过其合同。独立默认关闭能力和有界transport，不增加数据库/模型协议或真实调用；当前实际部署为20261003-scanned-pdf，标签和语音未发布，页面用户验收。下方阶段状态为历史记录。
+0025语音输入（`POST /v1/voice-questions`、`voice_questions`能力、`RAG_VOICE_QUESTIONS_*`）已于2026-10-10移除，唯一前端调用已随旧页面删除；不要重新引入。AudioCompilationService等共享音频/ASR代码继续服务声音库、视频与查询附件。历史见[0025](changes/0025-voice-questions/spec.md)。
 
 当前本机增量[0024摘要建议标签](changes/0024-tag-suggestions/spec.md)：纯Tool从当前available FileSynopsis生成最多8个完整短条目，Service单事务读取/确认合并并复用Management审计。候选fingerprint绑定完整摘要/publication但不含可变tags，确认期间新增标签保留。前端0013以明确选择保存；没有新模型调用/配置/迁移。验证见[0024记录](changes/0024-tag-suggestions/verification.md)，现网仍待本包发布。
 

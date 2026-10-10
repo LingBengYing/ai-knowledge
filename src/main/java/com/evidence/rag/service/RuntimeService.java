@@ -216,40 +216,6 @@ public final class RuntimeService {
       boolean synopsis,
       boolean queryAttachments,
       boolean pdfOcr,
-      boolean voiceQuestions) {
-    this(
-        authMode,
-        workspaceId,
-        ingestion,
-        indexing,
-        answers,
-        documentRemoval,
-        imageOcr,
-        visual,
-        audio,
-        video,
-        synopsis,
-        queryAttachments,
-        pdfOcr,
-        voiceQuestions,
-        false);
-  }
-
-  public RuntimeService(
-      String authMode,
-      String workspaceId,
-      boolean ingestion,
-      boolean indexing,
-      boolean answers,
-      boolean documentRemoval,
-      boolean imageOcr,
-      boolean visual,
-      boolean audio,
-      boolean video,
-      boolean synopsis,
-      boolean queryAttachments,
-      boolean pdfOcr,
-      boolean voiceQuestions,
       boolean imageVectorRetrieval) {
     this(
         authMode,
@@ -265,7 +231,6 @@ public final class RuntimeService {
         synopsis,
         queryAttachments,
         pdfOcr,
-        voiceQuestions,
         imageVectorRetrieval,
         false);
   }
@@ -284,7 +249,6 @@ public final class RuntimeService {
       boolean synopsis,
       boolean queryAttachments,
       boolean pdfOcr,
-      boolean voiceQuestions,
       boolean imageVectorRetrieval,
       boolean audioVectorRetrieval) {
     this(
@@ -301,7 +265,6 @@ public final class RuntimeService {
         synopsis,
         queryAttachments,
         pdfOcr,
-        voiceQuestions,
         imageVectorRetrieval,
         audioVectorRetrieval,
         false);
@@ -321,7 +284,6 @@ public final class RuntimeService {
       boolean synopsis,
       boolean queryAttachments,
       boolean pdfOcr,
-      boolean voiceQuestions,
       boolean imageVectorRetrieval,
       boolean audioVectorRetrieval,
       boolean sound) {
@@ -339,7 +301,6 @@ public final class RuntimeService {
         synopsis,
         queryAttachments,
         pdfOcr,
-        voiceQuestions,
         imageVectorRetrieval,
         audioVectorRetrieval,
         sound,
@@ -360,7 +321,6 @@ public final class RuntimeService {
       boolean synopsis,
       boolean queryAttachments,
       boolean pdfOcr,
-      boolean voiceQuestions,
       boolean imageVectorRetrieval,
       boolean audioVectorRetrieval,
       boolean sound,
@@ -379,7 +339,6 @@ public final class RuntimeService {
         synopsis,
         queryAttachments,
         pdfOcr,
-        voiceQuestions,
         imageVectorRetrieval,
         audioVectorRetrieval,
         sound,
@@ -401,7 +360,6 @@ public final class RuntimeService {
       boolean synopsis,
       boolean queryAttachments,
       boolean pdfOcr,
-      boolean voiceQuestions,
       boolean imageVectorRetrieval,
       boolean audioVectorRetrieval,
       boolean sound,
@@ -421,7 +379,6 @@ public final class RuntimeService {
         synopsis,
         queryAttachments,
         pdfOcr,
-        voiceQuestions,
         imageVectorRetrieval,
         audioVectorRetrieval,
         sound,
@@ -444,7 +401,6 @@ public final class RuntimeService {
       boolean synopsis,
       boolean queryAttachments,
       boolean pdfOcr,
-      boolean voiceQuestions,
       boolean imageVectorRetrieval,
       boolean audioVectorRetrieval,
       boolean sound,
@@ -521,9 +477,6 @@ public final class RuntimeService {
     }
     if (queryAttachments && answers && visual && imageOcr && audio && video) {
       enabled.add("query_attachments");
-    }
-    if (voiceQuestions && audio && ingestion && answers) {
-      enabled.add("voice_questions");
     }
     if (imageVectorRetrieval && indexing && enabled.contains("query_attachments")) {
       enabled.add("image_vector_retrieval");
