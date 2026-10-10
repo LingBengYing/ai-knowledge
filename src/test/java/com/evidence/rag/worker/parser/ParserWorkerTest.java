@@ -2,6 +2,7 @@ package com.evidence.rag.worker.parser;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.evidence.rag.tool.parser.TextParser;
 import java.io.ByteArrayInputStream;
@@ -33,6 +34,38 @@ class ParserWorkerTest {
               new TextParser().parse(filename, "application/pdf", content)),
           run(request(filename, "application/pdf", content)));
     }
+  }
+
+  @Test
+  void pdfWorkerWritesNothingWhenCleanupFailsAfterTheRequestWasAnswered() throws Exception {
+    byte[] content = ProcessTextParserTest.bytes("合成资料：预算650元。");
+    byte[] expected =
+        ProcessTextParserTest.response(new TextParser().parse("notes.txt", "text/plain", content));
+    AutoCloseable released = () -> {};
+    AutoCloseable stuck =
+        () -> {
+          throw new TextParser.Failure("parser_invalid_output");
+        };
+
+    assertArrayEquals(
+        expected,
+        ParserWorker.respondThenRelease(
+            new ByteArrayInputStream(request("notes.txt", "text/plain", content)),
+            () -> released,
+            resources -> null));
+    assertNull(
+        ParserWorker.respondThenRelease(
+            new ByteArrayInputStream(request("notes.txt", "text/plain", content)),
+            () -> stuck,
+            resources -> null));
+    assertArrayEquals(
+        ParserProtocol.failure(),
+        ParserWorker.respondThenRelease(
+            new ByteArrayInputStream(request("notes.txt", "text/plain", content)),
+            () -> {
+              throw new TextParser.Failure("parser_failed");
+            },
+            resources -> null));
   }
 
   @Test

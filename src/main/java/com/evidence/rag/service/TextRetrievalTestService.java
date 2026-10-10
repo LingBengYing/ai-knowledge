@@ -32,7 +32,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /** Retrieval-only use case: one captured bundle, complete scope, no extraction or trace writes. */
@@ -106,12 +105,12 @@ public final class TextRetrievalTestService implements AutoCloseable {
       executor.execute(
           () -> {
             try (var operation = reservation.begin()) {
-              progress.thread.set(Thread.currentThread());
+              progress.worker.attach();
               result.complete(execute(actor, command, progress));
             } catch (RuntimeException | Error failure) {
               result.completeExceptionally(failure);
             } finally {
-              progress.thread.set(null);
+              progress.worker.detach();
               reservation.close();
               processing.remove(progress);
               admission.release();
@@ -423,7 +422,7 @@ public final class TextRetrievalTestService implements AutoCloseable {
   private final class Processing {
     private final long started = System.nanoTime();
     private final AtomicBoolean cancelled = new AtomicBoolean();
-    private final AtomicReference<Thread> thread = new AtomicReference<>();
+    private final WorkerInterrupt worker = new WorkerInterrupt();
 
     long remaining() {
       return budgetNanos - (System.nanoTime() - started);
@@ -440,10 +439,7 @@ public final class TextRetrievalTestService implements AutoCloseable {
 
     void cancel() {
       cancelled.set(true);
-      var running = thread.get();
-      if (running != null) {
-        running.interrupt();
-      }
+      worker.interrupt();
     }
   }
 }
