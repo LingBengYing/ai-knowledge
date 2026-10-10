@@ -28,6 +28,8 @@
 
 ## HTTP合同
 
+> 已移除：`POST /v1/product-help/search`、ProductHelpController 与 `product_help` 能力名已删除；内部检索 `ProductHelpService.retrieve` 仍由知识问答与 Agent 使用。下文仅为历史合同。
+
 ```http
 POST /v1/product-help/search
 Content-Type: application/json

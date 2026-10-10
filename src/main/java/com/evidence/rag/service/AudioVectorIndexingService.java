@@ -65,7 +65,6 @@ public final class AudioVectorIndexingService {
   private final IngestionRepository ingestion;
   private final DocumentPermissionPolicy permissions;
   private final Supplier<IndexTarget> textTarget;
-  private Supplier<IndexTarget> managedTextTarget;
   private final IndexTarget audioTarget;
   private final AudioDecoder decoder;
   private final String decoderRevision;
@@ -74,36 +73,6 @@ public final class AudioVectorIndexingService {
   private final BiFunction<AudioVectorBuildClaim, Duration, AudioVectorReceipt> worker;
   private final Semaphore capacity;
   private final Set<String> active = ConcurrentHashMap.newKeySet();
-
-  public AudioVectorIndexingService(
-      SqliteAuthorityStore store,
-      AudioVectorRepository vectors,
-      EvidenceRepository evidence,
-      ManagementRepository management,
-      IngestionRepository ingestion,
-      DocumentPermissionPolicy permissions,
-      IndexTarget textTarget,
-      IndexTarget audioTarget,
-      GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
-      AudioDecoder decoder,
-      Duration processingBudget,
-      int maxConcurrent) {
-    this(
-        store,
-        vectors,
-        evidence,
-        management,
-        ingestion,
-        permissions,
-        fixedTextTarget(textTarget, audioTarget),
-        audioTarget,
-        models,
-        projection,
-        decoder,
-        processingBudget,
-        maxConcurrent);
-  }
 
   public static AudioVectorIndexingService managed(
       SqliteAuthorityStore store,
@@ -395,14 +364,6 @@ public final class AudioVectorIndexingService {
     }
   }
 
-  /** Installed at composition; independent media model and projection remain unchanged. */
-  public void followTextTarget(Supplier<IndexTarget> current) {
-    if (current == null || managedTextTarget != null) {
-      throw ModelValues.invalid();
-    }
-    managedTextTarget = current;
-  }
-
   private static Supplier<IndexTarget> fixedTextTarget(IndexTarget text, IndexTarget media) {
     if (text == null
         || media == null
@@ -413,7 +374,7 @@ public final class AudioVectorIndexingService {
   }
 
   private IndexTarget currentTextTarget() {
-    IndexTarget current = managedTextTarget == null ? textTarget.get() : managedTextTarget.get();
+    IndexTarget current = textTarget.get();
     if (current == null) {
       throw new ApplicationException(
           FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");

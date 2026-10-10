@@ -202,53 +202,6 @@ class OpenAiCompatibleModelsTest {
   }
 
   @Test
-  void knowledgeExtractionUsesSeparateSameVideoMetadataWithoutChangingLegacyRequests()
-      throws Exception {
-    var models = client();
-    String revision = models.revision();
-    String title = "一 青榆 X1 . 桌面净化器";
-    String operation = "短按电源开机，长按月亮键3秒开启夜间模式，月亮指示灯变绿表示开启。";
-    respond(
-        chat(
-            JSON.writeValueAsString(
-                Map.of(
-                    "refused",
-                    false,
-                    "quotes",
-                    List.of(
-                        Map.of("evidence_id", "ocr", "quote", title),
-                        Map.of("evidence_id", "asr", "quote", operation))))));
-    var result =
-        models.extractKnowledge(
-            "青榆X1如何开启夜间模式？",
-            List.of(
-                new TextModels.KnowledgeExtractionEvidence(
-                    "ocr", title, "source-1", "video_frame_ocr", 0L, 40000L),
-                new TextModels.KnowledgeExtractionEvidence(
-                    "asr", operation, "source-1", "video_transcript", 0L, 12410000L)));
-    assertEquals(2, result.quotes().size());
-    var request = takeRequest();
-    var messages = request.body().path("messages");
-    String prompt = messages.get(0).path("content").asString();
-    var data = JSON.readTree(messages.get(1).path("content").asString());
-    assertTrue(prompt.contains("Quote BOTH"));
-    assertFalse(prompt.contains("青榆"));
-    assertEquals("source-1", data.path("evidence_metadata").get(0).path("source_group").asString());
-    assertEquals(12410000L, data.path("evidence_metadata").get(1).path("end_us").asLong());
-    assertEquals(title, data.path("evidence").get(0).path("text").asString());
-    assertEquals(revision, models.revision());
-    assertTrue(requests.isEmpty());
-    respond(chat("{\"refused\":true,\"quotes\":[]}"));
-    models.extract("问题", List.of(new TextModels.Evidence("old", "原始资料")));
-    var legacy = takeRequest();
-    assertFalse(
-        legacy.body().path("messages").get(0).path("content").asString().contains("source_group"));
-    assertFalse(
-        JSON.readTree(legacy.body().path("messages").get(1).path("content").asString())
-            .has("evidence_metadata"));
-  }
-
-  @Test
   void acceptsOnlyExplicitEmptyRefusal() {
     respond(chat("{\"refused\":true,\"quotes\":[]}"));
     var result = client().extract("no answer", List.of(new TextModels.Evidence("s", "policy")));

@@ -16,8 +16,7 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ProjectionAttempt;
 import com.evidence.rag.model.domain.QualifiedProjectionTarget;
 import com.evidence.rag.model.domain.SyntheticDocument;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.DocumentLifecycleService;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.support.PublishedCorpusFixture;
 import com.evidence.rag.support.SubtitleCorpusFixture;
 import com.evidence.rag.support.SynopsisCorpusFixture;
@@ -258,12 +257,11 @@ class DocumentCleanupRepositoryTest {
       var store = fixture.authority.store();
       byte[] bytes = new byte[2 * 1024 * 1024];
       Arrays.fill(bytes, (byte) 'x');
-      document =
-          fixture
-              .authority
-              .ingestion()
-              .uploadDocument(OWNER, "large.txt", "text/plain", bytes)
-              .documentId();
+      var upload =
+          fixture.authority.ingestion().uploadDocument(OWNER, "large.txt", "text/plain", bytes);
+      document = upload.documentId();
+      // The removed withdrawal path also cancelled the queued parse; cleanup requires idle work.
+      fixture.authority.ingestion().cancelIngestion(OWNER, upload.taskId());
       before = Files.size(store.libraryPath());
       assertEquals(
           bytes.length,
@@ -436,20 +434,12 @@ class DocumentCleanupRepositoryTest {
             assertEquals(0, new IngestionRepository(store).storedBytes("different-workspace"));
             return null;
           });
-      var lifecycle =
-          new DocumentLifecycleService(
-              store,
-              new DocumentLifecycleRepository(store),
-              new ManagementRepository(store),
-              new IngestionRepository(store),
-              new IndexingRepository(store),
-              new DocumentPermissionPolicy());
-      lifecycle.removeDocument(OWNER, sound.documentId());
-      lifecycle.removeDocument(OWNER, document);
+      DocumentWithdrawal.withdraw(store, OWNER, sound.documentId());
+      DocumentWithdrawal.withdraw(store, OWNER, document);
       assertEquals(
           legacy.length + 128 + 256,
           store.transaction(() -> new IngestionRepository(store).storedBytes(OWNER.workspaceId())));
-      lifecycle.removeDocument(OWNER, video.documentId());
+      DocumentWithdrawal.withdraw(store, OWNER, video.documentId());
       assertEquals(
           legacy.length + 128 + 256,
           store.transaction(() -> new IngestionRepository(store).storedBytes(OWNER.workspaceId())));
@@ -472,14 +462,7 @@ class DocumentCleanupRepositoryTest {
   }
 
   static CleanupClaim claim(SqliteAuthorityStore store, String document) {
-    new DocumentLifecycleService(
-            store,
-            new DocumentLifecycleRepository(store),
-            new ManagementRepository(store),
-            new IngestionRepository(store),
-            new IndexingRepository(store),
-            new DocumentPermissionPolicy())
-        .removeDocument(OWNER, document);
+    DocumentWithdrawal.withdraw(store, OWNER, document);
     return store.transaction(
         () -> {
           var repository = new DocumentCleanupRepository(store);

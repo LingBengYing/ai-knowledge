@@ -62,7 +62,6 @@ class ModelRebuildMutationFilterTest {
                 .path("error_code")
                 .asString());
       }
-      assertEquals(409, filter(fixture.filter, "DELETE", "/v1/documents/doc", false).getStatus());
       for (String path :
           List.of("/v1/knowledge-answers", "/v1/answers", "/v1/management/document-actions")) {
         filter(fixture.filter, "POST", path, true);

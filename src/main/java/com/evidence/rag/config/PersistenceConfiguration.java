@@ -1,6 +1,5 @@
 package com.evidence.rag.config;
 
-import com.evidence.rag.bootstrap.DemoFixtures;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.repository.AudioVectorRepository;
@@ -22,8 +21,6 @@ import com.evidence.rag.service.ManagementService;
 import com.evidence.rag.service.ReindexVectorVerifier;
 import com.evidence.rag.service.SynopsisLibraryService;
 import com.evidence.rag.service.VideoCompilationService;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -33,22 +30,6 @@ import org.springframework.core.env.Environment;
 /** Single authority owner and explicit startup recovery, before dependent background jobs exist. */
 @Configuration
 public class PersistenceConfiguration {
-  /** Standalone CLI composition keeps persistence out of the synthetic bootstrap use case. */
-  public static void seedDemo(Path directory) {
-    if (Files.exists(directory.resolve("java-library.db"))) {
-      throw new IllegalStateException(
-          "Demo import requires a new empty database; existing data is never overwritten");
-    }
-    try (var store = new SqliteAuthorityStore(directory)) {
-      var management = new ManagementRepository(store);
-      var ingestion = new IngestionRepository(store);
-      var indexing = new IndexingRepository(store);
-      DemoFixtures.seed(
-          new ManagementService(
-              store, management, ingestion, indexing, new DocumentPermissionPolicy()));
-    }
-  }
-
   @Bean(destroyMethod = "close")
   SqliteAuthorityStore authorityStore(RagProperties properties, Environment environment) {
     RuntimeGuard.check(properties, environment.getProperty("server.address"));

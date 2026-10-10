@@ -1019,17 +1019,6 @@ public final class IndexingRepository {
     replacementState(jobId, "failed", now);
   }
 
-  /** Pending non-rebuild index jobs of every revision of a document, including replacements. */
-  public List<String> pendingJobIds(String documentId) {
-    return store
-        .rows(
-            "SELECT id FROM indexing_jobs WHERE document_id=? AND model_rebuild_id IS NULL AND state IN ('queued','processing') ORDER BY id",
-            documentId)
-        .stream()
-        .map(row -> AuthorityRows.text(row, "id"))
-        .toList();
-  }
-
   public void markCancelled(String jobId, String now) {
     store.execute(
         "UPDATE indexing_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",

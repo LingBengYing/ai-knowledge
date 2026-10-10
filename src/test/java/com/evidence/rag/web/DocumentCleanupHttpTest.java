@@ -9,7 +9,9 @@ import com.evidence.rag.job.DocumentCleanupJob;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.SyntheticDocument;
+import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.service.ManagementService;
+import com.evidence.rag.support.DocumentWithdrawal;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
@@ -81,9 +83,7 @@ class DocumentCleanupHttpTest {
   @Test
   void legacyWithdrawalRemainsFourFieldsAndDoesNotAutomaticallyRequestCleanup() throws Exception {
     seed("legacy-cleanup");
-    var old = request("DELETE", "/v1/documents/legacy-cleanup", "owner", null);
-    assertEquals(202, old.statusCode());
-    assertEquals(4, json.readTree(old.body()).size());
+    withdraw("legacy-cleanup");
     var current = request("GET", "/v1/documents/legacy-cleanup/cleanup", "owner", null);
     assertEquals(200, current.statusCode());
     var value = json.readTree(current.body());
@@ -187,8 +187,7 @@ class DocumentCleanupHttpTest {
   @Test
   void maintenanceKeepsAuthenticatedStatusReadableButClosesOrdinaryBodies() throws Exception {
     seed("maintenance-cleanup");
-    assertEquals(
-        202, request("DELETE", "/v1/documents/maintenance-cleanup", "owner", null).statusCode());
+    withdraw("maintenance-cleanup");
     try (var maintenance =
         context.getBean(LibraryOperationGate.class).tryMaintenance().orElseThrow()) {
       assertEquals(503, request("GET", "/v1/management/documents", "owner", null).statusCode());
@@ -286,5 +285,11 @@ class DocumentCleanupHttpTest {
             ? HttpRequest.BodyPublishers.noBody()
             : HttpRequest.BodyPublishers.ofString(body));
     return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+  }
+
+  /** Legacy tombstone written by the removed single-document withdrawal endpoint. */
+  private void withdraw(String document) {
+    DocumentWithdrawal.withdraw(
+        context.getBean(SqliteAuthorityStore.class), new Actor("org-main", "owner"), document);
   }
 }

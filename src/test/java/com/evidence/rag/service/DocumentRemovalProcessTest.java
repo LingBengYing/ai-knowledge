@@ -12,12 +12,10 @@ import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.job.IngestionJob;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
-import com.evidence.rag.repository.ManagementRepository;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.support.AuthorityTestContext;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.indexing.ControlledIndexerFixture;
 import com.evidence.rag.worker.indexing.IndexingTestServer;
@@ -45,10 +43,10 @@ class DocumentRemovalProcessTest {
     try (var authority = new AuthorityTestContext(directory)) {
       String document = parsed(authority, "removed.txt");
       var target = new IndexTarget("embedding-v1", "projection-v1", "models-v1", 2);
-      authority.createIndexing(OWNER, document, target);
+      var task = authority.indexing().createIndexing(OWNER, document, target);
       var claim = authority.claimIndexing(OWNER.workspaceId()).orElseThrow();
       assertTrue(authority.isIndexingClaimCurrent(claim));
-      lifecycle(authority).removeDocument(OWNER, document);
+      remove(authority, task.taskId(), document, false);
       assertFalse(authority.isIndexingClaimCurrent(claim));
       var starts = new AtomicInteger();
       var processor =
@@ -144,7 +142,7 @@ class DocumentRemovalProcessTest {
         assertEquals(
             "processing", authority.ingestion().ingestionStatus(OWNER, first.taskId()).state());
         long removalUntil = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-        lifecycle(authority).removeDocument(OWNER, first.documentId());
+        remove(authority, first.taskId(), first.documentId(), true);
         assertNotFound(() -> authority.ingestion().ingestionStatus(OWNER, first.taskId()));
         var next =
             authority
@@ -227,7 +225,7 @@ class DocumentRemovalProcessTest {
             "processing", authority.indexing().indexingStatus(OWNER, task.taskId()).state());
         assertTrue(external.requests.isEmpty());
         long removalUntil = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-        lifecycle(authority).removeDocument(OWNER, first);
+        remove(authority, task.taskId(), first, false);
         assertNotFound(() -> authority.indexing().indexingStatus(OWNER, task.taskId()));
         String next = parsed(authority, "next.txt");
         var nextTask = authority.indexing().createIndexing(OWNER, next, external.target());
@@ -324,14 +322,14 @@ class DocumentRemovalProcessTest {
     return claim.documentId();
   }
 
-  private static DocumentLifecycleService lifecycle(AuthorityTestContext authority) {
-    var store = authority.store();
-    return new DocumentLifecycleService(
-        store,
-        new DocumentLifecycleRepository(store),
-        new ManagementRepository(store),
-        new IngestionRepository(store),
-        new IndexingRepository(store),
-        new DocumentPermissionPolicy());
+  /** An older withdrawal cancelled the active task and wrote the tombstone together. */
+  private static void remove(
+      AuthorityTestContext authority, String taskId, String document, boolean ingestion) {
+    if (ingestion) {
+      authority.ingestion().cancelIngestion(OWNER, taskId);
+    } else {
+      authority.indexing().cancelIndexing(OWNER, taskId);
+    }
+    DocumentWithdrawal.withdraw(authority.store(), OWNER, document);
   }
 }

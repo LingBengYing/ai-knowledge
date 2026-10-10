@@ -32,6 +32,7 @@ import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.support.AnswerProtocolServer;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.support.VideoCompilationFixture;
 import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.indexing.IndexingTestServer;
@@ -169,9 +170,8 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
                 context.getBean(SqliteAuthorityStore.class).libraryPath(),
                 "SELECT p.document_id FROM query_trace_documents q JOIN index_publications p ON p.id=q.publication_id WHERE q.trace_id=? ORDER BY p.document_id",
                 image.metadata().path("answer_id").asString()));
-        var removed =
-            json(http, base, "DELETE", "/v1/documents/" + seed.video(), null, 202, MEMBER);
-        assertEquals("deleting", removed.path("status").asString());
+        DocumentWithdrawal.withdraw(
+            context.getBean(SqliteAuthorityStore.class), MEMBER, seed.video());
         for (var source : saved.subList(0, 3)) {
           json(http, base, "GET", source.url(), null, 404);
           assertEquals(404, bytes(http, base, source.url() + "/content").statusCode());

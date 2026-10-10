@@ -156,7 +156,7 @@ class TextModelProtocolLogTest {
   }
 
   @Test
-  void recordsAllThreeSuccessfulOperationsWithoutChangingProtocolOrRevision() {
+  void recordsSuccessfulOperationsWithoutChangingProtocolOrRevision() {
     String revision = models.revision();
     response.set(chat("stop", extraction(PRIVATE_ID, PRIVATE_TEXT)));
     assertFalse(models.extract("private-question", EVIDENCE).refused());
@@ -171,31 +171,11 @@ class TextModelProtocolLogTest {
                     false,
                     "statements",
                     List.of(Map.of("text", PRIVATE_TEXT, "evidence_ids", List.of(PRIVATE_ID)))))));
-    var synthesis = models.synthesize("private-question", SUPPORT);
+    var synthesis = models.answerKnowledge("private-question", SUPPORT);
     assertEquals(PRIVATE_TEXT, synthesis.statements().getFirst().text());
-    onlyLine("synthesize", "validated");
+    onlyLine("answer_knowledge", "validated");
     assertStandardStructuredRequest();
-    events.list.clear();
-    response.set(
-        chat(
-            "stop",
-            ModelHttpTransport.encodeJson(
-                Map.of(
-                    "complete",
-                    true,
-                    "statements",
-                    List.of(
-                        Map.of(
-                            "index",
-                            0,
-                            "supported",
-                            true,
-                            "contributing_evidence_ids",
-                            List.of(PRIVATE_ID)))))));
-    assertTrue(models.verifySynthesis("private-question", synthesis, SUPPORT));
-    onlyLine("verify", "validated");
-    assertStandardStructuredRequest();
-    assertEquals(3, requests.get());
+    assertEquals(2, requests.get());
     assertEquals(revision, models.revision());
   }
 
@@ -206,13 +186,13 @@ class TextModelProtocolLogTest {
         assertThrows(
                 TextModels.Failure.class,
                 () ->
-                    models.synthesize(
+                    models.answerKnowledge(
                         "private-question",
                         List.of(
                             new TextModels.SynthesisEvidence(
                                 PRIVATE_ID, "private-absent", PRIVATE_TEXT))))
             .code());
-    String line = onlyLine("synthesize", "input_evidence");
+    String line = onlyLine("answer_knowledge", "input_evidence");
     assertTrue(line.contains("finish_reason=missing"));
     assertTrue(line.contains("content_characters=-1 reasoning_characters=-1"));
     assertEquals(0, requests.get());
@@ -239,35 +219,25 @@ class TextModelProtocolLogTest {
         assertThrows(
                 TextModels.Failure.class,
                 () ->
-                    models.synthesize(
+                    models.answerKnowledge(
                         "private-question",
                         List.of(
                             new TextModels.SynthesisEvidence(PRIVATE_ID, PRIVATE_TEXT, context))))
             .code());
-    onlyLine("synthesize", "request_invalid_input");
+    onlyLine("answer_knowledge", "request_invalid_input");
     assertEquals(0, requests.get());
   }
 
   @Test
-  void distinguishesSynthesisAndVerificationResponseSchemaFailures() {
+  void distinguishesAnswerResponseSchemaFailure() {
     response.set(chat("stop", "{\"private-schema\":true}"));
     assertEquals(
         "model_invalid_response",
-        assertThrows(TextModels.Failure.class, () -> models.synthesize("private-question", SUPPORT))
-            .code());
-    onlyLine("synthesize", "synthesis_fields");
-    events.list.clear();
-    var synthesis =
-        new TextModels.Synthesis(
-            false, List.of(new TextModels.Statement(PRIVATE_TEXT, List.of(PRIVATE_ID))));
-    assertEquals(
-        "model_invalid_response",
         assertThrows(
-                TextModels.Failure.class,
-                () -> models.verifySynthesis("private-question", synthesis, SUPPORT))
+                TextModels.Failure.class, () -> models.answerKnowledge("private-question", SUPPORT))
             .code());
-    onlyLine("verify", "verification_fields");
-    assertEquals(2, requests.get());
+    onlyLine("answer_knowledge", "synthesis_fields");
+    assertEquals(1, requests.get());
   }
 
   @Test
@@ -344,33 +314,10 @@ class TextModelProtocolLogTest {
                           List.of(
                               Map.of(
                                   "text", PRIVATE_TEXT, "evidence_ids", List.of(PRIVATE_ID)))))));
-          assertEquals(synthesis, models.synthesize("private-question", SUPPORT));
-          onlyLine("synthesize", "validated");
+          assertEquals(synthesis, models.answerKnowledge("private-question", SUPPORT));
+          onlyLine("answer_knowledge", "validated");
           assertStandardStructuredRequest();
           assertEquals(2, requests.get());
-        },
-        () -> {
-          events.list.clear();
-          response.set(
-              chat(
-                  "stop",
-                  ModelHttpTransport.encodeJson(
-                      Map.of(
-                          "complete",
-                          true,
-                          "statements",
-                          List.of(
-                              Map.of(
-                                  "index",
-                                  0,
-                                  "supported",
-                                  true,
-                                  "contributing_evidence_ids",
-                                  List.of(PRIVATE_ID)))))));
-          assertTrue(models.verifySynthesis("private-question", synthesis, SUPPORT));
-          onlyLine("verify", "validated");
-          assertStandardStructuredRequest();
-          assertEquals(3, requests.get());
         });
   }
 

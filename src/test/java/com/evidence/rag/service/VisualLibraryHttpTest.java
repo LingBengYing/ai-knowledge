@@ -9,8 +9,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
 import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.support.AnswerProtocolServer;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.worker.indexing.IndexingTestServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -229,7 +232,8 @@ class VisualLibraryHttpTest {
         assertEquals(422, request("GET", contentUrl, null, null, null).statusCode());
         assertEquals(401, request("GET", sourceUrl, null, null, "other-org", OWNER).statusCode());
         assertEquals(401, request("GET", contentUrl, null, null, "other-org", OWNER).statusCode());
-        json("DELETE", "/v1/documents/" + document, null, null, 202);
+        DocumentWithdrawal.withdraw(
+            context.getBean(SqliteAuthorityStore.class), new Actor("org-main", OWNER), document);
         assertEquals(404, request("GET", sourceUrl, null, null, OWNER).statusCode());
         assertEquals(404, request("GET", contentUrl, null, null, OWNER).statusCode());
         assertEquals(404, request("GET", sourceUrl, null, null, "another-owner").statusCode());

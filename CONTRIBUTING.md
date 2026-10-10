@@ -17,7 +17,7 @@
 ```bash
 mvn -s .mvn/settings.xml -gs .mvn/settings.xml spotless:apply
 mvn -s .mvn/settings.xml -gs .mvn/settings.xml clean verify
-node --test ui-tests/*.test.mjs scripts/check-secrets.test.mjs
+node --test scripts/check-secrets.test.mjs
 node scripts/check-secrets.mjs --history
 git diff --check
 ```

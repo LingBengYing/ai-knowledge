@@ -21,10 +21,10 @@ import com.evidence.rag.model.dto.DocumentPatchCommand;
 import com.evidence.rag.model.dto.VideoAvCitationResult;
 import com.evidence.rag.model.query.DocumentQuery;
 import com.evidence.rag.repository.CleanupMaintenanceFixture;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.tool.answer.VideoAvProofBinding;
 import java.nio.file.Path;
 import java.sql.DriverManager;
@@ -125,16 +125,7 @@ class VideoAvAuthorityTest {
       var original = fixture.register("library", 1, 1, 16000, true);
       var result =
           answers.answer(VideoAvTestFixture.OWNER, VideoAvAnswerServiceTest.all(VideoAvMode.JOINT));
-      var lifecycle =
-          new DocumentLifecycleService(
-              fixture.store,
-              new DocumentLifecycleRepository(fixture.store),
-              fixture.management,
-              new IngestionRepository(fixture.store),
-              new IndexingRepository(fixture.store),
-              new DocumentPermissionPolicy());
-      assertEquals(
-          "pending", lifecycle.removeDocument(VideoAvTestFixture.OWNER, "library").cleanupStatus());
+      DocumentWithdrawal.withdraw(fixture.store, VideoAvTestFixture.OWNER, "library");
       try (var connection =
               DriverManager.getConnection("jdbc:sqlite:" + fixture.store.libraryPath());
           var statement = connection.createStatement();
@@ -161,8 +152,6 @@ class VideoAvAuthorityTest {
       assertThrows(
           ApplicationException.class,
           () -> answers.source(VideoAvTestFixture.OWNER, result.answerId(), 1));
-      assertEquals(
-          "pending", lifecycle.removeDocument(VideoAvTestFixture.OWNER, "library").cleanupStatus());
     }
   }
 

@@ -27,11 +27,6 @@ public final class AnswerController {
   private final AnswerService answers;
   private final ManagedTextRuntime runtime;
 
-  public AnswerController(AnswerService answers) {
-    this.answers = answers;
-    this.runtime = null;
-  }
-
   @Autowired
   public AnswerController(
       ObjectProvider<AnswerService> answers, ObjectProvider<ManagedTextRuntime> runtime) {

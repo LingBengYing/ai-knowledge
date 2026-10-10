@@ -35,11 +35,7 @@ public final class ModelRebuildMutationFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = paths.getPathWithinApplication(request);
-    String method = request.getMethod();
-    if ("DELETE".equals(method) && path.matches("/v1/documents/[^/]+")) {
-      return false;
-    }
-    if (!"POST".equals(method)) {
+    if (!"POST".equals(request.getMethod())) {
       return true;
     }
     // document-actions mixes organization and reindex; its Service checks only reindex.

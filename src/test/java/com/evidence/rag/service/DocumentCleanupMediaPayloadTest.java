@@ -13,12 +13,8 @@ import com.evidence.rag.model.domain.VideoAvRoute;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.VideoAvAnswerCommand;
 import com.evidence.rag.repository.DocumentCleanupRepository;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.IndexingRepository;
-import com.evidence.rag.repository.IngestionRepository;
-import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.worker.cleanup.CleanupRestoreJournal;
 import java.nio.file.Path;
 import java.sql.DriverManager;
@@ -190,14 +186,7 @@ class DocumentCleanupMediaPayloadTest {
 
   private static void cleanup(SqliteAuthorityStore store, Actor actor, String document)
       throws Exception {
-    new DocumentLifecycleService(
-            store,
-            new DocumentLifecycleRepository(store),
-            new ManagementRepository(store),
-            new IngestionRepository(store),
-            new IndexingRepository(store),
-            new DocumentPermissionPolicy())
-        .removeDocument(actor, document);
+    DocumentWithdrawal.withdraw(store, actor, document);
     var repository = new DocumentCleanupRepository(store);
     CleanupClaim claim =
         store.transaction(

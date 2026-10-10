@@ -22,11 +22,9 @@ import com.evidence.rag.model.domain.TextSegment;
 import com.evidence.rag.model.domain.TraceDraft;
 import com.evidence.rag.model.domain.TraceEvidence;
 import com.evidence.rag.model.domain.VerifiedRevision;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.support.PublishedCorpusFixture;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -92,18 +90,9 @@ class SourceImageTest {
       var source = fixture.evidence.source(OWNER, traceId, 1);
       assertNotNull(source.image());
       var store = fixture.authority.store();
-      var lifecycle =
-          new DocumentLifecycleService(
-              store,
-              new DocumentLifecycleRepository(store),
-              new ManagementRepository(store),
-              new IngestionRepository(store),
-              new IndexingRepository(store),
-              new DocumentPermissionPolicy());
 
-      var removal = lifecycle.removeDocument(OWNER, source.evidence().publication().documentId());
+      DocumentWithdrawal.withdraw(store, OWNER, source.evidence().publication().documentId());
 
-      assertEquals("pending", removal.cleanupStatus());
       var failure =
           assertThrows(
               ApplicationException.class, () -> fixture.evidence.source(OWNER, traceId, 1));

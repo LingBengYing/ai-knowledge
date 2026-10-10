@@ -58,18 +58,6 @@ public final class ModelValues {
     return value;
   }
 
-  public static int integer(String value, int minimum, int maximum) {
-    try {
-      int parsed = Integer.parseInt(value);
-      if (parsed < minimum || parsed > maximum) {
-        throw invalid();
-      }
-      return parsed;
-    } catch (NumberFormatException error) {
-      throw invalid();
-    }
-  }
-
   public static ApplicationException invalid() {
     return new ApplicationException(
         com.evidence.rag.exception.FailureKind.INVALID_INPUT, "invalid_request", "请求字段、长度或取值无效。");

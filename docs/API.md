@@ -165,6 +165,8 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 ## 文档撤下请求（0008，物理清理未完成）
 
+> 已移除：`DELETE /v1/documents/{documentId}`、DocumentRemovalController 与 DocumentLifecycleService 已删除。当前撤下与清理统一走 `POST /v1/documents/{id}/cleanup` 与 `/v1/management/document-cleanups`（`rag.document-removal.enabled` 仍是其前置开关）。下文仅为历史合同。
+
 仅development/test且绑定字面`127.0.0.1`或`::1`时，可显式开启`RAG_DOCUMENT_REMOVAL_ENABLED=true`。通过[DocumentRemovalController](../src/main/java/com/evidence/rag/controller/DocumentRemovalController.java)调用`DELETE /v1/documents/{documentId}`，必须无query/body，文档ID按现有identifier规则校验。当前owner/editor可请求；通过认证后的未知资料或无写权限返回404。异组织身份在原认证层先被拒绝；不会因文档撤下绕过JWT/Origin校验。
 
 成功为202，只有以下四个字段（值为合成示例）：

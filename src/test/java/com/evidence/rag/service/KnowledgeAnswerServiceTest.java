@@ -23,12 +23,11 @@ import com.evidence.rag.model.domain.VideoOcrSegment;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
 import com.evidence.rag.model.dto.KnowledgeCitation;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.support.AnswerTestContext;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.support.VideoCompilationFixture;
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -91,8 +90,7 @@ class KnowledgeAnswerServiceTest {
       var answer = fixture.answers.answer(fixture.context.owner, selected());
       assertEquals("answered", answer.status(), answer.reason());
       assertEquals(
-          List.of(MANUAL),
-          fixture.models.contextOnly.stream().map(TextModels.SynthesisContext::context).toList());
+          List.of(MANUAL), fixture.models.contextOnly.stream().map(Context::context).toList());
       assertEquals(1, answer.citations().size());
       assertEquals(
           1,
@@ -126,7 +124,7 @@ class KnowledgeAnswerServiceTest {
       assertEquals("answered", answer.status(), answer.reason());
       assertEquals(
           List.of(MANUAL, SPOKEN),
-          fixture.models.contextOnly.stream().map(TextModels.SynthesisContext::context).toList());
+          fixture.models.contextOnly.stream().map(Context::context).toList());
       assertEquals(
           Set.of("document_text", "video_transcript"),
           answer.citations().stream()
@@ -233,7 +231,7 @@ class KnowledgeAnswerServiceTest {
       assertEquals(
           Set.of(MANUAL, OCR, SPOKEN, UNRELATED),
           fixture.models.contextOnly.stream()
-              .map(TextModels.SynthesisContext::context)
+              .map(Context::context)
               .collect(java.util.stream.Collectors.toSet()));
       assertSources(fixture, answer);
     }
@@ -261,7 +259,6 @@ class KnowledgeAnswerServiceTest {
       assertNull(answer.reason());
       assertEquals(2, answer.citations().size());
       assertTrue(answer.answer().contains("长按月亮键"));
-      assertEquals(0, fixture.models.verifications);
       assertSources(fixture, answer);
     }
   }
@@ -276,7 +273,6 @@ class KnowledgeAnswerServiceTest {
       var answer =
           fixture.answers.answer(
               fixture.context.owner, selected(manual, video.documentId(), extra));
-      assertEquals(0, fixture.models.verifications);
       assertEquals("abstained", answer.status());
       assertEquals("scope_changed", answer.reason());
       assertTrue(answer.citations().isEmpty());
@@ -348,7 +344,7 @@ class KnowledgeAnswerServiceTest {
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
         runtime.install(snapshot, lease, () -> {});
       }
-      retrieval = new ProductHelpService(context.evidence, runtime, DEADLINE, 1, settings::get);
+      retrieval = new ProductHelpService(context.evidence, runtime, DEADLINE, settings::get);
       answers =
           new KnowledgeAnswerService(
               context.evidence,
@@ -455,15 +451,7 @@ class KnowledgeAnswerServiceTest {
     }
 
     void remove(String documentId) {
-      var store = context.authority.store();
-      new DocumentLifecycleService(
-              store,
-              new DocumentLifecycleRepository(store),
-              new ManagementRepository(store),
-              new IngestionRepository(store),
-              new IndexingRepository(store),
-              new DocumentPermissionPolicy())
-          .removeDocument(context.owner, documentId);
+      DocumentWithdrawal.withdraw(context.authority.store(), context.owner, documentId);
     }
 
     @Override
@@ -477,7 +465,6 @@ class KnowledgeAnswerServiceTest {
 
   private static final class Models implements TextModels {
     int requests;
-    int verifications;
     int generations;
     boolean omitIdentity;
     Runnable onVerify = () -> {};
@@ -485,14 +472,13 @@ class KnowledgeAnswerServiceTest {
     Function<List<String>, List<Ranked>> ranking =
         texts ->
             IntStream.range(0, texts.size()).mapToObj(index -> new Ranked(index, 1.0)).toList();
-    List<SynthesisContext> contextOnly = List.of();
+    List<Context> contextOnly = List.of();
 
     @Override
     public Synthesis answerKnowledge(String question, List<SynthesisEvidence> evidence) {
       requests++;
       generations++;
-      contextOnly =
-          evidence.stream().map(item -> new SynthesisContext(item.id(), item.context())).toList();
+      contextOnly = evidence.stream().map(item -> new Context(item.id(), item.context())).toList();
       var ids =
           evidence.stream()
               .filter(
@@ -525,55 +511,10 @@ class KnowledgeAnswerServiceTest {
     }
 
     @Override
-    public Extraction extractKnowledge(
-        String question, List<KnowledgeExtractionEvidence> evidence) {
-      requests++;
-      var quotes = new ArrayList<Quote>();
-      for (var source : evidence) {
-        if (source.text().equals(MANUAL)) quotes.add(new Quote(source.id(), "长按月亮键3秒，开启夜间模式。"));
-        else if (source.text().equals(OCR)) quotes.add(new Quote(source.id(), TITLE));
-        else if (source.text().equals(SPOKEN)) quotes.add(new Quote(source.id(), SPOKEN));
-      }
-      return new Extraction(quotes, quotes.isEmpty());
-    }
-
-    @Override
-    public Synthesis synthesize(
-        String question, List<SynthesisEvidence> evidence, List<SynthesisContext> contexts) {
-      requests++;
-      contextOnly = List.copyOf(contexts);
-      var identity =
-          evidence.stream().filter(value -> value.quote().equals(TITLE)).findFirst().orElseThrow();
-      var procedure =
-          evidence.stream().filter(value -> value.quote().equals(SPOKEN)).findFirst().orElseThrow();
-      assertEquals(List.of(identity.id()), procedure.requiredEvidenceIds());
-      return new Synthesis(
-          false,
-          List.of(
-              new Statement(
-                  "青榆X1先短按电源开机，再长按月亮键3秒开启夜间模式，月亮指示灯变绿表示开启。",
-                  evidence.stream()
-                      .filter(value -> !omitIdentity || !value.id().equals(identity.id()))
-                      .map(SynthesisEvidence::id)
-                      .toList())));
-    }
-
-    @Override
-    public boolean verifySynthesis(
-        String question,
-        Synthesis synthesis,
-        List<SynthesisEvidence> evidence,
-        List<SynthesisContext> contexts) {
-      requests++;
-      verifications++;
-      assertEquals(contextOnly, contexts);
-      onVerify.run();
-      return true;
-    }
-
-    @Override
     public String revision() {
       return "test-answer-model-v1";
     }
   }
+
+  private record Context(String id, String context) {}
 }

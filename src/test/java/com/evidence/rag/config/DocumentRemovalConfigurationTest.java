@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.evidence.rag.repository.DocumentLifecycleRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.DocumentLifecycleService;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,7 +30,7 @@ class DocumentRemovalConfigurationTest {
     try (var context = configured(Map.of("server.address", "0.0.0.0"))) {
       context.refresh();
       assertFalse(context.getBean(DocumentRemovalSettings.class).enabled());
-      assertTrue(context.getBeansOfType(DocumentLifecycleService.class).isEmpty());
+      assertTrue(context.getBeansOfType(DocumentLifecycleRepository.class).isEmpty());
     }
   }
 
@@ -41,7 +41,7 @@ class DocumentRemovalConfigurationTest {
         configured(Map.of("server.address", address, "rag.document-removal.enabled", "true"))) {
       context.refresh();
       assertTrue(context.getBean(DocumentRemovalSettings.class).enabled());
-      assertEquals(1, context.getBeansOfType(DocumentLifecycleService.class).size());
+      assertEquals(1, context.getBeansOfType(DocumentLifecycleRepository.class).size());
       assertTrue(context.getBeansOfType(TextAdapterSettings.class).isEmpty());
     }
   }

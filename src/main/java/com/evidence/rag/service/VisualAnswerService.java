@@ -55,7 +55,6 @@ public final class VisualAnswerService implements AutoCloseable {
   private final RetrievalProjection projection;
   private final IndexTarget target;
   private final String textRevision;
-  private final int concurrency;
   private final String visualRevision;
   private final QueryAttachmentService queries;
   private final long timeoutNanos;
@@ -118,7 +117,6 @@ public final class VisualAnswerService implements AutoCloseable {
     this.projection = projection;
     this.target = target;
     this.textRevision = ModelValues.identifier(text.revision(), 200);
-    this.concurrency = concurrency;
     this.visualRevision = ModelValues.identifier(vision.revision(), 160);
     this.queries = queries;
     timeoutNanos = deadline.toNanos();
@@ -144,28 +142,6 @@ public final class VisualAnswerService implements AutoCloseable {
     }
     return new VisualAnswerService(
         evidence, text, vision, projection, target, deadline, concurrency, queries, anchor);
-  }
-
-  /** Rebind an explicitly configured legacy template without replacing its visual client. */
-  public VisualAnswerService withTextBundle(
-      TextModels models,
-      RetrievalProjection currentProjection,
-      IndexTarget currentTarget,
-      QueryAttachmentService currentQueries,
-      TextIndexAnchor anchor) {
-    if (anchor == null) {
-      throw ModelValues.invalid();
-    }
-    return new VisualAnswerService(
-        evidence,
-        models,
-        vision,
-        currentProjection,
-        currentTarget,
-        Duration.ofNanos(timeoutNanos),
-        concurrency,
-        currentQueries,
-        anchor);
   }
 
   public VisualAnswerResult answer(Actor actor, AnswerCommand command) {

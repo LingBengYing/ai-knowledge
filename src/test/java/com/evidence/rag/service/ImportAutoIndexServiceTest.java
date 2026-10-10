@@ -13,13 +13,9 @@ import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ParsedText;
 import com.evidence.rag.model.domain.TextPage;
 import com.evidence.rag.model.domain.TextSegment;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
 import com.evidence.rag.repository.DocumentUpdateRepository;
 import com.evidence.rag.repository.ImportIndexRepository;
-import com.evidence.rag.repository.IndexingRepository;
-import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
-import com.evidence.rag.repository.ModelRebuildRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.support.AuthorityTestContext;
 import java.nio.charset.StandardCharsets;
@@ -188,46 +184,6 @@ class ImportAutoIndexServiceTest {
           "Synthetic import",
           authority.ingestion().parsedEvidence(owner, id).pages().getFirst().text());
       assertFalse(automatic.processNext());
-    }
-  }
-
-  @Test
-  void removingADocumentCancelsItsQueuedReplacementSoRebuildsAreNotBlocked() {
-    try (var authority = new AuthorityTestContext(directory)) {
-      authority.ingestion().setAutomaticIndexingEnabled(false);
-      String id = parsed(authority);
-      String base = (String) ((Map<?, ?>) document(authority).get("latest_job")).get("revision_id");
-      new DocumentReplacementService(
-              authority.store(),
-              new DocumentUpdateRepository(authority.store()),
-              new ManagementRepository(authority.store()),
-              new DocumentPermissionPolicy(),
-              authority.ingestion(),
-              () -> processor(authority),
-              null,
-              null,
-              true)
-          .upload(
-              owner,
-              id,
-              base,
-              "new.txt",
-              "text/plain",
-              "Replacement text".getBytes(StandardCharsets.UTF_8));
-      var store = authority.store();
-      var rebuild = new ModelRebuildRepository(store);
-      assertFalse(store.transaction(() -> rebuild.canStart("org")));
-      new DocumentLifecycleService(
-              store,
-              new DocumentLifecycleRepository(store),
-              new ManagementRepository(store),
-              new IngestionRepository(store),
-              new IndexingRepository(store),
-              new DocumentPermissionPolicy())
-          .removeDocument(owner, id);
-      assertTrue(
-          store.transaction(() -> new IngestionRepository(store).pendingJobIds(id).isEmpty()));
-      assertTrue(store.transaction(() -> rebuild.canStart("org")));
     }
   }
 

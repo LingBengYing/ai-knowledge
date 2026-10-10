@@ -16,17 +16,6 @@ public record ImageSourceResult(
     @JsonProperty("content_url") String contentUrl,
     @JsonProperty("region_kind") @JsonInclude(JsonInclude.Include.NON_NULL) String regionKind,
     @JsonInclude(JsonInclude.Include.NON_NULL) List<ImageTextRegionResult> regions) {
-  public ImageSourceResult(
-      String type,
-      String mimeType,
-      int width,
-      int height,
-      List<Integer> bbox,
-      String coordinateSystem,
-      String textOrigin,
-      String contentUrl) {
-    this(type, mimeType, width, height, bbox, coordinateSystem, textOrigin, contentUrl, null, null);
-  }
 
   public ImageSourceResult {
     bbox = List.copyOf(bbox);
