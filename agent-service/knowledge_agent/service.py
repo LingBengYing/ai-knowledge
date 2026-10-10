@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import Field, StrictStr, ValidationError
 
-from .runtime import AgentFailure, CallbackBridge, STAGES, StrictModel, run_agent
+from .runtime import ACTIONS, AgentFailure, CallbackBridge, STAGES, StrictModel, run_agent
 
 LOG = logging.getLogger("knowledge_agent.service")
 
@@ -24,10 +24,11 @@ LOG = logging.getLogger("knowledge_agent.service")
 def log_failure(run_id: str, code: str, bridge: CallbackBridge | None):
     """Fixed diagnostic fields only: never log request, model, tool, or exception objects."""
     stage = bridge.stage if bridge is not None and bridge.stage in STAGES else "starting"
-    LOG.warning("knowledge_agent_failed run_id=%s code=%s stage=%s model_calls=%d tool_calls=%d",
+    action = bridge.action if bridge is not None and bridge.action in ACTIONS else "none"
+    LOG.warning("knowledge_agent_failed run_id=%s code=%s stage=%s model_calls=%d tool_calls=%d action=%s",
                 run_id, AgentFailure(code).code, stage,
                 bridge.model_calls if bridge is not None else 0,
-                bridge.tool_calls if bridge is not None else 0)
+                bridge.tool_calls if bridge is not None else 0, action)
 
 
 @dataclass(frozen=True)

@@ -32,6 +32,7 @@ FAILURE_CODES = frozenset({
     "agent_cancelled", "agent_busy",
 })
 STAGES = frozenset({"starting", "model", "search", "read", "action", "result"})
+ACTIONS = frozenset({"knowledge_search", "knowledge_read", "knowledge_batch", "terminate"})
 CALLBACK_FAILURE_CODES = {
     ("model", 503): frozenset({"agent_model_tool_required", "agent_model_invalid", "agent_model_unavailable"}),
     ("model", 408): frozenset({"agent_model_timeout"}),
@@ -111,10 +112,14 @@ class CallbackBridge:
         self.read_sources: dict[str, dict] = {}
         self.failure: str | None = None
         self.stage = "starting"
+        self.action = "none"
 
     def fail(self, code: str):
-        self.failure = code
-        raise AgentFailure(code)
+        # DB-GPT converts tool exceptions into unsuccessful ActionOutput. Retain
+        # the first safe cause instead of replacing it with that wrapper error.
+        if self.failure is None:
+            self.failure = AgentFailure(code).code
+        raise AgentFailure(self.failure)
 
     async def _callback_failure(self, operation: str, response: httpx.Response) -> str:
         # Only Java's operation-specific problem code crosses this boundary.
@@ -311,6 +316,8 @@ class KnowledgeReActAgent(ReActAgent):
         if len(steps) != 1 or steps[0].observation is not None:
             raise AgentFailure("agent_invalid_action")
         step = steps[0]
+        bridge = self.llm_config.llm_client.bridge
+        bridge.action = step.action if step.action in ACTIONS else "unknown"
         try:
             if step.action == "knowledge_search":
                 SearchInput.model_validate(step.action_input)
@@ -323,6 +330,8 @@ class KnowledgeReActAgent(ReActAgent):
         except ValidationError:
             raise AgentFailure("agent_invalid_tool_input") from None
         result = await super().act(message, sender, **kwargs)
+        if bridge.failure:
+            raise AgentFailure(bridge.failure)
         if not result or not result.is_exe_success:
             raise AgentFailure("agent_tool_failed")
         return result
