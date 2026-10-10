@@ -175,7 +175,7 @@ class CallbackBridge:
                 return result
         except AgentFailure:
             raise
-        except (httpx.HTTPError, ValueError, UnicodeError):
+        except (httpx.HTTPError, ValueError, UnicodeError, RecursionError):
             self.fail("agent_callback_failed")
 
     async def model(self, messages: list[dict]) -> str:
@@ -451,7 +451,7 @@ def validate_result(value: Any, bridge: CallbackBridge) -> dict:
                 reason = "unknown_suggestion_document"
                 raise ValueError()
         return result.model_dump()
-    except (ValueError, TypeError, ValidationError):
+    except (ValueError, TypeError, RecursionError, ValidationError):
         bridge.result_reason = reason
         raise AgentFailure("agent_invalid_result") from None
 

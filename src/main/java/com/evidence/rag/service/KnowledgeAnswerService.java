@@ -31,7 +31,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Full-workspace retrieval, one original-backed synthesis and server-owned source locators. */
 public final class KnowledgeAnswerService implements AutoCloseable {
@@ -101,12 +100,12 @@ public final class KnowledgeAnswerService implements AutoCloseable {
       executor.execute(
           () -> {
             try (var operation = reservation.begin()) {
-              progress.thread.set(Thread.currentThread());
+              progress.worker.attach();
               result.complete(execute(actor, command, progress));
             } catch (RuntimeException | Error failed) {
               result.completeExceptionally(failed);
             } finally {
-              progress.thread.set(null);
+              progress.worker.detach();
               pending.remove(progress);
               admission.release();
               reservation.close();
@@ -342,7 +341,7 @@ public final class KnowledgeAnswerService implements AutoCloseable {
   private final class Progress {
     private final long started = System.nanoTime();
     private final AtomicBoolean cancelled = new AtomicBoolean();
-    private final AtomicReference<Thread> thread = new AtomicReference<>();
+    private final WorkerInterrupt worker = new WorkerInterrupt();
 
     long remaining() {
       return deadlineNanos - (System.nanoTime() - started);
@@ -357,10 +356,7 @@ public final class KnowledgeAnswerService implements AutoCloseable {
 
     void cancel() {
       cancelled.set(true);
-      var running = thread.get();
-      if (running != null) {
-        running.interrupt();
-      }
+      worker.interrupt();
     }
   }
 }

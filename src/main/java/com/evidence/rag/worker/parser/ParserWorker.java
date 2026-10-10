@@ -5,9 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** One-request parser process entrypoint; owns child output but no authority or HTTP state. */
 public final class ParserWorker {
+  private static final int CLEANUP_FAILED_EXIT = 70;
+
   private ParserWorker() {}
 
   public static void main(String[] args) {
@@ -19,37 +23,56 @@ public final class ParserWorker {
       run(System.in, protocol);
       return;
     }
-    try (var lifetime = new PdfWorkerLifetime(args)) {
-      run(System.in, protocol, new PdfOcrCompiler(lifetime.ocr()));
-    } catch (RuntimeException ignored) {
-      try {
-        protocol.write(ParserProtocol.failure());
-        protocol.flush();
-      } catch (IOException disconnected) {
-        // Parent rejects incomplete output.
-      }
+    byte[] response =
+        respondThenRelease(
+            System.in,
+            () -> new PdfWorkerLifetime(args),
+            lifetime -> new PdfOcrCompiler(lifetime.ocr()));
+    if (response == null) {
+      // Parsed, but native OCR cleanup could not be confirmed. Exit non-zero without writing so the
+      // parent reports parser_failed instead of reading a success frame plus a failure frame.
+      Runtime.getRuntime().halt(CLEANUP_FAILED_EXIT);
     }
+    write(protocol, response);
+  }
+
+  /**
+   * Answers one PDF request inside its native resources and releases them before anything is
+   * written. Returns the single frame to write, or null when the request was answered but the
+   * resources could not be released.
+   */
+  @SuppressWarnings("try") // Release is never interrupted; any close() failure is handled below.
+  static <T extends AutoCloseable> byte[] respondThenRelease(
+      InputStream input, Supplier<T> open, Function<T, PdfOcrCompiler> compiler) {
+    byte[] response = null;
+    try (T resources = open.get()) {
+      response = respond(input, compiler.apply(resources));
+    } catch (Exception failed) {
+      return response == null ? ParserProtocol.failure() : null;
+    }
+    return response;
   }
 
   /**
    * Exactly one bounded request. Failures disclose neither document data nor library exceptions.
    */
   public static void run(InputStream input, OutputStream output) {
-    run(input, output, null);
+    write(output, respond(input, null));
   }
 
-  private static void run(InputStream input, OutputStream output, PdfOcrCompiler pdfs) {
-    byte[] response;
+  private static byte[] respond(InputStream input, PdfOcrCompiler pdfs) {
     try {
       var request = ParserProtocol.readRequest(input);
-      response =
-          ParserProtocol.encode(
-              pdfs == null
-                  ? new TextParser().parse(request.filename(), request.mime(), request.content())
-                  : pdfs.parse(request.filename(), request.mime(), request.content()));
+      return ParserProtocol.encode(
+          pdfs == null
+              ? new TextParser().parse(request.filename(), request.mime(), request.content())
+              : pdfs.parse(request.filename(), request.mime(), request.content()));
     } catch (IOException | RuntimeException ignored) {
-      response = ParserProtocol.failure();
+      return ParserProtocol.failure();
     }
+  }
+
+  private static void write(OutputStream output, byte[] response) {
     try {
       output.write(response);
       output.flush();
