@@ -11,6 +11,7 @@ from test_agent import CALLBACK_TOKEN, RESULT, SOURCE, JavaCallbacks, react
 
 @pytest.mark.parametrize("value,search,read,reason", [
     ("private not json", True, True, "invalid_json"),
+    ("[" * 100000, True, True, "invalid_json"),
     (dict(RESULT, extra="private text"), True, True, "invalid_schema"),
     (RESULT, False, True, "no_search"),
     (dict(RESULT, refused=True), True, True, "refusal_has_content"),

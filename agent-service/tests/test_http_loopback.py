@@ -162,3 +162,14 @@ async def test_real_http_typed_callback_failure_survives_dbgpt_without_retry_or_
         callbacks.server_close()
         callbacks_thread.join(5)
         listener.close()
+
+
+def test_deeply_nested_request_body_is_rejected_not_crashed():
+    from fastapi.testclient import TestClient
+
+    settings = Settings(java_origin="http://127.0.0.1:18084", service_token=SERVICE_TOKEN)
+    client = TestClient(create_app(settings), raise_server_exceptions=False)
+    response = client.post("/v1/runs", content=b"[" * 40000,
+                           headers={"Authorization": "Bearer " + SERVICE_TOKEN})
+    assert response.status_code == 422
+    assert response.json() == {"error": "invalid_request"}

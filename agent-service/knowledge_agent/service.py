@@ -91,7 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             value = RunInput.model_validate(json.loads(data))
             if str(UUID(value.run_id)) != value.run_id or not value.question.strip() or any(c.isspace() for c in value.callback_token):
                 raise ValueError()
-        except (ValueError, UnicodeError, ValidationError):
+        except (ValueError, UnicodeError, RecursionError, ValidationError):
             return JSONResponse({"error": "invalid_request"}, status_code=422)
         if value.run_id in active or value.run_id in seen:
             return JSONResponse({"error": "duplicate_run"}, status_code=409)
