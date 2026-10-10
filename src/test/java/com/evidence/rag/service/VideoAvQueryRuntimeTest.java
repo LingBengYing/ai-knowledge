@@ -26,7 +26,6 @@ class VideoAvQueryRuntimeTest {
             false,
             false,
             false,
-            false,
             true);
     assertTrue(value.capabilities().capabilities().contains("video_av_answers"));
     assertFalse(value.capabilities().capabilities().contains("video_av_query_attachments"));
@@ -65,7 +64,6 @@ class VideoAvQueryRuntimeTest {
         "development",
         "test-workspace",
         ingestion,
-        false,
         false,
         false,
         false,

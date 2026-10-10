@@ -44,7 +44,6 @@ class ImageEmbeddingRuntimeTest {
                 false,
                 false,
                 false,
-                false,
                 true)
             .capabilities()
             .capabilities()
@@ -67,8 +66,7 @@ class ImageEmbeddingRuntimeTest {
             true,
             false,
             true,
-            false,
-            true);
+            false);
     var disabled =
         new RuntimeService(
             "development_headers",
@@ -84,7 +82,6 @@ class ImageEmbeddingRuntimeTest {
             false,
             true,
             false,
-            true,
             false);
     assertEquals(legacy.capabilities(), disabled.capabilities());
   }
@@ -110,7 +107,6 @@ class ImageEmbeddingRuntimeTest {
         video,
         false,
         true,
-        false,
         false,
         enabled);
   }

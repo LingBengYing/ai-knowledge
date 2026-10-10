@@ -53,7 +53,6 @@ class AudioEmbeddingRuntimeTest {
             false,
             true,
             false,
-            true,
             true);
     assertEquals(
         legacy.capabilities(),
@@ -85,7 +84,6 @@ class AudioEmbeddingRuntimeTest {
         false,
         attachments,
         false,
-        true,
         imageVectors,
         enabled);
   }

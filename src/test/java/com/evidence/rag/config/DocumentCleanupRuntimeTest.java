@@ -53,7 +53,6 @@ class DocumentCleanupRuntimeTest {
             false,
             false,
             false,
-            false,
             true);
     assertTrue(enabled.capabilities().capabilities().contains("document_cleanup"));
     assertTrue(enabled.capabilities().unavailable().contains("document_delete"));

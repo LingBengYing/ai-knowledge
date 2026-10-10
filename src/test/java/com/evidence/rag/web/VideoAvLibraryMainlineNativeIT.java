@@ -884,7 +884,6 @@ class VideoAvLibraryMainlineNativeIT {
         "--rag.audio.enabled=false",
         "--rag.video.enabled=false",
         "--rag.query-attachments.enabled=false",
-        "--rag.voice-questions.enabled=false",
         "--rag.image-ocr.enabled=false",
         "--rag.pdf-ocr.enabled=false",
         "--rag.image-embedding.enabled=false",

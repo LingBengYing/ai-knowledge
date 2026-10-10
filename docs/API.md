@@ -8,7 +8,7 @@
 
 0027新增认证精确GET/POST `/v1/documents/{id}/audio-vector`（均无query/body）：reader读取当前十字段状态，当前editor显式构建全部可引用speech spans，完整当前receipt幂等不重复调用。能力`audio_vector_retrieval`仅实际完整装配时开放。完整字段、profile、独立预算及状态码见[AUDIO_VECTOR_RETRIEVAL](AUDIO_VECTOR_RETRIEVAL.md)；AUDIO携参考音频沿既有附件问答，完整范围缺receipt明确`audio_vector_required`，原转录证明及来源合同保持。
 
-0025新增认证的精确POST `/v1/voice-questions`，无query，JSON只含filename/media_type/content_base64单音频。成功为完整transcript、两个SHA、三种处理版本、duration_ms及固定policy_revision共八字段；不返回答案或引用、不入库。独立voice_questions能力及默认关闭的本地配置、20MiB音频/28MiB JSON、65536字节预览和稳定状态码见[语音提问](VOICE_QUESTIONS.md)。用户确认文字后调用原问答端点，完整资料范围与服务器来源校验保持。
+0025曾新增认证的精确POST `/v1/voice-questions`（单音频→ASR文字供用户确认）及`voice_questions`能力；该端点、能力和`RAG_VOICE_QUESTIONS_*`配置已于2026-10-10移除，请求该路径不再路由。历史合同见[0025 spec](changes/0025-voice-questions/spec.md)。
 
 0024新增当前保存摘要的标签建议：GET /v1/documents/{id}/tag-suggestions（无body/query）与POST /v1/documents/{id}/tag-suggestions/apply（精确JSON suggestion_fingerprint/ordinals）。当前reader可预览，owner/editor确认后原子合并最新标签，成功为既有DocumentResponse；不触发模型。能力tag_suggestions随已有效装配的摘要启用。完整字段与409/404/422合同见[TAG_SUGGESTIONS](TAG_SUGGESTIONS.md)和[0024 spec](changes/0024-tag-suggestions/spec.md)。
 

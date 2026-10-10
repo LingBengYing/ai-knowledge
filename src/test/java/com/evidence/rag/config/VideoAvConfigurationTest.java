@@ -204,7 +204,6 @@ class VideoAvConfigurationTest {
               false,
               false,
               false,
-              false,
               true);
       assertEquals(ingestion, runtime.capabilities().capabilities().contains("video_av_answers"));
     }

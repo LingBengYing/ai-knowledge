@@ -358,7 +358,6 @@ class SoundConfigurationTest {
               false,
               false,
               false,
-              false,
               true);
       assertEquals(ingestion, runtime.capabilities().capabilities().contains("sound_answers"));
     }
