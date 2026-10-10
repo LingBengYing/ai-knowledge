@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.evidence.rag.VideoAvTestFixture;
+import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.VerifiedRevision;
+import com.evidence.rag.model.domain.VideoAvBuildClaim;
 import com.evidence.rag.model.domain.VideoAvReceipt;
 import com.evidence.rag.model.domain.VideoAvRoute;
 import com.evidence.rag.model.domain.VideoAvRouteReceipt;
@@ -55,6 +57,32 @@ class VideoAvIndexProtocolTest {
         new byte[32000], decoded.claim().compilation().windows().get(1).audio().pcm());
     assertArrayEquals(
         new byte[] {9, 0}, decoded.claim().compilation().windows().getLast().audio().pcm());
+  }
+
+  @Test
+  void longestValidActorRoundTripsLikeTheOtherMediaProtocols() throws Exception {
+    var base = VideoAvTestFixture.claim(true);
+    var actor = new Actor(base.actor().workspaceId(), "人".repeat(200));
+    var claim =
+        new VideoAvBuildClaim(
+            actor,
+            base.original(),
+            base.targets(),
+            base.generationId(),
+            base.analysisModelRevision(),
+            base.decoderRevision(),
+            base.chunkSeconds(),
+            base.compilation(),
+            base.profileFingerprint());
+    var request =
+        VideoAvIndexProtocol.request(
+            VideoAvTestFixture.models(),
+            VideoAvTestFixture.projection(VideoAvRoute.VISUAL),
+            VideoAvTestFixture.projection(VideoAvRoute.AUDIO),
+            VideoAvTestFixture.BUDGET,
+            claim);
+    var decoded = VideoAvIndexProtocol.readRequest(new ByteArrayInputStream(packet(request)));
+    assertEquals(actor, decoded.claim().actor());
   }
 
   @Test

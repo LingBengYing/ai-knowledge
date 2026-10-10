@@ -73,7 +73,7 @@ public final class ModelRebuildRepository {
   public boolean canStart(String workspace) {
     if (hasPending(workspace)
         || store.count(
-                "SELECT (SELECT COUNT(*) FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing'))+(SELECT COUNT(*) FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing','prepared'))+(SELECT COUNT(*) FROM document_replacements u JOIN documents d ON d.id=u.document_id WHERE d.workspace_id=? AND u.state IN ('stored','queued','processing','parsed','indexing'))+(SELECT COUNT(*) FROM document_cleanups WHERE workspace_id=? AND state IN ('pending','running'))",
+                "SELECT (SELECT COUNT(*) FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing'))+(SELECT COUNT(*) FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state IN ('queued','processing','prepared'))+(SELECT COUNT(*) FROM document_replacements u JOIN documents d ON d.id=u.document_id WHERE d.workspace_id=? AND u.state IN ('stored','queued','processing','parsed','indexing') AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))+(SELECT COUNT(*) FROM document_cleanups WHERE workspace_id=? AND state IN ('pending','running'))",
                 workspace,
                 workspace,
                 workspace,

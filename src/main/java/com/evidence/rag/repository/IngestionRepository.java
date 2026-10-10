@@ -960,6 +960,17 @@ public final class IngestionRepository {
     replacementState(jobId, "failed", now);
   }
 
+  /** Pending parse jobs of every revision of a document, including replacement candidates. */
+  public List<String> pendingJobIds(String documentId) {
+    return store
+        .rows(
+            "SELECT id FROM ingestion_jobs WHERE document_id=? AND state IN ('queued','processing') ORDER BY id",
+            documentId)
+        .stream()
+        .map(row -> AuthorityRows.text(row, "id"))
+        .toList();
+  }
+
   public void markCancelled(String jobId, String now) {
     store.execute(
         "UPDATE ingestion_jobs SET state='cancelled',claim_token_sha256=NULL,error_code=NULL,updated_at=? WHERE id=?",

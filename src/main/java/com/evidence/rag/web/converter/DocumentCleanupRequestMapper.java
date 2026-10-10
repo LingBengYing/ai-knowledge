@@ -19,7 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Narrow control input; authorization and maintenance admission stay in the Service. */
 public final class DocumentCleanupRequestMapper {
-  private static final int MAX_REQUEST_BYTES = 128 * 1024;
+  public static final int MAX_REQUEST_BYTES = 128 * 1024;
   private static final JsonMapper JSON =
       JsonMapper.builder(
               JsonFactory.builder()

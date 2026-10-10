@@ -19,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Sound-specific HTTP adapter; authorization and complete scope stay in the Services. */
@@ -57,10 +56,11 @@ public final class SoundController {
       value = "/v1/sound-answers",
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
-  public SoundAnswerResult answer(HttpServletRequest request, @RequestBody byte[] body) {
+  public SoundAnswerResult answer(HttpServletRequest request) {
     if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
+    byte[] body = BoundedBody.read(request, SoundRequestMapper.MAX_REQUEST_BYTES);
     return answers.answer(AuthenticatedActor.require(request), SoundRequestMapper.command(body));
   }
 

@@ -49,6 +49,14 @@ public final class DocumentLifecycleRepository {
                     AuthorityRows.text(row, "requested_at")));
   }
 
+  /** Replacements waiting without a job can never advance once the document is removed. */
+  public void cancelWaitingReplacements(String documentId, String now) {
+    store.execute(
+        "UPDATE document_replacements SET state='cancelled',updated_at=? WHERE document_id=? AND state IN ('stored','parsed')",
+        now,
+        documentId);
+  }
+
   public void insertRemoval(DocumentRemovalEntity removal) {
     store.execute(
         "INSERT INTO document_tombstones(document_id,workspace_id,requested_by,requested_at) VALUES(?,?,?,?)",

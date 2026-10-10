@@ -62,7 +62,8 @@ class VideoAvControllerTest {
                 ApplicationException.class,
                 () ->
                     controller.answer(
-                        request, "{\"question\":\"发生什么？\"}".getBytes(StandardCharsets.UTF_8)))
+                        withBody(
+                            request, "{\"question\":\"发生什么？\"}".getBytes(StandardCharsets.UTF_8))))
             .code());
   }
 
@@ -84,7 +85,13 @@ class VideoAvControllerTest {
     request.setQueryString("mode=JOINT");
     assertEquals(
         "invalid_request",
-        assertThrows(ApplicationException.class, () -> controller.answer(request, new byte[0]))
+        assertThrows(
+                ApplicationException.class, () -> controller.answer(withBody(request, new byte[0])))
             .code());
+  }
+
+  private static MockHttpServletRequest withBody(MockHttpServletRequest request, byte[] body) {
+    request.setContent(body);
+    return request;
   }
 }

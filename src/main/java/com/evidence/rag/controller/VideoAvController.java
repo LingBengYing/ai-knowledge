@@ -19,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /** VideoAv-specific HTTP adapter; authorization and complete scope stay in the Services. */
@@ -60,10 +59,11 @@ public final class VideoAvController {
       value = "/v1/video-av-answers",
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
-  public VideoAvAnswerResult answer(HttpServletRequest request, @RequestBody byte[] body) {
+  public VideoAvAnswerResult answer(HttpServletRequest request) {
     if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
+    byte[] body = BoundedBody.read(request, VideoAvRequestMapper.MAX_REQUEST_BYTES);
     return answers.answer(AuthenticatedActor.require(request), VideoAvRequestMapper.command(body));
   }
 

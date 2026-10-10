@@ -15,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Explicit control and authorized status reads; background cleanup owns completion. */
@@ -57,11 +56,11 @@ public final class DocumentCleanupController {
       value = "/v1/management/document-cleanups",
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<DocumentCleanupBatchResult> batch(
-      HttpServletRequest request, @RequestBody byte[] body) {
+  public ResponseEntity<DocumentCleanupBatchResult> batch(HttpServletRequest request) {
     if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
+    byte[] body = BoundedBody.read(request, DocumentCleanupRequestMapper.MAX_REQUEST_BYTES);
     return ResponseEntity.accepted()
         .body(
             DocumentCleanupResponseMapper.batch(
