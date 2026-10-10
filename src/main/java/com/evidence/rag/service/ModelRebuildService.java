@@ -1,5 +1,6 @@
 package com.evidence.rag.service;
 
+import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
@@ -225,7 +226,30 @@ public final class ModelRebuildService implements AutoCloseable {
             });
         var claim = candidate.indexing().claimModelRebuild(batch.id());
         if (claim.isPresent()) {
-          candidate.indexing().process(claim.orElseThrow());
+          var current = runtime.capture();
+          boolean analyzerMigration =
+              current.indexAnchor() != null
+                  && candidate.indexAnchor() != null
+                  && !current
+                      .indexAnchor()
+                      .projectionAnalyzer()
+                      .equals(candidate.indexAnchor().projectionAnalyzer())
+                  && current
+                      .target()
+                      .embeddingIdentity()
+                      .equals(candidate.target().embeddingIdentity())
+                  && current.target().dimensions() == candidate.target().dimensions();
+          if (analyzerMigration) {
+            if (!(current.projection() instanceof MilvusRestProjection source)) {
+              throw conflict("projection_configuration_required");
+            }
+            var migrationClaim = claim.orElseThrow();
+            var manifest =
+                store.transaction(() -> tasks.migrationManifest(migrationClaim, source.identity()));
+            candidate.indexing().processReusingVectors(migrationClaim, source, manifest);
+          } else {
+            candidate.indexing().process(claim.orElseThrow());
+          }
         }
         var states =
             store.transaction(
@@ -324,6 +348,13 @@ public final class ModelRebuildService implements AutoCloseable {
     }
     try (var compatible =
         runtime.prepare(saved.version(), saved.draft(), runtime.currentAnchor())) {
+      var current = runtime.currentAnchor();
+      if (current != null
+          && !current
+              .projectionAnalyzer()
+              .equals(anchors.create(saved.version(), saved.draft()).projectionAnalyzer())) {
+        return "rebuild_required";
+      }
       store.transaction(
           () -> {
             new TextModelTargetRepository(store).requireCompatible(workspace, compatible.target());

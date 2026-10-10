@@ -44,6 +44,71 @@ import tools.jackson.databind.node.ObjectNode;
 
 class MilvusRestProjectionTest {
   @Test
+  void chineseSchemaBindsItsActualAnalyzerAndRejectsAnExistingStandardCollection()
+      throws Exception {
+    try (var stub = new MilvusStub(true)) {
+      var old = settings(stub.endpoint());
+      var configured =
+          new MilvusRestProjection.Settings(
+              old.endpoint(),
+              old.token(),
+              old.database(),
+              old.collection(),
+              old.workspaceId(),
+              old.embeddingIdentity(),
+              old.dimension(),
+              old.timeout(),
+              old.maxResponseBytes(),
+              old.allowLoopbackHttp(),
+              "chinese");
+      var json = JsonMapper.builder().build();
+      var schema = new MilvusSchema(configured, json);
+      var creation = json.valueToTree(schema.createRequest());
+      assertEquals(
+          "chinese",
+          creation
+              .path("schema")
+              .path("fields")
+              .get(4)
+              .path("elementTypeParams")
+              .path("analyzer_params")
+              .path("type")
+              .asString());
+      assertNotEquals(old.identity(), configured.identity());
+      try (var projection = new MilvusRestProjection(configured)) {
+        assertEquals(
+            "projection_schema_mismatch",
+            assertThrows(ProjectionException.class, projection::prepareSearch).code());
+      }
+      stub.mutate =
+          (request, response) -> {
+            if (request.path().endsWith("/collections/describe")) {
+              var data = (ObjectNode) response.path("data");
+              data.put("description", creation.path("description").asString());
+              data.path("fields")
+                  .forEach(
+                      field -> {
+                        if ("text".equals(field.path("name").asString())) {
+                          field
+                              .path("params")
+                              .forEach(
+                                  param -> {
+                                    if ("analyzer_params".equals(param.path("key").asString())) {
+                                      ((ObjectNode) param).put("value", "{\"type\":\"chinese\"}");
+                                    }
+                                  });
+                        }
+                      });
+            }
+          };
+      try (var projection = new MilvusRestProjection(configured)) {
+        projection.prepareSearch();
+        assertEquals(configured.identity(), projection.identity());
+      }
+    }
+  }
+
+  @Test
   void configuredFullTextUsesOnlyBm25AndDoesNotRequireAnEmbedding() throws Exception {
     try (var stub = new MilvusStub(true);
         var projection = new MilvusRestProjection(settings(stub.endpoint()))) {

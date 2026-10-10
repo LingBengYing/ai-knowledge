@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +19,45 @@ import org.junit.jupiter.api.io.TempDir;
 
 class ModelConfigurationRepositoryTest {
   @TempDir Path directory;
+
+  @Test
+  void chineseAnchorAndSealedVersionSurviveRestartWithTheirExactProfile() throws Exception {
+    var file = directory.resolve("chinese/models.json");
+    var roles = configuration("synthetic-key");
+    var anchor =
+        new TextIndexAnchor(
+            1,
+            "https://api.siliconflow.cn/v1",
+            roles.embedding().model(),
+            roles.embedding().revision(),
+            roles.embedding().dimensions(),
+            roles.rerank().model(),
+            roles.generation().model(),
+            new IndexTarget(
+                "fixture-embedding",
+                "fixture-projection",
+                "fixture-model",
+                roles.embedding().dimensions()),
+            "https://api.siliconflow.cn/v1",
+            "https://api.siliconflow.cn/v1",
+            "java_chinese_test",
+            "chinese");
+    String configSha;
+    String anchorSha;
+    try (var repository = new ModelConfigurationRepository(file)) {
+      repository.save(0, roles);
+      repository.activate(1, anchor);
+      var sealed = repository.seal(1, roles, anchor);
+      configSha = sealed.configurationSha256();
+      anchorSha = sealed.anchorSha256();
+      assertTrue(Files.readString(file).contains("java-text-configuration-v6"));
+    }
+    try (var repository = new ModelConfigurationRepository(file)) {
+      assertEquals(anchor, repository.read().indexAnchor());
+      assertEquals(anchor, repository.sealed(1, configSha, anchorSha).anchor());
+      assertEquals("chinese", repository.read().indexAnchor().projectionAnalyzer());
+    }
+  }
 
   @Test
   void draftRotationKeepsActiveSecretAndBothSnapshotsSurviveRestart() throws Exception {

@@ -122,14 +122,17 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       }
       var root = JSON.readTree(bytes);
       String format = text(root.path("format"));
+      boolean analyzer = "java-text-configuration-v6".equals(format);
       boolean providers =
           "java-text-configuration-v3".equals(format)
               || "java-text-configuration-v4".equals(format)
-              || "java-text-configuration-v5".equals(format);
+              || "java-text-configuration-v5".equals(format)
+              || analyzer;
       boolean anchored =
           "java-text-configuration-v2".equals(format)
               || "java-text-configuration-v4".equals(format)
-              || "java-text-configuration-v5".equals(format);
+              || "java-text-configuration-v5".equals(format)
+              || analyzer;
       if (anchored) {
         exact(
             root, Set.of("format", "version", "draft", "active_version", "active", "index_anchor"));
@@ -143,10 +146,14 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       TextIndexAnchor anchor =
           anchored
               ? anchor(
-                  root.path("index_anchor"), providers, "java-text-configuration-v5".equals(format))
+                  root.path("index_anchor"),
+                  providers,
+                  "java-text-configuration-v5".equals(format) || analyzer,
+                  analyzer)
               : null;
       if (anchored
           && !"java-text-configuration-v5".equals(format)
+          && !analyzer
           && active != null
           && anchor == null) {
         throw failure();
@@ -239,7 +246,7 @@ public final class ModelConfigurationRepository implements AutoCloseable {
         return result;
       }
       var value = new LinkedHashMap<String, Object>();
-      value.put("format", "java-text-sealed-v1");
+      value.put("format", chinese(anchor) ? "java-text-sealed-v2" : "java-text-sealed-v1");
       value.put("version", version);
       value.put("configuration", configuration);
       value.put("index_anchor", anchor == null ? null : anchorValue(anchor));
@@ -295,12 +302,13 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       }
       var value = JSON.readTree(bytes);
       exact(value, Set.of("format", "version", "configuration", "index_anchor"));
-      if (!"java-text-sealed-v1".equals(text(value.path("format")))
+      boolean analyzer = "java-text-sealed-v2".equals(text(value.path("format")));
+      if (!(analyzer || "java-text-sealed-v1".equals(text(value.path("format"))))
           || number(value.path("version")) != version) {
         throw failure();
       }
       var configuration = configuration(value.path("configuration"), true);
-      var anchor = anchor(value.path("index_anchor"), true, true);
+      var anchor = anchor(value.path("index_anchor"), true, true, analyzer);
       if (configuration == null
           || !configSha.equals(ModelValues.sha256(JSON.writeValueAsBytes(configuration)))
           || !anchorSha.equals(
@@ -415,7 +423,11 @@ public final class ModelConfigurationRepository implements AutoCloseable {
         check(file, false);
       }
       var value = new LinkedHashMap<String, Object>();
-      value.put("format", "java-text-configuration-v5");
+      value.put(
+          "format",
+          chinese(state.indexAnchor())
+              ? "java-text-configuration-v6"
+              : "java-text-configuration-v5");
       value.put("version", state.version());
       value.put("draft", state.draft());
       value.put("active_version", state.activeVersion());
@@ -480,10 +492,18 @@ public final class ModelConfigurationRepository implements AutoCloseable {
     value.put("rerank_provider_base_url", anchor.rerankProviderBaseUrl());
     value.put("generation_provider_base_url", anchor.generationProviderBaseUrl());
     value.put("projection_collection", anchor.projectionCollection());
+    if (chinese(anchor)) {
+      value.put("projection_analyzer", anchor.projectionAnalyzer());
+    }
     return value;
   }
 
-  private static TextIndexAnchor anchor(JsonNode value, boolean providers, boolean collection) {
+  private static boolean chinese(TextIndexAnchor anchor) {
+    return anchor != null && "chinese".equals(anchor.projectionAnalyzer());
+  }
+
+  private static TextIndexAnchor anchor(
+      JsonNode value, boolean providers, boolean collection, boolean analyzer) {
     if (value.isNull()) {
       return null;
     }
@@ -503,6 +523,9 @@ public final class ModelConfigurationRepository implements AutoCloseable {
       extended.add("generation_provider_base_url");
       if (collection) {
         extended.add("projection_collection");
+      }
+      if (analyzer) {
+        extended.add("projection_analyzer");
       }
       exact(value, extended);
     } else {
@@ -538,7 +561,8 @@ public final class ModelConfigurationRepository implements AutoCloseable {
             : text(value.path("provider_base_url")),
         collection && !value.path("projection_collection").isNull()
             ? text(value.path("projection_collection"))
-            : null);
+            : null,
+        analyzer ? text(value.path("projection_analyzer")) : "standard");
   }
 
   private static TextModelConfiguration configuration(JsonNode value, boolean providers) {

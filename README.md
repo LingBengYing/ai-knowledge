@@ -1,5 +1,11 @@
 # AI Knowledge · Java Edition
 
+## 最新生产验证（2026-10-10，0068/0069）
+
+已将中文全文检索迁移到独立中文分词集合，校验后复用现有向量，保留原文、版本与旧索引。Agent 每轮明确区分可阅读的来源编号、已阅读的证据编号与文档编号；弱相关检索支持改写类别词，有依据的部分可限定回答，不放宽来源校验。
+
+生产单次“新加坡人可以注册企业吗”已完成检索3次、阅读3次并回答，7条引用对应2份同版本原文件，重启后零模型回读通过；本批13/20次模型HTTP、无重试。答案仍偏长且谨慎，不代表完整语料、现行法规或整体语义质量验收。免登录保持，历史失败记录和未关闭的全仓门禁保留。见 [中文索引迁移](docs/changes/0068-chinese-fulltext/deployment-verification.md)、[真实问答记录](docs/changes/0069-agent-result-diagnostics/provider-run.md)及[生产验证](docs/changes/0069-agent-result-diagnostics/deployment-verification.md)。下方带日期的交付记录为历史阶段。
+
 ## 基础文档格式（0059）
 
 上传与替换支持 PDF、PROPERTIES、HTML、VTT、CSV、MSG、MARKDOWN、EML、PPT、DOCX、DOC、TXT、PPTX、MDX、XLS、ODT、MD、XLSX、XML、EPUB、HTM；新增格式实际本地提取正文，不只是后缀白名单。PDF保留页码，其他格式使用解析文本位置并保留同版原件下载。详见 [格式合同与限制](docs/DOCUMENT_FORMATS.md) 和 [本轮验证](docs/changes/0059-document-formats/REVIEW.md)。未自动部署，解析成功不等于模型/索引验收。

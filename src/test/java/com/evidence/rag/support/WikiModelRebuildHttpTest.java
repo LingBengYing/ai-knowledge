@@ -2,6 +2,8 @@ package com.evidence.rag.support;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.evidence.rag.repository.IndexingRepository;
+import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.worker.indexing.IndexingTestServer;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -14,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.core.env.MapPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -21,6 +26,95 @@ import tools.jackson.databind.json.JsonMapper;
 class WikiModelRebuildHttpTest {
   private static final JsonMapper JSON = JsonMapper.builder().build();
   @TempDir Path directory;
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", "changed-text"})
+  void chineseAnalyzerMigrationCopiesVerifiedVectorsWithoutCallingModelsOrReparsing(
+      String corruption) throws Exception {
+    try (var models = new AnswerProtocolServer();
+        var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint(), true);
+        var http = HttpClient.newHttpClient();
+        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+      String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
+      WikiLocalIntegrationServer.activate(http, base);
+      var upload =
+          request(
+              http,
+              base,
+              "POST",
+              "/v1/documents?filename=chinese-source.txt",
+              "合成中文资料：外国企业或者个人可以依法设立合伙企业。".getBytes(StandardCharsets.UTF_8),
+              "application/octet-stream",
+              202);
+      awaitTask(http, base, "/v1/ingestions/" + upload.path("task_id").asString(), "parsed");
+      String document = upload.path("document_id").asString();
+      var index =
+          request(http, base, "POST", "/v1/documents/" + document + "/index", null, null, 202);
+      awaitTask(http, base, "/v1/indexings/" + index.path("task_id").asString(), "indexed");
+      var store = app.getBean(SqliteAuthorityStore.class);
+      var publications = new IndexingRepository(store);
+      var before = store.transaction(() -> publications.activePublication(document).orElseThrow());
+      int modelRequests = models.requests.size();
+      int projectionRequests = projection.requests.size();
+      projection.failureMode = corruption;
+      app.getEnvironment()
+          .getPropertySources()
+          .addFirst(
+              new MapPropertySource(
+                  "chinese-test-profile", Map.of("RAG_MILVUS_ANALYZER", "chinese")));
+      save(http, base, 1, "fixture-v1", "fixture-model");
+      var eligibility =
+          request(http, base, "GET", "/v1/model-configuration/rebuild", null, null, 200);
+      assertTrue(eligibility.path("required").asBoolean(), eligibility.toString());
+      request(
+          http,
+          base,
+          "POST",
+          "/v1/model-configuration/rebuild",
+          JSON.writeValueAsBytes(Map.of("version", 2)),
+          "application/json",
+          202);
+      long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+      JsonNode state;
+      do {
+        state = request(http, base, "GET", "/v1/model-configuration/rebuild", null, null, 200);
+        if (!List.of("queued", "running", "applying")
+            .contains(state.path("job").path("state").asString())) break;
+        Thread.sleep(40);
+      } while (System.nanoTime() < deadline);
+      assertEquals(
+          corruption.isEmpty() ? "completed" : "failed",
+          state.path("job").path("state").asString(),
+          state.toString());
+      assertEquals(
+          modelRequests, models.requests.size(), "Analyzer migration must not embed or generate");
+      var after = store.transaction(() -> publications.activePublication(document).orElseThrow());
+      assertEquals(before.sourceSha256(), after.sourceSha256());
+      assertEquals(before.revisionId(), after.revisionId());
+      assertEquals(before.target().embeddingIdentity(), after.target().embeddingIdentity());
+      if (!corruption.isEmpty()) {
+        assertEquals(before, after, "Receipt mismatch must keep the original active publication");
+        return;
+      }
+      assertNotEquals(before.id(), after.id());
+      assertNotEquals(before.target().projectionIdentity(), after.target().projectionIdentity());
+      assertTrue(
+          projection.requests.subList(projectionRequests, projection.requests.size()).stream()
+              .anyMatch(
+                  r ->
+                      r.path().endsWith("/collections/create")
+                          && "chinese"
+                              .equals(
+                                  r.body()
+                                      .path("schema")
+                                      .path("fields")
+                                      .get(4)
+                                      .path("elementTypeParams")
+                                      .path("analyzer_params")
+                                      .path("type")
+                                      .asString())));
+    }
+  }
 
   @Test
   void savedEmbeddingRevisionRebuildsAndAppliesUsingTheWikiRuntimeAdapters() throws Exception {

@@ -21,7 +21,9 @@ final class MilvusSchema {
   }
 
   private String marker() {
-    return "evidence-rag-java-text-v1;workspace="
+    return ("standard".equals(settings.analyzer())
+            ? "evidence-rag-java-text-v1;workspace="
+            : "evidence-rag-java-text-v2-chinese;workspace=")
         + settings.workspaceId()
         + ";embedding="
         + settings.embeddingIdentity()
@@ -36,7 +38,7 @@ final class MilvusSchema {
       parameters.put("max_length", name.equals("text") ? MAX_TEXT_BYTES : 128);
       if (name.equals("text")) {
         parameters.put("enable_analyzer", true);
-        parameters.put("analyzer_params", Map.of("type", "standard"));
+        parameters.put("analyzer_params", Map.of("type", settings.analyzer()));
       }
       fields.add(
           Map.of(
@@ -146,7 +148,7 @@ final class MilvusSchema {
         try {
           check(
               json.readTree(parameters.getOrDefault("analyzer_params", "null"))
-                  .equals(json.valueToTree(Map.of("type", "standard"))));
+                  .equals(json.valueToTree(Map.of("type", settings.analyzer()))));
         } catch (RuntimeException ignored) {
           throw new ProjectionException("projection_schema_mismatch");
         }

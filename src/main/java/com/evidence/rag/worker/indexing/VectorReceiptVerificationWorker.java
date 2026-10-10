@@ -36,7 +36,8 @@ public final class VectorReceiptVerificationWorker {
             settings.dimension(),
             timeout,
             settings.maxResponseBytes(),
-            settings.allowLoopbackHttp());
+            settings.allowLoopbackHttp(),
+            settings.analyzer());
     try (var lifetime =
             IndexWorkerLifetime.acquire(
                 bounded, IndexWorkerLifetime.Parent.current(), remaining, false);

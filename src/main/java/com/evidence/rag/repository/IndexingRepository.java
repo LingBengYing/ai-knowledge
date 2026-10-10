@@ -1,5 +1,6 @@
 package com.evidence.rag.repository;
 
+import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioEvidence;
@@ -8,6 +9,7 @@ import com.evidence.rag.model.domain.AudioVectorBinding;
 import com.evidence.rag.model.domain.ImageEvidence;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.ImageVectorBinding;
+import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexSegment;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
@@ -229,6 +231,59 @@ public final class IndexingRepository {
                     AuthorityRows.text(row, "manifest_sha256"),
                     AuthorityRows.integer(row, "segment_count"),
                     AuthorityRows.text(row, "created_at")));
+  }
+
+  /** Exact active original receipt set for a same-source analyzer migration, not a SQL rewrite. */
+  public RetrievalProjection.RevisionManifest migrationManifest(
+      IndexClaim claim, String sourceProjection) {
+    var publication = activePublication(claim.documentId()).orElseThrow(ModelValues::invalid);
+    if (!basePublicationId(claim.jobId()).orElse("").equals(publication.id())
+        || !publication.revisionId().equals(claim.revisionId())
+        || !publication.sourceSha256().equals(claim.sourceSha256())
+        || !publication.parserRevision().equals(claim.parserRevision())
+        || !publication.target().projectionIdentity().equals(sourceProjection)
+        || !publication.target().embeddingIdentity().equals(claim.target().embeddingIdentity())
+        || publication.target().dimensions() != claim.target().dimensions()
+        || publication.segmentCount() != claim.items().size()) {
+      throw ModelValues.invalid();
+    }
+    var digests = new java.util.TreeMap<String, String>();
+    for (String table :
+        List.of(
+            "index_publication_entries",
+            "image_publication_entries",
+            "audio_publication_entries",
+            "video_frame_publication_entries",
+            "video_transcript_publication_entries",
+            "video_ocr_publication_entries",
+            "video_subtitle_publication_entries")) {
+      for (var row :
+          store.rows(
+              "SELECT physical_segment_id,entry_sha256 FROM " + table + " WHERE publication_id=?",
+              publication.id())) {
+        if (digests.put(
+                AuthorityRows.text(row, "physical_segment_id"),
+                AuthorityRows.text(row, "entry_sha256"))
+            != null) {
+          throw ModelValues.invalid();
+        }
+      }
+    }
+    var expected =
+        claim.items().stream()
+            .map(
+                item ->
+                    RetrievalProjection.physicalSegmentId(
+                        publication.projectionGenerationId(), item.evidenceId()))
+            .collect(java.util.stream.Collectors.toSet());
+    var manifest =
+        new RetrievalProjection.RevisionManifest(
+            claim.workspaceId(), claim.documentId(), publication.projectionGenerationId(), digests);
+    if (!expected.equals(digests.keySet())
+        || !manifest.sha256().equals(publication.manifestSha256())) {
+      throw ModelValues.invalid();
+    }
+    return manifest;
   }
 
   /** Authority-only eligibility. Actor permission, capability and runtime target are separate. */

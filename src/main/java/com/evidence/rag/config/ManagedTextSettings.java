@@ -157,6 +157,7 @@ final class ManagedTextSettings {
         values.put(name, value);
       }
     }
+    values.put("RAG_MILVUS_ANALYZER", environment.getProperty("RAG_MILVUS_ANALYZER", "standard"));
     values.put("RAG_WORKSPACE_ID", workspace);
     values.put("RAG_TEXT_DEADLINE_MS", Long.toString(deadline.toMillis()));
     values.put("RAG_TEXT_MAX_RESPONSE_BYTES", Integer.toString(maxBytes));
@@ -176,7 +177,8 @@ final class ManagedTextSettings {
         provider(roles.embedding().provider()),
         provider(roles.rerank().provider()),
         provider(roles.generation().provider()),
-        anchor == null ? null : anchor.projectionCollection());
+        anchor == null ? null : anchor.projectionCollection(),
+        anchor == null ? null : anchor.projectionAnalyzer());
   }
 
   private TextAdapterSettings adapters(
@@ -185,7 +187,8 @@ final class ManagedTextSettings {
       URI embeddingProvider,
       URI rerankProvider,
       URI generationProvider,
-      String collection) {
+      String collection,
+      String analyzer) {
     if (projection() == null) {
       throw new ApplicationException(
           FailureKind.UNAVAILABLE, "projection_configuration_required", "请由管理员先配置知识索引连接。");
@@ -193,6 +196,9 @@ final class ManagedTextSettings {
     var values = serverValues(workspace);
     if (collection != null) {
       values.put("RAG_MILVUS_COLLECTION", collection);
+    }
+    if (analyzer != null) {
+      values.put("RAG_MILVUS_ANALYZER", analyzer);
     }
     values.put("RAG_EMBEDDING_BASE_URL", embeddingProvider.toASCIIString());
     values.put("RAG_EMBEDDING_MODEL", roles.embedding().model());
@@ -240,7 +246,8 @@ final class ManagedTextSettings {
             URI.create(anchor.providerBaseUrl()),
             URI.create(anchor.rerankProviderBaseUrl()),
             URI.create(anchor.generationProviderBaseUrl()),
-            anchor.projectionCollection());
+            anchor.projectionCollection(),
+            anchor.projectionAnalyzer());
     if (!anchor.target().equals(indexTarget(indexed))) {
       throw rebuildRequired();
     }
@@ -258,7 +265,9 @@ final class ManagedTextSettings {
         roles.generation().model(),
         indexTarget(indexed),
         indexed.models().rerank().baseUrl().toASCIIString(),
-        indexed.models().generation().baseUrl().toASCIIString());
+        indexed.models().generation().baseUrl().toASCIIString(),
+        null,
+        indexed.projection().analyzer());
   }
 
   TextIndexAnchor rebuildAnchor(long version, TextModelConfiguration roles, String workspace) {
@@ -274,7 +283,8 @@ final class ManagedTextSettings {
             provider(roles.embedding().provider()),
             provider(roles.rerank().provider()),
             provider(roles.generation().provider()),
-            collection);
+            collection,
+            original.projection().analyzer());
     return new TextIndexAnchor(
         version,
         indexed.models().embedding().baseUrl().toASCIIString(),
@@ -286,7 +296,8 @@ final class ManagedTextSettings {
         indexTarget(indexed),
         indexed.models().rerank().baseUrl().toASCIIString(),
         indexed.models().generation().baseUrl().toASCIIString(),
-        collection);
+        collection,
+        indexed.projection().analyzer());
   }
 
   static IndexTarget indexTarget(TextAdapterSettings indexed) {

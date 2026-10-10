@@ -13,6 +13,7 @@ import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.DocumentCleanupService;
 import com.evidence.rag.service.ManagedTextRuntime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -94,21 +95,25 @@ public class DocumentCleanupConfiguration {
               || !connection.database().equals(target.database())) {
             return Optional.empty();
           }
-          var candidate =
-              new MilvusRestProjection.Settings(
-                  connection.endpoint(),
-                  connection.token(),
-                  connection.database(),
-                  target.collection(),
-                  target.workspaceId(),
-                  target.embeddingIdentity(),
-                  target.dimensions(),
-                  settings.deadline(),
-                  settings.maxBytes(),
-                  settings.loopback());
-          return MilvusProjectionCleanup.qualified(candidate).equals(target)
-              ? Optional.of(candidate)
-              : Optional.empty();
+          for (String analyzer : List.of("standard", "chinese")) {
+            var candidate =
+                new MilvusRestProjection.Settings(
+                    connection.endpoint(),
+                    connection.token(),
+                    connection.database(),
+                    target.collection(),
+                    target.workspaceId(),
+                    target.embeddingIdentity(),
+                    target.dimensions(),
+                    settings.deadline(),
+                    settings.maxBytes(),
+                    settings.loopback(),
+                    analyzer);
+            if (MilvusProjectionCleanup.qualified(candidate).equals(target)) {
+              return Optional.of(candidate);
+            }
+          }
+          return Optional.empty();
         });
   }
 

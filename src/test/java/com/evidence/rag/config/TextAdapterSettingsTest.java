@@ -16,6 +16,23 @@ import org.junit.jupiter.api.Test;
 
 class TextAdapterSettingsTest {
   @Test
+  void chineseAnalyzerHasAnIndependentProjectionWithoutChangingEmbeddingIdentity() {
+    var env = valid();
+    var legacy = TextAdapterSettings.load(env);
+    env.put("RAG_MILVUS_ANALYZER", "chinese");
+    var chinese = assertDoesNotThrow(() -> TextAdapterSettings.load(env));
+    assertNotEquals(legacy.projection().identity(), chinese.projection().identity());
+    assertEquals(legacy.projection().embeddingIdentity(), chinese.projection().embeddingIdentity());
+    env.put("RAG_MILVUS_ANALYZER", "standard");
+    assertEquals(
+        legacy.projection().identity(), TextAdapterSettings.load(env).projection().identity());
+    for (String invalid : List.of("", "Chinese", "jieba", "unknown")) {
+      env.put("RAG_MILVUS_ANALYZER", invalid);
+      assertFailure(env);
+    }
+  }
+
+  @Test
   void explicitlyLoadsIndependentEndpointsAndSecretsWithoutContactingThem() {
     var env = valid();
     var config = TextAdapterSettings.load(env);

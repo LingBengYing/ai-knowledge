@@ -29,6 +29,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import tools.jackson.core.StreamReadConstraints;
 import tools.jackson.core.StreamReadFeature;
@@ -64,7 +65,33 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
       int dimension,
       Duration timeout,
       int maxResponseBytes,
-      boolean allowLoopbackHttp) {
+      boolean allowLoopbackHttp,
+      String analyzer) {
+    public Settings(
+        URI endpoint,
+        String token,
+        String database,
+        String collection,
+        String workspaceId,
+        String embeddingIdentity,
+        int dimension,
+        Duration timeout,
+        int maxResponseBytes,
+        boolean allowLoopbackHttp) {
+      this(
+          endpoint,
+          token,
+          database,
+          collection,
+          workspaceId,
+          embeddingIdentity,
+          dimension,
+          timeout,
+          maxResponseBytes,
+          allowLoopbackHttp,
+          "standard");
+    }
+
     public Settings {
       boolean loopback =
           endpoint != null
@@ -95,7 +122,8 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
           || timeout.compareTo(Duration.ofMillis(1)) < 0
           || timeout.compareTo(Duration.ofSeconds(60)) > 0
           || maxResponseBytes < 1024
-          || maxResponseBytes > MAX_REQUEST_BYTES) {
+          || maxResponseBytes > MAX_REQUEST_BYTES
+          || !("standard".equals(analyzer) || "chinese".equals(analyzer))) {
         throw new ProjectionException("projection_invalid_configuration");
       }
     }
@@ -115,7 +143,9 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
                 endpoint.resolve("/").toASCIIString(),
                 database,
                 collection,
-                "schema-v1:strong:no-dynamic:id128:text16384:standard-bm25:float32-flat-cosine:sparse-bm25",
+                "standard".equals(analyzer)
+                    ? "schema-v1:strong:no-dynamic:id128:text16384:standard-bm25:float32-flat-cosine:sparse-bm25"
+                    : "schema-v2:strong:no-dynamic:id128:text16384:chinese-bm25:float32-flat-cosine:sparse-bm25",
                 workspaceId,
                 embeddingIdentity,
                 Integer.toString(dimension));
@@ -218,6 +248,20 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
   }
 
   private VerifiedRevision verify(RevisionManifest manifest, long deadline) {
+    return verify(manifest, deadline, entry -> {});
+  }
+
+  /** Streams only receipt-verified original float32 entries; no provider call or source write. */
+  public VerifiedRevision visitVerifiedEntries(RevisionManifest manifest, Consumer<Entry> visitor) {
+    if (visitor == null) {
+      throw new ProjectionException("projection_invalid_input");
+    }
+    long deadline = deadline();
+    return withinOperation(deadline, () -> verify(manifest, deadline, visitor));
+  }
+
+  private VerifiedRevision verify(
+      RevisionManifest manifest, long deadline, Consumer<Entry> visitor) {
     if (manifest == null || !settings.workspaceId().equals(manifest.workspaceId())) {
       throw new ProjectionException("projection_invalid_input");
     }
@@ -270,6 +314,7 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
         }
         responseCheck(
             RetrievalProjection.entryDigest(entry).equals(manifest.entryDigests().get(id)));
+        visitor.accept(entry);
         checkBudget(deadline);
       }
       responseCheck(remaining.isEmpty());

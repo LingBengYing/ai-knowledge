@@ -33,6 +33,7 @@ public record TextAdapterSettings(
           "RAG_MILVUS_TOKEN",
           "RAG_MILVUS_DATABASE",
           "RAG_MILVUS_COLLECTION",
+          "RAG_MILVUS_ANALYZER",
           "RAG_TEXT_DEADLINE_MS",
           "RAG_TEXT_MAX_RESPONSE_BYTES",
           "RAG_TEXT_ALLOW_LOOPBACK_HTTP");
@@ -87,7 +88,8 @@ public record TextAdapterSettings(
               dimensions,
               timeout,
               bytes,
-              loopback);
+              loopback,
+              environment.getOrDefault("RAG_MILVUS_ANALYZER", "standard"));
       return new TextAdapterSettings(models, projection);
     } catch (RuntimeException ignored) {
       // Input, URI and downstream validation errors may contain private values. Never chain them.

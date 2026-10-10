@@ -39,6 +39,29 @@ class ManagedTextRoleSwitchConfigurationTest {
   @TempDir Path directory;
 
   @Test
+  void changingTheDesiredAnalyzerCannotReinterpretTheSavedStandardAnchor() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      var roles = roles("fixture-model", "fixture-model");
+      var original = fixture.settings.adapters(roles, ADMIN.workspaceId());
+      var anchor = fixture.settings.anchor(1, roles, original);
+      fixture.environment.withProperty("RAG_MILVUS_ANALYZER", "chinese");
+      var changed = new ManagedTextSettings(fixture.environment);
+      assertEquals(
+          original.projection().identity(),
+          changed.indexAdapters(roles, anchor, ADMIN.workspaceId()).projection().identity());
+      assertEquals("standard", anchor.projectionAnalyzer());
+      var next = changed.rebuildAnchor(2, roles, ADMIN.workspaceId());
+      assertEquals("chinese", next.projectionAnalyzer());
+      assertEquals(
+          "chinese",
+          changed.indexAdapters(roles, next, ADMIN.workspaceId()).projection().analyzer());
+      assertNotEquals(anchor.target().projectionIdentity(), next.target().projectionIdentity());
+      assertTrue(fixture.models.requests.isEmpty());
+      assertTrue(fixture.projection.requests.isEmpty());
+    }
+  }
+
+  @Test
   void oldVersionOneSavedActiveRestoresOnlyItsActualProfileAndUpgradesOnTheNextRoleActivation()
       throws Exception {
     try (var fixture = new Fixture(directory)) {

@@ -15,7 +15,35 @@ public record TextIndexAnchor(
     IndexTarget target,
     String rerankProviderBaseUrl,
     String generationProviderBaseUrl,
-    String projectionCollection) {
+    String projectionCollection,
+    String projectionAnalyzer) {
+  public TextIndexAnchor(
+      long originatingVersion,
+      String providerBaseUrl,
+      String embeddingModel,
+      String embeddingRevision,
+      int dimensions,
+      String rerankModel,
+      String generationModel,
+      IndexTarget target,
+      String rerankProviderBaseUrl,
+      String generationProviderBaseUrl,
+      String projectionCollection) {
+    this(
+        originatingVersion,
+        providerBaseUrl,
+        embeddingModel,
+        embeddingRevision,
+        dimensions,
+        rerankModel,
+        generationModel,
+        target,
+        rerankProviderBaseUrl,
+        generationProviderBaseUrl,
+        projectionCollection,
+        "standard");
+  }
+
   public TextIndexAnchor(
       long originatingVersion,
       String providerBaseUrl,
@@ -69,6 +97,9 @@ public record TextIndexAnchor(
         || originatingVersion > ModelConfigurationState.MAX_VERSION
         || target == null
         || dimensions != target.dimensions()) {
+      throw ModelValues.invalid();
+    }
+    if (!("standard".equals(projectionAnalyzer) || "chinese".equals(projectionAnalyzer))) {
       throw ModelValues.invalid();
     }
     if (projectionCollection != null

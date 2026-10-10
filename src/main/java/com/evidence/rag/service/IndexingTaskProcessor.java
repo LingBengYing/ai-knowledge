@@ -2,6 +2,7 @@ package com.evidence.rag.service;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
+import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexClaim;
@@ -9,8 +10,11 @@ import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.worker.indexing.ProcessTextIndexer;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Function;
 
 /** Frozen-target indexing use case; remote execution never holds an authority transaction. */
@@ -170,6 +174,103 @@ public final class IndexingTaskProcessor {
                 "worker_interrupted";
             default -> "indexing_failed";
           });
+    } catch (RuntimeException failure) {
+      failUnexpected(claim);
+    }
+  }
+
+  /** Analyzer-only rebuild: verify and stream old vectors into a new generation; never embed. */
+  public void processReusingVectors(
+      IndexClaim claim,
+      MilvusRestProjection source,
+      RetrievalProjection.RevisionManifest manifest) {
+    long started = System.nanoTime();
+    try {
+      if (cleanupProjection == null
+          || source == null
+          || manifest == null
+          || !target.equals(claim.target())
+          || source.identity().equals(target.projectionIdentity())
+          || !claim.workspaceId().equals(manifest.workspaceId())
+          || !claim.documentId().equals(manifest.documentId())
+          || !authority.isIndexingClaimCurrent(claim)) {
+        throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+      }
+      var plan = authority.reindexVectorPlan(claim);
+      if (plan.isPresent() && receiptVerifier == null) {
+        throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+      }
+      var items = new HashMap<String, com.evidence.rag.model.domain.ProjectionItem>();
+      claim
+          .items()
+          .forEach(
+              item ->
+                  items.put(
+                      RetrievalProjection.physicalSegmentId(
+                          manifest.revisionId(), item.evidenceId()),
+                      item));
+      if (!items.keySet().equals(manifest.entryDigests().keySet())) {
+        throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+      }
+      source.prepareSearch();
+      remaining(started);
+      if (!authority.registerProjectionWrite(claim, cleanupProjection)) {
+        throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+      }
+      try (var destination = new MilvusRestProjection(cleanupProjection)) {
+        destination.initialize();
+        var pending = new ArrayList<RetrievalProjection.Entry>();
+        var digests = new TreeMap<String, String>();
+        var sourceReceipt =
+            source.visitVerifiedEntries(
+                manifest,
+                entry -> {
+                  remaining(started);
+                  var item = items.get(entry.segmentId());
+                  if (item == null || !item.recallText().equals(entry.text())) {
+                    throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+                  }
+                  var copied =
+                      new RetrievalProjection.Entry(
+                          RetrievalProjection.physicalSegmentId(
+                              claim.projectionGenerationId(), item.evidenceId()),
+                          claim.workspaceId(),
+                          claim.documentId(),
+                          claim.projectionGenerationId(),
+                          item.recallText(),
+                          entry.vector());
+                  if (digests.put(copied.segmentId(), RetrievalProjection.entryDigest(copied))
+                      != null) {
+                    throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+                  }
+                  pending.add(copied);
+                  if (pending.size() == 16) {
+                    destination.upsert(pending);
+                    pending.clear();
+                  }
+                });
+        remaining(started);
+        if (!sourceReceipt.projectionIdentity().equals(source.identity())
+            || !sourceReceipt.manifestSha256().equals(manifest.sha256())
+            || sourceReceipt.segmentCount() != claim.items().size()
+            || !authority.isIndexingClaimCurrent(claim)) {
+          throw new ProcessTextIndexer.Failure("indexing_output_invalid");
+        }
+        if (!pending.isEmpty()) {
+          destination.upsert(pending);
+        }
+        var copiedManifest =
+            new RetrievalProjection.RevisionManifest(
+                claim.workspaceId(), claim.documentId(), claim.projectionGenerationId(), digests);
+        var verified = destination.verify(copiedManifest);
+        remaining(started);
+        if (plan.isPresent()) {
+          var vectors = receiptVerifier.verify(plan.orElseThrow(), remaining(started));
+          authority.completeIndexing(claim, digests, verified, vectors);
+        } else {
+          authority.completeIndexing(claim, digests, verified);
+        }
+      }
     } catch (RuntimeException failure) {
       failUnexpected(claim);
     }

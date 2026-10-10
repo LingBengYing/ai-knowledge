@@ -141,7 +141,7 @@ final class IndexProtocol {
     var bytes = new ByteArrayOutputStream();
     var writer = boundedWriter(bytes, MAX_REQUEST);
     writer.writeInt(MAGIC);
-    writer.writeInt(VERSION);
+    writer.writeInt("standard".equals(request.projection().analyzer()) ? VERSION : 4);
     writer.writeLong(request.timeout().toNanos());
     var models = request.models();
     for (var endpoint : List.of(models.embedding(), models.rerank(), models.generation())) {
@@ -168,6 +168,9 @@ final class IndexProtocol {
     writer.writeLong(projection.timeout().toNanos());
     writer.writeInt(projection.maxResponseBytes());
     writer.writeBoolean(projection.allowLoopbackHttp());
+    if (!"standard".equals(projection.analyzer())) {
+      string(writer, projection.analyzer());
+    }
     for (var value :
         List.of(
             request.workspaceId(),
@@ -200,7 +203,13 @@ final class IndexProtocol {
       throw invalid();
     }
     var reader = new DataInputStream(new ByteArrayInputStream(bytes));
-    header(reader);
+    if (reader.readInt() != MAGIC) {
+      throw invalid();
+    }
+    int version = reader.readInt();
+    if (version != VERSION && version != 4) {
+      throw invalid();
+    }
     var timeout = Duration.ofNanos(reader.readLong());
     var endpoints = new ArrayList<OpenAiCompatibleModels.Endpoint>();
     for (int i = 0; i < 3; i++) {
@@ -228,7 +237,8 @@ final class IndexProtocol {
             reader.readInt(),
             Duration.ofNanos(reader.readLong()),
             reader.readInt(),
-            flag(reader));
+            flag(reader),
+            version == 4 ? string(reader, 16) : "standard");
     String workspace = string(reader, 128),
         document = string(reader, 128),
         revision = string(reader, 128);

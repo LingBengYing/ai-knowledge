@@ -35,6 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
 /** Shared bounded model HTTP transport; protocol payloads and revisions belong to each Adapter. */
 final class ModelHttpTransport implements AutoCloseable {
   private static final Logger LOG = LoggerFactory.getLogger(ModelHttpTransport.class);
+  // Operator-only, process-scoped acceptance guard. Unset means no request-count limit.
+  private static final ValidationBudget VALIDATION_BUDGET =
+      new ValidationBudget(Integer.getInteger("rag.validation.modelHttpBudget", 0));
   private static final JsonMapper JSON =
       JsonMapper.builder(
               JsonFactory.builder()
@@ -157,6 +160,10 @@ final class ModelHttpTransport implements AutoCloseable {
               .POST(HttpRequest.BodyPublishers.ofByteArray(requestBytes))
               .build();
       // Reserve/count the attempt before dispatch. Never log URLs, credentials or model content.
+      if (List.of("embeddings", "rerank", "chat/completions", "audio/transcriptions").contains(path)
+          || googleEmbedding) {
+        VALIDATION_BUDGET.reserve();
+      }
       attemptId = UUID.randomUUID().toString();
       LOG.info(
           "model_http_started id={} provider={} operation={}",
@@ -235,6 +242,30 @@ final class ModelHttpTransport implements AutoCloseable {
       body.cancel();
       if (exchange != null && !exchange.isDone()) {
         exchange.cancel(true);
+      }
+    }
+  }
+
+  /** Shared by all provider transports in this JVM; never refunds failed dispatches. */
+  static final class ValidationBudget {
+    private final int limit;
+    private final java.util.concurrent.atomic.AtomicInteger attempts =
+        new java.util.concurrent.atomic.AtomicInteger();
+
+    ValidationBudget(int limit) {
+      if (limit < 0) throw new IllegalArgumentException("invalid validation budget");
+      this.limit = limit;
+    }
+
+    void reserve() {
+      if (limit == 0) return;
+      while (true) {
+        int used = attempts.get();
+        if (used >= limit) throw new Failure("model_request_budget_exhausted");
+        if (attempts.compareAndSet(used, used + 1)) {
+          LOG.info("model_validation_reserved ordinal={} limit={}", used + 1, limit);
+          return;
+        }
       }
     }
   }
