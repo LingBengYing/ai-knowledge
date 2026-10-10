@@ -216,6 +216,67 @@ async def test_callback_failure_stops_without_retry():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("operation,status,code", [
+    ("model", 503, "agent_model_tool_required"),
+    ("model", 503, "agent_model_invalid"),
+    ("model", 503, "agent_model_unavailable"),
+    ("model", 408, "agent_model_timeout"),
+    ("search", 503, "agent_tool_failed"),
+    ("read", 503, "agent_tool_failed"),
+])
+async def test_callback_preserves_only_scoped_typed_problem_codes_without_retry(operation, status, code):
+    calls = []
+    async def fail(request):
+        calls.append(request.url.path)
+        return httpx.Response(status, headers={"Content-Type": "application/problem+json; charset=utf-8"},
+            json={"type": "https://evidence.local/problems/" + code.replace("_", "-"),
+                  "status": status, "error_code": code, "detail": "private provider error"})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(fail)) as client:
+        bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
+        for _ in range(2):
+            with pytest.raises(AgentFailure) as failure:
+                await bridge.post(operation, {})
+            assert failure.value.code == code
+            assert "private provider error" not in str(failure.value)
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation,status,media_type,body", [
+    ("model", 503, "application/json", '{"error_code":"agent_model_invalid","status":503}'),
+    ("model", 503, "text/html", "private proxy error"),
+    ("model", 503, "application/problem+json", "not-json private error"),
+    ("model", 503, "application/problem+json", "[]"),
+    ("model", 503, "application/problem+json", '{"error_code":"private-provider-error","status":503}'),
+    ("model", 503, "application/problem+json", '{"error_code":[],"status":503}'),
+    ("model", 503, "application/problem+json", '{"error_code":"agent_model_invalid","status":"503"}'),
+    ("model", 503, "application/problem+json", '{"error_code":"agent_model_invalid","status":408}'),
+    ("model", 503, "application/problem+json", '{"error_code":"agent_model_timeout","status":503}'),
+    ("model", 408, "application/problem+json", '{"error_code":"agent_model_invalid","status":408}'),
+    ("model", 500, "application/problem+json", '{"error_code":"agent_model_invalid","status":500}'),
+    ("model", 302, "application/problem+json", '{"error_code":"agent_model_invalid","status":302}'),
+    ("search", 503, "application/problem+json", '{"error_code":"agent_model_invalid","status":503}'),
+    ("read", 503, "application/problem+json", '{"error_code":"agent_model_invalid","status":503}'),
+    ("model", 503, "application/problem+json", '{"error_code":"agent_tool_failed","status":503}'),
+    ("model", 503, "application/problem+json", '{"error_code":"unknown","error_code":"agent_model_invalid","status":503}'),
+    ("model", 503, "application/problem+json", '{"error_code":"agent_model_invalid","status":503,"detail":"' + "x" * 17000 + '"}'),
+])
+async def test_callback_rejects_untrusted_problem_envelopes_and_never_retries(operation, status, media_type, body):
+    calls = []
+    async def fail(request):
+        calls.append(request.url.path)
+        return httpx.Response(status, content=body, headers={"Content-Type": media_type,
+            "Location": "http://127.0.0.1:1/private"})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(fail)) as client:
+        bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
+        with pytest.raises(AgentFailure) as failure:
+            await bridge.post(operation, {})
+        assert failure.value.code == "agent_callback_failed"
+        assert str(failure.value) == "agent_callback_failed"
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("output,code", [
     (react("run_sql", {"sql": "SELECT 1"}), "agent_invalid_action"),
     (react("knowledge_search", {"wrong": "private input"}), "agent_invalid_tool_input"),

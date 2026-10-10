@@ -318,11 +318,55 @@ public final class KnowledgeAgentService implements AutoCloseable {
       T result = operation.apply(run);
       check(run);
       return result;
+    } catch (TextModels.Failure failed) {
+      String code =
+          model
+              ? switch (failed.code()) {
+                case "model_tool_required" -> "agent_model_tool_required";
+                case "model_invalid_response", "model_response_too_large" -> "agent_model_invalid";
+                case "model_timeout" -> "agent_model_timeout";
+                case "model_http_failed",
+                    "model_transport_failed",
+                    "model_closed",
+                    "model_agent_unavailable",
+                    "model_invalid_configuration" ->
+                    "agent_model_unavailable";
+                default -> "agent_callback_failed";
+              }
+              : "agent_tool_failed";
+      throw callbackFailure(run, type, code);
+    } catch (ApplicationException failed) {
+      // Retrieval already classifies embedding/rerank/projection errors. Translate only those
+      // known tool failures here; never mask scope/configuration changes or authentication
+      // failures.
+      if (!model
+          && Set.of(
+                  "retrieval_embedding_failed",
+                  "retrieval_rerank_failed",
+                  "retrieval_search_failed",
+                  "retrieval_unavailable",
+                  "retrieval_timeout")
+              .contains(failed.code())) {
+        throw callbackFailure(run, type, "agent_tool_failed");
+      }
+      throw failed;
     } finally {
       synchronized (run) {
         run.callback = null;
       }
     }
+  }
+
+  private static ApplicationException callbackFailure(Run run, String type, String code) {
+    LOG.warn(
+        "knowledge_agent_callback_failed run_id={} stage={} code={} model_calls={} tool_calls={}",
+        run.id,
+        type,
+        code,
+        run.modelCalls,
+        run.toolCalls);
+    return problem(
+        "agent_model_timeout".equals(code) ? FailureKind.TIMEOUT : FailureKind.UNAVAILABLE, code);
   }
 
   private void finish(Run run, AgentProtocol.Proposal proposal) {

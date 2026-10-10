@@ -88,3 +88,77 @@ async def test_real_http_loopback_and_service_token(caplog):
         callbacks.server_close()
         callbacks_thread.join(5)
         listener.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation,status,code", [
+    ("model", 503, "agent_model_tool_required"),
+    ("model", 503, "agent_model_invalid"),
+    ("model", 503, "agent_model_unavailable"),
+    ("model", 408, "agent_model_timeout"),
+    ("search", 503, "agent_tool_failed"),
+    ("read", 503, "agent_tool_failed"),
+])
+async def test_real_http_typed_callback_failure_survives_dbgpt_without_retry_or_private_text(caplog, operation, status, code):
+    calls = []
+    outputs = [react("knowledge_search", {"query": "synthetic topic"}),
+               react("knowledge_read", {"source_ids": ["source-1"]})]
+
+    class CallbackHandler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            assert self.headers["Authorization"] == "Bearer " + CALLBACK_TOKEN
+            self.rfile.read(int(self.headers["Content-Length"]))
+            action = self.path.rsplit("/", 1)[-1]
+            calls.append(action)
+            failed = action == operation
+            if failed:
+                response = {"type": "https://evidence.local/problems/" + code.replace("_", "-"),
+                            "status": status, "error_code": code, "detail": "private provider diagnostic"}
+            elif action == "model":
+                response = {"content": outputs.pop(0)}
+            else:
+                response = {"sources": [dict(SOURCE, excerpt="synthetic excerpt")]}
+            body = json.dumps(response).encode()
+            self.send_response(status if failed else 200)
+            self.send_header("Content-Type", "application/problem+json" if failed else "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    callbacks = ThreadingHTTPServer(("127.0.0.1", 0), CallbackHandler)
+    callbacks_thread = threading.Thread(target=callbacks.serve_forever, daemon=True)
+    callbacks_thread.start()
+    settings = Settings(java_origin=f"http://127.0.0.1:{callbacks.server_port}", service_token=SERVICE_TOKEN)
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    server = uvicorn.Server(uvicorn.Config(create_app(settings), access_log=False, log_level="critical"))
+    server_thread = threading.Thread(target=lambda: server.run(sockets=[listener]), daemon=True)
+    server_thread.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not server.started:
+            assert time.monotonic() < deadline
+            await asyncio.sleep(0.01)
+        async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{listener.getsockname()[1]}", trust_env=False, timeout=30) as client:
+            run_id = str(uuid4())
+            response = await client.post("/v1/runs", headers={"Authorization": "Bearer " + SERVICE_TOKEN},
+                json={"run_id": run_id, "question": "private synthetic question", "callback_token": CALLBACK_TOKEN})
+            assert response.status_code == 502 and response.json() == {"error": code}
+            expected = {"model": ["model"], "search": ["model", "search"],
+                        "read": ["model", "search", "model", "read"]}[operation]
+            assert calls == expected
+            assert run_id in caplog.text
+            assert f"code={code} stage={operation} model_calls={expected.count('model')} tool_calls={len(expected) - expected.count('model')}" in caplog.text
+            for private in ("private provider diagnostic", "private synthetic question", SERVICE_TOKEN, CALLBACK_TOKEN):
+                assert private not in caplog.text and private not in response.text
+    finally:
+        server.should_exit = True
+        await asyncio.to_thread(server_thread.join, 5)
+        callbacks.shutdown()
+        callbacks.server_close()
+        callbacks_thread.join(5)
+        listener.close()

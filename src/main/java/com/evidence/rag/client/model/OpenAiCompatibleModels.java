@@ -778,21 +778,7 @@ public final class OpenAiCompatibleModels implements TextModels, FactTextModels,
         transport.post(
             configuration.generation(),
             "chat/completions",
-            Map.of(
-                "model",
-                configuration.generation().model(),
-                "messages",
-                payload,
-                "stream",
-                false,
-                "n",
-                1,
-                "tools",
-                AgentToolProtocol.tools(),
-                "tool_choice",
-                "auto",
-                "parallel_tool_calls",
-                false));
+            AgentToolProtocol.request(configuration.generation(), payload));
     return AgentToolProtocol.canonicalAction(response);
   }
 

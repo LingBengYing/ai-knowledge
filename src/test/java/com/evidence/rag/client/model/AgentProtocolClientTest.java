@@ -17,12 +17,48 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 class AgentProtocolClientTest {
   private static final JsonMapper JSON = JsonMapper.builder().build();
+
+  @Test
+  void requiredToolRequestCompletesAgainstProviderThatOtherwiseReturnsOrdinaryText()
+      throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      server.dynamicReply.set(
+          request ->
+              "required".equals(request.path("tool_choice").asString())
+                  ? toolReply("knowledge_search", "{\"query\":\"synthetic topic\"}")
+                  : "{\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"Synthetic ordinary reply.\"}}]}");
+      assertEquals(
+          "Action: knowledge_search\nAction Input: {\"query\":\"synthetic topic\"}",
+          models.agentChat(List.of(new AgentMessage("user", "synthetic question"))));
+      assertEquals(1, server.calls.get(), "One request; no retry to repair ordinary text");
+    }
+  }
+
+  @Test
+  void unsupportedRequiredModeDoesNotRetryOrSilentlyDowngradeToAuto() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      server.status.set(400);
+      server.reply.set("{\"error\":\"private provider response\"}");
+      var failure =
+          assertThrows(
+              TextModels.Failure.class,
+              () -> models.agentChat(List.of(new AgentMessage("user", "synthetic question"))));
+      assertEquals("model_http_failed", failure.code());
+      assertEquals(1, server.calls.get());
+      assertEquals("required", server.request.get().path("tool_choice").asString());
+      assertFalse(server.request.get().has("thinking"));
+      assertFalse(failure.toString().contains("private provider response"));
+    }
+  }
 
   @Test
   void currentGenerationProtocolUsesNativeToolsWithoutJsonModeTokenLimitOrRevisionChange()
@@ -45,7 +81,8 @@ class AgentProtocolClientTest {
         assertEquals("/chat/completions", server.path.get());
         assertEquals("Bearer local-fixture-only", server.auth.get());
         assertEquals(2, server.request.get().path("messages").size());
-        assertEquals("auto", server.request.get().path("tool_choice").asString());
+        assertEquals("required", server.request.get().path("tool_choice").asString());
+        assertFalse(server.request.get().has("thinking"));
         assertFalse(server.request.get().path("parallel_tool_calls").asBoolean());
         var names = new ArrayList<String>();
         for (var tool : server.request.get().path("tools")) {
@@ -72,6 +109,88 @@ class AgentProtocolClientTest {
               () -> models.agentChat(List.of(new AgentMessage("user", "question"))));
           assertEquals(before + 1, server.calls.get(), "No automatic retries");
         }
+      }
+    }
+  }
+
+  @Test
+  void requiredToolChoiceDisablesThinkingOnlyForTheOfficialDeepSeekEndpoint() {
+    var messages = List.of(Map.of("role", "user", "content", "synthetic question"));
+    for (String url :
+        List.of(
+            "https://api.deepseek.com",
+            "https://api.deepseek.com/",
+            "https://api.deepseek.com/v1",
+            "https://api.deepseek.com/v1/",
+            "https://API.DEEPSEEK.COM/v1")) {
+      var request =
+          AgentToolProtocol.request(
+              new OpenAiCompatibleModels.Endpoint(URI.create(url), "any-model", "private-key"),
+              messages);
+      assertEquals("required", request.get("tool_choice"));
+      assertEquals(Map.of("type", "disabled"), request.get("thinking"));
+      assertEquals(messages, request.get("messages"));
+      assertFalse(request.toString().contains("private-key"));
+      assertFalse(request.containsKey("max_tokens"));
+      assertFalse(request.containsKey("max_completion_tokens"));
+      assertFalse(request.containsKey("reasoning_effort"));
+    }
+    for (String url :
+        List.of(
+            "https://api.siliconflow.cn/v1",
+            "https://api.deepseek.com.example.com/v1",
+            "https://deepseek.com/v1",
+            "https://proxy.example.com/deepseek",
+            "http://127.0.0.1:18080/v1")) {
+      var request =
+          AgentToolProtocol.request(
+              new OpenAiCompatibleModels.Endpoint(URI.create(url), "deepseek-flash", "private-key"),
+              messages);
+      assertEquals("required", request.get("tool_choice"));
+      assertFalse(request.containsKey("thinking"), "No guessed vendor options: " + url);
+      assertFalse(request.containsKey("reasoning_effort"));
+      assertEquals("deepseek-flash", request.get("model"));
+    }
+  }
+
+  @Test
+  void ordinaryAssistantTextIsToolRequiredButMalformedEnvelopesRemainInvalid() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      for (String calls : List.of("", ",\"tool_calls\":null", ",\"tool_calls\":[]")) {
+        server.reply.set(
+            "{\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"Synthetic answer.\""
+                + calls
+                + "}}]}");
+        int before = server.calls.get();
+        var failure =
+            assertThrows(
+                TextModels.Failure.class,
+                () -> models.agentChat(List.of(new AgentMessage("user", "question"))));
+        assertEquals("model_tool_required", failure.code());
+        assertEquals(before + 1, server.calls.get(), "Text is not repaired or retried");
+        assertFalse(failure.toString().contains("Synthetic answer."));
+      }
+      for (String message :
+          List.of(
+              "{\"role\":\"user\",\"content\":\"answer\"}",
+              "{\"role\":\"assistant\"}",
+              "{\"role\":\"assistant\",\"content\":null}",
+              "{\"role\":\"assistant\",\"content\":\" \"}",
+              "{\"role\":\"assistant\",\"content\":1}",
+              "{\"role\":\"assistant\",\"content\":\"answer\",\"tool_calls\":{}}",
+              "{\"role\":\"assistant\",\"content\":\"answer\",\"tool_calls\":[{}]}",
+              "{\"role\":\"assistant\",\"content\":\"answer\",\"function_call\":{}}",
+              "{\"role\":\"assistant\",\"content\":\"answer\",\"refusal\":\"refused\"}")) {
+        server.reply.set(
+            "{\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"message\":" + message + "}]}");
+        int before = server.calls.get();
+        var failure =
+            assertThrows(
+                TextModels.Failure.class,
+                () -> models.agentChat(List.of(new AgentMessage("user", "question"))));
+        assertEquals("model_invalid_response", failure.code());
+        assertEquals(before + 1, server.calls.get(), "Malformed output is not retried");
       }
     }
   }
@@ -360,6 +479,9 @@ class AgentProtocolClientTest {
               "agent_callback_failed",
               "agent_callback_invalid",
               "agent_model_invalid",
+              "agent_model_tool_required",
+              "agent_model_unavailable",
+              "agent_model_timeout",
               "agent_invalid_action",
               "agent_invalid_tool_input",
               "agent_tool_failed",
@@ -438,6 +560,7 @@ class AgentProtocolClientTest {
   private static final class Server implements AutoCloseable {
     final HttpServer server;
     final AtomicReference<String> reply = new AtomicReference<>("{}");
+    final AtomicReference<Function<JsonNode, String>> dynamicReply = new AtomicReference<>();
     final AtomicReference<JsonNode> request = new AtomicReference<>();
     final AtomicReference<String> path = new AtomicReference<>();
     final AtomicReference<String> auth = new AtomicReference<>();
@@ -459,7 +582,10 @@ class AgentProtocolClientTest {
             } catch (InterruptedException interrupted) {
               Thread.currentThread().interrupt();
             }
-            byte[] bytes = reply.get().getBytes(StandardCharsets.UTF_8);
+            var responder = dynamicReply.get();
+            byte[] bytes =
+                (responder == null ? reply.get() : responder.apply(request.get()))
+                    .getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(status.get(), bytes.length);
             exchange.getResponseBody().write(bytes);

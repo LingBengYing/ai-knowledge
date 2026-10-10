@@ -22,14 +22,33 @@ logging.getLogger("dbgpt").propagate = False
 
 MAX_STEPS = 8
 MAX_BODY = 2 * 1024 * 1024
+MAX_PROBLEM_BODY = 16 * 1024
 MODEL_NAME = "java-managed-generation"
 FAILURE_CODES = frozenset({
     "agent_callback_failed", "agent_callback_invalid", "agent_model_invalid",
+    "agent_model_tool_required", "agent_model_unavailable", "agent_model_timeout",
     "agent_invalid_action", "agent_invalid_tool_input", "agent_tool_failed",
     "agent_invalid_result", "agent_step_limit", "agent_timeout", "agent_execution_failed",
     "agent_cancelled", "agent_busy",
 })
 STAGES = frozenset({"starting", "model", "search", "read", "action", "result"})
+CALLBACK_FAILURE_CODES = {
+    ("model", 503): frozenset({"agent_model_tool_required", "agent_model_invalid", "agent_model_unavailable"}),
+    ("model", 408): frozenset({"agent_model_timeout"}),
+    ("search", 503): frozenset({"agent_tool_failed"}),
+    ("read", 503): frozenset({"agent_tool_failed"}),
+}
+
+
+def _problem_fields(pairs):
+    result = dict(pairs)
+    if len(result) != len(pairs):
+        raise ValueError("duplicate_problem_field")
+    return result
+
+
+def _invalid_problem_constant(_value):
+    raise ValueError("invalid_problem_json")
 
 
 class AgentFailure(RuntimeError):
@@ -97,6 +116,29 @@ class CallbackBridge:
         self.failure = code
         raise AgentFailure(code)
 
+    async def _callback_failure(self, operation: str, response: httpx.Response) -> str:
+        # Only Java's operation-specific problem code crosses this boundary.
+        # Never retain, log, or echo provider details, URLs, or arbitrary errors.
+        fallback = "agent_callback_failed"
+        allowed = CALLBACK_FAILURE_CODES.get((operation, response.status_code))
+        media_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        if not allowed or media_type != "application/problem+json":
+            return fallback
+        chunks = bytearray()
+        async for chunk in response.aiter_bytes():
+            chunks.extend(chunk)
+            if len(chunks) > MAX_PROBLEM_BODY:
+                return fallback
+        try:
+            result = json.loads(chunks.decode("utf-8"), object_pairs_hook=_problem_fields,
+                                parse_constant=_invalid_problem_constant)
+        except (ValueError, UnicodeError, RecursionError):
+            return fallback
+        if not isinstance(result, dict) or type(result.get("status")) is not int or result["status"] != response.status_code:
+            return fallback
+        code = result.get("error_code")
+        return code if isinstance(code, str) and code in allowed else fallback
+
     async def post(self, operation: str, payload: dict) -> dict:
         if self.failure:
             raise AgentFailure(self.failure)
@@ -107,7 +149,7 @@ class CallbackBridge:
                 headers={"Authorization": "Bearer " + self.token}, follow_redirects=False,
             ) as response:
                 if response.status_code != 200:
-                    self.fail("agent_callback_failed")
+                    self.fail(await self._callback_failure(operation, response))
                 chunks = bytearray()
                 async for chunk in response.aiter_bytes():
                     chunks.extend(chunk)

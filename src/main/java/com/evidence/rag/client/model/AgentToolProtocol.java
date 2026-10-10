@@ -2,6 +2,7 @@ package com.evidence.rag.client.model;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,26 @@ final class AgentToolProtocol {
     return TOOLS;
   }
 
+  static Map<String, Object> request(
+      OpenAiCompatibleModels.Endpoint endpoint, List<Map<String, String>> messages) {
+    var request = new LinkedHashMap<String, Object>();
+    request.put("model", endpoint.model());
+    request.put("messages", messages);
+    request.put("stream", false);
+    request.put("n", 1);
+    request.put("tools", tools());
+    request.put("tool_choice", "required");
+    request.put("parallel_tool_calls", false);
+    // Official DeepSeek thinking mode rejects required tool choice. This Agent-only adapter
+    // uses canonical text history, not native reasoning replay; generic compatible endpoints
+    // receive no vendor-specific options and never silently downgrade the tool requirement.
+    if ("https".equalsIgnoreCase(endpoint.baseUrl().getScheme())
+        && "api.deepseek.com".equalsIgnoreCase(endpoint.baseUrl().getHost())) {
+      request.put("thinking", Map.of("type", "disabled"));
+    }
+    return Map.copyOf(request);
+  }
+
   static String canonicalAction(JsonNode response) {
     var choices = response.path("choices");
     if (!choices.isArray() || choices.size() != 1) {
@@ -66,7 +87,6 @@ final class AgentToolProtocol {
     if (!index.isIntegralNumber()
         || !index.canConvertToInt()
         || index.intValue() != 0
-        || !"tool_calls".equals(choice.path("finish_reason").asString())
         || !"assistant".equals(message.path("role").asString())
         || message.hasNonNull("function_call")
         || message.hasNonNull("refusal")
@@ -74,7 +94,15 @@ final class AgentToolProtocol {
       throw invalid();
     }
     var calls = message.path("tool_calls");
-    if (!calls.isArray() || calls.isEmpty() || calls.size() > 16) {
+    if ("stop".equals(choice.path("finish_reason").asString())
+        && (!message.hasNonNull("tool_calls") || calls.isArray() && calls.isEmpty())) {
+      text(message.path("content"), 262144);
+      throw new TextModels.Failure("model_tool_required");
+    }
+    if (!"tool_calls".equals(choice.path("finish_reason").asString())
+        || !calls.isArray()
+        || calls.isEmpty()
+        || calls.size() > 16) {
       throw invalid();
     }
     var checked = new ArrayList<Map<String, Object>>();

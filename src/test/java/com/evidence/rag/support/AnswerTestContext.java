@@ -8,6 +8,7 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VerifiedRevision;
+import com.evidence.rag.model.dto.AgentMessage;
 import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
@@ -148,6 +149,16 @@ public final class AnswerTestContext implements AutoCloseable {
                 .mapToObj(index -> new Ranked(index, 100.0 - index))
                 .toList();
     public List<Evidence> lastEvidence = List.of();
+    public Function<List<AgentMessage>, String> agent =
+        messages -> {
+          throw new Failure("model_agent_unavailable");
+        };
+
+    @Override
+    public String agentChat(List<AgentMessage> messages) {
+      calls.add("agent");
+      return agent.apply(messages);
+    }
 
     @Override
     public List<List<Double>> embed(List<String> texts) {

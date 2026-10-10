@@ -3,15 +3,18 @@ package com.evidence.rag.service;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.evidence.rag.client.model.TextModels;
+import com.evidence.rag.controller.KnowledgeAgentCallbackController;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.AgentProtocol;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.support.AnswerTestContext;
+import com.evidence.rag.web.ProblemHandler;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -20,6 +23,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Real SQLite/source authority, test Adapter in place of the external DB-GPT process only. */
 class KnowledgeAgentServiceTest {
@@ -284,6 +291,97 @@ class KnowledgeAgentServiceTest {
     } finally {
       logger.detachAppender(appender);
       appender.stop();
+    }
+  }
+
+  @Test
+  void modelCallbackPreservesSafeFailureAtHttpBoundaryAndTaskWithoutRetry() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成资料原文。");
+      var mvc =
+          MockMvcBuilders.standaloneSetup(new KnowledgeAgentCallbackController(fixture.agents))
+              .setControllerAdvice(new ProblemHandler())
+              .build();
+      var mappings =
+          Map.of(
+              "model_tool_required", "agent_model_tool_required",
+              "model_invalid_response", "agent_model_invalid",
+              "model_response_too_large", "agent_model_invalid",
+              "model_http_failed", "agent_model_unavailable",
+              "model_transport_failed", "agent_model_unavailable",
+              "model_timeout", "agent_model_timeout",
+              "private-provider-secret", "agent_callback_failed");
+      for (var mapping : mappings.entrySet()) {
+        var received = new AtomicReference<MockHttpServletResponse>();
+        fixture.context.models.calls.clear();
+        fixture.context.models.agent =
+            messages -> {
+              throw new TextModels.Failure(mapping.getKey());
+            };
+        fixture.script.set(
+            request -> {
+              try {
+                var response =
+                    mvc.perform(
+                            MockMvcRequestBuilders.post(
+                                    "/internal/knowledge-agent/runs/" + request.runId() + "/model")
+                                .with(
+                                    servlet -> {
+                                      servlet.setRemoteAddr("127.0.0.1");
+                                      return servlet;
+                                    })
+                                .header("Authorization", auth(request))
+                                .contentType("application/json")
+                                .content(
+                                    "{\"messages\":[{\"role\":\"user\",\"content\":\"synthetic question\"}]}"))
+                        .andReturn()
+                        .getResponse();
+                received.set(response);
+                var body = new JsonMapper().readTree(response.getContentAsString());
+                // Simulate only the sidecar's fixed-code return, never a successful proposal.
+                throw new TextModels.Failure(body.path("error_code").asString());
+              } catch (TextModels.Failure failure) {
+                throw failure;
+              } catch (Exception failure) {
+                throw new IllegalStateException("synthetic callback test failed", failure);
+              }
+            });
+        var run = fixture.await(fixture.start());
+        var response = received.get();
+        assertNotNull(response);
+        assertEquals(
+            mapping.getValue().equals("agent_model_timeout") ? 408 : 503, response.getStatus());
+        assertTrue(response.getContentType().startsWith("application/problem+json"));
+        assertFalse(response.getContentAsString().contains("private-provider-secret"));
+        assertEquals(mapping.getValue(), run.error().code());
+        assertEquals(List.of("agent"), fixture.context.models.calls);
+        assertEquals(
+            List.of("running", "planning", "failed"),
+            run.events().stream().map(AgentRunResult.Event::type).toList());
+        assertNull(run.result());
+      }
+      assertEquals(0, fixture.context.scalar("SELECT COUNT(*) FROM knowledge_answer_traces"));
+    }
+  }
+
+  @Test
+  void retrievalModelFailureIsAReadOnlyToolFailureNotAGenerationProtocolFailure() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成资料原文。");
+      fixture.context.models.embedding =
+          values -> {
+            throw new TextModels.Failure("model_invalid_response");
+          };
+      fixture.script.set(
+          request -> {
+            fixture.agents.search(request.runId(), auth(request), "资料");
+            return refused();
+          });
+      var run = fixture.await(fixture.start());
+      assertEquals("agent_tool_failed", run.error().code());
+      assertEquals(List.of("embed"), fixture.context.models.calls);
+      assertNull(run.result());
+      assertEquals(0, fixture.context.scalar("SELECT COUNT(*) FROM knowledge_answer_traces"));
     }
   }
 
