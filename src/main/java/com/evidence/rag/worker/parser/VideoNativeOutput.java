@@ -43,9 +43,6 @@ final class VideoNativeOutput {
       int width,
       int height,
       List<SubtitleStream> subtitles) {
-    Streams(TimeBase videoTimeBase, boolean audio, int width, int height) {
-      this(videoTimeBase, audio, width, height, List.of());
-    }
 
     Streams {
       subtitles = List.copyOf(subtitles);

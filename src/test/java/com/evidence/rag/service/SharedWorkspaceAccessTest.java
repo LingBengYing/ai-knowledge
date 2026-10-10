@@ -13,12 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.IndexingRepository;
-import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.support.PublishedCorpusFixture;
 import com.evidence.rag.tool.parser.TextParser;
 import java.nio.charset.StandardCharsets;
@@ -142,15 +139,7 @@ class SharedWorkspaceAccessTest {
               .completeIngestion(
                   claim, new TextParser().parse("shared.txt", "text/plain", claim.content())));
       var store = fixture.authority.store();
-      var lifecycle =
-          new DocumentLifecycleService(
-              store,
-              new DocumentLifecycleRepository(store),
-              new ManagementRepository(store),
-              new IngestionRepository(store),
-              new IndexingRepository(store),
-              new DocumentPermissionPolicy());
-      assertEquals("deleting", lifecycle.removeDocument(member, task.documentId()).status());
+      DocumentWithdrawal.withdraw(store, member, task.documentId());
       assertEquals(0L, fixture.authority.listDocuments(member, Map.of()).get("total"));
       assertThrows(
           ApplicationException.class,

@@ -22,11 +22,6 @@ public final class SourceContentController {
   private final EvidenceService evidence;
   private final ManagedTextRuntime runtime;
 
-  public SourceContentController(EvidenceService evidence) {
-    this.evidence = evidence;
-    this.runtime = null;
-  }
-
   @Autowired
   public SourceContentController(
       EvidenceService evidence, ObjectProvider<ManagedTextRuntime> runtime) {

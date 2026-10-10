@@ -319,8 +319,6 @@ public class ModelConfigurationConfiguration {
         Duration.ofMillis(
             environment.getProperty(
                 "rag.model-configuration.retrieval-timeout-ms", Long.class, 60000L)),
-        environment.getProperty(
-            "rag.model-configuration.retrieval-max-concurrent", Integer.class, 2),
         retrievalSettings::snapshot);
   }
 

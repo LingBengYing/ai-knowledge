@@ -104,10 +104,6 @@ final class ManagedTextSettings {
     }
   }
 
-  ConfigurableEnvironment environment() {
-    return environment;
-  }
-
   URI provider() {
     return provider;
   }

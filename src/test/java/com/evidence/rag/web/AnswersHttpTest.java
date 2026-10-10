@@ -16,10 +16,11 @@ import com.evidence.rag.job.IngestionJob;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VerifiedRevision;
-import com.evidence.rag.service.DocumentLifecycleService;
+import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.support.AnswerProtocolServer;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.tool.parser.TextParser;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -653,9 +654,10 @@ class AnswersHttpTest {
     }
 
     void withdraw(String document) {
-      context
-          .getBean(DocumentLifecycleService.class)
-          .removeDocument(new Actor("org-main", "second-member"), document);
+      DocumentWithdrawal.withdraw(
+          context.getBean(SqliteAuthorityStore.class),
+          new Actor("org-main", "second-member"),
+          document);
     }
 
     void revoke(String document) throws Exception {

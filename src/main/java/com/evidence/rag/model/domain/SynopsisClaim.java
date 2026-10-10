@@ -8,21 +8,6 @@ public record SynopsisClaim(
     String modelRevision,
     String policyRevision,
     String token) {
-  public SynopsisClaim(
-      String taskId,
-      Actor creator,
-      SynopsisInput input,
-      String modelRevision,
-      String policyRevision,
-      String token) {
-    this(
-        taskId,
-        creator,
-        input == null ? null : new SynopsisFileInput(input.publication(), input.evidence()),
-        modelRevision,
-        policyRevision,
-        token);
-  }
 
   public SynopsisClaim {
     ModelValues.identifier(taskId, 128);

@@ -188,30 +188,6 @@ public final class QueryAttachmentService {
         anchor);
   }
 
-  /** Rebind an existing legacy template when an explicit caller already owns that graph. */
-  public QueryAttachmentService withTextBundle(
-      TextModels models,
-      RetrievalProjection currentProjection,
-      IndexTarget currentTarget,
-      TextIndexAnchor anchor) {
-    if (anchor == null) {
-      throw ModelValues.invalid();
-    }
-    return new QueryAttachmentService(
-        preparation,
-        ranking,
-        models,
-        currentProjection,
-        currentTarget,
-        imageModels,
-        imageProjection,
-        imageTarget,
-        audioModels,
-        audioProjection,
-        audioTarget,
-        anchor);
-  }
-
   public PreparedQuery prepare(
       String question, List<QueryAttachment> attachments, Runnable current) {
     if (current == null || attachments == null) {

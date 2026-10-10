@@ -50,41 +50,12 @@ public final class ImageVectorIndexingService {
   private final IngestionRepository ingestion;
   private final DocumentPermissionPolicy permissions;
   private final Supplier<IndexTarget> textTarget;
-  private Supplier<IndexTarget> managedTextTarget;
   private final IndexTarget imageTarget;
   private final Duration budget;
   private final Supplier<IndexTarget> profiles;
   private final BiFunction<ImageVectorBuildClaim, Duration, ImageVectorReceipt> worker;
   private final Semaphore capacity;
   private final Set<String> active = ConcurrentHashMap.newKeySet();
-
-  public ImageVectorIndexingService(
-      SqliteAuthorityStore store,
-      ImageVectorRepository vectors,
-      EvidenceRepository evidence,
-      ManagementRepository management,
-      IngestionRepository ingestion,
-      DocumentPermissionPolicy permissions,
-      IndexTarget textTarget,
-      IndexTarget imageTarget,
-      SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
-      Duration processingBudget,
-      int maxConcurrent) {
-    this(
-        store,
-        vectors,
-        evidence,
-        management,
-        ingestion,
-        permissions,
-        fixedTextTarget(textTarget, imageTarget),
-        imageTarget,
-        models,
-        projection,
-        processingBudget,
-        maxConcurrent);
-  }
 
   public static ImageVectorIndexingService managed(
       SqliteAuthorityStore store,
@@ -364,14 +335,6 @@ public final class ImageVectorIndexingService {
     }
   }
 
-  /** Installed at composition; independent media model and projection remain unchanged. */
-  public void followTextTarget(Supplier<IndexTarget> current) {
-    if (current == null || managedTextTarget != null) {
-      throw ModelValues.invalid();
-    }
-    managedTextTarget = current;
-  }
-
   private static Supplier<IndexTarget> fixedTextTarget(IndexTarget text, IndexTarget media) {
     if (text == null
         || media == null
@@ -382,7 +345,7 @@ public final class ImageVectorIndexingService {
   }
 
   private IndexTarget currentTextTarget() {
-    IndexTarget current = managedTextTarget == null ? textTarget.get() : managedTextTarget.get();
+    IndexTarget current = textTarget.get();
     if (current == null) {
       throw new ApplicationException(
           FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");

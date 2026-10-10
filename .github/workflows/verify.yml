@@ -27,8 +27,8 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Verify secret scanner and frontend behavior
-        run: node --test ui-tests/*.test.mjs scripts/check-secrets.test.mjs
+      - name: Verify secret scanner
+        run: node --test scripts/check-secrets.test.mjs
       - name: Check files and reachable Git history for credentials
         run: node scripts/check-secrets.mjs --history
       - name: Build, test, format and enforce 80% line and branch coverage

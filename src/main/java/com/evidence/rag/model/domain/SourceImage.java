@@ -5,9 +5,6 @@ import java.util.List;
 /** Same-version original image, retained only for an authorized source response. */
 public record SourceImage(
     String mimeType, byte[] content, int width, int height, List<ImageTextRegion> regions) {
-  public SourceImage(String mimeType, byte[] content, int width, int height) {
-    this(mimeType, content, width, height, List.of());
-  }
 
   public SourceImage {
     if (!("image/png".equals(mimeType) || "image/jpeg".equals(mimeType))

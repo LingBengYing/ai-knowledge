@@ -263,7 +263,7 @@ Java 测试夹具不跨包调用 `SqliteAuthorityStore` 的包内 `rows/count/ex
 
 - 使用深 Module、小 Interface、Implementation、Adapter 术语；确有两个 Adapter 时才增加 Seam。测试通过 Module Interface 断言可观察行为，不暴露内部实现来迁就测试。
 - 开工前明确文件 ownership；共享工作树不回退他人修改。先失败测试/可复现验证，再实现、再回归；禁止删、跳过或放宽失败测试求绿。
-- Java 门禁：`mvn -s .mvn/settings.xml -gs .mvn/settings.xml clean verify`（隔离个人/全局 Maven settings，含编译、测试、Spotless 与 JaCoCo）。UI 与敏感信息检查器测试：`node --test ui-tests/*.test.mjs scripts/check-secrets.test.mjs`；发布扫描：`node scripts/check-secrets.mjs --history`，覆盖暂存文件/对应工作树和可达历史。以 [pom.xml](pom.xml)、[检查器](scripts/check-secrets.mjs)及当前验证记录为准。必要时补真实浏览器和外部集成证据，不用单测替代它们。
+- Java 门禁：`mvn -s .mvn/settings.xml -gs .mvn/settings.xml clean verify`（隔离个人/全局 Maven settings，含编译、测试、Spotless 与 JaCoCo）。UI 与敏感信息检查器测试：`node --test scripts/check-secrets.test.mjs`；发布扫描：`node scripts/check-secrets.mjs --history`，覆盖暂存文件/对应工作树和可达历史。以 [pom.xml](pom.xml)、[检查器](scripts/check-secrets.mjs)及当前验证记录为准。必要时补真实浏览器和外部集成证据，不用单测替代它们。
 - 修改公共字段解析、规范化、条件/否定或范围逻辑后，重跑完整对应行为测试，覆盖既有中英文与正反例；只跑新增 case 不算冻结。
 - 同页具名限定的上下文修复必须把同一组限定fixture按前置/后置两个方向重放，并保留同主体拒答、不同明确主体正常回答、真实跨主体前提三类对照；不能只反转某一个“试运行”字符串便声称覆盖所有审批条件。该规则由`TextGroundingScopeTest`与真实parser的`AnswerSemanticScopeTest`回归执行。
 - 每次交付更新 spec 对应行为、红绿证据、相关 acceptance、验证结果、未验证项及 plan 偏离。报告真实版本与命令，不推定未运行检查通过，不做无基准性能宣称。

@@ -516,8 +516,7 @@ class KnowledgeAgentServiceTest {
         runtime.install(snapshot, lease, () -> {});
       }
       retrieval =
-          new ProductHelpService(
-              context.evidence, runtime, Duration.ofSeconds(10), 1, settings::get);
+          new ProductHelpService(context.evidence, runtime, Duration.ofSeconds(10), settings::get);
       traces = new KnowledgeTraceService(context.authority.store(), context.evidence);
       agents =
           new KnowledgeAgentService(

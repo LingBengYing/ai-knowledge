@@ -78,8 +78,6 @@ public final class AgentProtocol {
     }
   }
 
-  public record SearchRequest(String query) {}
-
   public record ReadRequest(@JsonProperty("source_ids") List<String> sourceIds) {
     public ReadRequest {
       if (sourceIds == null || sourceIds.isEmpty() || sourceIds.size() > 32)

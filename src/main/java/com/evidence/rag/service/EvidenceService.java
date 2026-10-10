@@ -204,21 +204,6 @@ public final class EvidenceService {
         });
   }
 
-  public VideoSubtitleSourceEvidence videoSubtitleExcerpt(
-      EvidenceScope scope, TraceEvidence trace) {
-    requireScope(scope);
-    if (trace == null) {
-      throw ModelValues.invalid();
-    }
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          return subtitleMaterial(scope, trace);
-        });
-  }
-
   private VideoSubtitleSourceEvidence subtitleMaterial(EvidenceScope scope, TraceEvidence trace) {
     var sources = classifiedVideo(scope, List.of(trace.physicalSegmentId())).subtitles();
     if (sources.size() != 1) {

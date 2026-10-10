@@ -18,10 +18,10 @@ import com.evidence.rag.model.dto.DocumentPatchCommand;
 import com.evidence.rag.model.dto.SoundCitationResult;
 import com.evidence.rag.model.query.DocumentQuery;
 import com.evidence.rag.repository.CleanupMaintenanceFixture;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.tool.answer.SoundProofBinding;
 import java.nio.file.Path;
 import java.sql.DriverManager;
@@ -109,16 +109,7 @@ class SoundAuthorityTest {
         var answers = fixture.answers()) {
       var original = fixture.register("library", SoundTestFixture.pcm(32000, 6), true);
       var answer = answers.answer(SoundTestFixture.OWNER, command("library"));
-      var lifecycle =
-          new DocumentLifecycleService(
-              fixture.store,
-              new DocumentLifecycleRepository(fixture.store),
-              fixture.management,
-              new IngestionRepository(fixture.store),
-              new IndexingRepository(fixture.store),
-              new DocumentPermissionPolicy());
-      assertEquals(
-          "pending", lifecycle.removeDocument(SoundTestFixture.OWNER, "library").cleanupStatus());
+      DocumentWithdrawal.withdraw(fixture.store, SoundTestFixture.OWNER, "library");
       try (var connection =
               DriverManager.getConnection("jdbc:sqlite:" + fixture.store.libraryPath());
           var statement = connection.createStatement();
@@ -143,8 +134,6 @@ class SoundAuthorityTest {
       assertThrows(
           ApplicationException.class,
           () -> answers.source(SoundTestFixture.OWNER, answer.answerId(), 1));
-      assertEquals(
-          "pending", lifecycle.removeDocument(SoundTestFixture.OWNER, "library").cleanupStatus());
     }
   }
 

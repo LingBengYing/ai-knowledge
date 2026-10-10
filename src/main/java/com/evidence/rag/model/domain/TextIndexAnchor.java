@@ -67,31 +67,6 @@ public record TextIndexAnchor(
         null);
   }
 
-  public TextIndexAnchor(
-      long originatingVersion,
-      String providerBaseUrl,
-      String embeddingModel,
-      String embeddingRevision,
-      int dimensions,
-      String rerankModel,
-      String generationModel,
-      IndexTarget target,
-      String rerankProviderBaseUrl,
-      String generationProviderBaseUrl) {
-    this(
-        originatingVersion,
-        providerBaseUrl,
-        embeddingModel,
-        embeddingRevision,
-        dimensions,
-        rerankModel,
-        generationModel,
-        target,
-        rerankProviderBaseUrl,
-        generationProviderBaseUrl,
-        null);
-  }
-
   public TextIndexAnchor {
     if (originatingVersion < 1
         || originatingVersion > ModelConfigurationState.MAX_VERSION

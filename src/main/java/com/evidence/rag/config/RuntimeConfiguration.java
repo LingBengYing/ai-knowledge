@@ -155,7 +155,6 @@ public class RuntimeConfiguration {
     enabled.add("model_index_rebuild");
     if (textReady) {
       enabled.add("retrieval_test");
-      enabled.add("product_help");
       enabled.add("knowledge_answers");
     } else {
       disable(
@@ -174,7 +173,6 @@ public class RuntimeConfiguration {
               "audio_answers",
               "audio_sources"));
       unavailable.add("retrieval_test");
-      unavailable.add("product_help");
       unavailable.add("knowledge_answers");
     }
     if (!legacyCompatible || !visualPresent) {
@@ -209,58 +207,6 @@ public class RuntimeConfiguration {
         unavailable.add(name);
       }
     }
-  }
-
-  RuntimeService configuredVideoAvRuntimeService(
-      RagProperties p,
-      IngestionSettings ingestion,
-      IndexingSettings indexing,
-      AnswersSettings answers,
-      DocumentRemovalSettings removal,
-      Environment environment,
-      ObjectProvider<ImageVectorIndexingService> imageVectors,
-      ObjectProvider<AudioVectorIndexingService> audioVectors,
-      ObjectProvider<SoundLibraryService> soundLibrary,
-      ObjectProvider<SoundAnswerService> soundAnswers,
-      ObjectProvider<VideoAvLibraryService> videoAvLibrary,
-      ObjectProvider<VideoAvAnswerService> videoAvAnswers,
-      @Qualifier("videoAvQueryServlet")
-          ObjectProvider<ServletRegistrationBean<BoundedMediaQueryServlet>> videoAvQueries) {
-    return create(
-        p,
-        ingestion,
-        indexing,
-        answers,
-        removal,
-        environment,
-        imageVectors.getIfAvailable() != null,
-        audioVectors.getIfAvailable() != null,
-        soundLibrary.getIfAvailable() != null && soundAnswers.getIfAvailable() != null,
-        videoAvLibrary.getIfAvailable() != null && videoAvAnswers.getIfAvailable() != null,
-        videoAvQueries.getIfAvailable() != null);
-  }
-
-  RuntimeService configuredSoundRuntimeService(
-      RagProperties p,
-      IngestionSettings ingestion,
-      IndexingSettings indexing,
-      AnswersSettings answers,
-      DocumentRemovalSettings removal,
-      Environment environment,
-      ObjectProvider<ImageVectorIndexingService> imageVectors,
-      ObjectProvider<AudioVectorIndexingService> audioVectors,
-      ObjectProvider<SoundLibraryService> soundLibrary,
-      ObjectProvider<SoundAnswerService> soundAnswers) {
-    return create(
-        p,
-        ingestion,
-        indexing,
-        answers,
-        removal,
-        environment,
-        imageVectors.getIfAvailable() != null,
-        audioVectors.getIfAvailable() != null,
-        soundLibrary.getIfAvailable() != null && soundAnswers.getIfAvailable() != null);
   }
 
   RuntimeService configuredRuntimeService(

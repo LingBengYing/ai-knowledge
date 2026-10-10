@@ -46,7 +46,6 @@ class KnowledgeTopicAnswerServiceTest {
           com.evidence.rag.exception.ApplicationException.class,
           () -> fixture.answers.source(otherWorkspace, result.answerId(), 1));
       assertEquals(1, fixture.models.syntheses);
-      assertEquals(0, fixture.models.verifications);
     }
   }
 
@@ -62,8 +61,6 @@ class KnowledgeTopicAnswerServiceTest {
       assertEquals("answered", result.status(), result.reason());
       assertEquals(1, fixture.models.syntheses);
       assertEquals(0, fixture.models.generalExtractions);
-      assertEquals(0, fixture.models.topicExtractions);
-      assertEquals(0, fixture.models.verifications);
       assertEquals(document, result.citations().getFirst().documentId());
       assertEquals(PAGE, result.citations().getFirst().quote());
       assertEquals(
@@ -86,11 +83,10 @@ class KnowledgeTopicAnswerServiceTest {
       assertNull(answer.reason());
       assertEquals("The project is Cedar Beacon. [1]", answer.answer());
       assertEquals(1, fixture.models.syntheses);
-      assertEquals(0, fixture.models.verifications);
       assertEquals(
           java.util.Set.of(PAGE, OTHER),
           fixture.models.contextOnly.stream()
-              .map(TextModels.SynthesisContext::context)
+              .map(Context::context)
               .collect(java.util.stream.Collectors.toSet()));
       assertEquals(1, answer.citations().size());
       var citation = answer.citations().getFirst();
@@ -112,7 +108,6 @@ class KnowledgeTopicAnswerServiceTest {
   @Test
   void keywordAnswerDoesNotInvokeAnIndependentRefusalGate() {
     try (var fixture = new Fixture(directory)) {
-      fixture.models.approve = false;
       String document = fixture.context.publish("sample.txt", PAGE);
       var result =
           fixture.answers.answer(
@@ -120,7 +115,6 @@ class KnowledgeTopicAnswerServiceTest {
               new AnswerCommand("Project", DocumentSelection.selected(List.of(document))));
       assertEquals("answered", result.status());
       assertNull(result.reason());
-      assertEquals(0, fixture.models.verifications);
       assertEquals(1, result.citations().size());
       assertTrue(result.answer().contains("Cedar Beacon"));
     }
@@ -139,14 +133,12 @@ class KnowledgeTopicAnswerServiceTest {
       assertEquals("answered", result.status(), result.reason());
       assertNull(result.reason());
       assertEquals("青榆灯塔项目的预算为CNY 48600。 [1]", result.answer());
-      assertEquals(0, fixture.models.topicExtractions);
       assertEquals(0, fixture.models.generalExtractions);
       assertEquals(1, fixture.models.syntheses);
-      assertEquals(0, fixture.models.verifications);
       assertEquals(
           java.util.Set.of(TOPIC_PAGE, OTHER),
           fixture.models.contextOnly.stream()
-              .map(TextModels.SynthesisContext::context)
+              .map(Context::context)
               .collect(java.util.stream.Collectors.toSet()));
       assertEquals(1, result.citations().size());
       assertEquals(document, result.citations().getFirst().documentId());
@@ -169,7 +161,6 @@ class KnowledgeTopicAnswerServiceTest {
       assertEquals("CNY 48600 [1]", result.answer());
       assertEquals(PAGE, result.citations().getFirst().quote());
       assertEquals(0, fixture.models.generalExtractions);
-      assertEquals(0, fixture.models.topicExtractions);
     }
   }
 
@@ -211,7 +202,7 @@ class KnowledgeTopicAnswerServiceTest {
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
         runtime.install(snapshot, lease, () -> {});
       }
-      retrieval = new ProductHelpService(context.evidence, runtime, DEADLINE, 1);
+      retrieval = new ProductHelpService(context.evidence, runtime, DEADLINE);
       answers =
           new KnowledgeAnswerService(
               context.evidence,
@@ -234,19 +225,15 @@ class KnowledgeTopicAnswerServiceTest {
   private static final class Models implements TextModels {
     int requests;
     int generalExtractions;
-    int topicExtractions;
     int syntheses;
-    int verifications;
-    boolean approve = true;
     boolean fragmentTopicExtraction;
-    List<SynthesisContext> contextOnly = List.of();
+    List<Context> contextOnly = List.of();
 
     @Override
     public Synthesis answerKnowledge(String question, List<SynthesisEvidence> evidence) {
       requests++;
       syntheses++;
-      contextOnly =
-          evidence.stream().map(item -> new SynthesisContext(item.id(), item.context())).toList();
+      contextOnly = evidence.stream().map(item -> new Context(item.id(), item.context())).toList();
       var source =
           evidence.stream()
               .filter(item -> item.quote().equals(PAGE) || item.quote().equals(TOPIC_PAGE))
@@ -300,56 +287,10 @@ class KnowledgeTopicAnswerServiceTest {
     }
 
     @Override
-    public Extraction extractTopic(String query, List<Evidence> evidence) {
-      requests++;
-      topicExtractions++;
-      var quotes =
-          evidence.stream()
-              .filter(item -> item.text().equals(PAGE) || item.text().equals(TOPIC_PAGE))
-              .map(item -> new Quote(item.id(), item.text()))
-              .toList();
-      return new Extraction(quotes, quotes.isEmpty());
-    }
-
-    @Override
-    public Extraction extractKnowledge(String query, List<KnowledgeExtractionEvidence> evidence) {
-      return extract(
-          query, evidence.stream().map(item -> new Evidence(item.id(), item.text())).toList());
-    }
-
-    @Override
-    public Synthesis synthesize(
-        String question, List<SynthesisEvidence> evidence, List<SynthesisContext> contexts) {
-      requests++;
-      syntheses++;
-      contextOnly = List.copyOf(contexts);
-      return new Synthesis(
-          false,
-          List.of(
-              new Statement(
-                  question.equals("BUDGET")
-                      ? "CNY 48600"
-                      : question.equals("灯塔")
-                          ? "青榆灯塔项目的预算为CNY 48600。"
-                          : "The project is Cedar Beacon.",
-                  List.of(evidence.getFirst().id()))));
-    }
-
-    @Override
-    public boolean verifySynthesis(
-        String question,
-        Synthesis synthesis,
-        List<SynthesisEvidence> evidence,
-        List<SynthesisContext> contexts) {
-      requests++;
-      verifications++;
-      assertEquals(contextOnly, contexts);
-      return approve;
-    }
-
-    @Override
     public String revision() {
       return "test-answer-model-v1";
     }
   }
+
+  private record Context(String id, String context) {}
 }

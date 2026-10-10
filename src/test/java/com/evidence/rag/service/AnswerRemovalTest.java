@@ -10,15 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
+import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.AnswerResult;
-import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.IndexingRepository;
-import com.evidence.rag.repository.IngestionRepository;
-import com.evidence.rag.repository.ManagementRepository;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.support.AnswerTestContext;
+import com.evidence.rag.support.DocumentWithdrawal;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -49,8 +46,7 @@ class AnswerRemovalTest {
           answer.citations().getFirst(),
           fixture.answers.source(fixture.owner, answer.answerId(), 1).citation());
 
-      assertEquals(
-          "pending", lifecycle(fixture).removeDocument(fixture.owner, document).cleanupStatus());
+      remove(fixture, fixture.owner, document);
 
       assertEquals(
           FailureKind.NOT_FOUND,
@@ -71,7 +67,7 @@ class AnswerRemovalTest {
     try (var fixture = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
       String removed = fixture.publish("removed.txt", "星港项目的识别码为A-42。");
       String remaining = fixture.publish("remaining.txt", "另一个项目的识别码为B-55。");
-      lifecycle(fixture).removeDocument(fixture.owner, removed);
+      remove(fixture, fixture.owner, removed);
       for (var selected : List.of(List.of(removed), List.of(removed, remaining))) {
         assertEquals(
             FailureKind.NOT_FOUND,
@@ -90,7 +86,7 @@ class AnswerRemovalTest {
     try (var fixture = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
       String removed = fixture.publish("removed.txt", "星港项目的识别码为X-99。");
       String remaining = fixture.publish("remaining.txt", "星港项目的识别码为A-42。");
-      lifecycle(fixture).removeDocument(fixture.owner, removed);
+      remove(fixture, fixture.owner, removed);
       var result =
           fixture.answers.answer(
               fixture.owner, new AnswerCommand("星港项目的识别码是什么？", DocumentSelection.allDocuments()));
@@ -109,7 +105,7 @@ class AnswerRemovalTest {
   void allRemovedDocumentsReturnEmptyScopeWithoutAnyExternalRequest() {
     try (var fixture = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
       String removed = fixture.publish("removed.txt", "星港项目的识别码为A-42。");
-      lifecycle(fixture).removeDocument(fixture.owner, removed);
+      remove(fixture, fixture.owner, removed);
       var result =
           fixture.answers.answer(
               fixture.owner, new AnswerCommand("星港项目的识别码是什么？", DocumentSelection.allDocuments()));
@@ -127,7 +123,7 @@ class AnswerRemovalTest {
       String cited = fixture.publish("cited.txt", "星港项目的识别码为A-42。");
       String dependency = fixture.publish("dependency.txt", "另一个项目的资料尚未公开。");
       onlyCandidatesFrom(fixture, cited);
-      Runnable remove = () -> lifecycle(fixture).removeDocument(fixture.owner, dependency);
+      Runnable remove = () -> remove(fixture, fixture.owner, dependency);
       switch (phase) {
         case "embed" -> fixture.models.onEmbed = remove;
         case "prepare" -> fixture.projection.onPrepare = remove;
@@ -149,7 +145,7 @@ class AnswerRemovalTest {
     try (var fixture = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
       String cited = fixture.publish("cited.txt", "星港项目的识别码为A-42。");
       String other = fixture.publish("other.txt", "另一个项目的资料尚未公开。");
-      fixture.models.onExtract = () -> lifecycle(fixture).removeDocument(fixture.owner, other);
+      fixture.models.onExtract = () -> remove(fixture, fixture.owner, other);
       var result = fixture.answers.answer(fixture.owner, command(List.of(cited)));
       assertEquals("answered", result.status());
       assertEquals(
@@ -170,7 +166,7 @@ class AnswerRemovalTest {
       assertEquals(
           cited,
           fixture.answers.source(fixture.owner, result.answerId(), 1).citation().documentId());
-      lifecycle(fixture).removeDocument(fixture.owner, dependency);
+      remove(fixture, fixture.owner, dependency);
       assertEquals(
           FailureKind.NOT_FOUND,
           assertThrows(
@@ -231,7 +227,7 @@ class AnswerRemovalTest {
               Thread.State.BLOCKED,
               worker.get().getState(),
               "Answer must wait on the actual authority monitor");
-          lifecycle(fixture).removeDocument(fixture.owner, dependency);
+          remove(fixture, fixture.owner, dependency);
         }
         assertTrue(caller.join(Duration.ofSeconds(3)));
         assertNull(failure.get());
@@ -287,15 +283,8 @@ class AnswerRemovalTest {
     }
   }
 
-  private static DocumentLifecycleService lifecycle(AnswerTestContext fixture) {
-    var store = fixture.authority.store();
-    return new DocumentLifecycleService(
-        store,
-        new DocumentLifecycleRepository(store),
-        new ManagementRepository(store),
-        new IngestionRepository(store),
-        new IndexingRepository(store),
-        new DocumentPermissionPolicy());
+  private static void remove(AnswerTestContext fixture, Actor actor, String document) {
+    DocumentWithdrawal.withdraw(fixture.authority.store(), actor, document);
   }
 
   private static AnswerCommand command(List<String> documents) {

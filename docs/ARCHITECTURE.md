@@ -76,9 +76,6 @@ service.ManagementService → repository.ManagementRepository
         ↓
 repository.SqliteAuthorityStore（全仓共享 Connection / monitor / 事务）
 
-CLI --seed-demo → config.PersistenceConfiguration（全新目录与资源装配）
-  → bootstrap.DemoFixtures → ManagementService
-
 web.UploadServlet → IngestionService → IngestionRepository + ManagementRepository
   原文件 / revision / 持久任务 / 审计同一事务提交
 job.IngestionJob → IngestionTaskProcessor → IngestionService.claimIngestion
@@ -121,7 +118,6 @@ GET /v1/sources/{answerId}/{ordinal} → AnswerService / EvidenceService.source
 | Text answers / evidence | 有界并发与总预算、只读检索和逐事实验证；完整scope、权威hydrate、最终资格与trace原子提交 | [AnswerService](../src/main/java/com/evidence/rag/service/AnswerService.java)、[EvidenceService](../src/main/java/com/evidence/rag/service/EvidenceService.java)、[EvidenceRepository](../src/main/java/com/evidence/rag/repository/EvidenceRepository.java)、[TextGrounding](../src/main/java/com/evidence/rag/tool/answer/TextGrounding.java) |
 | Model data | Entity 是持久化快照；DTO/Query 是输入和安全结果；VO 是公开白名单；Domain 表达身份及证据 | [DocumentEntity](../src/main/java/com/evidence/rag/model/entity/DocumentEntity.java)、[DocumentPatchCommand](../src/main/java/com/evidence/rag/model/dto/DocumentPatchCommand.java)、[DocumentQuery](../src/main/java/com/evidence/rag/model/query/DocumentQuery.java)、[DocumentResponse](../src/main/java/com/evidence/rag/model/vo/DocumentResponse.java)、[IndexClaim](../src/main/java/com/evidence/rag/model/domain/IndexClaim.java) |
 | Model / vector client | 模型和 Milvus 协议、响应限长与完整投影验证；不是数据 Model 层 | [TextModels](../src/main/java/com/evidence/rag/client/model/TextModels.java)、[RetrievalProjection](../src/main/java/com/evidence/rag/client/vector/RetrievalProjection.java)、[MilvusRestProjection](../src/main/java/com/evidence/rag/client/vector/MilvusRestProjection.java) |
-| Browser state | 身份变化使旧票据失效；只接受当前有效读写结果 | [workbench-state.mjs](../src/main/resources/static/workbench-state.mjs)、[notices.mjs](../src/main/resources/static/notices.mjs)、[UI tests](../ui-tests/) |
 | HTTP / runtime | Controller 和上传 Servlet 处理协议；转换器保留 PATCH 三态/固定 JSON；错误类别在 Web 映射 HTTP | [ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[UploadServlet](../src/main/java/com/evidence/rag/web/UploadServlet.java)、[ManagementRequestMapper](../src/main/java/com/evidence/rag/web/converter/ManagementRequestMapper.java)、[HttpProblemMapper](../src/main/java/com/evidence/rag/web/HttpProblemMapper.java)、[RuntimeService](../src/main/java/com/evidence/rag/service/RuntimeService.java) |
 | Composition | 配置绑定、Bean 装配、恢复时序与资源关闭；其他层不读取全局配置 | [PersistenceConfiguration](../src/main/java/com/evidence/rag/config/PersistenceConfiguration.java)、[SecurityConfiguration](../src/main/java/com/evidence/rag/config/SecurityConfiguration.java)、[IndexingConfiguration](../src/main/java/com/evidence/rag/config/IndexingConfiguration.java)、[AnswersConfiguration](../src/main/java/com/evidence/rag/config/AnswersConfiguration.java)、[TextAdaptersConfiguration](../src/main/java/com/evidence/rag/config/TextAdaptersConfiguration.java) |
 
@@ -137,7 +133,7 @@ AnswerService在完整请求体解码后实施总预算及有界准入；远程�
 
 ## 启动、配置与迁移隔离
 
-[RagApplication](../src/main/java/com/evidence/rag/RagApplication.java)是唯一 Java 启动入口。正常启动 Spring 应用；`--seed-demo NEW_DATA_DIRECTORY` 是显式 CLI，仅向全新数据库写入合成元数据，不上传或解析文件，也不会自动在服务启动时执行。
+[RagApplication](../src/main/java/com/evidence/rag/RagApplication.java)是唯一 Java 启动入口。正常启动 Spring 应用（只提供 HTTP API，界面在独立的 ai-knowledge-web 仓库）；其余参数仅用于启动隔离 worker 子进程。
 
 [application.properties](../src/main/resources/application.properties)和配置校验控制以下边界：
 

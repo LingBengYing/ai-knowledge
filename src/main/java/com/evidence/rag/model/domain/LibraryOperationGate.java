@@ -71,14 +71,6 @@ public final class LibraryOperationGate {
     return new ReservedRunnable(Objects.requireNonNull(body), reservation);
   }
 
-  public <T> ReservedCall<T> protect(Callable<T> body) {
-    return new ReservedCall<>(Objects.requireNonNull(body), reserve());
-  }
-
-  public ReservedRunnable protect(Runnable body) {
-    return new ReservedRunnable(Objects.requireNonNull(body), reserve());
-  }
-
   public static final class ReservedOperation implements AutoCloseable {
     private final LibraryOperationGate gate;
     private boolean begun;

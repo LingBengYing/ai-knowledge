@@ -23,11 +23,8 @@ public record ModelConfigurationResult(
     }
   }
 
-  public record RoleResult(String model, @JsonProperty("has_key") boolean hasKey, String provider) {
-    public RoleResult(String model, boolean hasKey) {
-      this(model, hasKey, "siliconflow");
-    }
-  }
+  public record RoleResult(
+      String model, @JsonProperty("has_key") boolean hasKey, String provider) {}
 
   public record ProjectionResult(
       boolean configured, Integer dimension, @JsonProperty("can_test") boolean canTest) {}

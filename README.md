@@ -149,7 +149,7 @@ Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操�
 | 摄取后台当前授权与撤权取消 | 0006 本地验收通过 | 领取/执行前/提交复验原创建者当前写权限；取消审计原子提交；重试需恢复创建者权限 |
 | 显式索引任务与active发布 | 已实现 | 每attempt独立generation、完整物理manifest与映射台账；实际能力取决于运行配置，不将parsed当indexed |
 | 有证问答与来源 | 已实现；10/04已有局部页面记录 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；完整范围/配置复验和trace同事务；0042/0044支持正常字段/启动日期表达，不改原文 |
-| 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，默认关闭 | DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending；当前受控清理和逐项状态见0031，不代表同步清理完成 |
+| 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，单项DELETE入口已移除 | 现走 /v1/documents/{id}/cleanup；原 DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending；当前受控清理和逐项状态见0031，不代表同步清理完成 |
 | PNG/JPEG文字识别、索引问答、词框与原图引用回读 | 0010本机后端验收通过 | 实际Tesseract合成英文PNG；模型/Milvus为协议替身，非真实图片检索质量；见[图片入口](docs/IMAGE_EVIDENCE.md) |
 | 原图视觉模型通信、库内索引、逐事实问答与整图引用 | 已实现；10/04已有图片页面记录 | 独立image证据，caption仅用于召回；局部实际回答/原图回读不认证所有图片质量 |
 | 音频解码、ASR协议、索引、问答与原文件Range | 已实现；10/04已有日期/播放记录 | [接口及验证边界](docs/AUDIO_COMPILATION.md)；时间为真实分段，保存转录错字保留，不假报词级对齐或ASR质量已解决 |
@@ -170,7 +170,7 @@ Java 21 编译目标、Spring Boot 4.1.1、Maven、SQLite JDBC、PDFBox 3.0.8；
 
 不依赖 Python，不通过 Python 代理业务。无模型 API key 也能运行当前管理工作台。
 
-前端已独立发布至 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web)，提供原生界面、本机同源开发代理及独立运行说明。本仓库仍保留同源内置页面；分仓不代表自动同步或跨域认证已启用。
+前端已独立发布至 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web)，提供原生界面、本机同源开发代理及独立运行说明。本仓库不再内置页面，只提供 HTTP API；分仓不代表自动同步或跨域认证已启用。
 
 ## 快速开始
 
@@ -183,16 +183,7 @@ mvn -s .mvn/settings.xml -gs .mvn/settings.xml verify
 RAG_AUTH_MODE=development_headers bash run-dev.sh
 ```
 
-打开 [本地工作台](http://127.0.0.1:18084/)。空库没有资料；开发模式可以输入 `owner` 作为本地演示身份。不要把开发 header 模式接到公网或反向代理。
-
-要演示四类资料的整理界面，可显式创建一份 **合成元数据**，不是上传/解析/检索结果：
-
-```bash
-java -jar target/rag-java-0.1.0-SNAPSHOT.jar --seed-demo ./demo-data
-RAG_AUTH_MODE=development_headers RAG_DATA_DIRECTORY=./demo-data bash run-dev.sh
-```
-
-`owner` 可整理四条合成资料，`reader` 只能读取两条被授权资料，`editor` 可编辑其被授权资料。重复 seed 同一目录会被拒绝，避免覆盖。
+后端只提供 `http://127.0.0.1:18084/v1/...` API，根路径不再有内置页面。界面使用独立前端 [ai-knowledge-web](https://github.com/LingBengYing/ai-knowledge-web)（本机同源代理与 `owner` 开发身份见其说明及[新版前端运行说明](docs/WORKSPACE_FRONTEND.md)）。不要把开发 header 模式接到公网或反向代理。
 
 `run-dev.sh` 会复制一个不变 JAR 后启动，避免后续 Maven 打包覆盖运行中的程序。默认绑定 `127.0.0.1:18084`。
 
@@ -244,7 +235,7 @@ JWT 模式缺少 secret 会拒绝启动。浏览器通过 `POST /v1/session` 换
 ```bash
 mvn -s .mvn/settings.xml -gs .mvn/settings.xml spotless:apply
 mvn -s .mvn/settings.xml -gs .mvn/settings.xml clean verify
-node --test ui-tests/*.test.mjs scripts/check-secrets.test.mjs
+node --test scripts/check-secrets.test.mjs
 node scripts/check-secrets.mjs --history
 ```
 

@@ -46,7 +46,6 @@ public final class VideoAnswerProposalService {
   private final RetrievalProjection projection;
   private final IndexTarget target;
   private final String retrievalModelsRevision;
-  private final Duration assessmentBudget;
   private final VideoAssessmentService assessment;
   private final String textRevision;
   private final String visionRevision;
@@ -91,7 +90,6 @@ public final class VideoAnswerProposalService {
     this.projection = projection;
     this.target = target;
     this.retrievalModelsRevision = ModelValues.identifier(text.revision(), 200);
-    this.assessmentBudget = assessmentBudget;
     assessment = new VideoAssessmentService(factText, vision, assessmentBudget);
     textRevision = ModelValues.identifier(factText.revision(), 200);
     visionRevision = ModelValues.identifier(vision.revision(), 200);
@@ -115,26 +113,6 @@ public final class VideoAnswerProposalService {
     }
     return new VideoAnswerProposalService(
         evidence, text, facts, vision, projection, target, budget, anchor);
-  }
-
-  /** Rebind an explicitly configured legacy video graph to the installed text roles. */
-  public VideoAnswerProposalService withTextBundle(
-      TextModels models,
-      RetrievalProjection currentProjection,
-      IndexTarget currentTarget,
-      TextIndexAnchor anchor) {
-    if (!(models instanceof FactTextModels facts) || anchor == null) {
-      throw ModelValues.invalid();
-    }
-    return new VideoAnswerProposalService(
-        evidence,
-        models,
-        facts,
-        vision,
-        currentProjection,
-        currentTarget,
-        assessmentBudget,
-        anchor);
   }
 
   public VideoAnswerProposal propose(

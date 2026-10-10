@@ -10,7 +10,6 @@ import com.evidence.rag.service.VisualAnswerService;
 import com.evidence.rag.web.converter.AnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
-import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,11 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 public final class VisualAnswerController {
   private final VisualAnswerService answers;
   private final ManagedTextRuntime runtime;
-
-  public VisualAnswerController(@Nullable VisualAnswerService answers) {
-    this.answers = answers;
-    this.runtime = null;
-  }
 
   @Autowired
   public VisualAnswerController(

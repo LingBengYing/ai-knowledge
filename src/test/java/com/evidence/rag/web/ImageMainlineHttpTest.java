@@ -8,8 +8,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
 import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.support.AnswerProtocolServer;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.worker.indexing.IndexingTestServer;
 import java.awt.Color;
 import java.awt.Font;
@@ -234,7 +237,8 @@ class ImageMainlineHttpTest {
         assertEquals(source, JSON.readTree(sharedSource.body()));
         assertEquals(
             401, request("GET", contentUrl, null, null, "other-org", "image-owner").statusCode());
-        json("DELETE", "/v1/documents/" + doc, null, null, 202);
+        DocumentWithdrawal.withdraw(
+            context.getBean(SqliteAuthorityStore.class), new Actor("org-main", "image-owner"), doc);
         assertEquals(404, request("GET", contentUrl, null, null, "image-owner").statusCode());
         assertEquals(404, request("GET", sourceUrl, null, null, "another-owner").statusCode());
         assertEquals(404, request("GET", contentUrl, null, null, "another-owner").statusCode());

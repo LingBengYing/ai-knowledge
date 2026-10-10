@@ -19,9 +19,9 @@ import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.DocumentLifecycleService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.ManagementService;
+import com.evidence.rag.support.DocumentWithdrawal;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -221,7 +221,8 @@ class DocumentOriginalHttpTest {
         task.documentId());
     assertProblem(get(originalPath(task), "original-reader"), 404);
     assertProblem(get(contentPath(task), "original-reader"), 404);
-    context.getBean(DocumentLifecycleService.class).removeDocument(OWNER, task.documentId());
+    DocumentWithdrawal.withdraw(
+        context.getBean(SqliteAuthorityStore.class), OWNER, task.documentId());
     assertProblem(get(originalPath(task), OWNER.principalId()), 404);
     assertProblem(get(contentPath(task), OWNER.principalId()), 404);
   }

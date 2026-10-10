@@ -28,10 +28,6 @@ public final class DocumentUpdateRepository {
         .map(DocumentUpdateRepository::entity);
   }
 
-  public Optional<DocumentReplacementEntity> findCurrent(String documentId) {
-    return current(documentId);
-  }
-
   public Optional<DocumentReplacementEntity> find(String id) {
     return store.rows("SELECT * FROM document_replacements WHERE id=?", id).stream()
         .findFirst()
@@ -70,10 +66,6 @@ public final class DocumentUpdateRepository {
                 "SELECT COUNT(*) FROM documents d WHERE d.id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_cleanups WHERE document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_replacements WHERE document_id=d.id AND state IN ('stored','queued','processing','parsed','indexing')) AND NOT EXISTS(SELECT 1 FROM ingestion_jobs WHERE document_id=d.id AND state IN ('queued','processing')) AND NOT EXISTS(SELECT 1 FROM indexing_jobs WHERE document_id=d.id AND state IN ('queued','processing'))",
                 documentId)
             == 1;
-  }
-
-  public Optional<String> activePublicationId(String documentId) {
-    return currentPublicationId(documentId);
   }
 
   public Optional<String> currentPublicationId(String documentId) {

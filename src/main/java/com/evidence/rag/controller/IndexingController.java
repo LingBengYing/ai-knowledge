@@ -28,12 +28,6 @@ public final class IndexingController {
   private final IndexingTaskProcessor processor;
   private final ManagedTextRuntime runtime;
 
-  public IndexingController(IndexingService authority, IndexingTaskProcessor processor) {
-    this.authority = authority;
-    this.processor = processor;
-    this.runtime = null;
-  }
-
   @Autowired
   public IndexingController(
       IndexingService authority,

@@ -17,12 +17,12 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ProjectionAttempt;
 import com.evidence.rag.repository.DocumentCleanupRepository;
 import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.support.AuthorityTestContext;
+import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.OwnedTemporaryResources;
 import java.net.URI;
@@ -231,15 +231,9 @@ class DocumentCleanupServiceTest {
           assertThrows(
                   ApplicationException.class, () -> service.request(owner, queued.documentId()))
               .code());
-      var lifecycle =
-          new DocumentLifecycleService(
-              authority.store(),
-              new DocumentLifecycleRepository(authority.store()),
-              new ManagementRepository(authority.store()),
-              new IngestionRepository(authority.store()),
-              new IndexingRepository(authority.store()),
-              new DocumentPermissionPolicy());
-      lifecycle.removeDocument(owner, queued.documentId());
+      // An older withdrawal cancelled the queued task before writing the tombstone.
+      authority.ingestion().cancelIngestion(owner, queued.taskId());
+      DocumentWithdrawal.withdraw(authority.store(), owner, queued.documentId());
       assertEquals("not_requested", service.status(owner, queued.documentId()).cleanupStatus());
       assertFalse(service.runOnce());
       assertEquals("pending", service.request(owner, queued.documentId()).cleanupStatus());
