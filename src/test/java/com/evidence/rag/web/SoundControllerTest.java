@@ -62,7 +62,8 @@ class SoundControllerTest {
                 ApplicationException.class,
                 () ->
                     controller.answer(
-                        request, "{\"question\":\"声音？\"}".getBytes(StandardCharsets.UTF_8)))
+                        withBody(
+                            request, "{\"question\":\"声音？\"}".getBytes(StandardCharsets.UTF_8))))
             .code());
   }
 
@@ -84,7 +85,13 @@ class SoundControllerTest {
     request.setQueryString("mode=SOUND");
     assertEquals(
         "invalid_request",
-        assertThrows(ApplicationException.class, () -> controller.answer(request, new byte[0]))
+        assertThrows(
+                ApplicationException.class, () -> controller.answer(withBody(request, new byte[0])))
             .code());
+  }
+
+  private static MockHttpServletRequest withBody(MockHttpServletRequest request, byte[] body) {
+    request.setContent(body);
+    return request;
   }
 }

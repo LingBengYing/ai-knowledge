@@ -224,7 +224,7 @@ final class VideoAvIndexProtocol {
             flag(r));
     var visual = projection(r);
     var audio = projection(r);
-    var actor = new Actor(string(r, 128), string(r, 128));
+    var actor = new Actor(string(r, 800), string(r, 800));
     String document = string(r, 128),
         revision = string(r, 128),
         filename = string(r, 1024),

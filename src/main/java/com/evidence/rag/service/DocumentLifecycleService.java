@@ -96,6 +96,31 @@ public final class DocumentLifecycleService {
                 Map.of("state", "cancelled"),
                 Set.of("state"));
           }
+          // Replacement candidates run on their own revision; cancel them too, or they stay
+          // queued forever behind the tombstone and keep cleanup and model rebuilds blocked.
+          for (String jobId : ingestion.pendingJobIds(documentId)) {
+            var task = ingestion.findInternalTask(jobId).orElseThrow();
+            ingestion.markCancelled(jobId, now);
+            audit(
+                actor,
+                documentId,
+                "ingestion_cancelled",
+                Map.of("state", task.state()),
+                Map.of("state", "cancelled"),
+                Set.of("state"));
+          }
+          for (String jobId : indexing.pendingJobIds(documentId)) {
+            var task = indexing.findInternalTask(jobId).orElseThrow();
+            indexing.markCancelled(jobId, now);
+            audit(
+                actor,
+                documentId,
+                "indexing_cancelled",
+                Map.of("state", task.state()),
+                Map.of("state", "cancelled"),
+                Set.of("state"));
+          }
+          lifecycle.cancelWaitingReplacements(documentId, now);
           var removal =
               new DocumentRemovalEntity(documentId, actor.workspaceId(), actor.principalId(), now);
           lifecycle.insertRemoval(removal);

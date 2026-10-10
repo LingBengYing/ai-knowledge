@@ -223,6 +223,32 @@ class WikiModelRebuildHttpTest {
     fail("Local task did not finish");
   }
 
+  @Test
+  void invalidRebuildRequestIsAClientProblemNotAServerFault() throws Exception {
+    try (var models = new AnswerProtocolServer();
+        var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint(), true);
+        var http = HttpClient.newHttpClient();
+        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+      String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
+      WikiLocalIntegrationServer.activate(http, base);
+      for (byte[] body :
+          List.of(
+              "{}".getBytes(StandardCharsets.UTF_8),
+              "{\"version\":\"x\"}".getBytes(StandardCharsets.UTF_8))) {
+        var problem =
+            request(
+                http,
+                base,
+                "POST",
+                "/v1/model-configuration/rebuild",
+                body,
+                "application/json",
+                422);
+        assertEquals("invalid_model_configuration", problem.path("error_code").asString());
+      }
+    }
+  }
+
   private static JsonNode request(
       HttpClient http,
       String base,

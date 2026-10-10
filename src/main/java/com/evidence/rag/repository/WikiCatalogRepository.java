@@ -20,10 +20,14 @@ public final class WikiCatalogRepository {
     return store
         .rows(
             """
-        SELECT d.*,COALESCE(i.state,j.state,'ready') AS processing_state
+        SELECT d.*,COALESCE(
+          (SELECT i.state FROM indexing_jobs i
+           WHERE i.document_id=d.id AND i.revision_id=d.active_revision_id
+             AND (i.model_rebuild_id IS NULL OR i.state='indexed')
+           ORDER BY i.rebuild_sequence DESC,i.id DESC LIMIT 1),
+          j.state,'ready') AS processing_state
         FROM documents d
         LEFT JOIN ingestion_jobs j ON j.document_id=d.id AND j.revision_id=d.active_revision_id
-        LEFT JOIN indexing_jobs i ON i.document_id=d.id AND i.revision_id=d.active_revision_id
         WHERE d.workspace_id=? AND (?='' OR d.document_type=?)
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
         ORDER BY d.updated_at DESC,d.id
