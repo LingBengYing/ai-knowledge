@@ -8,7 +8,7 @@ if [[ $# -gt 1 || ( "$agent_mode" != run && "$agent_mode" != --build-only && "$a
   exit 2
 fi
 if [[ "$agent_mode" == --help ]]; then
-  echo "Build a NEW isolated Java snapshot and run real DB-GPT with synthetic local providers."
+  echo "Build a NEW isolated Java snapshot and run the native agent with synthetic local providers."
   echo "Requires preinstalled agent-service environment; set AGENT_PYTHON to its interpreter."
   echo "Overrides: AGENT_JAVA_HOME, AGENT_MAVEN, AGENT_PYTHON, AGENT_TEMP_ROOT, AGENT_WEB_PORT, AGENT_JAVA_PORT, AGENT_SERVICE_PORT."
   echo "No cloud requests, credentials, old data, or automatic downloads are used."
@@ -35,7 +35,7 @@ if [[ "$agent_temp" != /* || ! -d "$agent_temp" || ! -w "$agent_temp" ]]; then
   exit 1
 fi
 unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS MAVEN_ARGS
-agent_runtime="$(mktemp -d "$agent_temp/dbgpt-0057-integration.XXXXXX")"
+agent_runtime="$(mktemp -d "$agent_temp/native-agent-integration.XXXXXX")"
 agent_runtime="$(cd "$agent_runtime" && pwd -P)"
 agent_build="$agent_runtime/build"
 echo "New isolated runtime: $agent_runtime"
@@ -63,7 +63,7 @@ const decoded = cp.replace(/&([^;]+);/g, (_, e) => {
 });
 const entries = decoded.split(path.delimiter).filter(Boolean);
 if (entries[0] !== path.join(build,'test-classes') || entries[1] !== path.join(build,'classes') || entries.some(p => !path.isAbsolute(p) || !fs.existsSync(p))) throw new Error('Classpath must use new snapshot');
-if (!fs.existsSync(path.join(build,'test-classes/com/evidence/rag/support/DbGptLocalIntegrationServer.class'))) throw new Error('Integration launcher missing');
+if (!fs.existsSync(path.join(build,'test-classes/com/evidence/rag/support/NativeAgentLocalIntegrationServer.class'))) throw new Error('Integration launcher missing');
 fs.writeFileSync(path.join(build,'classpath.txt'), entries.join(path.delimiter), {mode:0o600});
 NODE
 if [[ "$agent_mode" == --build-only ]]; then

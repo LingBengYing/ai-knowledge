@@ -69,13 +69,26 @@ class WikiDraftMigrationTest {
                 WikiPagePurgeMigrationTest.withoutReplacedGuards(schema),
                 WikiPagePurgeMigrationTest.withoutReplacedGuards(
                     store.rows(
-                        "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','wiki_drafts','wiki_drafts_updated','wiki_drafts_version','wiki_page_lifecycle','wiki_page_lifecycle_contiguous','wiki_page_lifecycle_no_update','wiki_page_lifecycle_no_delete','import_index_requests') ORDER BY type,name")));
+                        "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','wiki_drafts','wiki_drafts_updated','wiki_drafts_version','wiki_page_lifecycle','wiki_page_lifecycle_contiguous','wiki_page_lifecycle_no_update','wiki_page_lifecycle_no_delete','import_index_requests','knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner') ORDER BY type,name")));
             for (var row : rows.entrySet()) {
               assertEquals(
                   row.getValue(), store.rows("SELECT * FROM " + row.getKey()), row.getKey());
             }
             assertEquals(0, store.count("SELECT COUNT(*) FROM wiki_drafts"));
             assertEquals(0, store.count("SELECT COUNT(*) FROM import_index_requests"));
+            assertEquals(
+                List.of(
+                    Map.of("type", "index", "name", "knowledge_conversations_owner"),
+                    Map.of("type", "table", "name", "knowledge_conversation_turns"),
+                    Map.of("type", "table", "name", "knowledge_conversations")),
+                store.rows(
+                    "SELECT type,name FROM sqlite_master WHERE name IN ('knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner') ORDER BY type,name"));
+            assertEquals(
+                3,
+                store.count(
+                    "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name IN ('knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner')"));
+            assertEquals(0, store.count("SELECT COUNT(*) FROM knowledge_conversations"));
+            assertEquals(0, store.count("SELECT COUNT(*) FROM knowledge_conversation_turns"));
             assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
             new WikiDraftRepository(store)
                 .insert(new Actor("org", "member"), new WikiDraft("draft", "标题", "正文", 1, 1, 1));

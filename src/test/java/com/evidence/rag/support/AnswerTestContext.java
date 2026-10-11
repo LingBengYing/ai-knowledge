@@ -149,13 +149,13 @@ public final class AnswerTestContext implements AutoCloseable {
                 .mapToObj(index -> new Ranked(index, 100.0 - index))
                 .toList();
     public List<Evidence> lastEvidence = List.of();
-    public Function<List<AgentMessage>, String> agent =
+    public Function<List<AgentMessage>, AgentMessage> agent =
         messages -> {
           throw new Failure("model_agent_unavailable");
         };
 
     @Override
-    public String agentChat(List<AgentMessage> messages) {
+    public AgentMessage agentChat(List<AgentMessage> messages) {
       calls.add("agent");
       return agent.apply(messages);
     }

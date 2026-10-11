@@ -1,5 +1,6 @@
 package com.evidence.rag.client.model;
 
+import com.evidence.rag.model.dto.AgentMessage;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -8,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import tools.jackson.databind.JsonNode;
 
-/** Agent-only native function protocol; canonical text is consumed only by the DB-GPT Adapter. */
+/** Agent-only native function protocol, including correlated tool-call history. */
 final class AgentToolProtocol {
   private static final List<Map<String, Object>> TOOLS =
       List.of(
@@ -57,26 +58,29 @@ final class AgentToolProtocol {
   }
 
   static Map<String, Object> request(
-      OpenAiCompatibleModels.Endpoint endpoint, List<Map<String, String>> messages) {
+      OpenAiCompatibleModels.Endpoint endpoint, List<AgentMessage> messages) {
+    for (var message : messages) {
+      if (message.toolCalls() != null) {
+        for (var call : message.toolCalls()) {
+          validateArguments(
+              call.function().name(), call.function().arguments(), message.toolCalls().size());
+        }
+      }
+    }
     var request = new LinkedHashMap<String, Object>();
     request.put("model", endpoint.model());
     request.put("messages", messages);
     request.put("stream", false);
     request.put("n", 1);
     request.put("tools", tools());
-    request.put("tool_choice", "required");
+    request.put("tool_choice", "auto");
     request.put("parallel_tool_calls", false);
-    // Official DeepSeek thinking mode rejects required tool choice. This Agent-only adapter
-    // uses canonical text history, not native reasoning replay; generic compatible endpoints
-    // receive no vendor-specific options and never silently downgrade the tool requirement.
-    if ("https".equalsIgnoreCase(endpoint.baseUrl().getScheme())
-        && "api.deepseek.com".equalsIgnoreCase(endpoint.baseUrl().getHost())) {
-      request.put("thinking", Map.of("type", "disabled"));
-    }
+    // Let the selected provider/model choose its normal mode. Native reasoning, when returned,
+    // remains correlated with its tool calls; ordinary prose still cannot become a final answer.
     return Map.copyOf(request);
   }
 
-  static String canonicalAction(JsonNode response) {
+  static AgentMessage assistantMessage(JsonNode response) {
     var choices = response.path("choices");
     if (!choices.isArray() || choices.size() != 1) {
       throw invalid();
@@ -105,7 +109,7 @@ final class AgentToolProtocol {
         || calls.size() > 16) {
       throw invalid();
     }
-    var checked = new ArrayList<Map<String, Object>>();
+    var checked = new ArrayList<AgentMessage.ToolCall>();
     var ids = new HashSet<String>();
     for (int position = 0; position < calls.size(); position++) {
       var call = calls.get(position);
@@ -120,45 +124,58 @@ final class AgentToolProtocol {
               || call.path("index").intValue() != position)) {
         throw invalid();
       }
-      if (!ids.add(text(call.path("id"), 262144))
+      String id = text(call.path("id"), 262144);
+      if (!id.matches("[A-Za-z0-9_-]{1,256}")
+          || !ids.add(id)
           || !"function".equals(call.path("type").asString())) {
         throw invalid();
       }
       var function = call.path("function");
       exact(function, Set.of("name", "arguments"));
       String name = text(function.path("name"), 128);
-      var arguments = ModelHttpTransport.parseObject(text(function.path("arguments"), 262144));
-      switch (name) {
-        case "knowledge_search" -> {
-          exact(arguments, Set.of("query"));
-          text(arguments.path("query"), 4000);
-        }
-        case "knowledge_read" -> {
-          exact(arguments, Set.of("source_ids"));
-          validateStrings(arguments.path("source_ids"), 32);
-        }
-        case "terminate" -> {
-          if (calls.size() != 1) throw invalid();
-          validateResult(arguments);
-        }
-        default -> throw invalid();
-      }
-      checked.add(Map.of("name", name, "arguments", arguments));
+      String arguments = text(function.path("arguments"), 262144);
+      validateArguments(name, arguments, calls.size());
+      checked.add(
+          new AgentMessage.ToolCall(
+              id, "function", new AgentMessage.FunctionCall(name, arguments)));
     }
-    // Validate every call before returning any action. A batch is an internal read-only tool;
-    // the provider still sees only the original three function schemas.
-    String name = checked.size() == 1 ? (String) checked.getFirst().get("name") : "knowledge_batch";
-    String arguments =
-        checked.size() == 1
-            ? checked.getFirst().get("arguments").toString()
-            : ModelHttpTransport.encodeJson(Map.of("calls", checked));
-    // Serialize parsed JSON, rather than embedding provider text. Escaped newlines in arguments
-    // cannot inject additional Action/Observation lines into the upstream text parser.
-    String action = "Action: " + name + "\nAction Input: " + arguments;
-    if (action.length() > 262144) {
+    // Validate the entire batch before dispatch; preserve IDs and exact native argument strings.
+    // Assistant prose is not execution authority. Preserve only the explicit native reasoning
+    // field for the same tool loop, never a fabricated explanation or an evidence source.
+    String reasoning = null;
+    if (message.hasNonNull("reasoning_content")) {
+      var field = message.path("reasoning_content");
+      if (!field.isString()
+          || field.asString().length() > 262144
+          || field.asString().indexOf(0) >= 0) {
+        throw invalid();
+      }
+      reasoning = field.asString();
+    }
+    var messageResult = new AgentMessage("assistant", null, checked, null, reasoning);
+    if (ModelHttpTransport.encodeJson(Map.of("message", messageResult)).length() > 262144) {
       throw invalid();
     }
-    return action;
+    return messageResult;
+  }
+
+  private static void validateArguments(String name, String encodedArguments, int callCount) {
+    var arguments = ModelHttpTransport.parseObject(encodedArguments);
+    switch (name) {
+      case "knowledge_search" -> {
+        exact(arguments, Set.of("query"));
+        text(arguments.path("query"), 4000);
+      }
+      case "knowledge_read" -> {
+        exact(arguments, Set.of("source_ids"));
+        validateStrings(arguments.path("source_ids"), 32);
+      }
+      case "terminate" -> {
+        if (callCount != 1) throw invalid();
+        validateResult(arguments);
+      }
+      default -> throw invalid();
+    }
   }
 
   private static void validateResult(JsonNode arguments) {

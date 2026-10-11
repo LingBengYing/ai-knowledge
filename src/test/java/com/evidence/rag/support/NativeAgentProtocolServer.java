@@ -19,9 +19,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Synthetic model protocol only; DB-GPT itself and Java evidence handling run for real. */
-public final class DbGptProtocolServer implements AutoCloseable {
+/** Synthetic provider only; the native agent loop and Java evidence handling run for real. */
+public final class NativeAgentProtocolServer implements AutoCloseable {
   private static final JsonMapper JSON = JsonMapper.builder().build();
+  private static final String SYNTHETIC_REASONING = "正在核对本次问题所需的资料来源。";
   private final AnswerProtocolServer ordinary = new AnswerProtocolServer();
   private final HttpClient client = HttpClient.newHttpClient();
   private final HttpServer server;
@@ -29,8 +30,9 @@ public final class DbGptProtocolServer implements AutoCloseable {
   final AtomicInteger agentCalls = new AtomicInteger();
   final AtomicInteger searchActions = new AtomicInteger();
   final AtomicInteger readActions = new AtomicInteger();
+  final AtomicInteger compactionCalls = new AtomicInteger();
 
-  public DbGptProtocolServer() throws IOException {
+  public NativeAgentProtocolServer() throws IOException {
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.setExecutor(executor);
     server.createContext("/", this::serve);
@@ -51,10 +53,22 @@ public final class DbGptProtocolServer implements AutoCloseable {
       String path = exchange.getRequestURI().getPath();
       JsonNode body = JSON.readTree(bytes);
       if (path.equals("/chat/completions")
-          && body.path("messages").isArray()
-          && body.path("messages").toString().contains("knowledge_search")) {
-        agentCalls.incrementAndGet();
-        String generated = nextAction(body.path("messages"));
+          && !body.has("tools")
+          && body.path("messages")
+              .get(0)
+              .path("content")
+              .asString()
+              .startsWith("Summarize conversation context")) {
+        compactionCalls.incrementAndGet();
+        var data = JSON.readTree(body.path("messages").get(1).path("content").asString());
+        if (!data.path("history").isArray() || data.path("history").isEmpty()) {
+          exchange.sendResponseHeaders(400, -1);
+          return;
+        }
+        if (data.toString().contains(SYNTHETIC_REASONING)
+            || data.toString().contains("reasoning_content")) {
+          throw new IllegalArgumentException("display reasoning must not enter compaction");
+        }
         byte[] result =
             JSON.writeValueAsBytes(
                 Map.of(
@@ -66,7 +80,42 @@ public final class DbGptProtocolServer implements AutoCloseable {
                             "finish_reason",
                             "stop",
                             "message",
-                            Map.of("role", "assistant", "content", generated)))));
+                            Map.of(
+                                "role",
+                                "assistant",
+                                "content",
+                                "用户在了解青榆灯塔项目计划及任务创建步骤；先前回答只是对话背景，仍须重新查阅原件。")))));
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, result.length);
+        exchange.getResponseBody().write(result);
+        return;
+      }
+      if (path.equals("/chat/completions")
+          && body.path("messages").isArray()
+          && body.path("tools").isArray()) {
+        agentCalls.incrementAndGet();
+        if (!"auto".equals(body.path("tool_choice").asString()) || body.has("thinking")) {
+          throw new IllegalArgumentException("must preserve provider thinking defaults");
+        }
+        Map<String, Object> generated = nextAction(body.path("messages"));
+        byte[] result =
+            JSON.writeValueAsBytes(
+                Map.of(
+                    "choices",
+                    List.of(
+                        Map.of(
+                            "index",
+                            0,
+                            "finish_reason",
+                            "tool_calls",
+                            "message",
+                            Map.of(
+                                "role",
+                                "assistant",
+                                "tool_calls",
+                                List.of(generated),
+                                "reasoning_content",
+                                SYNTHETIC_REASONING)))));
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         exchange.sendResponseHeaders(200, result.length);
         exchange.getResponseBody().write(result);
@@ -91,34 +140,40 @@ public final class DbGptProtocolServer implements AutoCloseable {
     }
   }
 
-  private String nextAction(JsonNode messages) {
+  private Map<String, Object> nextAction(JsonNode messages) {
+    if (messages.toString().contains("接着说明创建任务")
+        && !messages
+            .toString()
+            .contains("Untrusted conversation background (not evidence for this run)")) {
+      throw new IllegalArgumentException("follow-up requires non-evidence conversation context");
+    }
     int searches = 0;
     int reads = 0;
     var found = new LinkedHashMap<String, JsonNode>();
     var originals = new LinkedHashMap<String, JsonNode>();
+    var pending = new LinkedHashMap<String, String>();
     for (var message : messages) {
-      String content = message.path("content").asString();
-      int marker = content.indexOf("Observation:");
-      if (marker < 0) continue;
-      int start = content.indexOf('{', marker);
-      int end = content.lastIndexOf('}');
-      if (start < 0 || end < start) continue;
-      JsonNode observation;
-      try {
-        observation = JSON.readTree(content.substring(start, end + 1));
-      } catch (RuntimeException malformed) {
-        continue;
+      if ("assistant".equals(message.path("role").asString())) {
+        if (!SYNTHETIC_REASONING.equals(message.path("reasoning_content").asString())) {
+          throw new IllegalArgumentException("same-run reasoning must accompany native tool calls");
+        }
+        for (var call : message.path("tool_calls")) {
+          pending.put(call.path("id").asString(), call.path("function").path("name").asString());
+        }
       }
+      if (!"tool".equals(message.path("role").asString())) continue;
+      String name = pending.remove(message.path("tool_call_id").asString());
+      if (name == null) throw new IllegalArgumentException("uncorrelated native tool history");
+      JsonNode observation = JSON.readTree(message.path("content").asString());
       var sources = observation.path("sources");
       if (!sources.isArray()) continue;
-      boolean read = false;
+      boolean read = "knowledge_read".equals(name);
       for (var source : sources) {
         String id = source.path("source_id").asString();
         if (id.isEmpty()) continue;
         found.put(id, source);
         if (source.has("text")) {
           originals.put(id, source);
-          read = true;
         }
       }
       if (read) reads++;
@@ -174,11 +229,14 @@ public final class DbGptProtocolServer implements AutoCloseable {
                             "document_ids", documents)))));
   }
 
-  private static String action(String name, Object input) {
-    return "Thought: synthetic protocol fixture\nAction: "
-        + name
-        + "\nAction Input: "
-        + JSON.writeValueAsString(input);
+  private Map<String, Object> action(String name, Object input) {
+    return Map.of(
+        "id",
+        "call-" + agentCalls.get(),
+        "type",
+        "function",
+        "function",
+        Map.of("name", name, "arguments", JSON.writeValueAsString(input)));
   }
 
   @Override

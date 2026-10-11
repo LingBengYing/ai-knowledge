@@ -1,4 +1,4 @@
-"""Loopback HTTP boundary for the DB-GPT adapter."""
+"""Loopback HTTP boundary for the native knowledge agent."""
 
 import asyncio
 import hmac
@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import Field, StrictStr, ValidationError
 
-from .runtime import ACTIONS, AgentFailure, CallbackBridge, RESULT_REASONS, STAGES, TOOL_REASONS, StrictModel, run_agent
+from .runtime import ACTIONS, AgentFailure, CallbackBridge, ConversationContext, RESULT_REASONS, STAGES, TOOL_REASONS, run_agent
 
 LOG = logging.getLogger("knowledge_agent.service")
 
@@ -60,7 +60,7 @@ class Settings:
                    timeout=float(os.environ.get("AGENT_RUN_TIMEOUT_SECONDS", "180")))
 
 
-class RunInput(StrictModel):
+class RunInput(ConversationContext):
     run_id: StrictStr = Field(min_length=36, max_length=36)
     question: StrictStr = Field(min_length=1, max_length=16000)
     callback_token: StrictStr = Field(min_length=32, max_length=256)
@@ -75,7 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "engine": "dbgpt-0.8.2", "protocol": 1}
+        return {"status": "ok", "engine": "knowledge-native-agent", "protocol": 2}
 
     @app.post("/v1/runs")
     async def runs(request: Request):
@@ -85,11 +85,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         data = bytearray()
         async for chunk in request.stream():
             data.extend(chunk)
-            if len(data) > 80000:
+            if len(data) > 1024 * 1024:
                 return JSONResponse({"error": "invalid_request"}, status_code=413)
         try:
             value = RunInput.model_validate(json.loads(data))
             if str(UUID(value.run_id)) != value.run_id or not value.question.strip() or any(c.isspace() for c in value.callback_token):
+                raise ValueError()
+            if len(value.question) + len(value.summary) + sum(len(message.content) for message in value.history) > 262144:
                 raise ValueError()
         except (ValueError, UnicodeError, RecursionError, ValidationError):
             return JSONResponse({"error": "invalid_request"}, status_code=422)
@@ -109,7 +111,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(settings.timeout), trust_env=False, follow_redirects=False) as client:
                 bridge = CallbackBridge(client, settings.java_origin, value.run_id, value.callback_token)
-                task = asyncio.create_task(run_agent(value.question, bridge, settings.timeout))
+                task = asyncio.create_task(run_agent(value.question, bridge, settings.timeout,
+                    history=[message.model_dump() for message in value.history], summary=value.summary))
                 monitor = asyncio.create_task(watch_disconnect())
                 done, _ = await asyncio.wait((task, monitor), return_when=asyncio.FIRST_COMPLETED)
                 if task not in done:

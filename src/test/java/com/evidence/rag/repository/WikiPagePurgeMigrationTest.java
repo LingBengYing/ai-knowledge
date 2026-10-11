@@ -28,7 +28,7 @@ class WikiPagePurgeMigrationTest {
     Path seed = directory.resolve("seed");
     IngestionMigrationTest.versionOne(seed);
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(35L, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(36L, store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path source;
     try (var paths = Files.list(seed)) {
@@ -71,7 +71,7 @@ class WikiPagePurgeMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(35L, store.count("PRAGMA user_version"));
+              assertEquals(36L, store.count("PRAGMA user_version"));
               for (var row : rows.entrySet()) {
                 assertEquals(
                     row.getValue(), store.rows("SELECT * FROM " + row.getKey()), row.getKey());

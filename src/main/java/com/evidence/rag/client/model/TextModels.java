@@ -24,8 +24,13 @@ public interface TextModels {
     throw new Failure("model_wiki_compilation_unavailable");
   }
 
-  /** Plain bounded Agent turn. Does not change index identity or existing prompt contracts. */
-  default String agentChat(List<AgentMessage> messages) {
+  /** Native tool turn. Does not change index identity or existing prompt contracts. */
+  default AgentMessage agentChat(List<AgentMessage> messages) {
+    throw new Failure("model_agent_unavailable");
+  }
+
+  /** Derived conversation memory only; never original knowledge evidence or citation authority. */
+  default String compactConversation(String previousSummary, List<AgentMessage> history) {
     throw new Failure("model_agent_unavailable");
   }
 

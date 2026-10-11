@@ -30,7 +30,7 @@ class WikiPageLifecycleMigrationTest {
       ReindexVersion23Fixture.execute(seed.resolve("java-library.db"), sql);
     }
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(35L, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(36L, store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path source;
     try (var paths = Files.list(seed)) {
@@ -73,12 +73,12 @@ class WikiPageLifecycleMigrationTest {
     try (var store = new SqliteAuthorityStore(target)) {
       store.transaction(
           () -> {
-            assertEquals(35, store.count("PRAGMA user_version"));
+            assertEquals(36, store.count("PRAGMA user_version"));
             assertEquals(
                 WikiPagePurgeMigrationTest.withoutReplacedGuards(schema),
                 WikiPagePurgeMigrationTest.withoutReplacedGuards(
                     store.rows(
-                        "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_page_lifecycle%' AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','import_index_requests') ORDER BY type,name")));
+                        "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT LIKE 'wiki_page_lifecycle%' AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','import_index_requests') ORDER BY type,name")));
             for (var row : rows.entrySet())
               assertEquals(
                   row.getValue(), store.rows("SELECT * FROM " + row.getKey()), row.getKey());

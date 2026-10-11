@@ -2,16 +2,43 @@ package com.evidence.rag.model.dto;
 
 import com.evidence.rag.model.domain.ModelValues;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.HashSet;
 import java.util.List;
 
-/** Restricted DTOs for the optional DB-GPT service; no credentials in diagnostics. */
+/** Restricted DTOs for the private knowledge agent service; no credentials in diagnostics. */
 public final class AgentProtocol {
   private AgentProtocol() {}
 
   public record RunRequest(
       @JsonProperty("run_id") String runId,
       String question,
-      @JsonProperty("callback_token") String callbackToken) {
+      @JsonProperty("callback_token") String callbackToken,
+      List<AgentMessage> history,
+      String summary) {
+    public RunRequest {
+      if (history == null
+          || history.size() > 32
+          || history.stream()
+              .anyMatch(
+                  message ->
+                      message == null
+                          || !("user".equals(message.role()) || "assistant".equals(message.role()))
+                          || message.toolCalls() != null
+                          || message.toolCallId() != null
+                          || message.content().length() > 262144)
+          || history.stream().mapToLong(AgentMessage::contentSize).sum() > 262144
+          || summary == null
+          || summary.length() > 16000
+          || summary.indexOf(0) >= 0) {
+        throw ModelValues.invalid();
+      }
+      history = List.copyOf(history);
+    }
+
+    public RunRequest(String runId, String question, String callbackToken) {
+      this(runId, question, callbackToken, List.of(), "");
+    }
+
     @Override
     public String toString() {
       return "AgentRunRequest[redacted]";
@@ -60,9 +87,27 @@ public final class AgentProtocol {
           || messages.isEmpty()
           || messages.size() > 64
           || messages.stream().anyMatch(java.util.Objects::isNull)
-          || messages.stream().mapToLong(m -> m.content().length()).sum() > 262144)
+          || messages.stream().mapToLong(AgentMessage::contentSize).sum() > 262144)
         throw ModelValues.invalid();
       messages = List.copyOf(messages);
+      var seen = new HashSet<String>();
+      var pending = new HashSet<String>();
+      for (var message : messages) {
+        if ("tool".equals(message.role())) {
+          if (!pending.remove(message.toolCallId())) throw ModelValues.invalid();
+        } else {
+          if (!pending.isEmpty()) throw ModelValues.invalid();
+          if (message.toolCalls() != null) {
+            for (var call : message.toolCalls()) {
+              if (!seen.add(call.id()) || "terminate".equals(call.function().name())) {
+                throw ModelValues.invalid();
+              }
+              pending.add(call.id());
+            }
+          }
+        }
+      }
+      if (!pending.isEmpty()) throw ModelValues.invalid();
     }
 
     @Override
@@ -71,7 +116,13 @@ public final class AgentProtocol {
     }
   }
 
-  public record ModelResult(String content) {
+  public record ModelResult(AgentMessage message) {
+    public ModelResult {
+      if (message == null || !"assistant".equals(message.role()) || message.toolCalls() == null) {
+        throw ModelValues.invalid();
+      }
+    }
+
     @Override
     public String toString() {
       return "AgentModelResult[redacted]";

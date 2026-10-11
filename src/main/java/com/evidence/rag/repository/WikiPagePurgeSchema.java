@@ -103,7 +103,11 @@ final class WikiPagePurgeSchema {
   }
 
   void verify() {
-    new ImportIndexSchema(store).verify(35);
+    verify(35);
+  }
+
+  void verify(int version) {
+    new ImportIndexSchema(store).verify(version);
     if (store.count(
                 "SELECT COUNT(*) FROM pragma_table_info('wiki_page_purges') WHERE name IN ('workspace_id','page_id','content_version','lifecycle_version','actor_id','created_at')")
             != 6

@@ -7,7 +7,7 @@ provider settings and tokens.
 
 `requirements-linux.lock` is the production-only export of the existing uv.lock.
 All registry packages have exact versions and SHA-256 hashes. The export resolves
-markers for Linux x86_64 / Python 3.10, retaining greenlet and excluding Windows-only
+markers for Linux x86_64 / Python 3.10, excluding development and Windows-only
 packages. Regenerate explicitly with `uv export --frozen --no-dev --no-emit-project`
 and `export_linux.py`; do not use pip freeze from a development environment.
 
@@ -26,7 +26,7 @@ bash /path/to/release/deploy/install_offline.sh \
 ```
 
 This creates the release's own .venv and performs hash-checked offline installation,
-pip dependency validation and actual upstream Agent import. It does not enable a
+pip dependency validation, native Agent import and absence of DB-GPT. It does not enable a
 service, contact a provider, run a knowledge query, or change Java/Wiki/data.
 The standalone Python directory must remain at its final location because the venv
 references it. Never move a prepared venv or embed a macOS venv into the Linux release.
@@ -61,9 +61,10 @@ Required permissions and pre-switch checks:
   the effective unit behavior on the host. Application clients independently use
   fixed literal loopback origins, `trust_env=False` and no redirects.
 
-Logs go to journald without access logging. The adapter discards upstream message
-logs, never exposes Thought, disables DB-GPT operation snapshots and uses only
-per-run memory. No SQL, code, shell, arbitrary HTTP, file or MCP tool is registered.
+Logs go to journald without access logging. The executor never logs model bodies,
+private reasoning or tool source payloads and keeps only per-run memory in Python.
+Java stores public conversation turns and separate context checkpoints. No SQL,
+code, shell, arbitrary HTTP, file or MCP tool is registered.
 The service restart policy restarts the process only; it cannot replay old tasks.
 Stopping a release cancels active Python work; Java remains the authority that
 rejects late callbacks/results. Readiness is not a real model quality test.

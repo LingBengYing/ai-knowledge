@@ -7,6 +7,7 @@ import com.evidence.rag.controller.KnowledgeAgentCallbackController;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.RetrievalSettings;
+import com.evidence.rag.model.dto.AgentMessage;
 import com.evidence.rag.model.dto.AgentProtocol;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.support.AnswerTestContext;
@@ -28,9 +29,80 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Real SQLite/source authority, test Adapter in place of the external DB-GPT process only. */
+/**
+ * Real SQLite/source authority, test Adapter in place of the external native agent process only.
+ */
 class KnowledgeAgentServiceTest {
   @TempDir Path directory;
+
+  @Test
+  void conversationPersistsAnswerAndPassesPriorDialogueWithoutReusingEvidenceAuthority()
+      throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成资料说明。");
+      String conversationId = fixture.conversations.create(fixture.context.owner, "多轮问答").id();
+      fixture.script.set(
+          request -> {
+            assertTrue(request.history().isEmpty());
+            fixture.read(request);
+            return answer("source-1");
+          });
+      String firstRequest = UUID.randomUUID().toString();
+      var first =
+          fixture.await(
+              fixture
+                  .agents
+                  .start(fixture.context.owner, "第一问", firstRequest, conversationId)
+                  .id());
+      assertEquals("answered", first.result().status());
+      assertEquals(
+          first,
+          fixture
+              .conversations
+              .get(fixture.context.owner, conversationId)
+              .turns()
+              .getFirst()
+              .result());
+      fixture.script.set(
+          request -> {
+            assertEquals("第一问", request.history().getFirst().content());
+            assertEquals(first.result().answer(), request.history().getLast().content());
+            assertTrue(request.summary().isEmpty());
+            // A historical source-1 has no authority in this new run until searched and read again.
+            return answer("source-1");
+          });
+      var second =
+          fixture.await(
+              fixture
+                  .agents
+                  .start(
+                      fixture.context.owner, "继续追问", UUID.randomUUID().toString(), conversationId)
+                  .id());
+      assertEquals("agent_invalid_response", second.error().code());
+      assertEquals(
+          "failed",
+          fixture
+              .conversations
+              .get(fixture.context.owner, conversationId)
+              .turns()
+              .getLast()
+              .status());
+      assertNull(
+          fixture
+              .conversations
+              .get(fixture.context.owner, conversationId)
+              .conversation()
+              .activeRunId());
+      assertEquals(
+          first, fixture.agents.start(fixture.context.owner, "第一问", firstRequest, conversationId));
+      assertEquals(2, fixture.calls.get());
+      fixture.conversations.delete(fixture.context.owner, conversationId);
+      assertEquals(
+          first.result().citations().getFirst(),
+          fixture.traces.source(fixture.context.owner, first.result().answerId(), 1).citation(),
+          "Deleting a conversation must not delete original documents or the citation authority");
+    }
+  }
 
   @Test
   void multiRoundSearchReadUsesSnapshotTopKAndProducesDurableServerCitationsAndSuggestions()
@@ -87,6 +159,130 @@ class KnowledgeAgentServiceTest {
                   () -> fixture.agents.start(fixture.context.owner, "换一个问题", requestId))
               .code());
       assertEquals(1, fixture.context.scalar("SELECT COUNT(*) FROM knowledge_answer_traces"));
+      var searchDetails = complete.events().get(1).details();
+      assertEquals("completed", searchDetails.status());
+      assertEquals("knowledge_search", searchDetails.toolName());
+      assertEquals("灯塔指南", searchDetails.query());
+      assertEquals(1, searchDetails.resultCount());
+      assertEquals(1, searchDetails.documentCount());
+      assertTrue(searchDetails.elapsedMs() >= 0);
+      var source = searchDetails.sources().getFirst();
+      assertEquals("source-1", source.sourceId());
+      assertEquals(doc, source.documentId());
+      assertEquals(citation.revisionId(), source.revisionId());
+      assertEquals("manual.txt", source.title());
+      assertEquals("document_text", source.kind());
+      assertEquals(citation.page(), source.page());
+      assertNull(source.startMs());
+      assertEquals(searchDetails.sources(), complete.events().get(3).details().sources());
+      assertEquals("knowledge_read", complete.events().get(3).details().toolName());
+      assertFalse(new JsonMapper().writeValueAsString(searchDetails).contains("点击新建项目"));
+    }
+  }
+
+  @Test
+  void modelEventShowsOnlyReturnedReasoningAndSelectedToolsWithoutChangingNativeMessage()
+      throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成原件正文不应写入事件。");
+      String raw = "🌲".repeat(16001);
+      var nativeMessage =
+          new AgentMessage(
+              "assistant",
+              null,
+              List.of(
+                  new AgentMessage.ToolCall(
+                      "call-search",
+                      "function",
+                      new AgentMessage.FunctionCall("knowledge_search", "{\"query\":\"资料\"}"))),
+              null,
+              raw);
+      fixture.context.models.agent = messages -> nativeMessage;
+      fixture.script.set(
+          request -> {
+            var returned =
+                fixture.agents.model(
+                    request.runId(),
+                    auth(request),
+                    new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            assertEquals(raw, returned.message().reasoningContent());
+            fixture.read(request);
+            return answer("source-1");
+          });
+      var run = fixture.await(fixture.start());
+      var event = run.events().get(1);
+      assertEquals("planning", event.type());
+      assertEquals("completed", event.details().status());
+      assertEquals("model", event.details().toolName());
+      assertEquals(List.of("knowledge_search"), event.details().toolNames());
+      assertEquals("🌲".repeat(16000), event.details().reasoning());
+      assertTrue(event.details().reasoningTruncated());
+      assertNull(event.details().query());
+      assertNull(event.details().resultCount());
+      assertTrue(event.details().sources().isEmpty());
+      assertFalse(event.toString().contains("🌲"));
+      assertFalse(event.details().toString().contains("🌲"));
+      assertEquals(1, fixture.context.models.calls.stream().filter("agent"::equals).count());
+      fixture.context.models.agent =
+          messages -> new AgentMessage("assistant", null, nativeMessage.toolCalls(), null);
+      fixture.script.set(
+          request -> {
+            fixture.agents.model(
+                request.runId(),
+                auth(request),
+                new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            fixture.read(request);
+            return answer("source-1");
+          });
+      assertNull(fixture.await(fixture.start()).events().get(1).details().reasoning());
+    }
+  }
+
+  @Test
+  void cancellationSealsRunningEventAndLateModelOutputCannotOverwriteIt() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成资料。");
+      var entered = new CountDownLatch(1);
+      var returned = new CountDownLatch(1);
+      fixture.context.models.agent =
+          messages -> {
+            entered.countDown();
+            try {
+              Thread.sleep(10000);
+            } catch (InterruptedException ignored) {
+              Thread.interrupted();
+            }
+            returned.countDown();
+            return new AgentMessage(
+                "assistant",
+                null,
+                List.of(
+                    new AgentMessage.ToolCall(
+                        "call-late",
+                        "function",
+                        new AgentMessage.FunctionCall("knowledge_search", "{\"query\":\"资料\"}"))),
+                null,
+                "late provider reasoning must not appear");
+          };
+      fixture.script.set(
+          request -> {
+            fixture.agents.model(
+                request.runId(),
+                auth(request),
+                new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            return refused();
+          });
+      String id = fixture.start();
+      assertTrue(entered.await(5, TimeUnit.SECONDS));
+      var started = fixture.agents.get(fixture.context.owner, id).events().get(1);
+      assertEquals("running", started.details().status());
+      assertNull(started.details().elapsedMs());
+      var stopped = fixture.agents.cancel(fixture.context.owner, id);
+      assertEquals("cancelled", stopped.events().get(1).details().status());
+      assertEquals(started.sequence(), stopped.events().get(1).sequence());
+      assertTrue(returned.await(5, TimeUnit.SECONDS));
+      assertEquals(stopped, fixture.agents.get(fixture.context.owner, id));
+      assertNull(stopped.events().get(1).details().reasoning());
     }
   }
 
@@ -354,6 +550,9 @@ class KnowledgeAgentServiceTest {
         assertTrue(response.getContentType().startsWith("application/problem+json"));
         assertFalse(response.getContentAsString().contains("private-provider-secret"));
         assertEquals(mapping.getValue(), run.error().code());
+        assertEquals("failed", run.events().get(1).details().status());
+        assertEquals(mapping.getValue(), run.events().get(1).details().safeCode());
+        assertTrue(run.events().get(1).details().elapsedMs() >= 0);
         assertEquals(List.of("agent"), fixture.context.models.calls);
         assertEquals(
             List.of("running", "planning", "failed"),
@@ -381,6 +580,10 @@ class KnowledgeAgentServiceTest {
       assertEquals("agent_tool_failed", run.error().code());
       assertEquals(List.of("embed"), fixture.context.models.calls);
       assertNull(run.result());
+      assertEquals("failed", run.events().get(1).details().status());
+      assertEquals("资料", run.events().get(1).details().query());
+      assertEquals("agent_tool_failed", run.events().get(1).details().safeCode());
+      assertTrue(run.events().get(1).details().sources().isEmpty());
       assertEquals(0, fixture.context.scalar("SELECT COUNT(*) FROM knowledge_answer_traces"));
     }
   }
@@ -474,6 +677,7 @@ class KnowledgeAgentServiceTest {
     final ProductHelpService retrieval;
     final KnowledgeTraceService traces;
     final KnowledgeAgentService agents;
+    final ConversationService conversations;
 
     Fixture(Path directory) {
       this(directory, Duration.ofSeconds(10));
@@ -518,6 +722,13 @@ class KnowledgeAgentServiceTest {
       retrieval =
           new ProductHelpService(context.evidence, runtime, Duration.ofSeconds(10), settings::get);
       traces = new KnowledgeTraceService(context.authority.store(), context.evidence);
+      conversations =
+          new ConversationService(
+              context.authority.store(),
+              new com.evidence.rag.repository.ConversationRepository(context.authority.store()),
+              context.owner.workspaceId(),
+              24000,
+              4);
       agents =
           new KnowledgeAgentService(
               context.evidence,
@@ -529,7 +740,8 @@ class KnowledgeAgentServiceTest {
                 return script.get().apply(request);
               },
               timeout,
-              1);
+              1,
+              conversations);
     }
 
     void read(AgentProtocol.RunRequest request) {

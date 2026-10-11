@@ -1,4 +1,4 @@
-"""Real DB-GPT action-loop regression; all callbacks are synthetic/local."""
+"""Native action-loop regression; all callbacks are synthetic/local."""
 
 from uuid import uuid4
 
@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from knowledge_agent.runtime import AgentFailure, CallbackBridge, run_agent
-from test_agent import CALLBACK_TOKEN, JavaCallbacks, react
+from test_agent import CALLBACK_TOKEN, JavaCallbacks, tool_message
 
 
 @pytest.mark.asyncio
@@ -14,8 +14,8 @@ from test_agent import CALLBACK_TOKEN, JavaCallbacks, react
 async def test_three_searches_then_legitimate_refusal_completes(empty_sources):
     refused = {"refused": True, "statements": [], "suggestions": []}
     callbacks = JavaCallbacks([
-        *[react("knowledge_search", {"query": "synthetic query"}) for _ in range(3)],
-        react("terminate", {"result": refused}),
+        *[tool_message("knowledge_search", {"query": "synthetic query"}) for _ in range(3)],
+        tool_message("terminate", {"result": refused}),
     ])
 
     async def handle(request):
@@ -36,8 +36,8 @@ async def test_three_searches_then_legitimate_refusal_completes(empty_sources):
 @pytest.mark.parametrize("ids", [["unknown"], ["source-1", "source-1"]])
 async def test_invalid_read_preserves_specific_failure_without_callback(searches, ids):
     callbacks = JavaCallbacks([
-        *[react("knowledge_search", {"query": "synthetic query"}) for _ in range(searches)],
-        react("knowledge_read", {"source_ids": ids}),
+        *[tool_message("knowledge_search", {"query": "synthetic query"}) for _ in range(searches)],
+        tool_message("knowledge_read", {"source_ids": ids}),
     ])
     async with httpx.AsyncClient(transport=httpx.MockTransport(callbacks), trust_env=False) as client:
         bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
@@ -49,10 +49,10 @@ async def test_invalid_read_preserves_specific_failure_without_callback(searches
 
 
 @pytest.mark.asyncio
-async def test_invalid_read_callback_cause_survives_upstream_action_wrapper():
+async def test_invalid_read_callback_cause_is_retained_by_loop():
     callbacks = JavaCallbacks([
-        react("knowledge_search", {"query": "synthetic"}),
-        react("knowledge_read", {"source_ids": ["source-1"]}),
+        tool_message("knowledge_search", {"query": "synthetic"}),
+        tool_message("knowledge_read", {"source_ids": ["source-1"]}),
     ])
 
     async def handle(request):

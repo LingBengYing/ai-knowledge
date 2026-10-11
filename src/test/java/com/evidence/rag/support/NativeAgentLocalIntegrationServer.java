@@ -11,9 +11,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.StandardEnvironment;
 
-/** Explicit isolated Java test runtime for the genuine separately running DB-GPT service. */
-public final class DbGptLocalIntegrationServer {
-  private DbGptLocalIntegrationServer() {}
+/** Isolated Java runtime for the separately running native knowledge-agent service. */
+public final class NativeAgentLocalIntegrationServer {
+  private NativeAgentLocalIntegrationServer() {}
 
   public static void main(String[] args) throws Exception {
     if (args.length != 3) {
@@ -30,7 +30,7 @@ public final class DbGptLocalIntegrationServer {
       throw new IllegalArgumentException("Requires new data directory and private service token");
     }
     Files.createDirectories(directory);
-    try (var models = new DbGptProtocolServer();
+    try (var models = new NativeAgentProtocolServer();
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint(), true);
         var http = HttpClient.newHttpClient();
         var input = new Scanner(System.in)) {
@@ -38,8 +38,8 @@ public final class DbGptLocalIntegrationServer {
           start(directory, models, projection, port, agentPort, token);
       try {
         WikiLocalIntegrationServer.activate(http, "http://127.0.0.1:" + port);
-        System.out.println("DBGPT_INTEGRATION_READY http://127.0.0.1:" + port);
-        System.out.println("REAL_DBGPT_WITH_SYNTHETIC_LOCAL_MODELS; type stats, restart or stop");
+        System.out.println("NATIVE_AGENT_INTEGRATION_READY http://127.0.0.1:" + port);
+        System.out.println("NATIVE_AGENT_WITH_SYNTHETIC_LOCAL_MODELS; type stats, restart or stop");
         while (input.hasNextLine()) {
           String command = input.nextLine().strip();
           if (command.equals("stop")) break;
@@ -47,11 +47,12 @@ public final class DbGptLocalIntegrationServer {
             System.out.println("AGENT_MODEL_CALLS=" + models.agentCalls.get());
             System.out.println("SEARCH_ACTIONS=" + models.searchActions.get());
             System.out.println("READ_ACTIONS=" + models.readActions.get());
+            System.out.println("COMPACTION_CALLS=" + models.compactionCalls.get());
           }
           if (command.equals("restart")) {
             context.close();
             context = start(directory, models, projection, port, agentPort, token);
-            System.out.println("DBGPT_INTEGRATION_RESTARTED same isolated data");
+            System.out.println("NATIVE_AGENT_INTEGRATION_RESTARTED same isolated data");
           }
         }
       } finally {
@@ -62,7 +63,7 @@ public final class DbGptLocalIntegrationServer {
 
   private static ConfigurableApplicationContext start(
       Path directory,
-      DbGptProtocolServer models,
+      NativeAgentProtocolServer models,
       IndexingTestServer projection,
       int port,
       int agentPort,
@@ -101,6 +102,8 @@ public final class DbGptLocalIntegrationServer {
         "--rag.indexing.timeout-ms=15000",
         "--rag.answers.timeout-ms=15000",
         "--rag.knowledge-agent.enabled=true",
+        "--rag.knowledge-agent.context-character-threshold=100",
+        "--rag.knowledge-agent.context-recent-turns=1",
         "--rag.knowledge-agent.base-url=http://127.0.0.1:" + agentPort,
         "--rag.knowledge-agent.timeout-ms=120000");
   }

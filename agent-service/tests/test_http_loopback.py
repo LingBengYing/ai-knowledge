@@ -1,4 +1,4 @@
-"""Actual TCP integration: HTTP service -> upstream DB-GPT -> Java callback double."""
+"""Actual TCP integration: HTTP service -> native loop -> Java callback double."""
 
 import asyncio
 import json
@@ -13,7 +13,7 @@ import pytest
 import uvicorn
 
 from knowledge_agent.service import Settings, create_app
-from tests.test_agent import RESULT, SOURCE, react
+from tests.test_agent import RESULT, SOURCE, tool_message
 
 SERVICE_TOKEN = uuid4().hex
 CALLBACK_TOKEN = uuid4().hex
@@ -22,7 +22,7 @@ CALLBACK_TOKEN = uuid4().hex
 @pytest.mark.asyncio
 async def test_real_http_loopback_and_service_token(caplog):
     calls = []
-    outputs = [react("knowledge_search", {"query": "灯塔"}), react("knowledge_read", {"source_ids": ["source-1"]}), react("terminate", {"result": RESULT})]
+    outputs = [tool_message("knowledge_search", {"query": "灯塔"}), tool_message("knowledge_read", {"source_ids": ["source-1"]}), tool_message("terminate", {"result": RESULT})]
 
     class CallbackHandler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -34,7 +34,7 @@ async def test_real_http_loopback_and_service_token(caplog):
             action = self.path.rsplit("/", 1)[-1]
             calls.append((action, payload))
             if action == "model":
-                response = {"content": outputs.pop(0)}
+                response = {"message": outputs.pop(0)}
             elif action == "search":
                 response = {"sources": [dict(SOURCE, excerpt="创建项目")]}
             else:
@@ -72,7 +72,7 @@ async def test_real_http_loopback_and_service_token(caplog):
             duplicate = await client.post("/v1/runs", json=body, headers={"Authorization": "Bearer " + SERVICE_TOKEN})
             assert duplicate.status_code == 409
             assert [name for name, _ in calls] == ["model", "search", "model", "read", "model"]
-            outputs.append(react("forbidden_private_tool", {"input": "private tool body"}))
+            outputs.append(tool_message("forbidden_private_tool", {"input": "private tool body"}))
             failed_run = str(uuid4())
             failed = await client.post("/v1/runs", headers={"Authorization": "Bearer " + SERVICE_TOKEN},
                 json={"run_id": failed_run, "question": "private synthetic question", "callback_token": CALLBACK_TOKEN})
@@ -99,10 +99,10 @@ async def test_real_http_loopback_and_service_token(caplog):
     ("search", 503, "agent_tool_failed"),
     ("read", 503, "agent_tool_failed"),
 ])
-async def test_real_http_typed_callback_failure_survives_dbgpt_without_retry_or_private_text(caplog, operation, status, code):
+async def test_real_http_typed_callback_failure_survives_loop_without_retry_or_private_text(caplog, operation, status, code):
     calls = []
-    outputs = [react("knowledge_search", {"query": "synthetic topic"}),
-               react("knowledge_read", {"source_ids": ["source-1"]})]
+    outputs = [tool_message("knowledge_search", {"query": "synthetic topic"}),
+               tool_message("knowledge_read", {"source_ids": ["source-1"]})]
 
     class CallbackHandler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -118,7 +118,7 @@ async def test_real_http_typed_callback_failure_survives_dbgpt_without_retry_or_
                 response = {"type": "https://evidence.local/problems/" + code.replace("_", "-"),
                             "status": status, "error_code": code, "detail": "private provider diagnostic"}
             elif action == "model":
-                response = {"content": outputs.pop(0)}
+                response = {"message": outputs.pop(0)}
             else:
                 response = {"sources": [dict(SOURCE, excerpt="synthetic excerpt")]}
             body = json.dumps(response).encode()

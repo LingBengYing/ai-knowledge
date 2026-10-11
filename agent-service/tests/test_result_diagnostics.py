@@ -6,7 +6,7 @@ import pytest
 
 from knowledge_agent.runtime import AgentFailure, CallbackBridge, run_agent, validate_result
 from knowledge_agent.service import log_failure
-from test_agent import CALLBACK_TOKEN, RESULT, SOURCE, JavaCallbacks, react
+from test_agent import CALLBACK_TOKEN, RESULT, SOURCE, JavaCallbacks, tool_message
 
 
 @pytest.mark.parametrize("value,search,read,reason", [
@@ -69,13 +69,13 @@ def test_untrusted_tool_reason_is_masked(caplog):
 
 
 @pytest.mark.asyncio
-async def test_real_upstream_eight_step_search_read_terminate(capsys):
+async def test_native_eight_step_search_read_terminate(capsys):
     outputs = []
     for index in range(3):
-        outputs += [react("knowledge_search", {"query": "synthetic " + str(index)}),
-                    react("knowledge_read", {"source_ids": ["source-1"]})]
-    outputs += [react("knowledge_search", {"query": "synthetic final"}),
-                react("terminate", {"result": RESULT})]
+        outputs += [tool_message("knowledge_search", {"query": "synthetic " + str(index)}),
+                    tool_message("knowledge_read", {"source_ids": ["source-1"]})]
+    outputs += [tool_message("knowledge_search", {"query": "synthetic final"}),
+                tool_message("terminate", {"result": RESULT})]
     callbacks = JavaCallbacks(outputs)
     async with httpx.AsyncClient(transport=httpx.MockTransport(callbacks), trust_env=False) as client:
         bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)

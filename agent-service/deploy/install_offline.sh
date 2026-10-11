@@ -22,14 +22,12 @@ fi
   --no-index --no-cache-dir --find-links "$wheelhouse_dir" --require-hashes \
   --only-binary=:all: -r "$release_dir/deploy/requirements-linux.lock"
 "$release_dir/.venv/bin/python" -m pip check
-# This imports actual DB-GPT without invoking an Agent, model or database connection.
+# Import the native runtime without invoking a model or database connection.
 cd "$release_dir"
 PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 "$release_dir/.venv/bin/python" - <<'PY'
-from importlib.metadata import version
-assert version("dbgpt") == "0.8.2"
-assert version("dbgpt-ext") == "0.8.2"
-from dbgpt.agent import ConversableAgent
-from knowledge_agent.runtime import KnowledgeReActAgent
-assert KnowledgeReActAgent.generate_reply is ConversableAgent.generate_reply
-print("agent_upstream_import_verified")
+import importlib.util
+from knowledge_agent.runtime import run_agent, CallbackBridge
+assert callable(run_agent)
+assert importlib.util.find_spec("dbgpt") is None, "Use a clean native-agent environment"
+print("agent_native_import_verified")
 PY

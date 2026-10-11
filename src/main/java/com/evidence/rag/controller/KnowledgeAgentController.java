@@ -37,7 +37,9 @@ public final class KnowledgeAgentController {
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .body(
             new AgentConfiguration(
-                services.getIfAvailable() != null, "db-gpt", KnowledgeAgentService.MAX_STEPS));
+                services.getIfAvailable() != null,
+                "knowledge-native-agent",
+                KnowledgeAgentService.MAX_STEPS));
   }
 
   @PostMapping(
@@ -47,12 +49,19 @@ public final class KnowledgeAgentController {
   public ResponseEntity<AgentRunResult> start(
       HttpServletRequest request, @RequestBody Map<String, Object> body) {
     if (request.getQueryString() != null
-        || !body.keySet().equals(Set.of("question", "request_id"))
+        || !Set.of("question", "request_id", "conversation_id").containsAll(body.keySet())
+        || (body.containsKey("conversation_id") && !(body.get("conversation_id") instanceof String))
         || !(body.get("question") instanceof String question)
         || !(body.get("request_id") instanceof String requestId)) throw ModelValues.invalid();
     return ResponseEntity.accepted()
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .body(service().start(AuthenticatedActor.require(request), question, requestId));
+        .body(
+            service()
+                .start(
+                    AuthenticatedActor.require(request),
+                    question,
+                    requestId,
+                    (String) body.get("conversation_id")));
   }
 
   @GetMapping(value = "/v1/knowledge-agent/runs/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

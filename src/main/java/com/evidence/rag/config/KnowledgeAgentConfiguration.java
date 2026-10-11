@@ -1,6 +1,7 @@
 package com.evidence.rag.config;
 
 import com.evidence.rag.client.model.AgentHttpClient;
+import com.evidence.rag.service.ConversationService;
 import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.KnowledgeAgentService;
 import com.evidence.rag.service.KnowledgeTraceService;
@@ -13,7 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-/** Opt-in local DB-GPT sidecar; no startup requests and no model/authority duplication. */
+/** Opt-in local native-tool agent; no startup requests and no model/authority duplication. */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "rag.knowledge-agent", name = "enabled", havingValue = "true")
 public class KnowledgeAgentConfiguration {
@@ -32,6 +33,7 @@ public class KnowledgeAgentConfiguration {
       ManagedTextRuntime runtime,
       KnowledgeTraceService traces,
       AgentHttpClient client,
+      ConversationService conversations,
       Environment environment) {
     return new KnowledgeAgentService(
         evidence,
@@ -40,7 +42,8 @@ public class KnowledgeAgentConfiguration {
         traces,
         client,
         timeout(environment),
-        environment.getProperty("rag.knowledge-agent.max-concurrent", Integer.class, 2));
+        environment.getProperty("rag.knowledge-agent.max-concurrent", Integer.class, 2),
+        conversations);
   }
 
   private static Duration timeout(Environment environment) {

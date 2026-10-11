@@ -1,30 +1,26 @@
-# Upstream source and boundary
+# Source reference and implementation boundary
 
-Runtime: published `dbgpt==0.8.2` and `dbgpt-ext==0.8.2`, Python 3.10.
-Source: https://github.com/eosphoros-ai/DB-GPT
-Release package: https://pypi.org/project/dbgpt/0.8.2/
-License: MIT, retained in the upstream wheel's dist-info license file.
-Core wheel SHA-256: `54e6b115521eb711ec04eddbd4d436a326c87e3644d643a7a8a904bb454a9b83`.
-Full direct and transitive versions, artifact URLs and hashes are in `uv.lock`.
+This application owns its small native knowledge-tool executor. It does **not**
+run Codex, embed Codex models, or depend on DB-GPT. No upstream source is vendored.
 
-The runtime inherits upstream `ReActAgent` and executes upstream
-`ConversableAgent.generate_reply`, `ReActAction`, `ToolPack`, `FunctionTool`,
-`AgentMemory`, and `ReActOutputParser`. It does not reimplement an agent loop.
-The policy subclass provides a single-request model transport hook (upstream's
-hook retries), rejects undeclared actions, suppresses raw console output, and
-turns off upstream operation snapshot writes. Structured result validation is
-application code. Source authority and actual model credentials remain in Java.
+Architecture reference: [openai/codex](https://github.com/openai/codex), pinned to
+`cc7ba33601286a751477832b01de7b6f8de0dd9c` (inspected 2026-10-11).
+Upstream is Apache-2.0; see its [LICENSE](https://github.com/openai/codex/blob/cc7ba33601286a751477832b01de7b6f8de0dd9c/LICENSE).
+If source is copied in a future change, retain license/notice text and record
+copied files and modifications. This change reimplements patterns, not Rust code.
 
-The published Agent imports DB-GPT's entire resource namespace, which imports
-`dbgpt_ext.datasource.schema` even without a database resource. Accordingly the
-matching extension wheel, SQLAlchemy and sqlparse are import dependencies. No
-DB-GPT database connector, Text-to-SQL agent, database resource, MCP server,
-shell, code, file or network tool is registered or started. The only tools are
-knowledge_search, knowledge_read and upstream terminate. This is a component
-integration, not a fork that deletes upstream SQL files.
+Inspected references:
 
-The package metadata does not declare every dependency required by this import
-graph. Explicit core import dependencies are pinned in pyproject.toml. MCP and
-Pydantic are pinned to compatible versions; DB-GPT's broad optional extras
-otherwise resolve newer incompatible versions. An install/import success is not
-proof of model reasoning quality or production readiness.
+- [tools/router.rs](https://github.com/openai/codex/blob/cc7ba33601286a751477832b01de7b6f8de0dd9c/codex-rs/core/src/tools/router.rs): named tool registry, native function-call IDs and dispatch.
+- [tools/parallel.rs](https://github.com/openai/codex/blob/cc7ba33601286a751477832b01de7b6f8de0dd9c/codex-rs/core/src/tools/parallel.rs): retain call IDs in completion/failure outputs; lifecycle and cancellation.
+- [context_manager/history.rs](https://github.com/openai/codex/blob/cc7ba33601286a751477832b01de7b6f8de0dd9c/codex-rs/core/src/context_manager/history.rs): model-window history and retained history are separate; replacement/checkpoint semantics.
+
+Local choices: standard OpenAI-compatible Chat Completions, sequential execution
+after whole-batch validation, only knowledge_search/knowledge_read/terminate,
+Java-owned credentials/source authority, SQLite-owned original conversation
+turns plus a separate summary checkpoint. Summary is untrusted background, never
+current evidence. Current sources must be searched and read on every run.
+
+Codex's complete Rust/Responses environment, shell, file, network and approval
+tools are not imported. Existing provider capability still determines reasoning
+and answer quality; replacing a framework is not a quality benchmark.

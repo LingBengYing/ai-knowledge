@@ -1,6 +1,14 @@
 # AI Knowledge · Java Edition
 
-## 最新生产验证（2026-10-10，0068/0069）
+## 最新生产版本（2026-10-11，0070/0071）：原生智能体、持久对话与执行详情
+
+0071补齐[执行详情](docs/changes/0071-agent-execution-details/spec.md)：可展开真实查询、阅读资料、返回数量和耗时；上游实际返回的`reasoning_content`单独折叠展示并随对话保存，不作为证据或压缩背景。原生工具循环保留协议所需思考字段，不强制关闭模型思考模式。已配套发布Java/Python/前端，保留现有免登录；真实DeepSeek/硅基流动8次单样例链、3轮思考、检索/阅读详情及重启回读、页面刷新通过，见[生产验收](docs/changes/0071-agent-execution-details/deployment-verification.md)和[真实模型记录](docs/changes/0071-agent-execution-details/provider-run.md)。按负责人限定例外发布，全仓旧失败/readiness503仍开放，非全库质量认证。
+
+参考 Codex 开源实现的原生工具调用/生命周期/上下文管理方式，已用自有轻量执行循环替换 DB-GPT，删除 ReAct 文本中转及框架重依赖。不是接入 Codex 托管服务，继续使用现有 OpenAI-compatible 模型配置；Java 保持检索与来源权威。
+
+新增对话列表、新建/追问、重命名/删除、完整历史持久化与刷新恢复。长上下文自动摘要并保留近期轮次，摘要与原始消息分开存储，原消息不删改；后续回答仍需重新检索和阅读证据。采用 schema36，发布须同步 Java/Python/前端，不能混用旧协议或用旧库覆盖新数据。[合同](docs/changes/0070-native-agent-conversations/spec.md) · [执行器与源码参考](agent-service/README.md)。压缩真实语义质量未全面验收；思考当前在每轮响应后显示，不是token流式输出。下方带日期记录是此前版本。
+
+## 此前生产验证（2026-10-10，0068/0069）
 
 已将中文全文检索迁移到独立中文分词集合，校验后复用现有向量，保留原文、版本与旧索引。Agent 每轮明确区分可阅读的来源编号、已阅读的证据编号与文档编号；弱相关检索支持改写类别词，有依据的部分可限定回答，不放宽来源校验。
 

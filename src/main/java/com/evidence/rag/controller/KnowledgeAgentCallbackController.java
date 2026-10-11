@@ -42,13 +42,45 @@ public final class KnowledgeAgentCallbackController {
         || !(body.get("messages") instanceof List<?> messages)) throw ModelValues.invalid();
     var checked = new ArrayList<AgentMessage>();
     for (var item : messages) {
-      if (!(item instanceof Map<?, ?> message)
-          || !message.keySet().equals(Set.of("role", "content"))
-          || !(message.get("role") instanceof String role)
-          || !(message.get("content") instanceof String content)) throw ModelValues.invalid();
-      checked.add(new AgentMessage(role, content));
+      checked.add(message(item));
     }
     return response(agents.model(id, bearer, new AgentProtocol.ModelRequest(checked)));
+  }
+
+  private static AgentMessage message(Object item) {
+    if (!(item instanceof Map<?, ?> value) || !(value.get("role") instanceof String role)) {
+      throw ModelValues.invalid();
+    }
+    if ("assistant".equals(role) && value.containsKey("tool_calls")) {
+      if (!Set.of("role", "content", "tool_calls", "reasoning_content").containsAll(value.keySet())
+          || value.get("content") != null
+          || (value.get("reasoning_content") != null
+              && !(value.get("reasoning_content") instanceof String))
+          || !(value.get("tool_calls") instanceof List<?> calls)) throw ModelValues.invalid();
+      var checked = new ArrayList<AgentMessage.ToolCall>();
+      for (var itemCall : calls) {
+        if (!(itemCall instanceof Map<?, ?> call)
+            || !call.keySet().equals(Set.of("id", "type", "function"))
+            || !(call.get("id") instanceof String id)
+            || !(call.get("type") instanceof String type)
+            || !(call.get("function") instanceof Map<?, ?> function)
+            || !function.keySet().equals(Set.of("name", "arguments"))
+            || !(function.get("name") instanceof String name)
+            || !(function.get("arguments") instanceof String arguments))
+          throw ModelValues.invalid();
+        checked.add(
+            new AgentMessage.ToolCall(id, type, new AgentMessage.FunctionCall(name, arguments)));
+      }
+      return new AgentMessage(role, null, checked, null, (String) value.get("reasoning_content"));
+    }
+    if (!(value.get("content") instanceof String content)) throw ModelValues.invalid();
+    if ("tool".equals(role)) {
+      if (!value.keySet().equals(Set.of("role", "content", "tool_call_id"))
+          || !(value.get("tool_call_id") instanceof String callId)) throw ModelValues.invalid();
+      return new AgentMessage(role, content, null, callId);
+    }
+    if (!value.keySet().equals(Set.of("role", "content"))) throw ModelValues.invalid();
+    return new AgentMessage(role, content);
   }
 
   @PostMapping(

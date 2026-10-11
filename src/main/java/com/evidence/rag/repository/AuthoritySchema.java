@@ -232,6 +232,14 @@ final class AuthoritySchema {
     new WikiPagePurgeSchema(store).verify();
   }
 
+  void migrateVersionThirtySix() {
+    new ConversationSchema(store).migrate();
+  }
+
+  void verifyVersionThirtySix() {
+    new ConversationSchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

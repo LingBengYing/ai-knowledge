@@ -5,12 +5,12 @@ import com.evidence.rag.model.dto.AgentProtocol;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import tools.jackson.databind.JsonNode;
 
-/** Fixed loopback DB-GPT endpoint, bounded exchange, no retries or redirect following. */
+/** Fixed loopback native agent endpoint, bounded exchange, no retries or redirect following. */
 public final class AgentHttpClient implements AgentClient, AutoCloseable {
   private final OpenAiCompatibleModels.Endpoint endpoint;
   private final ModelHttpTransport transport;
@@ -24,26 +24,23 @@ public final class AgentHttpClient implements AgentClient, AutoCloseable {
         || !token.matches("[A-Za-z0-9_-]{32,256}")) {
       throw new TextModels.Failure("agent_invalid_configuration");
     }
-    endpoint = new OpenAiCompatibleModels.Endpoint(origin, "db-gpt", token);
+    endpoint = new OpenAiCompatibleModels.Endpoint(origin, "native-tools", token);
     ModelHttpTransport.validateEndpoint(endpoint, true);
-    transport = new ModelHttpTransport(deadline, 1024 * 1024, 64 * 1024);
+    transport = new ModelHttpTransport(deadline, 1024 * 1024, 1024 * 1024);
   }
 
   @Override
   public AgentProtocol.Proposal execute(AgentProtocol.RunRequest request) {
     try {
+      var body = new LinkedHashMap<String, Object>();
+      body.put("run_id", request.runId());
+      body.put("question", request.question());
+      body.put("callback_token", request.callbackToken());
+      body.put("history", request.history());
+      body.put("summary", request.summary());
       var result =
           transport.postWithSafeErrorDecoder(
-              endpoint,
-              "v1/runs",
-              Map.of(
-                  "run_id",
-                  request.runId(),
-                  "question",
-                  request.question(),
-                  "callback_token",
-                  request.callbackToken()),
-              AgentHttpClient::remoteFailure);
+              endpoint, "v1/runs", body, AgentHttpClient::remoteFailure);
       exact(result, Set.of("refused", "statements", "suggestions"));
       if (!result.path("refused").isBoolean()
           || !result.path("statements").isArray()

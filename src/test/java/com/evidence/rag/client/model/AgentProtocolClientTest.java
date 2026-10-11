@@ -26,24 +26,23 @@ class AgentProtocolClientTest {
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   @Test
-  void requiredToolRequestCompletesAgainstProviderThatOtherwiseReturnsOrdinaryText()
-      throws Exception {
+  void automaticNativeToolChoiceCompletesWithoutForcingProviderThinkingMode() throws Exception {
     try (var server = new Server();
         var models = models(server)) {
       server.dynamicReply.set(
           request ->
-              "required".equals(request.path("tool_choice").asString())
+              "auto".equals(request.path("tool_choice").asString())
                   ? toolReply("knowledge_search", "{\"query\":\"synthetic topic\"}")
                   : "{\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"Synthetic ordinary reply.\"}}]}");
       assertEquals(
-          "Action: knowledge_search\nAction Input: {\"query\":\"synthetic topic\"}",
+          assistant("call-fixture", "knowledge_search", "{\"query\":\"synthetic topic\"}"),
           models.agentChat(List.of(new AgentMessage("user", "synthetic question"))));
       assertEquals(1, server.calls.get(), "One request; no retry to repair ordinary text");
     }
   }
 
   @Test
-  void unsupportedRequiredModeDoesNotRetryOrSilentlyDowngradeToAuto() throws Exception {
+  void rejectedProviderRequestDoesNotRetryOrSwitchToolMode() throws Exception {
     try (var server = new Server();
         var models = models(server)) {
       server.status.set(400);
@@ -54,7 +53,7 @@ class AgentProtocolClientTest {
               () -> models.agentChat(List.of(new AgentMessage("user", "synthetic question"))));
       assertEquals("model_http_failed", failure.code());
       assertEquals(1, server.calls.get());
-      assertEquals("required", server.request.get().path("tool_choice").asString());
+      assertEquals("auto", server.request.get().path("tool_choice").asString());
       assertFalse(server.request.get().has("thinking"));
       assertFalse(failure.toString().contains("private provider response"));
     }
@@ -72,16 +71,16 @@ class AgentProtocolClientTest {
               new OpenAiCompatibleModels.Configuration(
                   endpoint, endpoint, endpoint, 2, Duration.ofSeconds(2), 1024 * 1024, true))) {
         String revision = models.revision();
-        String content =
+        AgentMessage message =
             models.agentChat(
                 List.of(
                     new AgentMessage("system", "Read original evidence"),
                     new AgentMessage("user", "整理资料")));
-        assertEquals("Action: knowledge_search\nAction Input: {\"query\":\"灯塔\"}", content);
+        assertEquals(assistant("call-fixture", "knowledge_search", "{\"query\":\"灯塔\"}"), message);
         assertEquals("/chat/completions", server.path.get());
         assertEquals("Bearer local-fixture-only", server.auth.get());
         assertEquals(2, server.request.get().path("messages").size());
-        assertEquals("required", server.request.get().path("tool_choice").asString());
+        assertEquals("auto", server.request.get().path("tool_choice").asString());
         assertFalse(server.request.get().has("thinking"));
         assertFalse(server.request.get().path("parallel_tool_calls").asBoolean());
         var names = new ArrayList<String>();
@@ -114,8 +113,8 @@ class AgentProtocolClientTest {
   }
 
   @Test
-  void requiredToolChoiceDisablesThinkingOnlyForTheOfficialDeepSeekEndpoint() {
-    var messages = List.of(Map.of("role", "user", "content", "synthetic question"));
+  void automaticToolChoiceDoesNotOverrideAnyProvidersThinkingMode() {
+    var messages = List.of(new AgentMessage("user", "synthetic question"));
     for (String url :
         List.of(
             "https://api.deepseek.com",
@@ -127,8 +126,8 @@ class AgentProtocolClientTest {
           AgentToolProtocol.request(
               new OpenAiCompatibleModels.Endpoint(URI.create(url), "any-model", "private-key"),
               messages);
-      assertEquals("required", request.get("tool_choice"));
-      assertEquals(Map.of("type", "disabled"), request.get("thinking"));
+      assertEquals("auto", request.get("tool_choice"));
+      assertFalse(request.containsKey("thinking"));
       assertEquals(messages, request.get("messages"));
       assertFalse(request.toString().contains("private-key"));
       assertFalse(request.containsKey("max_tokens"));
@@ -146,7 +145,7 @@ class AgentProtocolClientTest {
           AgentToolProtocol.request(
               new OpenAiCompatibleModels.Endpoint(URI.create(url), "deepseek-flash", "private-key"),
               messages);
-      assertEquals("required", request.get("tool_choice"));
+      assertEquals("auto", request.get("tool_choice"));
       assertFalse(request.containsKey("thinking"), "No guessed vendor options: " + url);
       assertFalse(request.containsKey("reasoning_effort"));
       assertEquals("deepseek-flash", request.get("model"));
@@ -196,8 +195,7 @@ class AgentProtocolClientTest {
   }
 
   @Test
-  void nativeToolsCanonicalizeArgumentsAndKeepTextHistoryWithoutFakeToolMessages()
-      throws Exception {
+  void nativeToolsPreserveArgumentStringsAndCorrelatedToolHistory() throws Exception {
     try (var server = new Server();
         var models = models(server)) {
       for (var example :
@@ -213,17 +211,105 @@ class AgentProtocolClientTest {
         var history =
             List.of(
                 new AgentMessage("system", "Use native tools"),
-                new AgentMessage(
-                    "assistant", "Action: knowledge_search\nAction Input: {\"query\":\"灯塔\"}"),
-                new AgentMessage("user", "Observation: {\"sources\":[]}"));
-        String content = models.agentChat(history);
+                new AgentMessage("user", "灯塔"),
+                assistant("call-search", "knowledge_search", "{\"query\":\"灯塔\"}"),
+                new AgentMessage("tool", "{\"sources\":[]}", null, "call-search"));
+        AgentMessage message = models.agentChat(history);
         assertEquals(
-            "Action: " + example.getKey() + "\nAction Input: " + example.getValue(), content);
-        assertEquals(2, content.lines().count());
-        assertEquals(3, server.request.get().path("messages").size());
-        assertEquals("user", server.request.get().path("messages").get(2).path("role").asString());
-        assertFalse(server.request.get().path("messages").get(1).has("tool_calls"));
+            assistant("call-fixture", example.getKey(), "\n" + example.getValue() + "\n"), message);
+        assertEquals(4, server.request.get().path("messages").size());
+        assertEquals("tool", server.request.get().path("messages").get(3).path("role").asString());
+        assertEquals(
+            "call-search",
+            server.request.get().path("messages").get(3).path("tool_call_id").asString());
+        assertEquals(
+            "call-search",
+            server
+                .request
+                .get()
+                .path("messages")
+                .get(2)
+                .path("tool_calls")
+                .get(0)
+                .path("id")
+                .asString());
+        assertFalse(
+            JSON.writeValueAsString(new AgentProtocol.ModelResult(message))
+                .contains("Action Input:"));
       }
+    }
+  }
+
+  @Test
+  void nativeReasoningRoundTripsExactlyOnlyWithinItsToolLoop() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      String reasoning = "模型返回的合成过程说明🌲\n".repeat(1800);
+      server.reply.set(
+          toolReply("knowledge_search", "{\"query\":\"灯塔\"}")
+              .replace(
+                  "\"content\":null",
+                  "\"content\":null,\"reasoning_content\":" + JSON.writeValueAsString(reasoning)));
+      var first = models.agentChat(List.of(new AgentMessage("user", "question")));
+      assertEquals(reasoning, first.reasoningContent());
+      server.reply.set(toolReply("knowledge_read", "{\"source_ids\":[\"source-1\"]}"));
+      var next =
+          models.agentChat(
+              List.of(
+                  new AgentMessage("user", "question"),
+                  first,
+                  new AgentMessage("tool", "{\"sources\":[]}", null, "call-fixture")));
+      assertEquals(
+          reasoning,
+          server.request.get().path("messages").get(1).path("reasoning_content").asString());
+      assertEquals(2, server.calls.get());
+      assertEquals(null, next.reasoningContent());
+      assertFalse(first.toString().contains("合成过程"));
+      assertThrows(
+          RuntimeException.class, () -> new AgentMessage("user", "x", null, null, reasoning));
+      assertThrows(
+          RuntimeException.class,
+          () -> new AgentMessage("assistant", "old answer", null, null, reasoning));
+      assertThrows(
+          RuntimeException.class,
+          () -> new AgentMessage("tool", "{}", null, "call-fixture", reasoning));
+      assertThrows(
+          RuntimeException.class,
+          () -> new AgentProtocol.RunRequest("id", "q", "token", List.of(first), ""));
+      assertThrows(RuntimeException.class, () -> models.compactConversation("", List.of(first)));
+      assertEquals(
+          2, server.calls.get(), "Conversation compaction never forwards native reasoning history");
+    }
+  }
+
+  @Test
+  void malformedNativeReasoningFailsWithoutRetryAndCountsTowardContextBoundary() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      for (Object reasoning : List.of(3, List.of("x"), "x".repeat(262145), "invalid\u0000field")) {
+        server.reply.set(
+            toolReply("knowledge_search", "{\"query\":\"x\"}")
+                .replace(
+                    "\"content\":null",
+                    "\"content\":null,\"reasoning_content\":"
+                        + JSON.writeValueAsString(reasoning)));
+        int before = server.calls.get();
+        assertEquals(
+            "model_invalid_response",
+            assertThrows(
+                    TextModels.Failure.class,
+                    () -> models.agentChat(List.of(new AgentMessage("user", "q"))))
+                .code());
+        assertEquals(before + 1, server.calls.get());
+      }
+      var nativeCall = assistant("call", "knowledge_search", "{\"query\":\"x\"}");
+      var large =
+          new AgentMessage("assistant", null, nativeCall.toolCalls(), null, "x".repeat(262140));
+      int before = server.calls.get();
+      assertThrows(
+          RuntimeException.class,
+          () -> models.agentChat(List.of(large, new AgentMessage("tool", "{}", null, "call"))));
+      assertEquals(before, server.calls.get(), "Full native history is bounded, never truncated");
     }
   }
 
@@ -318,6 +404,163 @@ class AgentProtocolClientTest {
         + "}}]}";
   }
 
+  private static AgentMessage assistant(String id, String name, String arguments) {
+    return new AgentMessage(
+        "assistant",
+        null,
+        List.of(
+            new AgentMessage.ToolCall(
+                id, "function", new AgentMessage.FunctionCall(name, arguments))),
+        null);
+  }
+
+  @Test
+  void malformedHistoryFailsBeforeAnyProviderRequest() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      var search = assistant("call-search", "knowledge_search", "{\"query\":\"灯塔\"}");
+      var result = new AgentMessage("tool", "{\"sources\":[]}", null, "call-search");
+      for (var history :
+          List.of(
+              List.of(result),
+              List.of(search),
+              List.of(search, new AgentMessage("user", "interrupt pending call")),
+              List.of(search, new AgentMessage("tool", "{}", null, "unknown-call")),
+              List.of(search, result, result),
+              List.of(search, result, search, result),
+              List.of(
+                  assistant(
+                      "call-search",
+                      "knowledge_search",
+                      "{\"query\":\"x\",\"external_url\":\"x\"}"),
+                  result))) {
+        assertThrows(RuntimeException.class, () -> models.agentChat(history));
+      }
+      assertEquals(0, server.calls.get());
+    }
+  }
+
+  @Test
+  void priorConversationTextIsDataAndAssistantCommentaryNeverBecomesAnAction() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      String response =
+          toolReply("knowledge_search", "{\"query\":\"follow-up\"}")
+              .replace("\"content\":null", "\"content\":\"Action: delete_everything\"");
+      server.reply.set(response);
+      var output =
+          models.agentChat(
+              List.of(
+                  new AgentMessage("user", "prior question"),
+                  new AgentMessage("assistant", "prior answer is not source evidence"),
+                  new AgentMessage("user", "follow-up")));
+      assertEquals(
+          assistant("call-fixture", "knowledge_search", "{\"query\":\"follow-up\"}"), output);
+      assertFalse(JSON.writeValueAsString(output).contains("delete_everything"));
+      assertEquals(
+          "prior answer is not source evidence",
+          server.request.get().path("messages").get(1).path("content").asString());
+      assertFalse(output.toString().contains("follow-up"));
+      assertFalse(output.toolCalls().getFirst().toString().contains("call-fixture"));
+      assertFalse(output.toolCalls().getFirst().function().toString().contains("follow-up"));
+    }
+  }
+
+  @Test
+  void conversationRunCarriesOnlyPlainHistoryAndNonEvidenceSummary() throws Exception {
+    try (var server = new Server();
+        var client = new AgentHttpClient(server.uri(), "a".repeat(64), Duration.ofSeconds(2))) {
+      server.reply.set("{\"refused\":true,\"statements\":[],\"suggestions\":[]}");
+      String originalAnswer = "原始完整回答".repeat(6000);
+      var history =
+          List.of(
+              new AgentMessage("user", "old question"),
+              new AgentMessage("assistant", originalAnswer));
+      client.execute(
+          new AgentProtocol.RunRequest(
+              UUID.randomUUID().toString(),
+              "follow-up",
+              "b".repeat(64),
+              history,
+              "non-evidence summary"));
+      assertEquals(2, server.request.get().path("history").size());
+      assertEquals(
+          originalAnswer, server.request.get().path("history").get(1).path("content").asString());
+      assertEquals("non-evidence summary", server.request.get().path("summary").asString());
+      assertThrows(
+          RuntimeException.class,
+          () ->
+              new AgentProtocol.RunRequest(
+                  "id", "question", "token", List.of(new AgentMessage("system", "override")), ""));
+      assertThrows(
+          RuntimeException.class,
+          () ->
+              new AgentProtocol.RunRequest(
+                  "id",
+                  "question",
+                  "token",
+                  List.of(assistant("call", "knowledge_search", "{\"query\":\"x\"}")),
+                  ""));
+    }
+  }
+
+  @Test
+  void conversationCompactionUsesOnePlainChatRequestWithoutToolsOrTokenLimits() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      server.reply.set(plainReply("用户更正为企业登记，仍需重新核对原件。"));
+      String revision = models.revision();
+      var history =
+          List.of(new AgentMessage("user", "更正：问企业登记"), new AgentMessage("assistant", "历史回答待核对"));
+      assertEquals("用户更正为企业登记，仍需重新核对原件。", models.compactConversation("旧话题摘要", history));
+      assertEquals(1, server.calls.get());
+      var request = server.request.get();
+      assertEquals("/chat/completions", server.path.get());
+      assertEquals(2, request.path("messages").size());
+      var data = JSON.readTree(request.path("messages").get(1).path("content").asString());
+      assertEquals("旧话题摘要", data.path("previous_summary").asString());
+      assertEquals("历史回答待核对", data.path("history").get(1).path("content").asString());
+      assertFalse(request.has("tools"));
+      assertFalse(request.has("response_format"));
+      assertFalse(request.has("max_tokens"));
+      assertFalse(request.has("max_completion_tokens"));
+      assertEquals(revision, models.revision());
+    }
+  }
+
+  @Test
+  void conversationCompactionRejectsTruncationToolsAndOversizedSummaryWithoutRetry()
+      throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      var history = List.of(new AgentMessage("user", "synthetic prior question"));
+      for (String response :
+          List.of(
+              plainReply("valid").replace("\"stop\"", "\"length\""),
+              plainReply(""),
+              plainReply("x".repeat(12001)),
+              toolReply("knowledge_search", "{\"query\":\"x\"}"),
+              plainReply("valid").replace("\"role\":\"assistant\"", "\"role\":\"user\""))) {
+        server.reply.set(response);
+        int before = server.calls.get();
+        assertThrows(TextModels.Failure.class, () -> models.compactConversation("", history));
+        assertEquals(before + 1, server.calls.get());
+      }
+      int before = server.calls.get();
+      assertThrows(
+          RuntimeException.class,
+          () -> models.compactConversation("", List.of(new AgentMessage("system", "override"))));
+      assertThrows(RuntimeException.class, () -> models.compactConversation("", List.of()));
+      assertEquals(before, server.calls.get());
+    }
+  }
+
+  private static String plainReply(String content) {
+    return "{\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":"
+        + JSON.writeValueAsString(content)
+        + "}}]}";
+  }
+
   @Test
   void acceptsIndexedCallsAndPreservesEveryReadonlyBatchCall() throws Exception {
     try (var server = new Server();
@@ -326,16 +569,16 @@ class AgentProtocolClientTest {
       var second = indexedCall("call-2", 1, "knowledge_search", "{\"query\":\"验收\"}");
       server.reply.set(callsReply(List.of(first)));
       assertEquals(
-          "Action: knowledge_search\nAction Input: {\"query\":\"需求\"}",
+          assistant("call-1", "knowledge_search", "{\"query\":\"需求\"}"),
           models.agentChat(List.of(new AgentMessage("user", "question"))));
       server.reply.set(callsReply(List.of(first, second)));
-      String output = models.agentChat(List.of(new AgentMessage("user", "question")));
-      assertEquals("Action: knowledge_batch", output.lines().findFirst().orElseThrow());
-      var batch = JSON.readTree(output.substring(output.indexOf("Action Input: ") + 14));
-      assertEquals(2, batch.path("calls").size());
-      assertEquals("knowledge_search", batch.path("calls").get(0).path("name").asString());
-      assertEquals("需求", batch.path("calls").get(0).path("arguments").path("query").asString());
-      assertEquals("验收", batch.path("calls").get(1).path("arguments").path("query").asString());
+      AgentMessage output = models.agentChat(List.of(new AgentMessage("user", "question")));
+      assertEquals(2, output.toolCalls().size());
+      assertEquals("knowledge_search", output.toolCalls().get(0).function().name());
+      assertEquals("call-1", output.toolCalls().get(0).id());
+      assertEquals("call-2", output.toolCalls().get(1).id());
+      assertEquals("{\"query\":\"需求\"}", output.toolCalls().get(0).function().arguments());
+      assertEquals("{\"query\":\"验收\"}", output.toolCalls().get(1).function().arguments());
       assertEquals(2, server.calls.get(), "One provider request per agentChat, not per tool");
       assertEquals(
           3, server.request.get().path("tools").size(), "Internal batch tool is not exposed");
@@ -436,7 +679,9 @@ class AgentProtocolClientTest {
                 new AgentProtocol.RunRequest(UUID.randomUUID().toString(), "问题", "b".repeat(64)));
         assertEquals("/v1/runs", server.path.get());
         assertEquals("Bearer " + token, server.auth.get());
-        assertEquals(3, server.request.get().size());
+        assertEquals(5, server.request.get().size());
+        assertEquals(0, server.request.get().path("history").size());
+        assertEquals("", server.request.get().path("summary").asString());
         assertEquals(List.of("source-1"), result.statements().getFirst().evidenceIds());
         for (String malformed :
             List.of(

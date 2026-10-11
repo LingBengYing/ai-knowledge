@@ -69,7 +69,7 @@ try {
   });
   await ready(`http://127.0.0.1:${ports.python}/health`);
   const cp = await readFile(path.join(runtime,'build/classpath.txt'),'utf8');
-  const backend = start('java', java, ['-cp',cp,'com.evidence.rag.support.DbGptLocalIntegrationServer',path.join(runtime,'data'),String(ports.java),String(ports.python)], {
+  const backend = start('java', java, ['-cp',cp,'com.evidence.rag.support.NativeAgentLocalIntegrationServer',path.join(runtime,'data'),String(ports.java),String(ports.python)], {
     cwd: project,
     env: { ...process.env, JAVA_TOOL_OPTIONS:'', JDK_JAVA_OPTIONS:'', _JAVA_OPTIONS:'', AGENT_SERVICE_TOKEN:token },
   });
@@ -77,7 +77,7 @@ try {
   const until = Date.now() + 30000;
   while (Date.now() < until && !shuttingDown) {
     const log = await readFile(path.join(runtime,'java.log'),'utf8');
-    if (log.includes('DBGPT_INTEGRATION_READY')) break;
+    if (log.includes('NATIVE_AGENT_INTEGRATION_READY')) break;
     if (Date.now()+200 >= until) throw new Error('Local model activation did not finish');
     await new Promise(resolve => setTimeout(resolve,200));
   }
@@ -87,10 +87,10 @@ try {
   });
   const page = `http://127.0.0.1:${ports.web}`;
   await ready(page);
-  await writeFile(path.join(runtime,'runtime.json'),JSON.stringify({page,backend:base,agent:`http://127.0.0.1:${ports.python}`,data:path.join(runtime,'data'),model_mode:'synthetic-loopback',engine:'real-dbgpt'},null,2)+'\n',{mode:0o600});
+  await writeFile(path.join(runtime,'runtime.json'),JSON.stringify({page,backend:base,agent:`http://127.0.0.1:${ports.python}`,data:path.join(runtime,'data'),model_mode:'synthetic-loopback',engine:'knowledge-native-agent'},null,2)+'\n',{mode:0o600});
   console.log(`READY ${page}/#/ask`);
   console.log(`Run record: ${runtime}`);
-  console.log('Real DB-GPT; synthetic local models and NEW empty data. Type stats, restart, or stop.');
+  console.log('Native agent loop; synthetic local models and NEW empty data. Type stats, restart, or stop.');
   let buffer = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', chunk => {
@@ -102,7 +102,7 @@ try {
       if (['restart','stats'].includes(command) && backend.exitCode === null) backend.stdin.write(command+'\n');
       if (command === 'stats') setTimeout(async () => {
         const log = await readFile(path.join(runtime,'java.log'),'utf8');
-        console.log(log.split('\n').filter(l => /^(AGENT_MODEL_CALLS|SEARCH_ACTIONS|READ_ACTIONS)=/.test(l)).slice(-3).join('\n'));
+        console.log(log.split('\n').filter(l => /^(AGENT_MODEL_CALLS|SEARCH_ACTIONS|READ_ACTIONS|COMPACTION_CALLS)=/.test(l)).slice(-4).join('\n'));
       },300);
     }
   });
