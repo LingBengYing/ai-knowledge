@@ -31,6 +31,47 @@ async function awaitTask(path, field, active, terminal, timeout = 120000) {
   }
   throw new Error('Local integration deadline exceeded');
 }
+async function awaitAgentStream(id) {
+  const response = await fetch(`${base}/v1/knowledge-agent/runs/${id}/events`, {
+    headers: { ...identity, Accept: 'text/event-stream' }, signal: AbortSignal.timeout(120000), redirect: 'error',
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type') ?? '', /^text\/event-stream/);
+  assert.equal(response.headers.get('x-accel-buffering'), 'no');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let buffer = '', previous = -1, terminal = null, snapshots = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
+        const lines = frame.split('\n');
+        const data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+        if (!data) continue;
+        const name = lines.find(line => line.startsWith('event:'))?.slice(6).trim();
+        assert.ok(['snapshot', 'terminal'].includes(name));
+        const packet = JSON.parse(data);
+        assert.ok(packet.revision > previous, 'SSE revisions must increase');
+        previous = packet.revision;
+        assert.equal(packet.run.id, id);
+        assert.equal(typeof packet.run.preview, 'string');
+        snapshots++;
+        if (name === 'terminal') terminal = packet.run;
+      }
+      if (done) break;
+    }
+  } finally { await reader.cancel(); }
+  assert.ok(snapshots > 0);
+  assert.equal(terminal?.status, 'completed');
+  assert.equal(terminal.preview, '', 'Only validated final result survives');
+  const durable = await request(`/v1/knowledge-agent/runs/${id}`);
+  const { preview, ...streamResult } = terminal;
+  assert.deepEqual(streamResult, durable, 'SSE terminal matches authoritative JSON');
+  return durable;
+}
 function verifyExecutionDetails(run, documentIds) {
   const plans = run.events.filter(event => event.type === 'planning');
   assert.ok(plans.length > 0);
@@ -138,7 +179,7 @@ if (mode === '--read-only') {
   const created = await request('/v1/knowledge-agent/runs', 'POST', input, 202);
   const repeated = await request('/v1/knowledge-agent/runs', 'POST', input, 202);
   assert.equal(repeated.id, created.id, 'Repeated request_id must not create another run');
-  const run = await awaitTask(`/v1/knowledge-agent/runs/${created.id}`, 'status', ['running'], 'completed');
+  const run = await awaitAgentStream(created.id);
   assert.equal(run.result.status, 'answered');
   assert.ok(run.result.answer.includes('48600'));
   assert.ok(run.result.answer.includes('创建任务'));
@@ -156,7 +197,7 @@ if (mode === '--read-only') {
   assert.equal(firstHistory.turns[0].question, input.question);
   assert.equal(firstHistory.turns[0].result.result.answer, run.result.answer);
   const followup = await request('/v1/knowledge-agent/runs', 'POST', {question:'接着说明创建任务的步骤。', request_id:randomUUID(), conversation_id:conversation.id}, 202);
-  const second = await awaitTask(`/v1/knowledge-agent/runs/${followup.id}`, 'status', ['running'], 'completed');
+  const second = await awaitAgentStream(followup.id);
   assert.equal(second.result.status, 'answered');
   verifyExecutionDetails(second, documentIds);
   assert.ok(second.events.some(event => event.type === 'searching'), 'Prior answers never bypass fresh search');

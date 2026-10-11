@@ -1,5 +1,13 @@
 # HTTP API：资料管理、文本摄取、索引与可选问答
 
+## 0072 Agent SSE（当前开发）
+
+创建仍为 `POST /v1/knowledge-agent/runs`，返回任务编号；新增 `GET /v1/knowledge-agent/runs/{id}/events`（无query/body），复用既有身份和任务授权。
+
+响应 `text/event-stream`、`Cache-Control: private, no-store`、`X-Accel-Buffering: no`。事件为 `snapshot` 或 `terminal`，`id` 是独立递增revision，JSON `data` 为 `{revision,run}`。run包含原任务字段和 `preview` 字符串；首帧与后续都是累计快照，慢订阅可合并中间快照但不丢累计文字。注释帧仅保活。
+
+思考在 `events[].details.reasoning` 实时累计。preview是尚未校验的回答，不作正式来源；成功终态将其清空并返回原 `result`，失败/取消也清空。终态持久化完成后才发送并关闭流。断连只取消订阅；GET同任务可恢复，只有明确POST cancel取消执行，禁止重连时重新POST问题。原任务GET与对话GET继续提供只读状态/持久历史。schema36不变，完整合同见[0072](changes/0072-agent-sse-streaming/spec.md)。
+
 2026-10-03当前基础修复0033：已有文字索引后，仅更换生成或重排模型可以保存、单独测试并明确应用；嵌入配置及投影不变时不重建资料索引。实际新角色与新trace、原索引/旧来源、连续切换及重启均已本机验证；真正嵌入或投影变化仍拒绝，legacy媒体按实际完整profile判定。最终3058 Java、1013格式、原LINE/BRANCH双80与架构、六Native各1通过；1029后端输入相同、761生产class稳定。前端64及后端18 Node/static输入字节不变，430/check与73明确复用此前实跑证据。新交接.tools/model-role-switch-handoff以实际manifest/VALIDATION为准；未部署、0新增真实provider调用、页面用户验收、真实ASR未宣称修复，目标active。历史记录保留。
 
 0032新增认证精确GET/PUT `/v1/model-configuration`、POST同路径`/test`及`/activate`，能力`model_configuration`；模型管理员显式保存完整三角色草稿、逐角色单次合成连接测试与原子应用，安全GET不回显密钥。POST `/v1/retrieval-tests`在`retrieval_test`实际能力下使用完整问题/完整范围，返回真实片段、文件/页码/码点和排序分，不调用生成、不创建答案trace。配置、字段、状态码和操作步骤见[MODEL_SETUP_AND_RETRIEVAL](MODEL_SETUP_AND_RETRIEVAL.md)与[0032合同](changes/0032-model-setup-retrieval-test/spec.md)。
@@ -438,7 +446,7 @@ OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null
 
 ## 明确不存在的业务端点
 
-当前没有streaming、独立候选检索、任意来源页预览/自由文件路径下载、物理删除完成/已发布版本重索引、独立嵌入/重排/Milvus管理API。资料原文件只通过0021的当前授权metadata和pinned内容读取。显式图片、音频和视频问答及其授权来源端点见本文与对应专项文档；它们不是通用来源浏览器。摄取、索引、问答/引用以及0008撤下仅在各自开关启用时提供路由。
+本节是早期接口边界，已被后续专项合同增量扩展；Agent SSE见本文0072。资料原文件只通过当前授权metadata和pinned内容读取，不提供自由文件路径下载。显式图片、音频和视频问答及其授权来源端点见本文与对应专项文档；它们不是通用来源浏览器。各功能仍需对应开关启用。
 
 `TextParser.parse(...)`、`TextModels.rerank/extract`和`RetrievalProjection.search`仍是Java库Interface，没有独立HTTP端点；问答由上述受授权用例编排调用。未来端点应先在版本化变更工件中明确范围和验收，再更新本文及HTTP测试。完整问答、selected-set、来源、多模态和生产目标见[ROADMAP](ROADMAP.md)，局部HTTP通过不缩减或完成这些目标。
 

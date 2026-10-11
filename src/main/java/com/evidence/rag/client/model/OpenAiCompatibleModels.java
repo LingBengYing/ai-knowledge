@@ -485,13 +485,21 @@ public final class OpenAiCompatibleModels implements TextModels, FactTextModels,
   @Override
   public com.evidence.rag.model.dto.AgentMessage agentChat(
       List<com.evidence.rag.model.dto.AgentMessage> messages) {
+    return agentChat(messages, ignored -> {});
+  }
+
+  @Override
+  public com.evidence.rag.model.dto.AgentMessage agentChat(
+      List<com.evidence.rag.model.dto.AgentMessage> messages,
+      java.util.function.Consumer<com.evidence.rag.model.dto.AgentModelDelta> listener) {
     var validated = new com.evidence.rag.model.dto.AgentProtocol.ModelRequest(messages);
-    var response =
-        transport.post(
-            configuration.generation(),
-            "chat/completions",
-            AgentToolProtocol.request(configuration.generation(), validated.messages()));
-    return AgentToolProtocol.assistantMessage(response);
+    var stream = new AgentModelStream(listener);
+    transport.postEvents(
+        configuration.generation(),
+        "chat/completions",
+        AgentToolProtocol.request(configuration.generation(), validated.messages()),
+        stream::accept);
+    return stream.finish();
   }
 
   @Override

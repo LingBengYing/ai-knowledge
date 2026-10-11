@@ -70,7 +70,7 @@ final class AgentToolProtocol {
     var request = new LinkedHashMap<String, Object>();
     request.put("model", endpoint.model());
     request.put("messages", messages);
-    request.put("stream", false);
+    request.put("stream", true);
     request.put("n", 1);
     request.put("tools", tools());
     request.put("tool_choice", "auto");

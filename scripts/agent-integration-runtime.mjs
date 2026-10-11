@@ -99,7 +99,7 @@ try {
     while ((newline = buffer.indexOf('\n')) >= 0) {
       const command = buffer.slice(0,newline).trim(); buffer = buffer.slice(newline+1);
       if (command === 'stop') { void stop(); return; }
-      if (['restart','stats'].includes(command) && backend.exitCode === null) backend.stdin.write(command+'\n');
+      if (['restart','stats','stream-pause','answer-pause','stream-resume'].includes(command) && backend.exitCode === null) backend.stdin.write(command+'\n');
       if (command === 'stats') setTimeout(async () => {
         const log = await readFile(path.join(runtime,'java.log'),'utf8');
         console.log(log.split('\n').filter(l => /^(AGENT_MODEL_CALLS|SEARCH_ACTIONS|READ_ACTIONS|COMPACTION_CALLS)=/.test(l)).slice(-4).join('\n'));

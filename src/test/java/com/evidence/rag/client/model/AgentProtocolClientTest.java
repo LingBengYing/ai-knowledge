@@ -3,6 +3,7 @@ package com.evidence.rag.client.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.model.dto.AgentMessage;
 import com.evidence.rag.model.dto.AgentProtocol;
@@ -12,6 +13,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +26,16 @@ import tools.jackson.databind.json.JsonMapper;
 
 class AgentProtocolClientTest {
   private static final JsonMapper JSON = JsonMapper.builder().build();
+
+  @Test
+  void agentGenerationRequestsNativeStreaming() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      server.reply.set(toolReply("knowledge_search", "{\"query\":\"synthetic topic\"}"));
+      models.agentChat(List.of(new AgentMessage("user", "synthetic question")));
+      assertTrue(server.request.get().path("stream").asBoolean());
+    }
+  }
 
   @Test
   void automaticNativeToolChoiceCompletesWithoutForcingProviderThinkingMode() throws Exception {
@@ -828,10 +840,13 @@ class AgentProtocolClientTest {
               Thread.currentThread().interrupt();
             }
             var responder = dynamicReply.get();
+            String result = responder == null ? reply.get() : responder.apply(request.get());
+            boolean streaming = request.get().path("stream").asBoolean() && status.get() == 200;
             byte[] bytes =
-                (responder == null ? reply.get() : responder.apply(request.get()))
-                    .getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
+                (streaming ? streamReply(result) : result).getBytes(StandardCharsets.UTF_8);
+            exchange
+                .getResponseHeaders()
+                .set("Content-Type", streaming ? "text/event-stream" : "application/json");
             exchange.sendResponseHeaders(status.get(), bytes.length);
             exchange.getResponseBody().write(bytes);
             exchange.close();
@@ -846,6 +861,48 @@ class AgentProtocolClientTest {
     @Override
     public void close() {
       server.stop(0);
+    }
+  }
+
+  /** Keep all old positive/negative message fixtures, changing only the actual HTTP wire format. */
+  private static String streamReply(String encoded) {
+    try {
+      var response = JSON.readTree(encoded);
+      var choices = response.path("choices");
+      if (!choices.isArray() || choices.size() != 1 || !choices.get(0).path("message").isObject()) {
+        return "data: " + encoded + "\n\ndata: [DONE]\n\n";
+      }
+      var choice = choices.get(0);
+      Map<String, Object> delta = JSON.convertValue(choice.path("message"), Map.class);
+      if (delta.get("tool_calls") instanceof List<?> calls) {
+        var indexed = new ArrayList<Object>();
+        for (int i = 0; i < calls.size(); i++) {
+          if (calls.get(i) instanceof Map<?, ?> call) {
+            var value = new LinkedHashMap<Object, Object>();
+            value.putAll(call);
+            value.putIfAbsent("index", i);
+            indexed.add(value);
+          } else {
+            indexed.add(calls.get(i));
+          }
+        }
+        delta.put("tool_calls", indexed);
+      }
+      return "data: "
+          + JSON.writeValueAsString(
+              Map.of(
+                  "choices",
+                  List.of(
+                      Map.of(
+                          "index",
+                          choice.path("index"),
+                          "delta",
+                          delta,
+                          "finish_reason",
+                          choice.path("finish_reason")))))
+          + "\n\ndata: [DONE]\n\n";
+    } catch (RuntimeException invalidFixture) {
+      return "data: " + encoded + "\n\ndata: [DONE]\n\n";
     }
   }
 }

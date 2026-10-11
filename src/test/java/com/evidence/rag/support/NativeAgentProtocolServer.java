@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -31,6 +35,9 @@ public final class NativeAgentProtocolServer implements AutoCloseable {
   final AtomicInteger searchActions = new AtomicInteger();
   final AtomicInteger readActions = new AtomicInteger();
   final AtomicInteger compactionCalls = new AtomicInteger();
+  private final AtomicBoolean pauseStream = new AtomicBoolean();
+  private final AtomicBoolean pauseAnswer = new AtomicBoolean();
+  private final Semaphore streamPermits = new Semaphore(0);
 
   public NativeAgentProtocolServer() throws IOException {
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -41,6 +48,22 @@ public final class NativeAgentProtocolServer implements AutoCloseable {
 
   public URI endpoint() {
     return URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+  }
+
+  public void pauseStreaming() {
+    streamPermits.drainPermits();
+    pauseStream.set(true);
+  }
+
+  public void resumeStreaming() {
+    pauseStream.set(false);
+    pauseAnswer.set(false);
+    streamPermits.release(2);
+  }
+
+  public void pauseAnswerStreaming() {
+    streamPermits.drainPermits();
+    pauseAnswer.set(true);
   }
 
   private void serve(HttpExchange exchange) throws IOException {
@@ -98,6 +121,10 @@ public final class NativeAgentProtocolServer implements AutoCloseable {
           throw new IllegalArgumentException("must preserve provider thinking defaults");
         }
         Map<String, Object> generated = nextAction(body.path("messages"));
+        if (body.path("stream").asBoolean()) {
+          stream(exchange, generated);
+          return;
+        }
         byte[] result =
             JSON.writeValueAsBytes(
                 Map.of(
@@ -138,6 +165,81 @@ public final class NativeAgentProtocolServer implements AutoCloseable {
         exchange.sendResponseHeaders(503, -1);
       }
     }
+  }
+
+  private void stream(HttpExchange exchange, Map<String, Object> generated) throws IOException {
+    exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=utf-8");
+    exchange.sendResponseHeaders(200, 0);
+    chunk(exchange, Map.of("role", "assistant", "reasoning_content", "正在核对"));
+    gate(pauseStream);
+    chunk(exchange, Map.of("reasoning_content", "本次问题所需的资料来源。"));
+    var function = (Map<?, ?>) generated.get("function");
+    chunk(
+        exchange,
+        Map.of(
+            "tool_calls",
+            List.of(
+                Map.of(
+                    "index",
+                    0,
+                    "id",
+                    generated.get("id"),
+                    "type",
+                    "function",
+                    "function",
+                    Map.of("name", function.get("name"), "arguments", "")))));
+    String arguments = (String) function.get("arguments");
+    boolean heldAnswer = false;
+    for (int offset = 0; offset < arguments.length(); offset += 12) {
+      int end = Math.min(arguments.length(), offset + 12);
+      chunk(
+          exchange,
+          Map.of(
+              "tool_calls",
+              List.of(
+                  Map.of(
+                      "index",
+                      0,
+                      "function",
+                      Map.of("arguments", arguments.substring(offset, end))))));
+      if (!heldAnswer && "terminate".equals(function.get("name"))) {
+        int text = arguments.indexOf("\"text\":\"");
+        if (text >= 0 && end >= text + 12) {
+          heldAnswer = true;
+          gate(pauseAnswer);
+        }
+      }
+    }
+    writeEvent(
+        exchange,
+        Map.of(
+            "choices",
+            List.of(Map.of("index", 0, "delta", Map.of(), "finish_reason", "tool_calls"))));
+    exchange.getResponseBody().write("data: [DONE]\n\n".getBytes(StandardCharsets.UTF_8));
+    exchange.getResponseBody().flush();
+  }
+
+  private void gate(AtomicBoolean paused) throws IOException {
+    if (!paused.get()) return;
+    try {
+      if (!streamPermits.tryAcquire(45, TimeUnit.SECONDS))
+        throw new IOException("synthetic_gate_timeout");
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      throw new IOException("synthetic_gate_interrupted");
+    }
+  }
+
+  private static void chunk(HttpExchange exchange, Map<String, Object> delta) throws IOException {
+    writeEvent(exchange, Map.of("choices", List.of(Map.of("index", 0, "delta", delta))));
+  }
+
+  private static void writeEvent(HttpExchange exchange, Object event) throws IOException {
+    exchange
+        .getResponseBody()
+        .write(
+            ("data: " + JSON.writeValueAsString(event) + "\n\n").getBytes(StandardCharsets.UTF_8));
+    exchange.getResponseBody().flush();
   }
 
   private Map<String, Object> nextAction(JsonNode messages) {

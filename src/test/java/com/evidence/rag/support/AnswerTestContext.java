@@ -9,6 +9,7 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import com.evidence.rag.model.dto.AgentMessage;
+import com.evidence.rag.model.dto.AgentModelDelta;
 import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
@@ -23,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -153,6 +156,14 @@ public final class AnswerTestContext implements AutoCloseable {
         messages -> {
           throw new Failure("model_agent_unavailable");
         };
+    public BiFunction<List<AgentMessage>, Consumer<AgentModelDelta>, AgentMessage> agentStreaming;
+
+    @Override
+    public AgentMessage agentChat(List<AgentMessage> messages, Consumer<AgentModelDelta> listener) {
+      if (agentStreaming == null) return agentChat(messages);
+      calls.add("agent");
+      return agentStreaming.apply(messages, listener);
+    }
 
     @Override
     public AgentMessage agentChat(List<AgentMessage> messages) {

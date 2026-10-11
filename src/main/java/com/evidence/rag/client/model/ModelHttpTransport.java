@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -131,6 +132,29 @@ final class ModelHttpTransport implements AutoCloseable {
       String contentType,
       boolean googleEmbedding,
       Function<JsonNode, Failure> errorDecoder) {
+    return post(endpoint, path, payload, contentType, googleEmbedding, errorDecoder, null);
+  }
+
+  void postEvents(
+      Endpoint endpoint, String path, Map<String, Object> payload, Consumer<String> sink) {
+    post(
+        endpoint,
+        path,
+        () -> JSON.writeValueAsBytes(payload),
+        "application/json",
+        false,
+        null,
+        new EventStream(java.util.Objects.requireNonNull(sink)));
+  }
+
+  private JsonNode post(
+      Endpoint endpoint,
+      String path,
+      Supplier<byte[]> payload,
+      String contentType,
+      boolean googleEmbedding,
+      Function<JsonNode, Failure> errorDecoder,
+      EventStream stream) {
     if (closed) {
       throw new Failure("model_closed");
     }
@@ -138,7 +162,7 @@ final class ModelHttpTransport implements AutoCloseable {
       throw new Failure("model_interrupted");
     }
     long started = System.nanoTime();
-    var body = new BoundedBody(maxResponseBytes);
+    var body = new BoundedBody(maxResponseBytes, stream);
     CompletableFuture<HttpResponse<byte[]>> exchange = null;
     String attemptId = null;
     var status = new java.util.concurrent.atomic.AtomicInteger(-1);
@@ -153,7 +177,7 @@ final class ModelHttpTransport implements AutoCloseable {
           HttpRequest.newBuilder(URI.create(base + (base.endsWith("/") ? "" : "/") + path))
               .timeout(deadline)
               .header("Content-Type", contentType)
-              .header("Accept", "application/json")
+              .header("Accept", stream == null ? "application/json" : "text/event-stream")
               .header(
                   googleEmbedding ? "x-goog-api-key" : "Authorization",
                   googleEmbedding ? endpoint.apiKey() : "Bearer " + endpoint.apiKey())
@@ -182,7 +206,7 @@ final class ModelHttpTransport implements AutoCloseable {
                     .orElse("")
                     .split(";", 2)[0]
                     .trim()
-                    .equalsIgnoreCase("application/json")) {
+                    .equalsIgnoreCase(stream == null ? "application/json" : "text/event-stream")) {
                   body.fail(invalidResponse());
                 }
                 return body;
@@ -192,6 +216,14 @@ final class ModelHttpTransport implements AutoCloseable {
         throw new TimeoutException();
       }
       var response = exchange.get(remaining, TimeUnit.NANOSECONDS);
+      if (stream != null) {
+        stream.finish();
+        if (System.nanoTime() - started > deadline.toNanos()) {
+          throw new TimeoutException();
+        }
+        transportOk = true;
+        return null;
+      }
       var decoded =
           StandardCharsets.UTF_8
               .newDecoder()
@@ -347,9 +379,12 @@ final class ModelHttpTransport implements AutoCloseable {
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     private final CompletableFuture<byte[]> result = new CompletableFuture<>();
     private Flow.Subscription subscription;
+    private final EventStream stream;
+    private int received;
 
-    private BoundedBody(int cap) {
+    private BoundedBody(int cap, EventStream stream) {
       this.cap = cap;
+      this.stream = stream;
     }
 
     @Override
@@ -374,13 +409,26 @@ final class ModelHttpTransport implements AutoCloseable {
       }
       for (var buffer : buffers) {
         int length = buffer.remaining();
-        if (length > cap - bytes.size()) {
+        if (length > cap - received) {
           fail(new Failure("model_response_too_large"));
           return;
         }
         byte[] chunk = new byte[length];
         buffer.get(chunk);
-        bytes.writeBytes(chunk);
+        received += length;
+        try {
+          if (stream == null) {
+            bytes.writeBytes(chunk);
+          } else {
+            stream.accept(chunk);
+          }
+        } catch (Failure failed) {
+          fail(failed);
+          return;
+        } catch (RuntimeException failed) {
+          fail(new Failure("model_transport_failed"));
+          return;
+        }
       }
       subscription.request(1);
     }
@@ -408,6 +456,69 @@ final class ModelHttpTransport implements AutoCloseable {
       }
       if (subscription != null) {
         subscription.cancel();
+      }
+    }
+  }
+
+  /** SSE framing only; provider JSON, tool identity and completion belong to the Adapter. */
+  private static final class EventStream {
+    private final Consumer<String> sink;
+    private final ByteArrayOutputStream line = new ByteArrayOutputStream();
+    private final StringBuilder data = new StringBuilder();
+    private boolean carriageReturn;
+
+    EventStream(Consumer<String> sink) {
+      this.sink = sink;
+    }
+
+    void accept(byte[] bytes) {
+      for (byte value : bytes) {
+        if (carriageReturn && value == '\n') {
+          carriageReturn = false;
+          continue;
+        }
+        carriageReturn = value == '\r';
+        if (value == '\r' || value == '\n') {
+          completeLine();
+        } else {
+          line.write(value);
+        }
+      }
+    }
+
+    private void completeLine() {
+      String value;
+      try {
+        value =
+            StandardCharsets.UTF_8
+                .newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(line.toByteArray()))
+                .toString();
+      } catch (java.nio.charset.CharacterCodingException invalid) {
+        throw invalidResponse();
+      }
+      line.reset();
+      if (value.isEmpty()) {
+        if (!data.isEmpty()) {
+          data.setLength(data.length() - 1);
+          String event = data.toString();
+          data.setLength(0);
+          sink.accept(event);
+        }
+      } else if (value.equals("data") || value.startsWith("data:")) {
+        String part = value.equals("data") ? "" : value.substring(5);
+        if (part.startsWith(" ")) {
+          part = part.substring(1);
+        }
+        data.append(part).append('\n');
+      }
+    }
+
+    void finish() {
+      if (line.size() != 0 || !data.isEmpty()) {
+        throw invalidResponse();
       }
     }
   }

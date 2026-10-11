@@ -1,7 +1,9 @@
 package com.evidence.rag.client.model;
 
 import com.evidence.rag.model.dto.AgentMessage;
+import com.evidence.rag.model.dto.AgentModelDelta;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** Model seam. Callers own authorization, factual proof and authoritative source locators. */
 public interface TextModels {
@@ -27,6 +29,11 @@ public interface TextModels {
   /** Native tool turn. Does not change index identity or existing prompt contracts. */
   default AgentMessage agentChat(List<AgentMessage> messages) {
     throw new Failure("model_agent_unavailable");
+  }
+
+  /** Native model increments are previews; tools execute only after the complete turn validates. */
+  default AgentMessage agentChat(List<AgentMessage> messages, Consumer<AgentModelDelta> listener) {
+    return agentChat(messages);
   }
 
   /** Derived conversation memory only; never original knowledge evidence or citation authority. */

@@ -8,6 +8,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.AgentMessage;
+import com.evidence.rag.model.dto.AgentModelDelta;
 import com.evidence.rag.model.dto.AgentProtocol;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.support.AnswerTestContext;
@@ -34,6 +35,348 @@ import tools.jackson.databind.json.JsonMapper;
  */
 class KnowledgeAgentServiceTest {
   @TempDir Path directory;
+
+  @Test
+  void streamPublishesModelPrefixesBeforeCompletionAndReconnectDoesNotReplayWork()
+      throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("stream.txt", "合成流式资料。");
+      String conversation = fixture.conversations.create(fixture.context.owner, "流式测试").id();
+      var first = new CountDownLatch(1);
+      var second = new CountDownLatch(1);
+      var release = new CountDownLatch(1);
+      fixture.context.models.agentStreaming =
+          (messages, listener) -> {
+            listener.accept(new AgentModelDelta("正在查阅🌲", "资料中的"));
+            first.countDown();
+            await(second);
+            listener.accept(new AgentModelDelta("并组织回答。", "有据结果。"));
+            await(release);
+            return streamingMessage("正在查阅🌲并组织回答。");
+          };
+      fixture.script.set(
+          request -> {
+            fixture.read(request);
+            fixture.agents.model(
+                request.runId(),
+                auth(request),
+                new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            return answer("source-1");
+          });
+      String id =
+          fixture
+              .agents
+              .start(fixture.context.owner, "请整理资料", UUID.randomUUID().toString(), conversation)
+              .id();
+      assertTrue(first.await(5, TimeUnit.SECONDS));
+      try (var stream = fixture.agents.subscribe(fixture.context.owner, id)) {
+        var initial = stream.next(Duration.ofSeconds(5));
+        assertEquals("running", initial.run().status());
+        assertEquals("资料中的", initial.run().preview());
+        assertEquals("正在查阅🌲", initial.run().events().getLast().details().reasoning());
+        assertNull(initial.run().result());
+        second.countDown();
+        var updated = stream.next(Duration.ofSeconds(5));
+        assertTrue(updated.revision() > initial.revision());
+        assertEquals("资料中的有据结果。", updated.run().preview());
+        assertEquals("正在查阅🌲并组织回答。", updated.run().events().getLast().details().reasoning());
+      }
+      assertEquals(
+          "running",
+          fixture.agents.get(fixture.context.owner, id).status(),
+          "Socket close is not task cancellation");
+      try (var resumed = fixture.agents.subscribe(fixture.context.owner, id)) {
+        assertEquals("资料中的有据结果。", resumed.next(Duration.ofSeconds(5)).run().preview());
+        release.countDown();
+        com.evidence.rag.model.dto.AgentRunStreamSnapshot terminal;
+        do {
+          terminal = resumed.next(Duration.ofSeconds(5));
+          assertNotNull(terminal);
+        } while ("running".equals(terminal.run().status()));
+        assertEquals("completed", terminal.run().status());
+        assertEquals("", terminal.run().preview());
+        assertEquals("资料中的有据结果。 [1]", terminal.run().result().answer());
+        assertEquals(
+            "completed",
+            fixture
+                .conversations
+                .get(fixture.context.owner, conversation)
+                .turns()
+                .getFirst()
+                .status(),
+            "Terminal publication follows durable conversation commit");
+      }
+      assertEquals(1, fixture.calls.get());
+      assertEquals(1, fixture.context.models.calls.stream().filter("agent"::equals).count());
+      try (var finished = fixture.agents.subscribe(fixture.context.owner, id)) {
+        assertEquals("completed", finished.next(Duration.ofSeconds(5)).run().status());
+      }
+    }
+  }
+
+  @Test
+  void streamingCancellationClearsPreviewAndRejectsLateDeltas() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("stream.txt", "合成资料。");
+      var first = new CountDownLatch(1);
+      var late = new CountDownLatch(1);
+      fixture.context.models.agentStreaming =
+          (messages, listener) -> {
+            listener.accept(new AgentModelDelta("已返回的思考", "尚未校验的回答"));
+            first.countDown();
+            try {
+              Thread.sleep(10000);
+            } catch (InterruptedException ignored) {
+              Thread.interrupted();
+            }
+            try {
+              listener.accept(new AgentModelDelta("迟到不可见", "迟到不可见"));
+            } finally {
+              late.countDown();
+            }
+            return streamingMessage("迟到不可见");
+          };
+      fixture.script.set(
+          request -> {
+            fixture.agents.model(
+                request.runId(),
+                auth(request),
+                new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            return refused();
+          });
+      String id = fixture.start();
+      assertTrue(first.await(5, TimeUnit.SECONDS));
+      assertThrows(
+          ApplicationException.class,
+          () -> fixture.agents.subscribe(new Actor("org-main", "another"), id));
+      try (var stream = fixture.agents.subscribe(fixture.context.owner, id)) {
+        assertEquals("尚未校验的回答", stream.next(Duration.ofSeconds(5)).run().preview());
+        fixture.agents.cancel(fixture.context.owner, id);
+        var terminal = stream.next(Duration.ofSeconds(5));
+        assertEquals("cancelled", terminal.run().status());
+        assertEquals("", terminal.run().preview());
+        assertNull(terminal.run().result());
+        assertTrue(late.await(5, TimeUnit.SECONDS));
+        assertFalse(
+            new JsonMapper()
+                .writeValueAsString(fixture.agents.get(fixture.context.owner, id))
+                .contains("迟到不可见"));
+        assertNull(
+            stream.next(Duration.ofMillis(20)),
+            "Late provider output never publishes after terminal");
+      }
+    }
+  }
+
+  private static AgentMessage streamingMessage(String reasoning) {
+    return new AgentMessage(
+        "assistant",
+        null,
+        List.of(
+            new AgentMessage.ToolCall(
+                "call-finish", "function", new AgentMessage.FunctionCall("terminate", "{}"))),
+        null,
+        reasoning);
+  }
+
+  @Test
+  void priorModelRoundListenerCannotWriteIntoNextRound() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("stream.txt", "合成资料。");
+      var previous = new AtomicReference<java.util.function.Consumer<AgentModelDelta>>();
+      fixture.context.models.agentStreaming =
+          (messages, listener) -> {
+            if (previous.get() == null) {
+              previous.set(listener);
+              listener.accept(new AgentModelDelta("第一轮", ""));
+              return streamingMessage("第一轮");
+            }
+            listener.accept(new AgentModelDelta("第二轮", ""));
+            assertThrows(
+                ApplicationException.class,
+                () -> previous.get().accept(new AgentModelDelta("旧轮迟到", "不能混入")));
+            return streamingMessage("第二轮");
+          };
+      fixture.script.set(
+          request -> {
+            var input = new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料")));
+            fixture.agents.model(request.runId(), auth(request), input);
+            fixture.agents.model(request.runId(), auth(request), input);
+            return refused();
+          });
+      var result = fixture.await(fixture.start());
+      assertEquals("completed", result.status());
+      assertEquals("第一轮", result.events().get(1).details().reasoning());
+      assertEquals("第二轮", result.events().get(2).details().reasoning());
+      assertFalse(new JsonMapper().writeValueAsString(result).contains("旧轮迟到"));
+    }
+  }
+
+  @Test
+  void persistenceFailureClosesStreamWithoutPublishingSuccessfulTerminal() throws Exception {
+    try (var fixture = new Fixture(directory, Duration.ofSeconds(10), true)) {
+      fixture.context.publish("stream.txt", "合成资料。");
+      String conversation = fixture.conversations.create(fixture.context.owner, "持久化故障").id();
+      var ready = new CountDownLatch(1);
+      var release = new CountDownLatch(1);
+      fixture.script.set(
+          request -> {
+            fixture.read(request);
+            ready.countDown();
+            await(release);
+            return answer("source-1");
+          });
+      String id =
+          fixture
+              .agents
+              .start(fixture.context.owner, "资料", UUID.randomUUID().toString(), conversation)
+              .id();
+      assertTrue(ready.await(5, TimeUnit.SECONDS));
+      try (var stream = fixture.agents.subscribe(fixture.context.owner, id)) {
+        assertEquals("running", stream.next(Duration.ofSeconds(5)).run().status());
+        release.countDown();
+        var failed = fixture.await(id);
+        assertEquals("failed", failed.status());
+        assertNull(failed.result());
+        assertEquals("agent_failed", failed.error().code());
+        assertTrue(stream.closed());
+        assertNull(stream.next(Duration.ofMillis(20)));
+        assertThrows(
+            ApplicationException.class, () -> fixture.agents.subscribe(fixture.context.owner, id));
+        assertEquals(
+            "running",
+            fixture
+                .conversations
+                .get(fixture.context.owner, conversation)
+                .turns()
+                .getFirst()
+                .status(),
+            "Failed transaction must not invent a durable success");
+      }
+    }
+  }
+
+  @Test
+  void actualServletSseFlushesReasoningAndAnswerWhileProviderStillBlocked() throws Exception {
+    try (var fixture = new Fixture(directory.resolve("authority"));
+        var client = java.net.http.HttpClient.newHttpClient()) {
+      fixture.context.publish("stream.txt", "合成资料。");
+      var emit = new CountDownLatch(1);
+      var release = new CountDownLatch(1);
+      fixture.context.models.agentStreaming =
+          (messages, listener) -> {
+            await(emit);
+            listener.accept(new AgentModelDelta("实际 HTTP 首段思考🌲", "实际 HTTP 回答前缀"));
+            await(release);
+            return streamingMessage("实际 HTTP 首段思考🌲");
+          };
+      fixture.script.set(
+          request -> {
+            fixture.agents.model(
+                request.runId(),
+                auth(request),
+                new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            return refused();
+          });
+      var application =
+          new org.springframework.boot.SpringApplication(com.evidence.rag.RagApplication.class);
+      application.addInitializers(
+          context ->
+              context.getBeanFactory().registerSingleton("streamingTestAgent", fixture.agents));
+      try (var web =
+          application.run(
+              "--server.port=0",
+              "--server.address=127.0.0.1",
+              "--rag.environment=test",
+              "--rag.auth-mode=development_headers",
+              "--rag.knowledge-agent.enabled=false",
+              "--rag.data-directory=" + directory.resolve("web"))) {
+        String id = fixture.start();
+        var uri =
+            java.net.URI.create(
+                "http://127.0.0.1:"
+                    + web.getEnvironment().getProperty("local.server.port")
+                    + "/v1/knowledge-agent/runs/"
+                    + id
+                    + "/events");
+        assertEquals(
+            422,
+            client
+                .send(
+                    java.net.http.HttpRequest.newBuilder(uri).GET().build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString())
+                .statusCode());
+        assertEquals(
+            404,
+            client
+                .send(
+                    java.net.http.HttpRequest.newBuilder(uri)
+                        .header("X-Workspace-Id", "org-main")
+                        .header("X-Principal-Id", "another")
+                        .GET()
+                        .build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString())
+                .statusCode());
+        var response =
+            client.send(
+                java.net.http.HttpRequest.newBuilder(uri)
+                    .header("X-Workspace-Id", "org-main")
+                    .header("X-Principal-Id", "owner")
+                    .timeout(Duration.ofSeconds(5))
+                    .GET()
+                    .build(),
+                java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+        assertEquals(200, response.statusCode());
+        assertTrue(
+            response
+                .headers()
+                .firstValue("content-type")
+                .orElseThrow()
+                .startsWith("text/event-stream"));
+        assertEquals("no", response.headers().firstValue("x-accel-buffering").orElseThrow());
+        try (var reader =
+                new java.io.BufferedReader(
+                    new java.io.InputStreamReader(
+                        response.body(), java.nio.charset.StandardCharsets.UTF_8));
+            var readers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+          var initial = readers.submit(() -> readSseFrame(reader)).get(5, TimeUnit.SECONDS);
+          assertTrue(initial.contains("event:snapshot"));
+          emit.countDown();
+          String prefix;
+          do {
+            prefix = readers.submit(() -> readSseFrame(reader)).get(5, TimeUnit.SECONDS);
+          } while (!prefix.contains("实际 HTTP 回答前缀"));
+          assertTrue(prefix.contains("实际 HTTP 首段思考🌲"));
+          assertEquals(
+              1L,
+              release.getCount(),
+              "The model round has not ended when bytes reach the HTTP reader");
+          release.countDown();
+          String terminal;
+          do {
+            terminal = readers.submit(() -> readSseFrame(reader)).get(5, TimeUnit.SECONDS);
+          } while (!terminal.contains("event:terminal"));
+          assertTrue(terminal.contains("\"preview\":\"\""));
+          assertEquals("completed", fixture.agents.get(fixture.context.owner, id).status());
+        } finally {
+          release.countDown();
+          emit.countDown();
+        }
+      } finally {
+        release.countDown();
+        emit.countDown();
+      }
+    }
+  }
+
+  private static String readSseFrame(java.io.BufferedReader reader) throws java.io.IOException {
+    var frame = new StringBuilder();
+    for (String line; (line = reader.readLine()) != null; ) {
+      if (line.isEmpty() && !frame.isEmpty()) return frame.toString();
+      frame.append(line).append('\n');
+    }
+    throw new java.io.EOFException("SSE ended before the expected frame");
+  }
 
   @Test
   void conversationPersistsAnswerAndPassesPriorDialogueWithoutReusingEvidenceAuthority()
@@ -684,6 +1027,10 @@ class KnowledgeAgentServiceTest {
     }
 
     Fixture(Path directory, Duration timeout) {
+      this(directory, timeout, false);
+    }
+
+    Fixture(Path directory, Duration timeout, boolean failPersistence) {
       context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1);
       runtime =
           new ManagedTextRuntime(
@@ -722,13 +1069,22 @@ class KnowledgeAgentServiceTest {
       retrieval =
           new ProductHelpService(context.evidence, runtime, Duration.ofSeconds(10), settings::get);
       traces = new KnowledgeTraceService(context.authority.store(), context.evidence);
-      conversations =
+      var conversationService =
           new ConversationService(
               context.authority.store(),
               new com.evidence.rag.repository.ConversationRepository(context.authority.store()),
               context.owner.workspaceId(),
               24000,
               4);
+      conversations =
+          failPersistence ? org.mockito.Mockito.spy(conversationService) : conversationService;
+      if (failPersistence)
+        org.mockito.Mockito.doThrow(new IllegalStateException("synthetic persistence failure"))
+            .when(conversations)
+            .finish(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
       agents =
           new KnowledgeAgentService(
               context.evidence,

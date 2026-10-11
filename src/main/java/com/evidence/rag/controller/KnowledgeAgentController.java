@@ -8,6 +8,8 @@ import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.KnowledgeAgentService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /** Existing trusted Actor authentication applies to every public Agent route. */
 @RestController
@@ -68,6 +71,58 @@ public final class KnowledgeAgentController {
   public ResponseEntity<AgentRunResult> get(HttpServletRequest request, @PathVariable String id) {
     read(request);
     return response(service().get(AuthenticatedActor.require(request), id));
+  }
+
+  @GetMapping(
+      value = "/v1/knowledge-agent/runs/{id}/events",
+      produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public ResponseEntity<SseEmitter> events(HttpServletRequest request, @PathVariable String id) {
+    read(request);
+    var subscription = service().subscribe(AuthenticatedActor.require(request), id);
+    var emitter = new SseEmitter(Duration.ofMinutes(10).toMillis());
+    var sender =
+        Thread.ofVirtual()
+            .name("knowledge-agent-sse")
+            .unstarted(
+                () -> {
+                  try (subscription) {
+                    while (!subscription.closed()) {
+                      var snapshot = subscription.next(Duration.ofSeconds(15));
+                      if (snapshot == null) {
+                        if (!subscription.closed())
+                          emitter.send(SseEmitter.event().comment("keepalive"));
+                        continue;
+                      }
+                      boolean terminal = !"running".equals(snapshot.run().status());
+                      emitter.send(
+                          SseEmitter.event()
+                              .name(terminal ? "terminal" : "snapshot")
+                              .id(Long.toString(snapshot.revision()))
+                              .data(snapshot, MediaType.APPLICATION_JSON));
+                      if (terminal) break;
+                    }
+                    emitter.complete();
+                  } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    emitter.complete();
+                  } catch (IOException | IllegalStateException disconnected) {
+                    // A closed observer is not a failed or cancelled Agent task.
+                    emitter.complete();
+                  }
+                });
+    Runnable dispose =
+        () -> {
+          subscription.close();
+          sender.interrupt();
+        };
+    emitter.onCompletion(dispose);
+    emitter.onTimeout(dispose);
+    emitter.onError(ignored -> dispose.run());
+    sender.start();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+        .header("X-Accel-Buffering", "no")
+        .body(emitter);
   }
 
   @PostMapping(

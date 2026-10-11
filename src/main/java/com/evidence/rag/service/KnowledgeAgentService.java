@@ -13,8 +13,10 @@ import com.evidence.rag.model.domain.KnowledgeReference;
 import com.evidence.rag.model.domain.KnowledgeTraceDraft;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.RetrievalSettings;
+import com.evidence.rag.model.dto.AgentModelDelta;
 import com.evidence.rag.model.dto.AgentProtocol;
 import com.evidence.rag.model.dto.AgentRunResult;
+import com.evidence.rag.model.dto.AgentRunStreamSnapshot;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.ConversationContext;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
@@ -37,6 +39,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -247,6 +250,64 @@ public final class KnowledgeAgentService implements AutoCloseable {
     return authorized(actor, id).view();
   }
 
+  /** Subscribe to cumulative state, without starting or resuming any model execution. */
+  public Subscription subscribe(Actor actor, String id) {
+    var run = authorized(actor, id);
+    synchronized (run) {
+      if (run.streamFailed) throw problem(FailureKind.UNAVAILABLE, "agent_failed");
+      var subscription = new Subscription(run);
+      run.subscriptions.add(subscription);
+      subscription.offer(run.streamView());
+      return subscription;
+    }
+  }
+
+  /** One latest immutable snapshot per subscriber; slow readers do not block the run. */
+  public final class Subscription implements AutoCloseable {
+    private final Run run;
+    private AgentRunStreamSnapshot latest;
+    private boolean disposed;
+
+    private Subscription(Run run) {
+      this.run = run;
+    }
+
+    private synchronized void offer(AgentRunStreamSnapshot snapshot) {
+      if (!disposed) {
+        latest = snapshot;
+        notifyAll();
+      }
+    }
+
+    public synchronized AgentRunStreamSnapshot next(Duration timeout) throws InterruptedException {
+      long deadline = System.nanoTime() + timeout.toNanos();
+      while (latest == null && !disposed) {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0) return null;
+        TimeUnit.NANOSECONDS.timedWait(this, remaining);
+      }
+      var result = latest;
+      latest = null;
+      return result;
+    }
+
+    public synchronized boolean closed() {
+      return disposed;
+    }
+
+    @Override
+    public void close() {
+      synchronized (run) {
+        run.subscriptions.remove(this);
+      }
+      synchronized (this) {
+        disposed = true;
+        latest = null;
+        notifyAll();
+      }
+    }
+  }
+
   public AgentRunResult cancel(Actor actor, String id) {
     var run = authorized(actor, id);
     stop(run, "cancelled", null);
@@ -262,7 +323,9 @@ public final class KnowledgeAgentService implements AutoCloseable {
         "正在规划与分析",
         true,
         null,
-        run -> new AgentProtocol.ModelResult(run.snapshot.models().agentChat(request.messages())));
+        run ->
+            new AgentProtocol.ModelResult(
+                run.snapshot.models().agentChat(request.messages(), run.modelListener())));
   }
 
   public AgentProtocol.SearchResult search(String id, String bearer, String query) {
@@ -541,8 +604,9 @@ public final class KnowledgeAgentService implements AutoCloseable {
               ? proposal.suggestions()
               : List.of();
       run.status = "completed";
+      run.preview = "";
       run.event("completed", "已完成资料分析");
-      persist(run);
+      persistAndPublish(run);
     }
   }
 
@@ -622,6 +686,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
     synchronized (run) {
       if (!run.running()) return;
       run.status = status;
+      run.preview = "";
       String safe = code == null ? null : safeCode(code);
       run.error = safe == null ? null : new AgentRunResult.Problem(safe, "智能体任务未完成，请查看任务原因码。");
       run.finishCallback(status, safe, null);
@@ -634,10 +699,34 @@ public final class KnowledgeAgentService implements AutoCloseable {
           run.modelCalls,
           run.toolCalls);
       run.event(status, "cancelled".equals(status) ? "已停止任务" : "任务未完成");
-      persist(run);
-      if (run.callback != null && run.callback != Thread.currentThread()) run.callback.interrupt();
-      if (run.worker != null && run.worker != Thread.currentThread()) run.worker.interrupt();
+      try {
+        persistAndPublish(run);
+      } finally {
+        if (run.callback != null && run.callback != Thread.currentThread())
+          run.callback.interrupt();
+        if (run.worker != null && run.worker != Thread.currentThread()) run.worker.interrupt();
+      }
     }
+  }
+
+  private void persistAndPublish(Run run) {
+    try {
+      persist(run);
+    } catch (RuntimeException failed) {
+      // Never publish a successful terminal snapshot that has not been durably committed.
+      run.status = "failed";
+      run.result = null;
+      run.suggestions = List.of();
+      run.preview = "";
+      run.streamFailed = true;
+      run.error = new AgentRunResult.Problem("agent_failed", "智能体任务未完成，请查看任务原因码。");
+      var last = run.events.getLast();
+      run.events.set(
+          run.events.size() - 1, new AgentRunResult.Event(last.sequence(), "failed", "任务未完成"));
+      List.copyOf(run.subscriptions).forEach(Subscription::close);
+      throw failed;
+    }
+    run.publish();
   }
 
   private void persist(Run run) {
@@ -665,6 +754,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
     final String conversationId;
     final long started = System.nanoTime();
     final List<AgentRunResult.Event> events = new ArrayList<>();
+    final Set<Subscription> subscriptions = new HashSet<>();
     final LinkedHashMap<KnowledgeEvidence.Key, String> sourceIds = new LinkedHashMap<>();
     final LinkedHashMap<String, KnowledgeEvidence> originals = new LinkedHashMap<>();
     final Set<String> readIds = new java.util.LinkedHashSet<>();
@@ -681,6 +771,10 @@ public final class KnowledgeAgentService implements AutoCloseable {
     KnowledgeAnswerResult result;
     List<AgentProtocol.Suggestion> suggestions = List.of();
     AgentRunResult.Problem error;
+    String preview = "";
+    String displayReasoning = "";
+    long streamRevision;
+    boolean streamFailed;
 
     Run(Actor actor, String question, String conversationId) {
       this.actor = actor;
@@ -701,6 +795,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
 
     synchronized void event(String type, String message) {
       events.add(new AgentRunResult.Event(events.size() + 1, type, message));
+      if (running()) publish();
     }
 
     synchronized void callbackEvent(String type, String message, String query) {
@@ -716,6 +811,61 @@ public final class KnowledgeAgentService implements AutoCloseable {
       events.add(
           new AgentRunResult.Event(
               events.size() + 1, type, message, AgentRunResult.Details.running(tool, query)));
+      if ("model".equals(tool)) {
+        preview = "";
+        displayReasoning = "";
+      }
+      publish();
+    }
+
+    synchronized Consumer<AgentModelDelta> modelListener() {
+      int eventIndex = callbackEventIndex;
+      return delta -> modelDelta(eventIndex, delta);
+    }
+
+    synchronized void modelDelta(int expectedEventIndex, AgentModelDelta delta) {
+      KnowledgeAgentService.this.active(this);
+      if (callbackEventIndex < 0 || expectedEventIndex != callbackEventIndex || delta == null)
+        throw invalid();
+      var event = events.get(callbackEventIndex);
+      var previous = event.details();
+      if (previous == null
+          || !"running".equals(previous.status())
+          || !"model".equals(previous.toolName())) throw invalid();
+      String reasoning = displayReasoning + delta.reasoningDelta();
+      boolean truncated =
+          previous.reasoningTruncated() || reasoning.codePointCount(0, reasoning.length()) > 16000;
+      if (reasoning.codePointCount(0, reasoning.length()) > 16000)
+        reasoning = reasoning.substring(0, reasoning.offsetByCodePoints(0, 16000));
+      displayReasoning = reasoning;
+      var details =
+          new AgentRunResult.Details(
+              previous.status(),
+              previous.toolName(),
+              previous.query(),
+              previous.elapsedMs(),
+              previous.resultCount(),
+              previous.documentCount(),
+              previous.sources(),
+              previous.safeCode(),
+              reasoning.isBlank() ? null : reasoning,
+              truncated && !reasoning.isBlank(),
+              previous.toolNames());
+      events.set(
+          callbackEventIndex,
+          new AgentRunResult.Event(event.sequence(), event.type(), event.message(), details));
+      preview += delta.answerDelta();
+      publish();
+    }
+
+    synchronized AgentRunStreamSnapshot streamView() {
+      return new AgentRunStreamSnapshot(streamRevision, view(), preview);
+    }
+
+    synchronized void publish() {
+      streamRevision++;
+      var snapshot = streamView();
+      subscriptions.forEach(subscription -> subscription.offer(snapshot));
     }
 
     synchronized void finishCallback(String state, String code, Object result) {
@@ -725,8 +875,8 @@ public final class KnowledgeAgentService implements AutoCloseable {
       if (previous == null || !"running".equals(previous.status())) return;
       var sources = new ArrayList<AgentRunResult.Source>();
       List<String> tools = List.of();
-      String reasoning = null;
-      boolean truncated = false;
+      String reasoning = previous.reasoning();
+      boolean truncated = previous.reasoningTruncated();
       Integer count = null;
       Integer documents = null;
       if (result instanceof AgentProtocol.ModelResult modelResult) {
@@ -769,6 +919,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
           callbackEventIndex,
           new AgentRunResult.Event(event.sequence(), event.type(), event.message(), details));
       callbackEventIndex = -1;
+      if (running()) publish();
     }
 
     synchronized AgentRunResult view() {

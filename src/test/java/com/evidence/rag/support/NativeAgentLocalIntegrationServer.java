@@ -43,6 +43,9 @@ public final class NativeAgentLocalIntegrationServer {
         while (input.hasNextLine()) {
           String command = input.nextLine().strip();
           if (command.equals("stop")) break;
+          if (command.equals("stream-pause")) models.pauseStreaming();
+          if (command.equals("answer-pause")) models.pauseAnswerStreaming();
+          if (command.equals("stream-resume")) models.resumeStreaming();
           if (command.equals("stats")) {
             System.out.println("AGENT_MODEL_CALLS=" + models.agentCalls.get());
             System.out.println("SEARCH_ACTIONS=" + models.searchActions.get());
@@ -97,7 +100,7 @@ public final class NativeAgentLocalIntegrationServer {
         "--rag.model-configuration.administrators=owner",
         "--rag.model-configuration.provider-base-url=" + models.endpoint(),
         "--rag.model-configuration.allow-loopback-http=true",
-        "--rag.model-configuration.deadline-ms=10000",
+        "--rag.model-configuration.deadline-ms=60000",
         "--rag.ingestion.parse-timeout-ms=15000",
         "--rag.indexing.timeout-ms=15000",
         "--rag.answers.timeout-ms=15000",

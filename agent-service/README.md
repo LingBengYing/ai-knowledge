@@ -59,6 +59,11 @@ API与配置详见[0070合同](../docs/changes/0070-native-agent-conversations/s
 
 ## 模型思考与执行详情
 
+0072起，Java→模型使用标准 `stream:true`，Java→浏览器使用 SSE；Python 内部 `/model`
+仍接收完整且已校验的 assistant 消息，避免半截工具参数触发执行。Java 消费模型流时即
+广播思考与回答预览，不必等待 Python 的一轮返回。最终答案仍须来源校验，预览不作证据。
+不新增模型轮次或 Python 依赖，见[流式合同](../docs/changes/0072-agent-sse-streaming/spec.md)。
+
 Java任务事件记录实际查询、读取资料的位置、返回数量和耗时；前端按步骤折叠展示。
 模型明确返回的 `reasoning_content` 可在独立“模型思考”区域查看；未返回时不伪造。
 该字段在同次原生工具循环中原样回传，兼容需要它的模型协议；`tool_choice=auto`，

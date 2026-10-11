@@ -1,6 +1,10 @@
 # AI Knowledge · Java Edition
 
-## 最新生产版本（2026-10-11，0070/0071）：原生智能体、持久对话与执行详情
+## 最新生产版本（2026-10-11，0072）：SSE 实时思考与回答
+
+Agent 上游使用 OpenAI-compatible `stream:true`，Java 将思考与回答预览经 SSE 发送到页面；工具仅在完整参数校验后执行，引用仅在终态校验后出现。Java/Web已配套发布，保留免登录和原资料；真实模型8次单问的公网首思考724ms、首回答6586ms均早于8199ms终态。原验收在额外旧合成引用处停止，随后两来源与重启回读零模型核对通过。生产页面最终显示已验，生成中增长未直接见证；不声称全仓门禁或全库质量通过。详见[生产记录](docs/changes/0072-agent-sse-streaming/deployment-verification.md)、[真实模型边界](docs/changes/0072-agent-sse-streaming/provider-run.md)与[本机验证](docs/changes/0072-agent-sse-streaming/verification.md)。
+
+## 此前生产版本（2026-10-11，0070/0071）：原生智能体、持久对话与执行详情
 
 0071补齐[执行详情](docs/changes/0071-agent-execution-details/spec.md)：可展开真实查询、阅读资料、返回数量和耗时；上游实际返回的`reasoning_content`单独折叠展示并随对话保存，不作为证据或压缩背景。原生工具循环保留协议所需思考字段，不强制关闭模型思考模式。已配套发布Java/Python/前端，保留现有免登录；真实DeepSeek/硅基流动8次单样例链、3轮思考、检索/阅读详情及重启回读、页面刷新通过，见[生产验收](docs/changes/0071-agent-execution-details/deployment-verification.md)和[真实模型记录](docs/changes/0071-agent-execution-details/provider-run.md)。按负责人限定例外发布，全仓旧失败/readiness503仍开放，非全库质量认证。
 
