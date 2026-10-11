@@ -122,7 +122,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return await task
         except AgentFailure as error:
             log_failure(value.run_id, error.code, bridge)
-            return JSONResponse({"error": error.code}, status_code=502)
+            code = error.code
+            if (code == "agent_invalid_result" and bridge is not None
+                    and isinstance(bridge.result_reason, str) and bridge.result_reason in RESULT_REASONS):
+                code = "agent_result_" + bridge.result_reason
+            return JSONResponse({"error": code}, status_code=502)
         except Exception:
             log_failure(value.run_id, "agent_execution_failed", bridge)
             return JSONResponse({"error": "agent_execution_failed"}, status_code=502)

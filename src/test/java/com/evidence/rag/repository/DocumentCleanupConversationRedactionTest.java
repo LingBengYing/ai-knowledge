@@ -26,7 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Cleanup is only "completed" when archived conversations no longer carry the document. */
 class DocumentCleanupConversationRedactionTest {
   private static final Actor OWNER = new Actor("org-main", "owner");
-  private static final String SECRET = "synthetic secret sentence";
+  private static final String PURGED_TEXT = "synthetic secret sentence";
   private final JsonMapper json = JsonMapper.builder().build();
   @TempDir Path directory;
 
@@ -34,7 +34,7 @@ class DocumentCleanupConversationRedactionTest {
   void cleanupRedactsCitingTurnsAndResetsDerivedSummaryInsidePurge() {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      String documentId = parsed(authority, "secret.txt", SECRET);
+      String documentId = parsed(authority, "secret.txt", PURGED_TEXT);
       String otherDocument = parsed(authority, "other.txt", "unrelated synthetic body");
       var conversations = new ConversationRepository(store);
       String conversation = UUID.randomUUID().toString();
@@ -63,7 +63,7 @@ class DocumentCleanupConversationRedactionTest {
                     conversations.find(OWNER, conversation).orElseThrow().generation();
                 assertTrue(
                     conversations.checkpoint(
-                        OWNER, conversation, later, generation, 1, "summary of " + SECRET, 4));
+                        OWNER, conversation, later, generation, 1, "summary of " + PURGED_TEXT, 4));
                 conversations.finish(OWNER, conversation, later, "completed", laterJson, 5);
                 conversations.insert(OWNER, unrelatedConversation, "u", 1);
                 conversations.begin(
@@ -84,13 +84,13 @@ class DocumentCleanupConversationRedactionTest {
                 0,
                 store.count(
                     "SELECT COUNT(*) FROM knowledge_conversation_turns WHERE result_json LIKE ? OR result_json LIKE ?",
-                    "%" + SECRET + "%",
+                    "%" + PURGED_TEXT + "%",
                     "%secret.txt%"));
             assertEquals(
                 0,
                 store.count(
                     "SELECT COUNT(*) FROM knowledge_conversations WHERE summary LIKE ?",
-                    "%" + SECRET + "%"));
+                    "%" + PURGED_TEXT + "%"));
             var state = conversations.find(OWNER, conversation).orElseThrow();
             assertEquals("", state.summary());
             assertEquals(0, state.coveredTurnCount());
@@ -136,7 +136,7 @@ class DocumentCleanupConversationRedactionTest {
 
   private static AgentRunResult run(String id, String documentId, String filename) {
     String revision = UUID.randomUUID().toString();
-    String quote = filename.equals("secret.txt") ? SECRET : "unrelated synthetic body";
+    String quote = filename.equals("secret.txt") ? PURGED_TEXT : "unrelated synthetic body";
     var source =
         new AgentRunResult.Source(
             "source-1", documentId, revision, filename, "document_text", 1, null, null);

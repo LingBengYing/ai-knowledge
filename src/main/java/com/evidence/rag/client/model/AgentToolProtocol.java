@@ -26,7 +26,10 @@ final class AgentToolProtocol {
           function(
               "terminate",
               "Finish with evidence-based statements citing only actually read source IDs, or "
-                  + "refuse when evidence is insufficient. Never invent source or document IDs.",
+                  + "refuse when evidence is insufficient. Use refused=false for any supported "
+                  + "answer, including partial answers with limitations. Use refused=true only "
+                  + "with empty statements; separate maintenance suggestions may cite read documents. "
+                  + "Never invent source or document IDs.",
               object(
                   Map.of(
                       "result",

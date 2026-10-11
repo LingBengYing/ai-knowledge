@@ -757,6 +757,49 @@ class KnowledgeAgentServiceTest {
   }
 
   @Test
+  void refusalCanPersistSeparateSuggestionsForReadDocumentsWithoutBecomingAnAnswer()
+      throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("manual.txt", "合成资料原文。");
+      String conversation = fixture.conversations.create(fixture.context.owner, "资料缺口").id();
+      fixture.script.set(
+          request -> {
+            var sources = fixture.agents.search(request.runId(), auth(request), "资料").sources();
+            fixture.agents.read(
+                request.runId(),
+                auth(request),
+                sources.stream().map(AgentProtocol.SearchSource::sourceId).toList());
+            return new AgentProtocol.Proposal(
+                true,
+                List.of(),
+                List.of(
+                    new AgentProtocol.Suggestion(
+                        "补充资料", "原文没有操作步骤", List.of(sources.getFirst().documentId()))));
+          });
+      String id =
+          fixture
+              .agents
+              .start(fixture.context.owner, "操作步骤是什么", UUID.randomUUID().toString(), conversation)
+              .id();
+      var result = fixture.await(id);
+      assertEquals("completed", result.status());
+      assertEquals("abstained", result.result().status());
+      assertEquals("model_refused", result.result().reason());
+      assertTrue(result.result().citations().isEmpty());
+      assertEquals(1, result.suggestions().size());
+      assertEquals(
+          result,
+          fixture
+              .conversations
+              .get(fixture.context.owner, conversation)
+              .turns()
+              .getFirst()
+              .result());
+      assertEquals(1, fixture.calls.get());
+    }
+  }
+
+  @Test
   void fabricatedAndUnreadReferencesNeverBecomeFormalAnswers() throws Exception {
     try (var fixture = new Fixture(directory)) {
       fixture.context.publish("manual.txt", "合成资料原文。");
@@ -922,6 +965,14 @@ class KnowledgeAgentServiceTest {
               "agent_invalid_tool_input",
               "agent_tool_failed",
               "agent_invalid_result",
+              "agent_result_invalid_json",
+              "agent_result_invalid_schema",
+              "agent_result_no_search",
+              "agent_result_missing_statements",
+              "agent_result_no_read",
+              "agent_result_blank_statement",
+              "agent_result_unread_evidence",
+              "agent_result_unknown_suggestion_document",
               "agent_step_limit",
               "agent_execution_failed")) {
         fixture.script.set(

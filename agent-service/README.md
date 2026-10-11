@@ -42,8 +42,16 @@ Java签发短期callback token并绑定run、主体和问题。Python仅调用�
 {"refused":false,"statements":[{"text":"有原文依据的回答","evidence_ids":["source-1"]}],"suggestions":[]}
 ```
 
-每轮必须search/read，只接受当轮已读取source_id。Java继续核验组织、原文版本、
+每次任务必须检索，回答只能引用当轮实际阅读的source_id。Java继续核验组织、原文版本、
 删除状态和引用。旧历史/摘要只作不可信背景，不构成当轮来源。维护建议不执行写入。
+
+部分回答应使用`refused=false`。若模型误填拒答标志但提交了段落，执行器先验证全部来源和
+建议文档，全部合法后才统一标志；段落、引用不补造或改写。拒答可带引用已读文档的维护
+建议，但`statements`仍为空。声明非拒答却没有段落仍属错误。
+
+结果校验的502响应只含固定`error`字段，例如`agent_result_unread_evidence`、
+`agent_result_invalid_schema`，由Java任务记录和前端显示具体原因；不透传模型或异常正文。
+配套更新Python执行器、Java安全码枚举和Web文案，不只替换其中一个服务。
 
 ## 对话与上下文压缩
 

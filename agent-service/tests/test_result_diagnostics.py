@@ -6,7 +6,37 @@ import pytest
 
 from knowledge_agent.runtime import AgentFailure, CallbackBridge, run_agent, validate_result
 from knowledge_agent.service import log_failure
-from test_agent import CALLBACK_TOKEN, RESULT, SOURCE, JavaCallbacks, tool_message
+from test_agent import CALLBACK_TOKEN, SERVICE_TOKEN, RESULT, SOURCE, JavaCallbacks, tool_message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("statements", [RESULT["statements"], []])
+async def test_refusal_with_valid_content_finishes_after_actual_search_and_read(statements):
+    proposal = dict(RESULT, refused=True, statements=statements)
+    callbacks = JavaCallbacks([
+        tool_message("knowledge_search", {"query": "synthetic topic"}),
+        tool_message("knowledge_read", {"source_ids": ["source-1"]}),
+        tool_message("terminate", {"result": proposal}),
+    ])
+    async with httpx.AsyncClient(transport=httpx.MockTransport(callbacks), trust_env=False) as client:
+        bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
+        result = await run_agent("synthetic partial question", bridge)
+    assert result == dict(proposal, refused=not bool(statements))
+    assert [name for name, _ in callbacks.calls] == ["model", "search", "model", "read", "model"]
+    assert bridge.model_calls == 3 and bridge.search_calls == 1 and bridge.tool_calls == 2
+
+
+@pytest.mark.parametrize("changes,reason", [
+    ({"statements": [{"text": "private fact", "evidence_ids": ["unknown-source"]}]}, "unread_evidence"),
+    ({"statements": [], "suggestions": [{"title": "gap", "reason": "missing detail", "document_ids": ["unknown-doc"]}]}, "unknown_suggestion_document"),
+])
+def test_refusal_normalization_never_bypasses_source_or_suggestion_validation(changes, reason):
+    bridge = CallbackBridge(None, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
+    bridge.search_calls = 1
+    bridge.read_sources = {"source-1": SOURCE}
+    with pytest.raises(AgentFailure):
+        validate_result(dict(RESULT, refused=True, **changes), bridge)
+    assert bridge.result_reason == reason
 
 
 @pytest.mark.parametrize("value,search,read,reason", [
@@ -14,7 +44,6 @@ from test_agent import CALLBACK_TOKEN, RESULT, SOURCE, JavaCallbacks, tool_messa
     ("[" * 100000, True, True, "invalid_json"),
     (dict(RESULT, extra="private text"), True, True, "invalid_schema"),
     (RESULT, False, True, "no_search"),
-    (dict(RESULT, refused=True), True, True, "refusal_has_content"),
     (dict(RESULT, statements=[]), True, True, "missing_statements"),
     (RESULT, True, False, "no_read"),
     (dict(RESULT, statements=[{"text": " ", "evidence_ids": ["source-1"]}]), True, True, "blank_statement"),
@@ -38,6 +67,36 @@ def test_untrusted_diagnostic_reason_is_masked(caplog):
     bridge.result_reason = "private\nprovider text"
     log_failure(str(uuid4()), "agent_invalid_result", bridge)
     assert "result_reason=none" in caplog.text and "private" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason,expected", [
+    ("invalid_json", "agent_result_invalid_json"),
+    ("invalid_schema", "agent_result_invalid_schema"),
+    ("no_search", "agent_result_no_search"),
+    ("missing_statements", "agent_result_missing_statements"),
+    ("no_read", "agent_result_no_read"),
+    ("blank_statement", "agent_result_blank_statement"),
+    ("unread_evidence", "agent_result_unread_evidence"),
+    ("unknown_suggestion_document", "agent_result_unknown_suggestion_document"),
+    ("private\nprovider diagnostic", "agent_invalid_result"),
+])
+async def test_result_http_failure_exposes_only_fixed_diagnostic_code(monkeypatch, reason, expected):
+    from knowledge_agent import service
+    async def connected(request):
+        return False
+    async def fail(question, bridge, timeout, **context):
+        bridge.stage = "result"
+        bridge.result_reason = reason
+        raise AgentFailure("agent_invalid_result")
+    monkeypatch.setattr(service.Request, "is_disconnected", connected)
+    monkeypatch.setattr(service, "run_agent", fail)
+    app = service.create_app(service.Settings(java_origin="http://127.0.0.1:18084", service_token=SERVICE_TOKEN))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/v1/runs", headers={"Authorization": "Bearer " + SERVICE_TOKEN},
+            json={"run_id": str(uuid4()), "question": "private question", "callback_token": CALLBACK_TOKEN})
+    assert response.status_code == 502 and response.json() == {"error": expected}
+    assert "private" not in response.text and SERVICE_TOKEN not in response.text and CALLBACK_TOKEN not in response.text
 
 
 @pytest.mark.asyncio

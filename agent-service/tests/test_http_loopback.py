@@ -20,9 +20,14 @@ CALLBACK_TOKEN = uuid4().hex
 
 
 @pytest.mark.asyncio
-async def test_real_http_loopback_and_service_token(caplog):
+@pytest.mark.parametrize("proposal,expected", [
+    (RESULT, RESULT),
+    (dict(RESULT, refused=True), RESULT),
+    (dict(RESULT, refused=True, statements=[]), dict(RESULT, refused=True, statements=[])),
+])
+async def test_real_http_loopback_and_service_token(caplog, proposal, expected):
     calls = []
-    outputs = [tool_message("knowledge_search", {"query": "灯塔"}), tool_message("knowledge_read", {"source_ids": ["source-1"]}), tool_message("terminate", {"result": RESULT})]
+    outputs = [tool_message("knowledge_search", {"query": "灯塔"}), tool_message("knowledge_read", {"source_ids": ["source-1"]}), tool_message("terminate", {"result": proposal})]
 
     class CallbackHandler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -68,7 +73,7 @@ async def test_real_http_loopback_and_service_token(caplog):
             assert denied.status_code == 401 and not calls
             response = await client.post("/v1/runs", json=body, headers={"Authorization": "Bearer " + SERVICE_TOKEN})
             assert response.status_code == 200, response.text
-            assert response.json() == RESULT
+            assert response.json() == expected
             duplicate = await client.post("/v1/runs", json=body, headers={"Authorization": "Bearer " + SERVICE_TOKEN})
             assert duplicate.status_code == 409
             assert [name for name, _ in calls] == ["model", "search", "model", "read", "model"]
