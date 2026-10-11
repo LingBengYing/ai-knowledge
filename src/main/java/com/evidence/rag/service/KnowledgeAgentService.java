@@ -35,10 +35,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.slf4j.Logger;
@@ -48,6 +51,13 @@ import org.slf4j.LoggerFactory;
 public final class KnowledgeAgentService implements AutoCloseable {
   private static final Logger LOG = LoggerFactory.getLogger(KnowledgeAgentService.class);
   public static final int MAX_STEPS = 8;
+
+  /** Observers per run; each one parks an SSE sender thread until the next snapshot. */
+  static final int MAX_SUBSCRIPTIONS = 16;
+
+  /** Upstream token deltas are coalesced so a long answer is not re-sent once per token. */
+  static final long DELTA_PUBLISH_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
+
   private static final String PROMPT = "java-native-tool-knowledge-agent-v2";
   private static final String REFUSAL = "当前资料不足以形成可核对的完整回答。";
   private final EvidenceService evidence;
@@ -255,6 +265,9 @@ public final class KnowledgeAgentService implements AutoCloseable {
     var run = authorized(actor, id);
     synchronized (run) {
       if (run.streamFailed) throw problem(FailureKind.UNAVAILABLE, "agent_failed");
+      if (run.subscriptions.size() >= MAX_SUBSCRIPTIONS) {
+        throw problem(FailureKind.CAPACITY_EXCEEDED, "agent_capacity_exceeded");
+      }
       var subscription = new Subscription(run);
       run.subscriptions.add(subscription);
       subscription.offer(run.streamView());
@@ -262,9 +275,15 @@ public final class KnowledgeAgentService implements AutoCloseable {
     }
   }
 
-  /** One latest immutable snapshot per subscriber; slow readers do not block the run. */
+  /**
+   * One latest immutable snapshot per subscriber; slow readers do not block the run. Waiting uses a
+   * {@link ReentrantLock} rather than a monitor so an idle virtual SSE sender unmounts from its
+   * carrier thread on JDK 21 instead of pinning it.
+   */
   public final class Subscription implements AutoCloseable {
     private final Run run;
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition changed = lock.newCondition();
     private AgentRunStreamSnapshot latest;
     private boolean disposed;
 
@@ -272,27 +291,41 @@ public final class KnowledgeAgentService implements AutoCloseable {
       this.run = run;
     }
 
-    private synchronized void offer(AgentRunStreamSnapshot snapshot) {
-      if (!disposed) {
-        latest = snapshot;
-        notifyAll();
+    private void offer(AgentRunStreamSnapshot snapshot) {
+      lock.lock();
+      try {
+        if (!disposed) {
+          latest = snapshot;
+          changed.signalAll();
+        }
+      } finally {
+        lock.unlock();
       }
     }
 
-    public synchronized AgentRunStreamSnapshot next(Duration timeout) throws InterruptedException {
-      long deadline = System.nanoTime() + timeout.toNanos();
-      while (latest == null && !disposed) {
-        long remaining = deadline - System.nanoTime();
-        if (remaining <= 0) return null;
-        TimeUnit.NANOSECONDS.timedWait(this, remaining);
+    public AgentRunStreamSnapshot next(Duration timeout) throws InterruptedException {
+      long remaining = timeout.toNanos();
+      lock.lockInterruptibly();
+      try {
+        while (latest == null && !disposed) {
+          if (remaining <= 0) return null;
+          remaining = changed.awaitNanos(remaining);
+        }
+        var result = latest;
+        latest = null;
+        return result;
+      } finally {
+        lock.unlock();
       }
-      var result = latest;
-      latest = null;
-      return result;
     }
 
-    public synchronized boolean closed() {
-      return disposed;
+    public boolean closed() {
+      lock.lock();
+      try {
+        return disposed;
+      } finally {
+        lock.unlock();
+      }
     }
 
     @Override
@@ -300,10 +333,13 @@ public final class KnowledgeAgentService implements AutoCloseable {
       synchronized (run) {
         run.subscriptions.remove(this);
       }
-      synchronized (this) {
+      lock.lock();
+      try {
         disposed = true;
         latest = null;
-        notifyAll();
+        changed.signalAll();
+      } finally {
+        lock.unlock();
       }
     }
   }
@@ -724,9 +760,23 @@ public final class KnowledgeAgentService implements AutoCloseable {
       run.events.set(
           run.events.size() - 1, new AgentRunResult.Event(last.sequence(), "failed", "任务未完成"));
       List.copyOf(run.subscriptions).forEach(Subscription::close);
+      releaseConversation(run);
       throw failed;
     }
     run.publish();
+  }
+
+  /**
+   * Best effort after a failed terminal write: record the failed turn and clear the conversation's
+   * active run, so the conversation is not busy until the next restart. A second failure leaves the
+   * existing restart recovery in charge and is logged without exception details.
+   */
+  private void releaseConversation(Run run) {
+    try {
+      persist(run);
+    } catch (RuntimeException secondary) {
+      LOG.warn("knowledge_agent_conversation_release_failed run_id={}", run.id);
+    }
   }
 
   private void persist(Run run) {
@@ -774,6 +824,9 @@ public final class KnowledgeAgentService implements AutoCloseable {
     String preview = "";
     String displayReasoning = "";
     long streamRevision;
+    long lastPublished;
+    boolean deltaPending;
+    boolean flushScheduled;
     boolean streamFailed;
 
     Run(Actor actor, String question, String conversationId) {
@@ -855,7 +908,29 @@ public final class KnowledgeAgentService implements AutoCloseable {
           callbackEventIndex,
           new AgentRunResult.Event(event.sequence(), event.type(), event.message(), details));
       preview += delta.answerDelta();
-      publish();
+      publishDelta();
+    }
+
+    /** At most one delta snapshot per interval; a trailing flush delivers the latest state. */
+    synchronized void publishDelta() {
+      long wait = lastPublished + DELTA_PUBLISH_INTERVAL_NANOS - System.nanoTime();
+      if (wait <= 0) {
+        publish();
+        return;
+      }
+      deltaPending = true;
+      if (flushScheduled) return;
+      try {
+        timer.schedule(this::flushDelta, wait, TimeUnit.NANOSECONDS);
+        flushScheduled = true;
+      } catch (RejectedExecutionException closing) {
+        publish();
+      }
+    }
+
+    synchronized void flushDelta() {
+      flushScheduled = false;
+      if (deltaPending && running()) publish();
     }
 
     synchronized AgentRunStreamSnapshot streamView() {
@@ -864,6 +939,8 @@ public final class KnowledgeAgentService implements AutoCloseable {
 
     synchronized void publish() {
       streamRevision++;
+      lastPublished = System.nanoTime();
+      deltaPending = false;
       var snapshot = streamView();
       subscriptions.forEach(subscription -> subscription.offer(snapshot));
     }

@@ -510,6 +510,9 @@ public final class DocumentCleanupRepository {
               + "=? AND payload_purged=0",
           claim.documentId());
     }
+    // Archived conversation answers can quote the document; they are scrubbed in this transaction.
+    new ConversationRepository(store)
+        .redactDocument(claim.workspaceId(), claim.documentId(), System.currentTimeMillis());
     verifyPurged(claim.documentId(), claim.cleanupId());
   }
 

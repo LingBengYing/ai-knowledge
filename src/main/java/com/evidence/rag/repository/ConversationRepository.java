@@ -3,13 +3,19 @@ package com.evidence.rag.repository;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ConversationState;
 import com.evidence.rag.model.domain.ModelValues;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /** Actor-owned dialogue persistence. Every operation is inside the caller's store transaction. */
 public final class ConversationRepository {
+  /** Fixed notice that replaces an archived answer once a document it relied on is cleaned up. */
+  public static final String REDACTED_ANSWER = "引用的资料已清理。";
+
   private final SqliteAuthorityStore store;
   private final JsonMapper json = JsonMapper.builder().build();
 
@@ -175,6 +181,73 @@ public final class ConversationRepository {
       store.execute(
           "UPDATE knowledge_conversations SET compression_status=? WHERE id=?", status, id);
     }
+  }
+
+  /**
+   * Document cleanup redaction, run inside the cleanup purge transaction. Every archived turn of
+   * the workspace whose stored result references the document (formal citations, tool source
+   * coordinates or maintenance suggestions) keeps its question and run status, but its formal
+   * result becomes an abstention with the fixed notice and no citations, and tool details and
+   * suggestions (which may carry quotes, filenames or model reasoning) are dropped. A summary
+   * checkpoint that covers a redacted turn cannot be scrubbed precisely, so it is reset and later
+   * regenerated from the redacted turns.
+   */
+  public void redactDocument(String workspaceId, String documentId, long now) {
+    var earliest = new LinkedHashMap<String, Long>();
+    for (var row :
+        store.rows(
+            "SELECT t.conversation_id,t.ordinal,t.result_json FROM knowledge_conversation_turns t JOIN knowledge_conversations c ON c.id=t.conversation_id WHERE c.workspace_id=? AND t.result_json IS NOT NULL AND instr(t.result_json,?)>0 ORDER BY t.conversation_id,t.ordinal",
+            workspaceId,
+            documentId)) {
+      var result = json.readTree(AuthorityRows.text(row, "result_json"));
+      if (!(result instanceof ObjectNode stored) || !references(stored, documentId)) {
+        continue;
+      }
+      if (stored.get("result") instanceof ObjectNode answer) {
+        answer.put("status", "abstained");
+        answer.put("answer", REDACTED_ANSWER);
+        answer.put("reason", "source_removed");
+        answer.putArray("citations");
+      }
+      for (var event : stored.path("events")) {
+        if (event instanceof ObjectNode value) {
+          value.remove("details");
+        }
+      }
+      stored.putArray("suggestions");
+      String conversation = AuthorityRows.text(row, "conversation_id");
+      long ordinal = AuthorityRows.number(row, "ordinal");
+      store.execute(
+          "UPDATE knowledge_conversation_turns SET result_json=?,updated_at=? WHERE conversation_id=? AND ordinal=?",
+          json.writeValueAsString(stored),
+          now,
+          conversation,
+          ordinal);
+      earliest.merge(conversation, ordinal, Math::min);
+    }
+    earliest.forEach(
+        (conversation, ordinal) ->
+            store.execute(
+                "UPDATE knowledge_conversations SET summary='',covered_turn_count=0,compression_status=CASE WHEN compression_status='compressing' THEN 'failed' ELSE 'idle' END,generation=generation+1 WHERE id=? AND covered_turn_count>=?",
+                conversation,
+                ordinal));
+  }
+
+  private static boolean references(JsonNode result, String documentId) {
+    for (var citation : result.path("result").path("citations")) {
+      if (documentId.equals(citation.path("document_id").asString(null))) return true;
+    }
+    for (var event : result.path("events")) {
+      for (var source : event.path("details").path("sources")) {
+        if (documentId.equals(source.path("document_id").asString(null))) return true;
+      }
+    }
+    for (var suggestion : result.path("suggestions")) {
+      for (var id : suggestion.path("document_ids")) {
+        if (documentId.equals(id.asString(null))) return true;
+      }
+    }
+    return false;
   }
 
   /** A restart interrupts pending work, never reruns models or silently replays old tools. */
