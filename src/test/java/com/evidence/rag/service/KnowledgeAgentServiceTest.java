@@ -257,6 +257,133 @@ class KnowledgeAgentServiceTest {
   }
 
   @Test
+  void failedTerminalWriteStillReleasesConversationForNextQuestionAndDelete() throws Exception {
+    try (var fixture = new Fixture(directory, Duration.ofSeconds(10), 1)) {
+      fixture.context.publish("stream.txt", "合成资料。");
+      String conversation = fixture.conversations.create(fixture.context.owner, "释放").id();
+      fixture.script.set(
+          request -> {
+            fixture.read(request);
+            return answer("source-1");
+          });
+      String id =
+          fixture
+              .agents
+              .start(fixture.context.owner, "资料", UUID.randomUUID().toString(), conversation)
+              .id();
+      var failed = fixture.await(id);
+      assertEquals("failed", failed.status());
+      assertEquals("agent_failed", failed.error().code());
+      var detail = fixture.conversations.get(fixture.context.owner, conversation);
+      assertNull(detail.conversation().activeRunId(), "conversation must not stay busy");
+      var turn = detail.turns().getFirst();
+      assertEquals("failed", turn.status());
+      assertNull(turn.result().result(), "the uncommitted answer is never recorded as a success");
+      assertEquals("agent_failed", turn.result().error().code());
+      var next =
+          fixture.await(
+              fixture
+                  .agents
+                  .start(fixture.context.owner, "下一问", UUID.randomUUID().toString(), conversation)
+                  .id());
+      assertEquals("completed", next.status());
+      assertEquals(
+          List.of("failed", "completed"),
+          fixture.conversations.get(fixture.context.owner, conversation).turns().stream()
+              .map(com.evidence.rag.model.dto.ConversationResult.Turn::status)
+              .toList());
+      fixture.conversations.delete(fixture.context.owner, conversation);
+    }
+  }
+
+  @Test
+  void documentCleanupRedactsArchivedAgentTurnThatCitedIt() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      String documentId = fixture.context.publish("secret.txt", "合成机密句子需要被清除。");
+      String conversation = fixture.conversations.create(fixture.context.owner, "引用").id();
+      fixture.script.set(
+          request -> {
+            fixture.read(request);
+            return answer("source-1");
+          });
+      var answered =
+          fixture.await(
+              fixture
+                  .agents
+                  .start(fixture.context.owner, "资料", UUID.randomUUID().toString(), conversation)
+                  .id());
+      assertEquals("answered", answered.result().status());
+      String retained =
+          "SELECT COUNT(*) FROM knowledge_conversation_turns WHERE result_json LIKE '%合成机密句子%' OR result_json LIKE '%secret.txt%'";
+      assertEquals(1, fixture.context.scalar(retained));
+      var store = fixture.context.authority.store();
+      var cleanup =
+          new DocumentCleanupService(
+              store,
+              new com.evidence.rag.repository.DocumentCleanupRepository(store),
+              new com.evidence.rag.repository.DocumentLifecycleRepository(store),
+              new com.evidence.rag.repository.ManagementRepository(store),
+              new com.evidence.rag.security.authorization.DocumentPermissionPolicy(),
+              attempts ->
+                  new com.evidence.rag.client.vector.ProjectionCleanup.Result(
+                      "completed", "completed", "completed", null));
+      cleanup.request(fixture.context.owner, documentId);
+      assertTrue(cleanup.runOnce());
+      assertEquals(0, fixture.context.scalar(retained));
+      var turn = fixture.conversations.get(fixture.context.owner, conversation).turns().getFirst();
+      assertEquals("资料", turn.question());
+      assertEquals("completed", turn.status());
+      assertEquals(
+          com.evidence.rag.repository.ConversationRepository.REDACTED_ANSWER,
+          turn.result().result().answer());
+      assertEquals("abstained", turn.result().result().status());
+      assertTrue(turn.result().result().citations().isEmpty());
+    }
+  }
+
+  @Test
+  void rapidModelDeltasAreCoalescedAndTheLatestPreviewIsStillDelivered() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      fixture.context.publish("stream.txt", "合成资料。");
+      var subscribed = new CountDownLatch(1);
+      var release = new CountDownLatch(1);
+      int deltas = 500;
+      fixture.context.models.agentStreaming =
+          (messages, listener) -> {
+            await(subscribed);
+            for (int i = 0; i < deltas; i++) listener.accept(new AgentModelDelta("", "字"));
+            await(release);
+            return streamingMessage("思考");
+          };
+      fixture.script.set(
+          request -> {
+            fixture.agents.model(
+                request.runId(),
+                auth(request),
+                new AgentProtocol.ModelRequest(List.of(new AgentMessage("user", "资料"))));
+            return refused();
+          });
+      String id = fixture.start();
+      try (var stream = fixture.agents.subscribe(fixture.context.owner, id)) {
+        long first = stream.next(Duration.ofSeconds(5)).revision();
+        subscribed.countDown();
+        com.evidence.rag.model.dto.AgentRunStreamSnapshot latest;
+        do {
+          latest = stream.next(Duration.ofSeconds(5));
+          assertNotNull(latest, "the trailing flush must deliver the last preview");
+        } while (latest.run().preview().length() < deltas);
+        assertEquals("字".repeat(deltas), latest.run().preview());
+        assertEquals("running", latest.run().status(), "delivered before the model call ends");
+        assertTrue(
+            latest.revision() - first < deltas / 10,
+            "published " + (latest.revision() - first) + " snapshots for " + deltas + " deltas");
+        release.countDown();
+        assertEquals("completed", fixture.await(id).status());
+      }
+    }
+  }
+
+  @Test
   void actualServletSseFlushesReasoningAndAnswerWhileProviderStillBlocked() throws Exception {
     try (var fixture = new Fixture(directory.resolve("authority"));
         var client = java.net.http.HttpClient.newHttpClient()) {
@@ -1031,6 +1158,11 @@ class KnowledgeAgentServiceTest {
     }
 
     Fixture(Path directory, Duration timeout, boolean failPersistence) {
+      this(directory, timeout, failPersistence ? Integer.MAX_VALUE : 0);
+    }
+
+    /** The first {@code persistenceFailures} conversation terminal writes fail. */
+    Fixture(Path directory, Duration timeout, int persistenceFailures) {
       context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1);
       runtime =
           new ManagedTextRuntime(
@@ -1077,9 +1209,17 @@ class KnowledgeAgentServiceTest {
               24000,
               4);
       conversations =
-          failPersistence ? org.mockito.Mockito.spy(conversationService) : conversationService;
-      if (failPersistence)
-        org.mockito.Mockito.doThrow(new IllegalStateException("synthetic persistence failure"))
+          persistenceFailures > 0
+              ? org.mockito.Mockito.spy(conversationService)
+              : conversationService;
+      var failedWrites = new AtomicInteger();
+      if (persistenceFailures > 0)
+        org.mockito.Mockito.doAnswer(
+                invocation -> {
+                  if (failedWrites.getAndIncrement() < persistenceFailures)
+                    throw new IllegalStateException("synthetic persistence failure");
+                  return invocation.callRealMethod();
+                })
             .when(conversations)
             .finish(
                 org.mockito.ArgumentMatchers.any(),
