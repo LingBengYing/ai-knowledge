@@ -20,7 +20,7 @@ public final class LibraryOperationGate {
   public synchronized OperationLease enter() {
     if (maintenance != null) {
       throw new ApplicationException(
-          FailureKind.UNAVAILABLE, "migration_incomplete", "Library maintenance is in progress");
+          FailureKind.UNAVAILABLE, "migration_incomplete", "资料库正在清理已删除的资料，请稍后重试。");
     }
     LibraryWorkContext.Scope context = LibraryWorkContext.install(this, managedRoot, false);
     active++;
@@ -53,7 +53,7 @@ public final class LibraryOperationGate {
   public synchronized ReservedOperation reserve() {
     if (maintenance != null) {
       throw new ApplicationException(
-          FailureKind.UNAVAILABLE, "migration_incomplete", "Library maintenance is in progress");
+          FailureKind.UNAVAILABLE, "migration_incomplete", "资料库正在清理已删除的资料，请稍后重试。");
     }
     active++;
     return new ReservedOperation(this);
