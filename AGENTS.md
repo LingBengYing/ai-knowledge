@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-11 0073/Web0054已上线 `20261011-agent-result-0073`：合并源码后端107b2f1/前端a2097a3已推送，配套Java/原生Agent/Web结果规范化与8个安全细码；schema36/模型active7/中文索引/OCR/免登录保持。生产副本二次重开、停机备份、真实UID访问检查通过。原失败问题SHA20dd95df对应任务a6f7914d（refusal_has_content）在重新具名授权后单次真实复验10/20（DS4/SF嵌入3/重排3）completed/answered、3检索2阅读5引用，版本/引用/原件SHA及重启零模型回读通过，旧99表全部旧行14文件与配置保持。余10次不续、临时计数移除；入口11只读路径/内部404/四服务active NRestarts0通过。浏览器客户端拦截生产地址，未完成真实页面见证，不冒称流式或全库质量全验。先读0073四工件及provider-run/deployment-verification；旧全仓verify/覆盖率/readiness503开放，私密正文/思考/运行配置不提交。下文LOCAL_VERIFIED/未推送为历史阶段。
+
 2026-10-11 0073 LOCAL_VERIFIED：已修复refusal_has_content，全部已读来源/建议文档验证后规范化拒答标志，拒答可保留独立维护建议；Java来源/版本/持久化校验保持。8个固定结果细码贯通Python HTTP→Java→Web0054，旧通用码只为历史回读。Python131/131、Java64/64、前端527/527、syntax/打包/格式与扫描通过；真实HTTP矛盾输入已验，云0，未推送/发布/修改旧资料。生产仍0072，旧8/20关闭不续。先读0073/Web0054四工件及verification，不拿本机合成成功证明生产原题或全库质量，旧全仓门禁开放。
 
 2026-10-11 11:45:59 +08：0072/Web0053已上线`20261011-agent-sse-0072`，Java/Web配套SSE，Agent/OCR/schema36/免登录/模型active7保持；真实副本二次重开、停机备份、旧99表14文件与配置保持，四服务active/NRestarts0。新独立单问8/20（DS3/SF嵌入3/重排2）已halted不续12次；实际answered，公网300快照/首思考724ms/首回答6586ms/终态8199ms，同模型轮running回读证明真实提前输出。原helper因第2条旧合成引用citation_not_synthetic_revision停止，原报告保持；另经精确两来源/各自原件SHA、完整最终详情、重启零模型回读与新增行归属审计后开放，来源规则未放宽。生产浏览器仅最终显示/刷新通过，中间增长未直接见证，不冒称全量验收。当前Java85/85、前端完整526/526、实际入口226/代理19/免登录SSE7通过；旧Java全仓/覆盖率/readiness503及前端25ms竞态仍开放。先读0072/Web0053四工件及deployment-verification/provider-run。Git仅源码与脱敏证据，私密制品、真实思考/资料正文不提交。下文未发布/云0为本机历史阶段。
