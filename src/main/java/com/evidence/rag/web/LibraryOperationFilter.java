@@ -59,6 +59,7 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
     String path = paths.getPathWithinApplication(request);
     return !path.startsWith("/v1/")
         || path.equals("/v1/config")
+        || path.equals("/v1/session")
         || path.equals("/v1/model-configuration/activate")
         || (path.equals("/v1/model-configuration/rebuild") && "POST".equals(request.getMethod()))
         || path.equals("/v1/management/document-cleanups")
@@ -76,6 +77,7 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
       var problem = errors.problem(unavailable, request);
       response.setStatus(problem.getStatusCode().value());
       response.setHeader("Cache-Control", "private, no-store");
+      response.setHeader("Retry-After", "5");
       response.setContentType("application/problem+json");
       response.setCharacterEncoding("UTF-8");
       response.getOutputStream().write(json.writeValueAsBytes(problem.getBody()));

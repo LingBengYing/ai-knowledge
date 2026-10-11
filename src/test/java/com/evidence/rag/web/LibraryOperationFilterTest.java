@@ -58,9 +58,13 @@ class LibraryOperationFilterTest {
           "migration_incomplete",
           json.readTree(response.getContentAsString()).path("error_code").asString());
       assertEquals("private, no-store", response.getHeader("Cache-Control"));
+      assertEquals("5", response.getHeader("Retry-After"));
       for (String control :
           new String[] {
-            "/v1/config", "/v1/documents/local/cleanup", "/v1/management/document-cleanups"
+            "/v1/config",
+            "/v1/session",
+            "/v1/documents/local/cleanup",
+            "/v1/management/document-cleanups"
           }) {
         var readable = new AtomicBoolean();
         filter.doFilter(
