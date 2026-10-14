@@ -27,7 +27,7 @@ public final class ParserWorker {
         respondThenRelease(
             System.in,
             () -> new PdfWorkerLifetime(args),
-            lifetime -> new PdfOcrCompiler(lifetime.ocr()));
+            lifetime -> new PdfOcrCompiler(lifetime.ocr(), lifetime.concurrency()));
     if (response == null) {
       // Parsed, but native OCR cleanup could not be confirmed. Exit non-zero without writing so the
       // parent reports parser_failed instead of reading a success frame plus a failure frame.

@@ -115,7 +115,9 @@ class ProcessPdfPageOcrTest {
       var serving =
           new FutureTask<>(
               () -> {
-                for (String text : pageTexts) {
+                // Pages are recognized concurrently and may arrive in any order; each page has a
+                // distinct width (16, 18, 20 px) that identifies it.
+                for (int served = 0; served < pageTexts.size(); served++) {
                   try (var peer = server.accept()) {
                     var request = request(peer);
                     assertEquals(6, request.size());
@@ -123,8 +125,8 @@ class ProcessPdfPageOcrTest {
                         Base64.getDecoder().decode(request.path("image_base64").stringValue());
                     var rendered = ImageIO.read(new ByteArrayInputStream(png));
                     assertNotNull(rendered);
-                    assertEquals(16, rendered.getWidth());
                     assertEquals(16, rendered.getHeight());
+                    String text = pageTexts.get((rendered.getWidth() - 16) / 2);
                     rendered.flush();
                     reply(
                         peer,
@@ -142,7 +144,7 @@ class ProcessPdfPageOcrTest {
                 return null;
               });
       Thread.ofVirtual().start(serving);
-      var parsed = parser.parse("pages.pdf", "application/pdf", pdf(3));
+      var parsed = parser.parse("pages.pdf", "application/pdf", widePages(3));
       serving.get(5, TimeUnit.SECONDS);
       assertEquals(pageTexts, parsed.pages().stream().map(page -> page.text()).toList());
       assertEquals(List.of(1, 2, 3), parsed.pages().stream().map(page -> page.number()).toList());
@@ -177,7 +179,8 @@ class ProcessPdfPageOcrTest {
       var serving =
           new FutureTask<>(
               () -> {
-                for (int page = 0; page < 2; page++) {
+                // One page succeeds; the other fails transiently on every one of its attempts.
+                for (int page = 0; page < 1 + PdfOcrCompiler.ATTEMPTS; page++) {
                   try (var peer = server.accept()) {
                     var request = request(peer);
                     if (page == 0) {
@@ -261,6 +264,17 @@ class ProcessPdfPageOcrTest {
 
   private static byte[] pdf(int pages) throws Exception {
     return PdfOcrCompilerTest.pdf(pages, false, new PDRectangle(8, 8));
+  }
+
+  private static byte[] widePages(int pages) throws Exception {
+    try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument();
+        var bytes = new java.io.ByteArrayOutputStream()) {
+      for (int i = 0; i < pages; i++) {
+        pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage(new PDRectangle(8 + i, 8)));
+      }
+      pdf.save(bytes);
+      return bytes.toByteArray();
+    }
   }
 
   private static ServerSocketChannel listener(Path socket) throws Exception {

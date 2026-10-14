@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -21,10 +22,22 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** One bounded frame per connection to the preconfigured local page-recognition Module. */
+/**
+ * One bounded frame per connection to the preconfigured local page-recognition Module. Several
+ * pages may be in flight at once, each on its own connection with its own bounded deadline.
+ */
 public final class SocketPageOcr implements PageOcr {
   private static final int MAX_REQUEST = 15 * 1024 * 1024;
   private static final int MAX_RESPONSE = 4 * 1024 * 1024;
+  // One remote page call; the service itself refuses deadlines further than 300s away.
+  static final long PAGE_TIMEOUT_MS = 180_000;
+  private static final Set<String> RETRYABLE =
+      Set.of(
+          "busy",
+          "upstream_unavailable",
+          "invalid_model_response",
+          "pipeline_failed",
+          "deadline_exceeded");
   private static final Set<String> ERRORS =
       Set.of(
           "invalid_request",
@@ -52,7 +65,7 @@ public final class SocketPageOcr implements PageOcr {
   private final Path socket;
   private final long deadlineEpochMs;
   private final Object lock = new Object();
-  private SocketChannel active;
+  private final Set<SocketChannel> active = new HashSet<>();
   private boolean closed;
 
   public SocketPageOcr(Path socket, long deadlineEpochMs) {
@@ -85,6 +98,7 @@ public final class SocketPageOcr implements PageOcr {
       throw new Failure();
     }
     String id = UUID.randomUUID().toString();
+    long pageDeadline = Math.min(deadlineEpochMs, System.currentTimeMillis() + PAGE_TIMEOUT_MS);
     byte[] request =
         JSON.writeValueAsBytes(
             Map.of(
@@ -95,7 +109,7 @@ public final class SocketPageOcr implements PageOcr {
                 "profile",
                 PdfOcrOptions.PIPELINE_PROFILE,
                 "deadline_epoch_ms",
-                deadlineEpochMs,
+                pageDeadline,
                 "mime",
                 "image/png",
                 "image_base64",
@@ -106,13 +120,18 @@ public final class SocketPageOcr implements PageOcr {
     SocketChannel channel = null;
     try {
       synchronized (lock) {
-        if (closed || active != null) {
+        if (closed) {
           throw new Failure();
         }
         channel = SocketChannel.open(StandardProtocolFamily.UNIX);
-        active = channel;
+        active.add(channel);
       }
-      channel.connect(UnixDomainSocketAddress.of(socket));
+      try {
+        channel.connect(UnixDomainSocketAddress.of(socket));
+      } catch (IOException unavailable) {
+        // The service may be restarting or have every slot taken; another attempt may succeed.
+        throw new Failure(true);
+      }
       write(channel, ByteBuffer.allocate(4).putInt(request.length).flip());
       write(channel, ByteBuffer.wrap(request));
       var header = ByteBuffer.allocate(4);
@@ -123,17 +142,17 @@ public final class SocketPageOcr implements PageOcr {
       }
       var payload = ByteBuffer.allocate(length);
       read(channel, payload);
-      if (System.currentTimeMillis() >= deadlineEpochMs) {
-        throw new Failure();
+      if (System.currentTimeMillis() >= pageDeadline) {
+        throw new Failure(System.currentTimeMillis() < deadlineEpochMs);
       }
       return text(JSON.readTree(payload.array()), id);
+    } catch (Failure failure) {
+      throw failure;
     } catch (IOException | RuntimeException failure) {
       throw new Failure();
     } finally {
       synchronized (lock) {
-        if (active == channel) {
-          active = null;
-        }
+        active.remove(channel);
       }
       close(channel);
     }
@@ -154,7 +173,7 @@ public final class SocketPageOcr implements PageOcr {
           || !ERRORS.contains(response.path("error_code").stringValue())) {
         throw new Failure();
       }
-      throw new Failure();
+      throw new Failure(RETRYABLE.contains(response.path("error_code").stringValue()));
     }
     if (response.size() != 4
         || !response.path("profile").isTextual()
@@ -195,7 +214,8 @@ public final class SocketPageOcr implements PageOcr {
   public void close() {
     synchronized (lock) {
       closed = true;
-      close(active);
+      active.forEach(SocketPageOcr::close);
+      active.clear();
     }
   }
 

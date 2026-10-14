@@ -19,7 +19,8 @@ class ProviderTest(unittest.TestCase):
 
     def test_only_complete_plain_text_success(self):
         self.assertEqual(validate_completion(200, completion()), "完整合成正文")
-        for reason in ("length", "tool_calls", None, "content_filter"):
+        self.assertEqual(validate_completion(200, completion("length")), "完整合成正文")
+        for reason in ("tool_calls", None, "content_filter"):
             with self.subTest(reason=reason), self.assertRaises(OcrError):
                 validate_completion(200, completion(reason))
         for content in (None, ["not plain text"], {"value": "text"}):

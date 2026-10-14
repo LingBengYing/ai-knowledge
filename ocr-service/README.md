@@ -23,6 +23,7 @@ Private environment variables:
 | `OCR_BASE_URL` | Default `https://api.siliconflow.cn/v1`; HTTPS `/v1` endpoint without URL credentials, query or fragment. |
 | `OCR_MODEL` | Must be `PaddlePaddle/PaddleOCR-VL-1.5`; default is this exact value. |
 | `OCR_PROFILE` | Must be `paddleocr-vl-1.5-pipeline-v1`; default is this exact value. |
+| `OCR_CONCURRENCY` | Default `4`, range `1..8`: pages recognized at once. The Java PDF worker sends up to 4 pages of one document in parallel. |
 | `OMP_NUM_THREADS`, `MKL_NUM_THREADS` | Default `1`; deployment should also bound CPU and memory. |
 
 The process creates its socket with mode `0600`, sets umask `0077`, opens no TCP listener, and refuses an existing socket path rather than unlinking a potentially live listener. Supervision should use a private runtime directory, the same service UID as the Java socket client, and a finite stop timeout. A stale socket after forced termination must be verified and removed by the supervisor before restarting. No privileged account is required.
@@ -62,13 +63,13 @@ Responses are at most **4 MiB**; page text is at most **1,000,000 Unicode code p
 
 Fixed failure codes: `invalid_request`, `request_too_large`, `deadline_exceeded`, `cancelled`, `busy`, `upstream_unavailable`, `invalid_model_response`, `pipeline_failed`, `response_too_large`. No external exception, model body, document text, filesystem path or credential appears in failures.
 
-There is one active pipeline operation and no application work queue. A second valid request is rejected as `busy`. Its bounded handshake only recovers the UUID and never starts a pipeline operation. The kernel listener backlog is one. After cancellation, the active slot remains occupied until the local pipeline exits; it is not released while stale work is still running.
+There are `OCR_CONCURRENCY` pipeline slots and no application work queue. A request beyond the free slots is rejected as `busy`; the Java client retries `busy`, `upstream_unavailable`, `invalid_model_response`, `pipeline_failed` and `deadline_exceeded` up to two more times with a short pause. Its bounded handshake only recovers the UUID and never starts a pipeline operation. The kernel listener backlog equals the slot count. After cancellation, a slot remains occupied until its pipeline call exits; it is not released while stale work is still running. Java gives each page its own deadline of at most 180 seconds within the whole-document deadline (`RAG_PDF_OCR_TIMEOUT_MS`, default 900000).
 
 ## Provider boundary and failure behavior
 
 - Exactly one HTTPS request per page to `<OCR_BASE_URL>/chat/completions`, no automatic retry and no redirects. The `GuardedAsyncClient.send` seam rejects any other method or URL.
 - HTTP phase timeouts are the remaining **page** deadline, and the whole request/complete-body read is wrapped in the same deadline. `max_tokens` and `max_completion_tokens` are never sent, leaving the provider's own capacity limit.
-- Streaming responses are not accepted. The response body is read with a hard byte bound. Only one plain-text choice with `finish_reason="stop"` succeeds; connect failures, non-200 status, length-limited or malformed output, timeouts and cancellation fail the page with a fixed code. No partial page is ever returned.
+- Streaming responses are not accepted. The response body is read with a hard byte bound. Only one plain-text choice with `finish_reason` `stop` or `length` succeeds (`length` keeps the text the provider's own output cap allowed for a very dense page instead of failing the document); connect failures, non-200 status, malformed output, timeouts and cancellation fail the page with a fixed code.
 - The PNG header is checked before any HTTP (valid chunks/CRC, non-zero size, at most ~179 megapixels, not animated).
 - On socket disconnect or page deadline, cancellation interrupts the in-flight HTTP request.
 

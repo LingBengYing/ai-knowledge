@@ -72,7 +72,7 @@ class HttpxWireTest(unittest.IsolatedAsyncioTestCase):
 
         def handler(request):
             seen.append(request)
-            return httpx.Response(200, json={"choices": [{"finish_reason": "length",
+            return httpx.Response(200, json={"choices": [{"finish_reason": "content_filter",
                                                          "message": {"content": "partial"}}]})
 
         self.make(handler)

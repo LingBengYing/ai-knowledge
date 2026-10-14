@@ -8,6 +8,15 @@ class ConfigTest(unittest.TestCase):
     def test_explicit_private_environment_only(self):
         result = read_config({"OCR_SOCKET": "/private/run/ocr.sock", "OCR_API_KEY": "REPLACE_ME"})
         self.assertEqual(result[2], "https://api.siliconflow.cn/v1")
+        self.assertEqual(result[3], 4)
+
+    def test_concurrency_is_bounded(self):
+        baseline = {"OCR_SOCKET": "/private/run/ocr.sock", "OCR_API_KEY": "REPLACE_ME"}
+        self.assertEqual(read_config(dict(baseline, OCR_CONCURRENCY="1"))[3], 1)
+        self.assertEqual(read_config(dict(baseline, OCR_CONCURRENCY="8"))[3], 8)
+        for value in ("0", "9", "-1", "two", "", "\u0663"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                read_config(dict(baseline, OCR_CONCURRENCY=value))
 
     def test_wrong_model_profile_and_credentials_in_url_rejected(self):
         baseline = {"OCR_SOCKET": "/private/run/ocr.sock", "OCR_API_KEY": "REPLACE_ME"}

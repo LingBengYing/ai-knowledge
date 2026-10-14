@@ -63,6 +63,44 @@ class SocketPageOcrTest {
   }
 
   @Test
+  void transientErrorsAreRetryableAndEachPageHasItsOwnBoundedDeadline() throws Exception {
+    for (String code :
+        new String[] {
+          "busy",
+          "upstream_unavailable",
+          "invalid_model_response",
+          "pipeline_failed",
+          "deadline_exceeded",
+          "invalid_request",
+          "response_too_large"
+        }) {
+      try (var fixture =
+              new Fixture(
+                  request -> {
+                    assertTrue(
+                        request.path("deadline_epoch_ms").longValue()
+                            <= System.currentTimeMillis() + SocketPageOcr.PAGE_TIMEOUT_MS);
+                    return JSON.writeValueAsBytes(
+                        Map.of(
+                            "version",
+                            1,
+                            "request_id",
+                            request.path("request_id").stringValue(),
+                            "error_code",
+                            code));
+                  });
+          var client = new SocketPageOcr(fixture.path, System.currentTimeMillis() + 1_500_000)) {
+        var failure = assertThrows(PageOcr.Failure.class, () -> client.read(image()), code);
+        assertEquals(
+            !code.equals("invalid_request") && !code.equals("response_too_large"),
+            failure.retryable(),
+            code);
+        fixture.done.get(5, TimeUnit.SECONDS);
+      }
+    }
+  }
+
+  @Test
   void completeBlankPageIsNotConfusedWithFailure() throws Exception {
     try (var fixture = new Fixture(request -> reply(request, ""));
         var client = client(fixture.path)) {

@@ -12,6 +12,12 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.operator.Operator;
@@ -22,9 +28,16 @@ import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 
-/** Original page text is preferred; image-bearing and textless pages retain whole-page OCR. */
+/**
+ * Original page text is preferred; image-bearing and textless pages retain whole-page OCR. Pages
+ * are rendered in order on the calling thread; up to {@code concurrency} rendered pages are
+ * recognized at once and a transient page failure is retried before the document fails.
+ */
 final class PdfOcrCompiler {
+  static final int ATTEMPTS = 3;
+  private static final long RETRY_DELAY_MS = 2000;
   private final PageOcr ocr;
+  private final int concurrency;
 
   PdfOcrCompiler(ImageOcr ocr) {
     this(
@@ -34,7 +47,15 @@ final class PdfOcrCompiler {
   }
 
   PdfOcrCompiler(PageOcr ocr) {
+    this(ocr, 1);
+  }
+
+  PdfOcrCompiler(PageOcr ocr, int concurrency) {
+    if (ocr == null || concurrency < 1 || concurrency > 8) {
+      throw new IllegalArgumentException("Invalid PDF OCR concurrency");
+    }
     this.ocr = ocr;
+    this.concurrency = concurrency;
   }
 
   ParsedText parse(String filename, String mime, byte[] content) {
@@ -42,6 +63,11 @@ final class PdfOcrCompiler {
     if (!filename.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
       throw invalid();
     }
+    ExecutorService pool =
+        concurrency == 1
+            ? null
+            : Executors.newFixedThreadPool(
+                concurrency, Thread.ofPlatform().name("pdf-page-ocr-", 0).daemon(true).factory());
     try (var pdf = Loader.loadPDF(content)) {
       if (pdf.isEncrypted() || pdf.getNumberOfPages() < 1 || pdf.getNumberOfPages() > 500) {
         throw invalid();
@@ -49,8 +75,8 @@ final class PdfOcrCompiler {
       var renderer = new PDFRenderer(pdf);
       renderer.setSubsamplingAllowed(true);
       var extractor = new PageTextExtractor();
-      var pages = new ArrayList<TextPage>();
-      long points = 0;
+      var pages = new ArrayList<Future<String>>();
+      var slots = new Semaphore(concurrency);
       for (int i = 0; i < pdf.getNumberOfPages(); i++) {
         interrupted();
         var page = pdf.getPage(i);
@@ -74,25 +100,85 @@ final class PdfOcrCompiler {
         extractor.setEndPage(i + 1);
         String text = extractor.getText(pdf);
         interrupted();
-        if (extractor.paintedImage || !hasUsableText(text)) {
-          text = readPage(renderer, i, scale);
+        if (!extractor.paintedImage && hasUsableText(text)) {
+          pages.add(CompletableFuture.completedFuture(text));
+          continue;
         }
+        var image = new VisualImage("image/png", renderPage(renderer, i, scale));
+        interrupted();
+        if (pool == null) {
+          pages.add(CompletableFuture.completedFuture(recognize(image)));
+          continue;
+        }
+        // Bound rendered-but-unrecognized pages held in memory to the in-flight slots.
+        slots.acquire();
+        try {
+          pages.add(
+              pool.submit(
+                  () -> {
+                    try {
+                      return recognize(image);
+                    } finally {
+                      slots.release();
+                    }
+                  }));
+        } catch (RuntimeException rejected) {
+          slots.release();
+          throw rejected;
+        }
+      }
+      var compiled = new ArrayList<TextPage>();
+      long points = 0;
+      for (int i = 0; i < pages.size(); i++) {
+        String text = pages.get(i).get();
         points += text.codePointCount(0, text.length());
         if (points > 1_000_000) {
           throw invalid();
         }
-        pages.add(new TextPage(i + 1, text));
+        compiled.add(new TextPage(i + 1, text));
       }
       interrupted();
-      return TextParser.compilePages(pages);
+      return TextParser.compilePages(compiled);
+    } catch (ExecutionException failed) {
+      throw switch (failed.getCause()) {
+        case PageOcr.Failure ignored -> new TextParser.Failure("parser_failed");
+        case TextParser.Failure safe -> safe;
+        default -> new TextParser.Failure("parser_failed");
+      };
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      throw new TextParser.Failure("parser_interrupted");
     } catch (PageOcr.Failure failure) {
       throw new TextParser.Failure("parser_failed");
     } catch (IOException | IllegalArgumentException failure) {
       throw invalid();
+    } finally {
+      if (pool != null) {
+        pool.shutdownNow();
+      }
     }
   }
 
-  private String readPage(PDFRenderer renderer, int page, float scale) throws IOException {
+  /** Transient failures (busy, rate limited, upstream errors) get a short pause and retry. */
+  private String recognize(VisualImage image) {
+    for (int attempt = 1; ; attempt++) {
+      try {
+        return ocr.read(image);
+      } catch (PageOcr.Failure failure) {
+        if (!failure.retryable() || attempt >= ATTEMPTS) {
+          throw failure;
+        }
+      }
+      try {
+        Thread.sleep(RETRY_DELAY_MS * attempt);
+      } catch (InterruptedException stopped) {
+        Thread.currentThread().interrupt();
+        throw new TextParser.Failure("parser_interrupted");
+      }
+    }
+  }
+
+  private byte[] renderPage(PDFRenderer renderer, int page, float scale) throws IOException {
     var image = renderer.renderImage(page, scale, ImageType.RGB);
     byte[] png;
     try {
@@ -125,8 +211,7 @@ final class PdfOcrCompiler {
     } finally {
       image.flush();
     }
-    interrupted();
-    return ocr.read(new VisualImage("image/png", png));
+    return png;
   }
 
   private static boolean hasUsableText(String text) {
