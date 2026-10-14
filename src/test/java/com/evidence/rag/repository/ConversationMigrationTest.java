@@ -19,7 +19,7 @@ class ConversationMigrationTest {
     Path seed = directory.resolve("seed");
     IngestionMigrationTest.versionOne(seed);
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(36, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(37, store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path backup;
     try (var paths = Files.list(seed)) {
@@ -51,14 +51,17 @@ class ConversationMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(36, store.count("PRAGMA user_version"));
+              assertEquals(37, store.count("PRAGMA user_version"));
               assertEquals(
-                  oldObjects,
-                  store.rows(
-                      "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' ORDER BY type,name"));
+                  WikiPagePurgeMigrationTest.withoutReplacedGuards(oldObjects),
+                  WikiPagePurgeMigrationTest.withoutReplacedGuards(
+                      store.rows(
+                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' ORDER BY type,name")));
               for (var row : rows.entrySet()) {
                 assertEquals(
-                    row.getValue(), store.rows("SELECT * FROM " + row.getKey()), row.getKey());
+                    row.getValue(),
+                    IndexRestartMigrationTest.rows(store, row.getKey()),
+                    row.getKey());
               }
               assertEquals(0, store.count("SELECT COUNT(*) FROM knowledge_conversations"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM knowledge_conversation_turns"));

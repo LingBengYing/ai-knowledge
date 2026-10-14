@@ -400,7 +400,9 @@ final class ModelRebuildSchema {
       throw new IllegalStateException("Changed model rebuild authority guards");
     }
     if (store.count(
-                "SELECT COUNT(*) FROM indexing_jobs j WHERE j.model_rebuild_id IS NULL AND j.replacement_id IS NULL AND ((j.rebuild_sequence=0)!=(j.base_publication_id IS NULL) OR (j.rebuild_sequence>0 AND NOT EXISTS(SELECT 1 FROM index_publications p WHERE p.id=j.base_publication_id AND p.document_id=j.document_id AND p.revision_id=j.revision_id AND p.source_sha256=j.source_sha256 AND p.parser_revision=j.parser_revision AND p.embedding_identity=j.embedding_identity AND p.projection_identity=j.projection_identity AND p.model_revision=j.model_revision AND p.dimensions=j.dimensions)))")
+                "SELECT COUNT(*) FROM indexing_jobs j WHERE j.model_rebuild_id IS NULL AND j.replacement_id IS NULL"
+                    + (version >= IndexRestartSchema.VERSION ? " AND j.restart_of IS NULL" : "")
+                    + " AND ((j.rebuild_sequence=0)!=(j.base_publication_id IS NULL) OR (j.rebuild_sequence>0 AND NOT EXISTS(SELECT 1 FROM index_publications p WHERE p.id=j.base_publication_id AND p.document_id=j.document_id AND p.revision_id=j.revision_id AND p.source_sha256=j.source_sha256 AND p.parser_revision=j.parser_revision AND p.embedding_identity=j.embedding_identity AND p.projection_identity=j.projection_identity AND p.model_revision=j.model_revision AND p.dimensions=j.dimensions)))")
             != 0
         || store.count(
                 "SELECT COUNT(*) FROM indexing_jobs j LEFT JOIN model_rebuild_items i ON i.job_id=j.id LEFT JOIN model_rebuilds b ON b.id=j.model_rebuild_id WHERE j.model_rebuild_id IS NOT NULL AND (i.batch_id IS NOT j.model_rebuild_id OR i.document_id IS NOT j.document_id OR i.revision_id IS NOT j.revision_id OR i.base_publication_id IS NOT j.base_publication_id OR b.embedding_identity IS NOT j.embedding_identity OR b.projection_identity IS NOT j.projection_identity OR b.model_revision IS NOT j.model_revision OR b.dimensions IS NOT j.dimensions)")

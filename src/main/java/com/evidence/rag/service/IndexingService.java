@@ -113,11 +113,7 @@ public final class IndexingService {
               values("revision_id", revision.id(), "state", "queued"),
               Set.of("revision_id", "state"));
           var task = authorizedTask(actor, jobId, false);
-          return TaskResults.from(
-              task,
-              permissions.canEdit(task.currentRole()),
-              true,
-              indexing.publicationId(task.id()));
+          return indexResult(task, permissions.canEdit(task.currentRole()));
         });
   }
 
@@ -185,11 +181,7 @@ public final class IndexingService {
               values("revision_id", revision.id(), "state", "queued"),
               Set.of("publication_id", "revision_id", "state"));
           var task = authorizedTask(actor, jobId, false);
-          return TaskResults.from(
-              task,
-              permissions.canEdit(task.currentRole()),
-              true,
-              indexing.publicationId(task.id()));
+          return indexResult(task, permissions.canEdit(task.currentRole()));
         });
   }
 
@@ -599,11 +591,7 @@ public final class IndexingService {
     return store.transaction(
         () -> {
           var task = authorizedTask(actor, jobId, false);
-          return TaskResults.from(
-              task,
-              permissions.canEdit(task.currentRole()),
-              true,
-              indexing.publicationId(task.id()));
+          return indexResult(task, permissions.canEdit(task.currentRole()));
         });
   }
 
@@ -623,11 +611,7 @@ public final class IndexingService {
               values("state", "cancelled"),
               Set.of("state"));
           var updated = authorizedTask(actor, jobId, false);
-          return TaskResults.from(
-              updated,
-              permissions.canEdit(updated.currentRole()),
-              true,
-              indexing.publicationId(updated.id()));
+          return indexResult(updated, permissions.canEdit(updated.currentRole()));
         });
   }
 
@@ -640,6 +624,9 @@ public final class IndexingService {
           var task = authorizedTask(actor, jobId, true);
           if (!Set.of("failed", "cancelled").contains(task.state())) {
             throw indexConflict();
+          }
+          if (!retryableInPlace(task, target) && indexing.restartable(jobId)) {
+            return restartIndexing(actor, task, target);
           }
           if (!target.equals(task.target())) {
             throw new ApplicationException(
@@ -669,12 +656,47 @@ public final class IndexingService {
               values("state", "queued", "attempt", task.attempt() + 1),
               Set.of("state", "attempt"));
           var updated = authorizedTask(actor, jobId, false);
-          return TaskResults.from(
-              updated,
-              permissions.canEdit(updated.currentRole()),
-              true,
-              indexing.publicationId(updated.id()));
+          return indexResult(updated, permissions.canEdit(updated.currentRole()));
         });
+  }
+
+  private boolean retryableInPlace(TaskEntity task, IndexTarget target) {
+    var internal = indexing.findInternalTask(task.id()).orElseThrow();
+    return task.attempt() < 3
+        && target.equals(task.target())
+        && creatorCanWrite(internal)
+        && indexing.sourceCurrent(internal)
+        && configuredTask(internal);
+  }
+
+  /** An exhausted never-published initial task is followed by a fresh initial task. */
+  private TaskResult restartIndexing(Actor actor, TaskEntity task, IndexTarget target) {
+    var revision =
+        indexing.parsedRevision(task.documentId()).orElseThrow(IndexingService::indexConflict);
+    String jobId = UUID.randomUUID().toString(), now = Instant.now().toString();
+    indexing.insertRestartJob(
+        jobId,
+        task.documentId(),
+        revision,
+        target,
+        actor.principalId(),
+        task.id(),
+        indexing.nextRebuildSequence(task.documentId()),
+        now);
+    audit(
+        actor,
+        task.documentId(),
+        "indexing_restarted",
+        values("task_id", task.id(), "state", task.state(), "attempt", task.attempt()),
+        values("revision_id", revision.id(), "state", "queued"),
+        Set.of("task_id", "state", "attempt", "revision_id"));
+    var restarted = authorizedTask(actor, jobId, false);
+    return indexResult(restarted, permissions.canEdit(restarted.currentRole()));
+  }
+
+  private TaskResult indexResult(TaskEntity task, boolean editable) {
+    return TaskResults.indexing(
+        task, editable, indexing.publicationId(task.id()), indexing.restartable(task.id()));
   }
 
   /** Called by startup composition before scheduling an indexing worker. */

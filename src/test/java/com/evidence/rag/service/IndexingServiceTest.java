@@ -251,14 +251,6 @@ class IndexingServiceTest {
       var old = authority.claimIndexing("org").orElseThrow();
       assertEquals("cancelled", authority.cancelIndexing(owner, old.jobId()).get("state"));
       assertFalse(authority.completeIndexing(old, digests(old), receipt(old, digests(old))));
-      fails(
-          409,
-          () ->
-              authority.retryIndexing(
-                  owner,
-                  old.jobId(),
-                  new IndexTarget(
-                      "changed", target.projectionIdentity(), target.modelRevision(), 2)));
       assertEquals(2, authority.retryIndexing(owner, old.jobId(), target).get("attempt"));
       abandoned = authority.claimIndexing("org").orElseThrow();
       assertFalse(authority.failIndexing(old, "indexing_failed"));
@@ -278,10 +270,94 @@ class IndexingServiceTest {
       var finalClaim = authority.claimIndexing("org").orElseThrow();
       fails(422, () -> authority.failIndexing(finalClaim, "unsafe secret detail"));
       assertTrue(authority.failIndexing(finalClaim, "indexing_timeout"));
-      assertEquals(false, authority.indexingStatus(owner, finalClaim.jobId()).get("can_retry"));
+      // The exhausted, never-published task is followed by a fresh initial task instead.
+      assertEquals(true, authority.indexingStatus(owner, finalClaim.jobId()).get("can_retry"));
+    }
+  }
+
+  @Test
+  void exhaustedInitialTaskRestartsAsFreshTaskThatPublishesAndSurvivesReopen() throws Exception {
+    String document;
+    String exhausted;
+    try (var authority = new AuthorityTestContext(directory)) {
+      var parsed = parsed(authority);
+      document = parsed.documentId();
+      exhausted = (String) authority.createIndexing(owner, document, target).get("task_id");
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        if (attempt > 1) {
+          assertEquals(attempt, authority.retryIndexing(owner, exhausted, target).get("attempt"));
+        }
+        assertTrue(
+            authority.failIndexing(
+                authority.claimIndexing("org").orElseThrow(), "indexing_failed"));
+      }
+      var failed = authority.indexingStatus(owner, exhausted);
+      assertEquals(3, failed.get("attempt"));
+      assertEquals(true, failed.get("can_retry"));
+      fails(409, () -> authority.createIndexing(owner, document, target));
+
+      var restarted = authority.retryIndexing(owner, exhausted, target);
+      String fresh = (String) restarted.get("task_id");
+      assertNotEquals(exhausted, fresh);
+      assertEquals(document, restarted.get("document_id"));
+      assertEquals(parsed.revisionId(), restarted.get("revision_id"));
+      assertEquals("queued", restarted.get("state"));
+      assertEquals(1, restarted.get("attempt"));
+      assertEquals(false, authority.indexingStatus(owner, exhausted).get("can_retry"));
+      fails(409, () -> authority.retryIndexing(owner, exhausted, target));
       assertEquals(
-          "indexing_retry_limit",
-          fails(409, () -> authority.retryIndexing(owner, finalClaim.jobId(), target)).code());
+          1,
+          scalar(
+              "SELECT COUNT(*) FROM indexing_jobs WHERE id='"
+                  + fresh
+                  + "' AND restart_of='"
+                  + exhausted
+                  + "' AND rebuild_sequence=1 AND base_publication_id IS NULL"));
+      assertTrue(authority.auditEvents(owner).toString().contains("indexing_restarted"));
+
+      var claim = authority.claimIndexing("org").orElseThrow();
+      assertEquals(fresh, claim.jobId());
+      assertEquals(1, claim.attempt());
+      assertTrue(authority.completeIndexing(claim, digests(claim), receipt(claim, digests(claim))));
+      var view = first(authority.listDocuments(owner, Map.of()));
+      assertEquals("indexed", view.get("index_status"));
+      assertEquals(parsed.revisionId(), view.get("active_revision_id"));
+      assertNotNull(view.get("index_publication_id"));
+      fails(409, () -> authority.retryIndexing(owner, exhausted, target));
+    }
+    try (var reopened = new AuthorityTestContext(directory)) {
+      assertEquals("indexed", first(reopened.listDocuments(owner, Map.of())).get("index_status"));
+      assertEquals(false, reopened.indexingStatus(owner, exhausted).get("can_retry"));
+    }
+  }
+
+  @Test
+  void changedConfigurationRestartsWithCurrentTargetWhileHistoryStaysImmutable() throws Exception {
+    var changed =
+        new IndexTarget("changed", target.projectionIdentity(), target.modelRevision(), 2);
+    String old;
+    try (var authority = new AuthorityTestContext(directory)) {
+      var parsed = parsed(authority);
+      old = (String) authority.createIndexing(owner, parsed.documentId(), target).get("task_id");
+      authority.cancelIndexing(owner, old);
+      var restarted = authority.retryIndexing(owner, old, changed);
+      assertEquals(1, restarted.get("attempt"));
+      assertNotEquals(old, restarted.get("task_id"));
+      var claim = authority.claimIndexing("org").orElseThrow();
+      assertEquals(changed, claim.target());
+      authority.cancelIndexing(owner, claim.jobId());
+    }
+    for (String statement :
+        List.of(
+            "UPDATE indexing_jobs SET restart_of=NULL WHERE restart_of IS NOT NULL",
+            "UPDATE indexing_jobs SET restart_of='" + old + "' WHERE id='" + old + "'",
+            "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,restart_of) SELECT 'forged',document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,'queued',1,created_by,created_at,updated_at,9,id FROM indexing_jobs WHERE id='"
+                + old
+                + "'",
+            "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence) SELECT 'forged',document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,'queued',1,created_by,created_at,updated_at,2 FROM indexing_jobs WHERE id='"
+                + old
+                + "'")) {
+      assertThrows(SQLException.class, () -> sql(statement), statement);
     }
   }
 
@@ -397,19 +473,7 @@ class IndexingServiceTest {
       fails(409, () -> authority.retryIndexing(owner, id, target));
       assertEquals("cancelled", authority.cancelIndexing(owner, id).get("state"));
       fails(409, () -> authority.cancelIndexing(owner, id));
-      for (var changed :
-          List.of(
-              new IndexTarget(
-                  target.embeddingIdentity(), "c".repeat(64), target.modelRevision(), 2),
-              new IndexTarget(
-                  target.embeddingIdentity(), target.projectionIdentity(), "model-v2", 2),
-              new IndexTarget(
-                  target.embeddingIdentity(),
-                  target.projectionIdentity(),
-                  target.modelRevision(),
-                  3))) {
-        fails(409, () -> authority.retryIndexing(owner, id, changed));
-      }
+      // A changed target restarts instead; see changedConfigurationRestarts... below.
       authority.retryIndexing(owner, id, target);
       var claim = authority.claimIndexing("org").orElseThrow();
       fails(

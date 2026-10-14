@@ -28,7 +28,7 @@ class WikiPagePurgeMigrationTest {
     Path seed = directory.resolve("seed");
     IngestionMigrationTest.versionOne(seed);
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(36L, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(37L, store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path source;
     try (var paths = Files.list(seed)) {
@@ -71,10 +71,12 @@ class WikiPagePurgeMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(36L, store.count("PRAGMA user_version"));
+              assertEquals(37L, store.count("PRAGMA user_version"));
               for (var row : rows.entrySet()) {
                 assertEquals(
-                    row.getValue(), store.rows("SELECT * FROM " + row.getKey()), row.getKey());
+                    row.getValue(),
+                    IndexRestartMigrationTest.rows(store, row.getKey()),
+                    row.getKey());
               }
               var changed = new java.util.HashSet<String>();
               for (var object : oldSchema) {
@@ -87,6 +89,7 @@ class WikiPagePurgeMigrationTest {
                   changed.add((String) object.get("name"));
                 }
               }
+              changed.removeAll(IndexRestartMigrationTest.CHANGED);
               assertEquals(REPLACED_GUARDS, changed);
               assertEquals(0, store.count("SELECT COUNT(*) FROM wiki_page_purges"));
               assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
@@ -118,6 +121,9 @@ class WikiPagePurgeMigrationTest {
   }
 
   static List<Map<String, Object>> withoutReplacedGuards(List<Map<String, Object>> rows) {
-    return rows.stream().filter(row -> !REPLACED_GUARDS.contains(row.get("name"))).toList();
+    return rows.stream()
+        .filter(row -> !REPLACED_GUARDS.contains(row.get("name")))
+        .filter(row -> !IndexRestartMigrationTest.CHANGED.contains(row.get("name")))
+        .toList();
   }
 }

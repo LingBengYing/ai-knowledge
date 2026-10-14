@@ -240,6 +240,14 @@ final class AuthoritySchema {
     new ConversationSchema(store).verify();
   }
 
+  void migrateVersionThirtySeven() {
+    new IndexRestartSchema(store).migrate();
+  }
+
+  void verifyVersionThirtySeven() {
+    new IndexRestartSchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

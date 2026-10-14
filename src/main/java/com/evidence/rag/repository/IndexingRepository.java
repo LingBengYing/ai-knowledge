@@ -204,6 +204,44 @@ public final class IndexingRepository {
         now);
   }
 
+  /**
+   * A finished initial task that can no longer be retried in place may be replaced by a fresh
+   * initial task: it must be the document's latest task and nothing may be published yet.
+   */
+  public boolean restartable(String jobId) {
+    return store.count(
+            "SELECT COUNT(*) FROM indexing_jobs j JOIN corpus_documents c ON c.document_id=j.document_id JOIN corpus_revisions r ON r.id=c.parsed_revision_id AND r.document_id=c.document_id AND r.parsed_at IS NOT NULL JOIN documents d ON d.id=c.document_id AND d.active_revision_id=r.id AND d.source_sha256=r.source_sha256 JOIN ingestion_jobs p ON p.document_id=c.document_id AND p.revision_id=r.id AND p.state='parsed' WHERE j.id=? AND j.state IN ('failed','cancelled') AND j.base_publication_id IS NULL AND j.replacement_id IS NULL AND j.model_rebuild_id IS NULL AND j.rebuild_sequence=(SELECT MAX(rebuild_sequence) FROM indexing_jobs WHERE document_id=j.document_id) AND NOT EXISTS(SELECT 1 FROM indexing_jobs pending WHERE pending.document_id=j.document_id AND pending.state IN ('queued','processing','prepared')) AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=j.document_id) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=j.document_id) AND NOT EXISTS(SELECT 1 FROM model_rebuilds WHERE state IN ('queued','running','applying'))",
+            jobId)
+        == 1;
+  }
+
+  public void insertRestartJob(
+      String jobId,
+      String documentId,
+      RevisionEntity revision,
+      IndexTarget target,
+      String creator,
+      String restartOf,
+      int sequence,
+      String now) {
+    store.execute(
+        "INSERT INTO indexing_jobs(id,document_id,revision_id,source_sha256,parser_revision,embedding_identity,projection_identity,model_revision,dimensions,state,attempt,created_by,created_at,updated_at,rebuild_sequence,restart_of) VALUES(?,?,?,?,?,?,?,?,?,'queued',1,?,?,?,?,?)",
+        jobId,
+        documentId,
+        revision.id(),
+        revision.sourceSha256(),
+        revision.parserRevision(),
+        target.embeddingIdentity(),
+        target.projectionIdentity(),
+        target.modelRevision(),
+        target.dimensions(),
+        creator,
+        now,
+        now,
+        sequence,
+        restartOf);
+  }
+
   /** Current active metadata, never inferred from whichever task happens to be latest. */
   public Optional<IndexPublicationEntity> activePublication(String documentId) {
     return store
@@ -637,7 +675,7 @@ public final class IndexingRepository {
         store.count(
                 "SELECT COUNT(*) FROM corpus_documents c JOIN corpus_revisions r ON r.document_id=c.document_id AND r.id=c.parsed_revision_id JOIN documents d ON d.id=c.document_id JOIN ingestion_jobs p ON p.document_id=d.id AND p.revision_id=r.id WHERE c.document_id=? AND r.id=? AND r.source_sha256=? AND d.source_sha256=r.source_sha256 AND r.parser_revision=? AND r.parsed_at IS NOT NULL AND p.state='parsed' AND "
                     + PROJECTION_COUNT
-                    + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND EXISTS(SELECT 1 FROM indexing_jobs j WHERE j.id=? AND j.document_id=c.document_id AND ((j.rebuild_sequence=0 AND j.base_publication_id IS NULL AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id)) OR (j.rebuild_sequence>0 AND EXISTS(SELECT 1 FROM active_corpus_publications a JOIN index_publications base ON base.id=a.publication_id WHERE a.document_id=d.id AND a.publication_id=j.base_publication_id AND a.revision_id=r.id AND base.source_sha256=r.source_sha256 AND base.parser_revision=r.parser_revision AND base.embedding_identity=j.embedding_identity AND base.projection_identity=j.projection_identity AND base.model_revision=j.model_revision AND base.dimensions=j.dimensions AND (j.base_vector_set_sha256 IS NOT NULL OR (NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM image_vector_bindings WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_bindings WHERE publication_id=a.publication_id))))))) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
+                    + " BETWEEN 1 AND 4096 AND r.segment_count=(SELECT COUNT(*) FROM corpus_segments s WHERE s.revision_id=r.id) AND EXISTS(SELECT 1 FROM indexing_jobs j WHERE j.id=? AND j.document_id=c.document_id AND (((j.rebuild_sequence=0 OR j.restart_of IS NOT NULL) AND j.base_publication_id IS NULL AND NOT EXISTS(SELECT 1 FROM active_corpus_publications a WHERE a.document_id=d.id)) OR (j.rebuild_sequence>0 AND EXISTS(SELECT 1 FROM active_corpus_publications a JOIN index_publications base ON base.id=a.publication_id WHERE a.document_id=d.id AND a.publication_id=j.base_publication_id AND a.revision_id=r.id AND base.source_sha256=r.source_sha256 AND base.parser_revision=r.parser_revision AND base.embedding_identity=j.embedding_identity AND base.projection_identity=j.projection_identity AND base.model_revision=j.model_revision AND base.dimensions=j.dimensions AND (j.base_vector_set_sha256 IS NOT NULL OR (NOT EXISTS(SELECT 1 FROM image_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_publications WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM image_vector_bindings WHERE publication_id=a.publication_id) AND NOT EXISTS(SELECT 1 FROM audio_vector_bindings WHERE publication_id=a.publication_id))))))) AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)",
                 job.documentId(),
                 job.revisionId(),
                 job.sourceSha256(),
