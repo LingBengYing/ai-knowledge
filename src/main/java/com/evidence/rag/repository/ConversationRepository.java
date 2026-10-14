@@ -200,21 +200,11 @@ public final class ConversationRepository {
             workspaceId,
             documentId)) {
       var result = json.readTree(AuthorityRows.text(row, "result_json"));
-      if (!(result instanceof ObjectNode stored) || !references(stored, documentId)) {
+      if (!(result instanceof ObjectNode stored)
+          || !referencedDocuments(stored).contains(documentId)) {
         continue;
       }
-      if (stored.get("result") instanceof ObjectNode answer) {
-        answer.put("status", "abstained");
-        answer.put("answer", REDACTED_ANSWER);
-        answer.put("reason", "source_removed");
-        answer.putArray("citations");
-      }
-      for (var event : stored.path("events")) {
-        if (event instanceof ObjectNode value) {
-          value.remove("details");
-        }
-      }
-      stored.putArray("suggestions");
+      redact(stored);
       String conversation = AuthorityRows.text(row, "conversation_id");
       long ordinal = AuthorityRows.number(row, "ordinal");
       store.execute(
@@ -233,21 +223,80 @@ public final class ConversationRepository {
                 ordinal));
   }
 
-  private static boolean references(JsonNode result, String documentId) {
+  /** The archived run result of one of the actor's conversation turns, when one was recorded. */
+  public Optional<String> runResult(Actor actor, String id, String runId) {
+    return store
+        .rows(
+            "SELECT t.result_json FROM knowledge_conversation_turns t JOIN knowledge_conversations c ON c.id=t.conversation_id WHERE c.workspace_id=? AND c.actor_id=? AND c.id=? AND t.run_id=? AND t.result_json IS NOT NULL",
+            actor.workspaceId(),
+            actor.principalId(),
+            id,
+            runId)
+        .stream()
+        .map(row -> AuthorityRows.text(row, "result_json"))
+        .findFirst();
+  }
+
+  /**
+   * A run result without an archived copy gets the cleanup redaction as soon as any document it
+   * references is deleted (tombstoned, which always precedes the payload purge). Returns the
+   * redacted JSON, or empty when nothing it references has been deleted.
+   */
+  public Optional<String> redactDeleted(String workspaceId, String resultJson) {
+    if (!(json.readTree(resultJson) instanceof ObjectNode stored)) {
+      throw ModelValues.invalid();
+    }
+    for (String documentId : referencedDocuments(stored)) {
+      if (store.count(
+              "SELECT COUNT(*) FROM document_tombstones WHERE workspace_id=? AND document_id=?",
+              workspaceId,
+              documentId)
+          != 0) {
+        redact(stored);
+        return Optional.of(json.writeValueAsString(stored));
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static void redact(ObjectNode stored) {
+    if (stored.get("result") instanceof ObjectNode answer) {
+      answer.put("status", "abstained");
+      answer.put("answer", REDACTED_ANSWER);
+      answer.put("reason", "source_removed");
+      answer.putArray("citations");
+    }
+    for (var event : stored.path("events")) {
+      if (event instanceof ObjectNode value) {
+        value.remove("details");
+      }
+    }
+    stored.putArray("suggestions");
+  }
+
+  private static java.util.Set<String> referencedDocuments(JsonNode result) {
+    var documents = new java.util.LinkedHashSet<String>();
     for (var citation : result.path("result").path("citations")) {
-      if (documentId.equals(citation.path("document_id").asString(null))) return true;
+      add(documents, citation.path("document_id"));
     }
     for (var event : result.path("events")) {
       for (var source : event.path("details").path("sources")) {
-        if (documentId.equals(source.path("document_id").asString(null))) return true;
+        add(documents, source.path("document_id"));
       }
     }
     for (var suggestion : result.path("suggestions")) {
       for (var id : suggestion.path("document_ids")) {
-        if (documentId.equals(id.asString(null))) return true;
+        add(documents, id);
       }
     }
-    return false;
+    return documents;
+  }
+
+  private static void add(java.util.Set<String> documents, JsonNode id) {
+    String value = id.asString(null);
+    if (value != null) {
+      documents.add(value);
+    }
   }
 
   /** A restart interrupts pending work, never reruns models or silently replays old tools. */

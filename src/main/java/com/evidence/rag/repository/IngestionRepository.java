@@ -52,6 +52,11 @@ public final class IngestionRepository {
         workspaceId);
   }
 
+  /**
+   * Originals that count against the workspace quota. A failed or cancelled replacement that a
+   * newer replacement of the same document superseded can never be retried or published, so its
+   * staged candidate is not charged; its row stays immutable until document cleanup purges it.
+   */
   public long storedBytes(String workspaceId) {
     return store.count(
         """
@@ -59,7 +64,10 @@ public final class IngestionRepository {
           SELECT length(c.original_blob) resident_bytes FROM corpus_documents c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
           UNION ALL SELECT length(c.original_blob) FROM sound_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
           UNION ALL SELECT length(c.original_blob) FROM video_av_originals c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
-          UNION ALL SELECT length(c.original_blob) FROM document_original_revisions c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?)
+          UNION ALL SELECT length(c.original_blob) FROM document_original_revisions c JOIN documents d ON d.id=c.document_id WHERE d.workspace_id=?
+            AND NOT EXISTS(SELECT 1 FROM document_replacements u WHERE u.candidate_revision_id=c.revision_id AND u.document_id=c.document_id
+              AND u.state IN ('failed','cancelled') AND EXISTS(SELECT 1 FROM document_replacements n WHERE n.document_id=u.document_id
+                AND (n.created_at>u.created_at OR (n.created_at=u.created_at AND n.rowid>u.rowid)))))
         """,
         workspaceId,
         workspaceId,

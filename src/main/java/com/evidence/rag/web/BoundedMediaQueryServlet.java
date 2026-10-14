@@ -98,9 +98,11 @@ public final class BoundedMediaQueryServlet extends HttpServlet {
       }
       Receiver receiver = null;
       try {
+        // The container measures every async timeout from startAsync, including the upload.
+        long asyncStarted = System.nanoTime();
         var async = request.startAsync();
         async.setTimeout(receiveTimeoutMs);
-        receiver = new Receiver(request, response, async, actor);
+        receiver = new Receiver(request, response, async, actor, asyncStarted);
         async.addListener(receiver);
         request.getInputStream().setReadListener(receiver);
       } catch (IOException | RuntimeException failure) {
@@ -128,13 +130,20 @@ public final class BoundedMediaQueryServlet extends HttpServlet {
     private final Actor actor;
     private final LibraryOperationGate.ReservedOperation operation;
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    private final long receiveDeadline = System.nanoTime() + receiveTimeoutMs * 1_000_000L;
+    private final long asyncStarted;
+    private final long receiveDeadline;
     private boolean done;
     private FutureTask<Void> waiter;
     private volatile Thread waitingThread;
 
     Receiver(
-        HttpServletRequest request, HttpServletResponse response, AsyncContext async, Actor actor) {
+        HttpServletRequest request,
+        HttpServletResponse response,
+        AsyncContext async,
+        Actor actor,
+        long asyncStarted) {
+      this.asyncStarted = asyncStarted;
+      this.receiveDeadline = asyncStarted + receiveTimeoutMs * 1_000_000L;
       this.request = request;
       this.response = response;
       this.async = async;
@@ -180,7 +189,9 @@ public final class BoundedMediaQueryServlet extends HttpServlet {
         }
         byte[] body = bytes.toByteArray();
         bytes.reset();
-        async.setTimeout(processingTimeoutMs + 1000L);
+        // Grant the full processing window from now, however long the upload took.
+        long received = (System.nanoTime() - asyncStarted) / 1_000_000L;
+        async.setTimeout(received + processingTimeoutMs + 1000L);
         task =
             new FutureTask<>(
                 () -> {

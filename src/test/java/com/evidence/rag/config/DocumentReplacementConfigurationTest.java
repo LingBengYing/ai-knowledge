@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -70,6 +71,53 @@ class DocumentReplacementConfigurationTest {
       assertEquals(documentId, result.path("document_id").asString());
       assertEquals(revisionId, result.path("base_revision_id").asString());
       assertEquals("queued", result.path("state").asString());
+    }
+  }
+
+  @Test
+  void replacementRejectionKeepsItsSpecificReasonInsteadOfTheGenericUploadMessage()
+      throws Exception {
+    try (var authority = new AuthorityTestContext(directory);
+        var context = new AnnotationConfigApplicationContext()) {
+      var original =
+          authority.uploadDocument(
+              OWNER, "original.txt", "text/plain", "original".getBytes(StandardCharsets.UTF_8));
+      var claim = authority.claimIngestion("org").orElseThrow();
+      assertTrue(
+          authority.completeIngestion(
+              claim,
+              new ParsedText(
+                  List.of(new TextPage(1, "original")),
+                  List.of(new TextSegment(0, 1, 0, 8, "original")))));
+      var beans = context.getBeanFactory();
+      beans.registerSingleton("store", authority.store());
+      beans.registerSingleton("management", new ManagementRepository(authority.store()));
+      beans.registerSingleton("permissions", new DocumentPermissionPolicy());
+      // Images are an enabled category, so a .png replacement for a text document is a mismatch.
+      beans.registerSingleton(
+          "ingestion",
+          new com.evidence.rag.service.IngestionService(
+              authority.store(),
+              new com.evidence.rag.repository.IngestionRepository(authority.store()),
+              new ManagementRepository(authority.store()),
+              new DocumentPermissionPolicy(),
+              new com.evidence.rag.model.domain.ImageOcrOptions(
+                  Path.of("/synthetic/tesseract"), "eng", "5.5.3")));
+      beans.registerSingleton("settings", new IngestionSettings(true, 5000, 5000));
+      beans.registerSingleton("json", JsonMapper.builder().build());
+      beans.registerSingleton("errors", new ProblemHandler());
+      context.register(DocumentReplacementConfiguration.class, DocumentReplacementController.class);
+      context.refresh();
+      String documentId = original.get("document_id").toString();
+      var request = request(documentId, original.get("revision_id").toString());
+      request.removeParameter("filename");
+      request.addParameter("filename", "replacement.png");
+      var response = new MockHttpServletResponse();
+      context.getBean(DocumentReplacementController.class).upload(request, response, documentId);
+      var problem = JsonMapper.builder().build().readTree(response.getContentAsString());
+      assertEquals("unsupported_document", problem.path("error_code").asString());
+      assertEquals(422, response.getStatus(), response.getContentAsString());
+      assertEquals("更新文件必须与当前资料属于同一类别。", problem.path("detail").asString());
     }
   }
 

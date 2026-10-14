@@ -188,6 +188,52 @@ class ImportAutoIndexServiceTest {
   }
 
   @Test
+  void supersededFailedReplacementCandidatesStopCountingAgainstTheStorageQuota() {
+    try (var authority = new AuthorityTestContext(directory)) {
+      authority.ingestion().setAutomaticIndexingEnabled(false);
+      String id = parsed(authority);
+      String base = (String) ((Map<?, ?>) document(authority).get("latest_job")).get("revision_id");
+      var replacement =
+          new DocumentReplacementService(
+              authority.store(),
+              new DocumentUpdateRepository(authority.store()),
+              new ManagementRepository(authority.store()),
+              new DocumentPermissionPolicy(),
+              authority.ingestion(),
+              () -> processor(authority),
+              null,
+              null,
+              true);
+      var ingestion = new com.evidence.rag.repository.IngestionRepository(authority.store());
+      java.util.function.LongSupplier stored =
+          () -> authority.store().transaction(() -> ingestion.storedBytes("org"));
+      long original = "Synthetic import".length();
+      // The current original lives in corpus_documents and, once replaced, in the archive too.
+      long baseline = 2 * original;
+      String[] attempts = {"First failed replacement", "Second failed replacement!", "Third"};
+      var candidates = new java.util.ArrayList<String>();
+      for (int i = 0; i < attempts.length; i++) {
+        byte[] bytes = attempts[i].getBytes(StandardCharsets.UTF_8);
+        candidates.add(
+            replacement
+                .upload(owner, id, base, "new.txt", "text/plain", bytes)
+                .candidateRevisionId());
+        var parse = authority.ingestion().claimIngestion("org").orElseThrow();
+        assertTrue(authority.ingestion().failIngestion(parse, "parser_output_invalid"));
+        assertEquals("failed", replacement.get(owner, id).state());
+        // Only the latest failed candidate can still be retried, so only it is charged.
+        assertEquals(baseline + bytes.length, stored.getAsLong(), "attempt " + (i + 1));
+      }
+      var updates = new DocumentUpdateRepository(authority.store());
+      for (String candidate : candidates) {
+        assertTrue(
+            authority.store().transaction(() -> updates.original(id, candidate)).isPresent(),
+            "Superseded candidates stay immutable; only their quota charge is released");
+      }
+    }
+  }
+
+  @Test
   void admissionRejectsAnotherRevisionBeforeCreatingAnyIndexTask() {
     try (var authority = new AuthorityTestContext(directory)) {
       String id = parsed(authority);

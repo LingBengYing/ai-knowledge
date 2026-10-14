@@ -248,6 +248,51 @@ async def test_callback_preserves_only_scoped_typed_problem_codes_without_retry(
 
 
 @pytest.mark.asyncio
+async def test_java_source_limit_on_search_is_a_tool_result_not_a_run_failure():
+    outputs = [tool_message("knowledge_search", {"query": "灯塔"}),
+               tool_message("knowledge_read", {"source_ids": ["source-1"]}),
+               tool_message("knowledge_search", {"query": "更多灯塔资料"}),
+               tool_message("terminate", {"result": RESULT})]
+    callbacks = JavaCallbacks(outputs)
+    searches = []
+
+    async def java(request):
+        if request.url.path.endswith("/search"):
+            searches.append(request)
+            if len(searches) == 2:
+                callbacks.calls.append(("search", json.loads(request.content)))
+                return httpx.Response(429, headers={"Content-Type": "application/problem+json"},
+                    json={"status": 429, "error_code": "agent_limit_exceeded", "detail": "private"})
+        return await callbacks(request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(java), trust_env=False) as client:
+        bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
+        result = await run_agent("整理灯塔使用步骤", bridge)
+    assert result == RESULT and bridge.failure is None
+    assert [call[0] for call in callbacks.calls] == [
+        "model", "search", "model", "read", "model", "search", "model"]
+    tool_outputs = [m["content"] for m in callbacks.calls[-1][1]["messages"] if m["role"] == "tool"]
+    assert json.loads(tool_outputs[-1])["source_limit_reached"] is True
+    assert "private" not in tool_outputs[-1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation,status,code", [
+    ("read", 429, "agent_limit_exceeded"),
+    ("model", 429, "agent_limit_exceeded"),
+    ("search", 429, "agent_tool_failed"),
+])
+async def test_limit_exception_is_scoped_to_search_source_cap(operation, status, code):
+    async def fail(request):
+        return httpx.Response(status, headers={"Content-Type": "application/problem+json"},
+            json={"status": status, "error_code": code})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(fail)) as client:
+        bridge = CallbackBridge(client, "http://127.0.0.1:18084", str(uuid4()), CALLBACK_TOKEN)
+        with pytest.raises(AgentFailure, match="agent_callback_failed"):
+            await bridge.post(operation, {})
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("operation,status,media_type,body", [
     ("model", 503, "application/json", '{"error_code":"agent_model_invalid","status":503}'),
     ("model", 503, "text/html", "private proxy error"),

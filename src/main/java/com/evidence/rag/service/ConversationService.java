@@ -174,6 +174,27 @@ public final class ConversationService {
         });
   }
 
+  /**
+   * The authoritative view of a finished agent run: its archived conversation turn when one was
+   * recorded (document cleanup redacts that copy in place), otherwise the process-local result with
+   * the same redaction applied once a document it references has been deleted.
+   */
+  public AgentRunResult archived(Actor actor, String id, AgentRunResult finished) {
+    return store.transaction(
+        () -> {
+          if (id != null) {
+            var stored = repository.runResult(actor, id, finished.id());
+            if (stored.isPresent()) {
+              return json.readValue(stored.get(), AgentRunResult.class);
+            }
+          }
+          return repository
+              .redactDeleted(actor.workspaceId(), json.writeValueAsString(finished))
+              .map(redacted -> json.readValue(redacted, AgentRunResult.class))
+              .orElse(finished);
+        });
+  }
+
   public ConversationContext prepare(
       Actor actor, String id, String runId, TextModels models, BooleanSupplier current) {
     if (id == null) {

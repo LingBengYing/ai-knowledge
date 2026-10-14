@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -21,7 +22,12 @@ public class ProblemHandler {
   @ExceptionHandler(ApplicationException.class)
   public ResponseEntity<ProblemResponse> problem(
       ApplicationException problem, HttpServletRequest request) {
-    int status = HttpProblemMapper.status(problem);
+    return respond(
+        HttpProblemMapper.status(problem), problem.code(), problem.getMessage(), request);
+  }
+
+  private static ResponseEntity<ProblemResponse> respond(
+      int status, String code, String message, HttpServletRequest request) {
     String title =
         switch (status) {
           case 401 -> "身份验证失败";
@@ -33,14 +39,15 @@ public class ProblemHandler {
         };
     var body =
         new ProblemResponse(
-            "https://evidence.local/problems/" + problem.code().replace('_', '-'),
+            "https://evidence.local/problems/" + code.replace('_', '-'),
             title,
             status,
-            problem.getMessage(),
+            message,
             request.getRequestURI(),
-            problem.code());
+            code);
+    // A preset Content-Type is written as is, so a problem is returned even to Accept: text/html.
     var result =
-        ResponseEntity.status(HttpProblemMapper.status(problem))
+        ResponseEntity.status(status)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .header(HttpHeaders.CACHE_CONTROL, "private, no-store");
     if (status == 401) {
@@ -84,7 +91,19 @@ public class ProblemHandler {
   }
 
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ProblemResponse> unexpected(Exception ignored, HttpServletRequest request) {
+  public ResponseEntity<ProblemResponse> unexpected(Exception failure, HttpServletRequest request) {
+    // Spring MVC request rejections carry their own client status (406 for an unsupported Accept,
+    // for example); they are not server faults. Only the status crosses, never the exception text.
+    if (failure instanceof ErrorResponse rejected && rejected.getStatusCode().is4xxClientError()) {
+      int status = rejected.getStatusCode().value();
+      return switch (status) {
+        case 404 -> respond(status, "not_found", "资源不存在或尚未迁移。", request);
+        case 405 -> respond(status, "method_not_allowed", "此资源不支持该操作。", request);
+        case 406 -> respond(status, "not_acceptable", "此资源仅提供 JSON 响应。", request);
+        case 415 -> respond(status, "unsupported_media_type", "请求必须使用受支持的媒体类型。", request);
+        default -> respond(status, "invalid_request", "请求字段、类型或格式无效。", request);
+      };
+    }
     // No exception message/stack is logged: a provider, parser or JDBC exception may contain source
     // data.
     return problem(
