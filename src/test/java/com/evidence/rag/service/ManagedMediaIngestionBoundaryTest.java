@@ -123,7 +123,17 @@ class ManagedMediaIngestionBoundaryTest {
       var claim = service.claimIngestion(fixture.context.owner.workspaceId()).orElseThrow();
       var legacy =
           new IngestionTaskProcessor(
-              service, fixture.context.owner.workspaceId(), DEADLINE, null, vision);
+              service,
+              fixture.context.owner.workspaceId(),
+              DEADLINE,
+              null,
+              vision,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null);
 
       process(fixture, legacy, claim);
 
@@ -355,7 +365,9 @@ class ManagedMediaIngestionBoundaryTest {
         audio,
         video,
         null,
-        new LegacyTextProfileGuard(fixture.runtime, fixture.context.target));
+        new LegacyTextProfileGuard(fixture.runtime, fixture.context.target),
+        null,
+        null);
   }
 
   private static void process(

@@ -36,14 +36,20 @@ public final class QuestionPlanning {
     if (requirements.isEmpty() || !preservesContext(question, requirements.size())) {
       return Optional.empty();
     }
-    String questionSha256 = sha(question);
+    String questionSha256 = ModelValues.sha256(question);
     var facts = new ArrayList<QuestionFact>();
     try {
       for (var requirement : requirements) {
         int ordinal = facts.size();
         String canonical = requirement.requirement();
         String id =
-            sha("video-fact-v1\n" + questionSha256 + "\n" + ordinal + "\n" + sha(canonical));
+            ModelValues.sha256(
+                "video-fact-v1\n"
+                    + questionSha256
+                    + "\n"
+                    + ordinal
+                    + "\n"
+                    + ModelValues.sha256(canonical));
         facts.add(new QuestionFact(ordinal, id, canonical));
       }
       return Optional.of(new QuestionPlan(question, questionSha256, VERSION, facts));
@@ -151,9 +157,5 @@ public final class QuestionPlanning {
 
   private static boolean validUnicode(String text) {
     return text.codePoints().noneMatch(point -> point == 0 || (point >= 0xD800 && point <= 0xDFFF));
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 }

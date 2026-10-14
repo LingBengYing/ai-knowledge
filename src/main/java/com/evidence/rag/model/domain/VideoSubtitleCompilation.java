@@ -1,7 +1,6 @@
 package com.evidence.rag.model.domain;
 
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /** Complete subtitle packet authority on the original video's rational epoch. */
@@ -129,7 +128,10 @@ public record VideoSubtitleCompilation(
           .append('\0')
           .append(track.timeBaseDenominator())
           .append('\0')
-          .append(track.language() == null ? "absent" : "present:" + sha(track.language()))
+          .append(
+              track.language() == null
+                  ? "absent"
+                  : "present:" + ModelValues.sha256(track.language()))
           .append('\0')
           .append(track.cues().size());
       for (var cue : track.cues()) {
@@ -143,10 +145,10 @@ public record VideoSubtitleCompilation(
             .append('\0')
             .append(cue.payloadSha256())
             .append('\0')
-            .append(sha(cue.text()));
+            .append(ModelValues.sha256(cue.text()));
       }
     }
-    return sha(material.toString());
+    return ModelValues.sha256(material.toString());
   }
 
   private void requireFactPacket(VideoSubtitleTrack track, VideoSubtitleCue cue) {
@@ -207,10 +209,6 @@ public record VideoSubtitleCompilation(
     } catch (ArithmeticException outsideTimeline) {
       throw ModelValues.invalid();
     }
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   @Override

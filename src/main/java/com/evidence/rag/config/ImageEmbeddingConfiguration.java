@@ -144,7 +144,7 @@ public class ImageEmbeddingConfiguration {
   private static void requireLocal(Environment environment) {
     String bind = environment.getProperty("server.address");
     String mode = environment.getProperty("rag.environment", "development");
-    if (!("127.0.0.1".equals(bind) || "::1".equals(bind))
+    if (!RuntimeGuard.isLiteralLoopback(bind)
         || !("development".equals(mode) || "test".equals(mode))) {
       throw invalid();
     }

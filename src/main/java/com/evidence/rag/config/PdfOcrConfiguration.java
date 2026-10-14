@@ -31,7 +31,7 @@ public final class PdfOcrConfiguration {
     }
     String address = environment.getProperty("server.address");
     String mode = environment.getProperty("rag.environment", "development");
-    if (!("127.0.0.1".equals(address) || "::1".equals(address))
+    if (!RuntimeGuard.isLiteralLoopback(address)
         || !("development".equals(mode) || "test".equals(mode))) {
       throw new IllegalArgumentException("PDF OCR requires a local development or test runtime");
     }

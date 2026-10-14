@@ -585,7 +585,7 @@ public final class AnswerService implements AutoCloseable {
       if (queryTrace == null) {
         queryTrace =
             QueryTrace.failed(
-                sha(command.question()),
+                ModelValues.sha256(command.question()),
                 attachments,
                 queries.preparationRevision(),
                 queries.rankingRevision(),
@@ -852,8 +852,8 @@ public final class AnswerService implements AutoCloseable {
         List.copyOf(ocrCited),
         List.copyOf(subtitleCited),
         new TraceDraft(
-            sha(question),
-            sha(answer),
+            ModelValues.sha256(question),
+            ModelValues.sha256(answer),
             "answered",
             null,
             modelsRevision,
@@ -975,7 +975,7 @@ public final class AnswerService implements AutoCloseable {
         List.of(),
         List.of(),
         new TraceDraft(
-            sha(question),
+            ModelValues.sha256(question),
             null,
             "abstained",
             reason,
@@ -1000,7 +1000,7 @@ public final class AnswerService implements AutoCloseable {
         source.start(),
         source.end(),
         quote,
-        sha(quote),
+        ModelValues.sha256(quote),
         "/v1/sources/" + traceId + "/" + ordinal);
   }
 
@@ -1022,7 +1022,7 @@ public final class AnswerService implements AutoCloseable {
         source.startMs(),
         source.endMs(),
         quote,
-        sha(quote),
+        ModelValues.sha256(quote),
         "machine_asr",
         "server_chunk",
         sourceUrl,
@@ -1072,7 +1072,7 @@ public final class AnswerService implements AutoCloseable {
               original.span().startMs(),
               original.span().endMs(),
               quote,
-              sha(quote),
+              ModelValues.sha256(quote),
               "machine_asr",
               "server_chunk");
     }
@@ -1122,7 +1122,7 @@ public final class AnswerService implements AutoCloseable {
             evidence.trace().start(),
             evidence.trace().end(),
             evidence.quote(),
-            sha(evidence.quote()),
+            ModelValues.sha256(evidence.quote()),
             source.ocrRevision(),
             evidence.regions());
     return new VideoCitationResult(
@@ -1148,10 +1148,6 @@ public final class AnswerService implements AutoCloseable {
         ocr);
   }
 
-  private static String sha(String value) {
-    return ModelValues.sha256(value.getBytes(StandardCharsets.UTF_8));
-  }
-
   private static VideoCitationResult videoSubtitleCitation(
       String traceId, int ordinal, VideoSubtitleSourceEvidence evidence) {
     var source = evidence.source();
@@ -1175,7 +1171,7 @@ public final class AnswerService implements AutoCloseable {
             evidence.trace().start(),
             evidence.trace().end(),
             quote,
-            sha(quote),
+            ModelValues.sha256(quote),
             cue.cue().payloadSha256(),
             source.subtitleManifestSha256(),
             source.nativeManifestSha256(),

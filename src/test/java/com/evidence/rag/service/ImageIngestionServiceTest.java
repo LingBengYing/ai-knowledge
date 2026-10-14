@@ -56,7 +56,18 @@ class ImageIngestionServiceTest {
           ingestion.uploadDocument(
               owner, "synthetic.png", "application/octet-stream", bytes.toByteArray());
       var processor =
-          new IngestionTaskProcessor(ingestion, "org", Duration.ofSeconds(300), options);
+          new IngestionTaskProcessor(
+              ingestion,
+              "org",
+              Duration.ofSeconds(300),
+              options,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null);
       processor.process(processor.claim().orElseThrow());
       assertEquals("parsed", ingestion.ingestionStatus(owner, task.taskId()).state());
       assertEquals(

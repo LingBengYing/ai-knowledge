@@ -161,7 +161,17 @@ class VideoIngestionTaskProcessorTest {
             1,
             Duration.ofSeconds(5));
     return new IngestionTaskProcessor(
-        service, OWNER.workspaceId(), Duration.ofSeconds(5), null, null, independentAudio, video);
+        service,
+        OWNER.workspaceId(),
+        Duration.ofSeconds(5),
+        null,
+        null,
+        independentAudio,
+        video,
+        null,
+        null,
+        null,
+        null);
   }
 
   private static final class Decoder implements VideoDecoder {

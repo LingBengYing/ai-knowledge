@@ -23,7 +23,6 @@ import com.evidence.rag.model.domain.VideoTraceEvidence;
 import com.evidence.rag.model.domain.VideoTraceFact;
 import com.evidence.rag.model.domain.VideoTraceProof;
 import com.evidence.rag.model.domain.VisualImage;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -95,7 +94,8 @@ public final class VideoAnswerProposalService {
     visionRevision = ModelValues.identifier(vision.revision(), 200);
     modelRevision =
         "java-video-models-v1:"
-            + sha(retrievalModelsRevision + "\n" + textRevision + "\n" + visionRevision);
+            + ModelValues.sha256(
+                retrievalModelsRevision + "\n" + textRevision + "\n" + visionRevision);
   }
 
   /** Video fact generation and retrieval use the currently installed managed text roles. */
@@ -347,7 +347,7 @@ public final class VideoAnswerProposalService {
     if (!result.group().equals(group.group())
         || !result.sourceSha256().equals(group.publication().sourceSha256())
         || !result.manifestSha256().equals(group.manifestSha256())
-        || !result.questionSha256().equals(sha(question))
+        || !result.questionSha256().equals(ModelValues.sha256(question))
         || !result.textModelRevision().equals(textRevision)
         || !result.visionModelRevision().equals(visionRevision)) {
       throw ModelValues.invalid();
@@ -414,8 +414,8 @@ public final class VideoAnswerProposalService {
         rendered,
         citations,
         new TraceDraft(
-            sha(question),
-            sha(rendered),
+            ModelValues.sha256(question),
+            ModelValues.sha256(rendered),
             "answered",
             null,
             modelRevision,
@@ -433,7 +433,7 @@ public final class VideoAnswerProposalService {
         REFUSAL,
         List.of(),
         new TraceDraft(
-            sha(question),
+            ModelValues.sha256(question),
             null,
             "abstained",
             reason,
@@ -450,9 +450,5 @@ public final class VideoAnswerProposalService {
       throw ModelValues.invalid();
     }
     return frame == null ? transcript : transcript == null ? frame : Math.max(frame, transcript);
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 }

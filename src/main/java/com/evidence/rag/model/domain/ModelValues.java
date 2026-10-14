@@ -1,6 +1,7 @@
 package com.evidence.rag.model.domain;
 
 import com.evidence.rag.exception.ApplicationException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -66,6 +67,10 @@ public final class ModelValues {
   public static ApplicationException notFound() {
     return new ApplicationException(
         com.evidence.rag.exception.FailureKind.NOT_FOUND, "not_found", "资料不存在、无操作权限或当前状态不可操作。");
+  }
+
+  public static String sha256(String text) {
+    return sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   public static String sha256(byte[] bytes) {

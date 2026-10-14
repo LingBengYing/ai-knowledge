@@ -49,7 +49,7 @@ class IngestionSettingsTest {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                configuration.ingestionTaskProcessor(
+                configuration.configuredIngestionTaskProcessor(
                     authority.ingestion(),
                     properties,
                     new IngestionSettings(true, 30000, 30000),
@@ -59,7 +59,12 @@ class IngestionSettingsTest {
                     new org.springframework.beans.factory.support.DefaultListableBeanFactory()
                         .getBeanProvider(com.evidence.rag.service.AudioCompilationService.class),
                     new org.springframework.beans.factory.support.DefaultListableBeanFactory()
-                        .getBeanProvider(com.evidence.rag.service.VideoCompilationService.class)));
+                        .getBeanProvider(com.evidence.rag.service.VideoCompilationService.class),
+                    new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                        .getBeanProvider(com.evidence.rag.service.LegacyTextProfileGuard.class),
+                    new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                        .getBeanProvider(
+                            com.evidence.rag.repository.ModelConfigurationRepository.class)));
       }
     }
   }

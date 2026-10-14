@@ -126,7 +126,17 @@ class VideoOcrIngestionTaskProcessorTest {
   private static IngestionTaskProcessor processor(
       IngestionService authority, VideoCompilationService compiler) {
     return new IngestionTaskProcessor(
-        authority, OWNER.workspaceId(), Duration.ofSeconds(5), null, null, null, compiler);
+        authority,
+        OWNER.workspaceId(),
+        Duration.ofSeconds(5),
+        null,
+        null,
+        null,
+        compiler,
+        null,
+        null,
+        null,
+        null);
   }
 
   private static final class Fixture implements VideoDecoder, AudioModels, VisionModels, ImageOcr {

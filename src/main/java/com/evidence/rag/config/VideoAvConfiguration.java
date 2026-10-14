@@ -22,7 +22,6 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
-import java.util.Objects;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -295,7 +294,7 @@ public class VideoAvConfiguration {
   private static void requireLocal(Environment environment) {
     String address = environment.getProperty("server.address");
     String mode = environment.getProperty("rag.environment", "development");
-    if (!(Objects.equals(address, "127.0.0.1") || Objects.equals(address, "::1"))
+    if (!RuntimeGuard.isLiteralLoopback(address)
         || !(mode.equals("development") || mode.equals("test"))
         || !environment.getProperty("rag.ingestion.enabled", Boolean.class, false)) {
       throw invalid();

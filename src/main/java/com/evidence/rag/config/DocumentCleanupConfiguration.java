@@ -36,8 +36,7 @@ public class DocumentCleanupConfiguration {
     if (!removal.enabled()
         || !("development".equals(properties.environment())
             || "test".equals(properties.environment()))
-        || !("127.0.0.1".equals(environment.getProperty("server.address"))
-            || "::1".equals(environment.getProperty("server.address")))) {
+        || !RuntimeGuard.isLiteralLoopback(environment.getProperty("server.address"))) {
       throw new IllegalArgumentException(
           "Document cleanup requires enabled local development or test removal");
     }

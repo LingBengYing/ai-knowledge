@@ -25,7 +25,7 @@ import org.springframework.core.env.EnumerablePropertySource;
 public class IndexingConfiguration {
   static TextAdapterSettings loadAdapters(ConfigurableEnvironment environment, String workspace) {
     String bind = environment.getProperty("server.address");
-    if (!("127.0.0.1".equals(bind) || "::1".equals(bind))) {
+    if (!RuntimeGuard.isLiteralLoopback(bind)) {
       throw new IllegalArgumentException(
           "Development text adapters require literal loopback binding");
     }
