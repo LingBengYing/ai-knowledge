@@ -39,13 +39,14 @@ class WikiWorkspaceMigrationTest {
               assertEquals(
                   HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
               assertEquals(
-                  originalSchema,
-                  store.rows(
-                      "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_%' AND name NOT IN ('import_index_requests','knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner') ORDER BY type,name"));
+                  WikiPagePurgeMigrationTest.withoutReplacedGuards(originalSchema),
+                  WikiPagePurgeMigrationTest.withoutReplacedGuards(
+                      store.rows(
+                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_%' AND name NOT IN ('import_index_requests','knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner') ORDER BY type,name")));
               for (var entry : originalRows.entrySet()) {
                 assertEquals(
                     entry.getValue(),
-                    store.rows("SELECT * FROM " + entry.getKey()),
+                    IndexRestartMigrationTest.rows(store, entry.getKey()),
                     entry.getKey());
               }
               assertEquals(

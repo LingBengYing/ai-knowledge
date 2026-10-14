@@ -597,11 +597,11 @@ public final class ManagementService {
       var indexId = indexing.documentJobId(document.id()).orElse(null);
       if (indexId != null) {
         indexTask =
-            TaskResults.from(
+            TaskResults.indexing(
                 indexing.findInternalTask(indexId).orElseThrow(),
                 permissions.canEdit(document.currentRole()),
-                true,
-                indexing.publicationId(indexId));
+                indexing.publicationId(indexId),
+                indexing.restartable(indexId));
       }
     }
     String active = synthetic ? null : evidence.activeRevisionId();

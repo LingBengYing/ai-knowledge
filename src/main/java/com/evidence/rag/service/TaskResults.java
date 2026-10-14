@@ -12,6 +12,32 @@ final class TaskResults {
     return create(task, editable, editable, indexed, publication);
   }
 
+  /** Indexing may also be retried by restarting an exhausted, never-published initial task. */
+  static TaskResult indexing(
+      TaskEntity task, boolean editable, String publication, boolean restartable) {
+    var result = create(task, editable, editable, true, publication);
+    if (result.canRetry()
+        || !restartable
+        || !editable
+        || !Set.of("failed", "cancelled").contains(task.state())) {
+      return result;
+    }
+    return new TaskResult(
+        result.taskId(),
+        result.documentId(),
+        result.revisionId(),
+        result.filename(),
+        result.state(),
+        result.attempt(),
+        result.errorCode(),
+        result.createdAt(),
+        result.updatedAt(),
+        true,
+        result.canCancel(),
+        result.indexing(),
+        result.indexPublicationId());
+  }
+
   static TaskResult ingestion(TaskEntity task, boolean editable, boolean creatorCanWrite) {
     return create(task, editable && creatorCanWrite, editable, false, null);
   }
