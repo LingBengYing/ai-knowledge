@@ -26,7 +26,7 @@ public final class ParserWorker {
     byte[] response =
         respondThenRelease(
             System.in,
-            () -> new PdfWorkerLifetime(args),
+            () -> new PdfWorkerLifetime(args, System.in),
             lifetime -> new PdfOcrCompiler(lifetime.ocr(), lifetime.concurrency()));
     if (response == null) {
       // Parsed, but native OCR cleanup could not be confirmed. Exit non-zero without writing so the

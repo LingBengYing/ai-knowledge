@@ -3,6 +3,7 @@ package com.evidence.rag.config;
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.job.IngestionJob;
 import com.evidence.rag.model.domain.LibraryOperationGate;
+import com.evidence.rag.repository.ModelConfigurationRepository;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.IngestionTaskProcessor;
@@ -54,7 +55,8 @@ public class IngestionConfiguration {
       ObjectProvider<VisionModels> vision,
       ObjectProvider<AudioCompilationService> audio,
       ObjectProvider<VideoCompilationService> video,
-      ObjectProvider<LegacyTextProfileGuard> legacyText) {
+      ObjectProvider<LegacyTextProfileGuard> legacyText,
+      ObjectProvider<ModelConfigurationRepository> models) {
     String bind = environment.getProperty("server.address");
     if (!("127.0.0.1".equals(bind) || "::1".equals(bind))) {
       throw new IllegalArgumentException("Development ingestion requires literal loopback binding");
@@ -69,7 +71,16 @@ public class IngestionConfiguration {
         video.getIfAvailable(),
         PdfOcrConfiguration.options(environment),
         legacyText.getIfAvailable(),
-        PdfOcrConfiguration.timeout(environment));
+        PdfOcrConfiguration.timeout(environment),
+        () -> {
+          var repository = models.getIfAvailable();
+          if (repository == null) {
+            return null;
+          }
+          var active = repository.read().active();
+          // The embedding role is always SiliconFlow, so its key serves PaddleOCR-VL-1.5 too.
+          return active == null ? null : active.embedding().apiKey();
+        });
   }
 
   @Bean(destroyMethod = "close")

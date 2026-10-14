@@ -4,6 +4,7 @@ import com.evidence.rag.client.ocr.SocketPageOcr;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.PdfOcrOptions;
 import com.evidence.rag.worker.parser.ProcessTextParser;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -34,7 +35,20 @@ public final class PdfOcrConfiguration {
         || !("development".equals(mode) || "test".equals(mode))) {
       throw new IllegalArgumentException("PDF OCR requires a local development or test runtime");
     }
-    String backend = environment.getProperty("rag.pdf-ocr.backend", "tesseract");
+    // An explicitly configured Tesseract executable keeps its old default backend.
+    String backend =
+        environment.getProperty(
+            "rag.pdf-ocr.backend",
+            environment.getProperty("rag.pdf-ocr.executable", "").isEmpty()
+                ? "siliconflow"
+                : "tesseract");
+    if ("siliconflow".equals(backend)) {
+      // Same provider address as the managed model settings; the key is read from those settings.
+      return PdfOcrOptions.remote(
+          URI.create(
+              environment.getProperty(
+                  "rag.model-configuration.provider-base-url", "https://api.siliconflow.cn/v1")));
+    }
     if ("paddle-vl".equals(backend)) {
       var options =
           new PdfOcrOptions(

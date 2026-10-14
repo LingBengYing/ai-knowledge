@@ -1,10 +1,13 @@
 package com.evidence.rag.worker.parser;
 
 import com.evidence.rag.client.ocr.PageOcr;
+import com.evidence.rag.client.ocr.RemotePageOcr;
 import com.evidence.rag.client.ocr.SocketPageOcr;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.PdfOcrOptions;
 import com.evidence.rag.tool.parser.TextParser;
+import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -24,18 +27,26 @@ final class PdfWorkerLifetime implements AutoCloseable {
   private Thread hook;
 
   PdfWorkerLifetime(String[] args) {
+    this(args, InputStream.nullInputStream());
+  }
+
+  /** Remote mode reads the model key from the private stdin frame that precedes the request. */
+  PdfWorkerLifetime(String[] args, InputStream input) {
+    boolean remote = args.length == 6 && args[0].equals("--pdf-remote-ocr");
     boolean pipeline = args.length == 7 && args[0].equals("--pdf-page-ocr");
-    if (!pipeline && (args.length != 8 || !args[0].equals("--pdf-ocr"))) {
+    if (!remote && !pipeline && (args.length != 8 || !args[0].equals("--pdf-ocr"))) {
       throw invalid();
     }
     if (pipeline && !PdfOcrOptions.PIPELINE_PROFILE.equals(args[2])) {
       throw invalid();
     }
     var options =
-        pipeline
-            ? new PdfOcrOptions(null, Path.of(args[1]), args[2])
-            : new PdfOcrOptions(new ImageOcrOptions(Path.of(args[1]), args[2], args[3]));
-    int parentOffset = pipeline ? 3 : 4;
+        remote
+            ? PdfOcrOptions.remote(URI.create(args[1]))
+            : pipeline
+                ? new PdfOcrOptions(null, Path.of(args[1]), args[2])
+                : new PdfOcrOptions(new ImageOcrOptions(Path.of(args[1]), args[2], args[3]));
+    int parentOffset = remote ? 2 : pipeline ? 3 : 4;
     parentPid = Long.parseLong(args[parentOffset]);
     parentStarted =
         Instant.ofEpochSecond(
@@ -53,7 +64,15 @@ final class PdfWorkerLifetime implements AutoCloseable {
       throw invalid();
     }
     deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
-    if (pipeline) {
+    if (remote) {
+      String key;
+      try {
+        key = ParserProtocol.readSecret(input);
+      } catch (java.io.IOException | RuntimeException missing) {
+        throw invalid();
+      }
+      ocr = new RemotePageOcr(options.provider(), key, System.currentTimeMillis() + timeout);
+    } else if (pipeline) {
       ocr = new SocketPageOcr(options.socket(), System.currentTimeMillis() + timeout);
     } else {
       // The watchdog still bounds the whole document; each native OCR call remains at most 60s.
@@ -86,7 +105,7 @@ final class PdfWorkerLifetime implements AutoCloseable {
 
   /** The socket service recognizes several pages at once; a native child stays sequential. */
   int concurrency() {
-    return ocr instanceof SocketPageOcr ? PIPELINE_CONCURRENCY : 1;
+    return ocr instanceof SocketPageOcr || ocr instanceof RemotePageOcr ? PIPELINE_CONCURRENCY : 1;
   }
 
   private boolean parentAlive() {

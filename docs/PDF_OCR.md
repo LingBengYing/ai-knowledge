@@ -19,14 +19,12 @@
 
 本轮交付页级文字和原文件核对。复杂布局、表格/图表理解、区域高亮及真实中文质量另验。合成原生测试与云模型/Milvus或浏览器验收分别报告。
 
-## 硅基流动 PaddleOCR-VL-1.5 后端
+## 硅基流动 PaddleOCR-VL-1.5（默认后端）
 
-扫描页也可以交给`ocr-service`（见[ocr-service/README](../ocr-service/README.md)），由它调用硅基流动的`PaddlePaddle/PaddleOCR-VL-1.5`：
+只需打开开关，不需要在服务器上配置任何 Key：
 
     RAG_PDF_OCR_ENABLED=true
-    RAG_PDF_OCR_BACKEND=paddle-vl
-    RAG_PDF_OCR_SOCKET=/run/ai-knowledge-ocr/ocr.sock
-    RAG_PDF_OCR_REVISION=paddleocr-vl-1.5-pipeline-v1
-    RAG_PDF_OCR_TIMEOUT_MS=900000
 
-`RAG_PDF_OCR_TIMEOUT_MS`是整份PDF的解析期限（默认15分钟，最大30分钟），不再受`RAG_INGESTION_PARSE_TIMEOUT_MS`的5分钟上限约束。PDF worker同时识别最多4页，每页单独限时180秒；`busy`、上游不可用、模型输出异常等临时失败每页最多再试2次，仍失败才整份失败。OCR服务端用`OCR_CONCURRENCY`（默认4）设置同时处理的页数。
+PDF worker直接调用硅基流动的`PaddlePaddle/PaddleOCR-VL-1.5`，使用前端「模型配置」里已应用的硅基流动 API 密钥（向量模型那一栏；该栏固定为硅基流动）。Key 每次解析时从模型配置读取，只经由子进程私有stdin传入，不进命令行和环境变量。尚未应用模型配置时，PDF 以`text_configuration_required`失败。服务地址沿用`RAG_MODEL_CONFIGURATION_PROVIDER_BASE_URL`（默认`https://api.siliconflow.cn/v1`）。配置了`RAG_PDF_OCR_EXECUTABLE`时仍默认使用Tesseract；`RAG_PDF_OCR_BACKEND=paddle-vl`仍可使用独立的[ocr-service](../ocr-service/README.md)。
+
+`RAG_PDF_OCR_TIMEOUT_MS`是整份PDF的解析期限（默认15分钟，最大30分钟）。同时识别最多4页，每页单独限时180秒；限流、上游5xx、连接失败、模型输出异常等临时失败每页最多再试2次，Key被拒（401/403）等不重试，仍失败才整份失败。

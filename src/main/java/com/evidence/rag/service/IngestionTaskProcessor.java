@@ -2,6 +2,7 @@ package com.evidence.rag.service;
 
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.exception.ApplicationException;
+import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.IngestionClaim;
@@ -17,6 +18,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -35,6 +37,7 @@ public final class IngestionTaskProcessor {
   private final PdfOcrOptions pdfs;
   private LegacyTextProfileGuard legacyText;
   private Duration pdfDeadline;
+  private Supplier<String> pdfKey;
 
   public IngestionTaskProcessor(IngestionService authority, String workspace, Duration deadline) {
     this(authority, workspace, deadline, ProcessTextParser::new);
@@ -116,6 +119,33 @@ public final class IngestionTaskProcessor {
       Duration pdfDeadline) {
     this(authority, workspace, deadline, images, vision, audio, video, pdfs, legacyText);
     this.pdfDeadline = pdfDeadline;
+  }
+
+  /** Direct SiliconFlow PDF OCR reads its key from the managed model settings at parse time. */
+  public IngestionTaskProcessor(
+      IngestionService authority,
+      String workspace,
+      Duration deadline,
+      ImageOcrOptions images,
+      VisionModels vision,
+      AudioCompilationService audio,
+      VideoCompilationService video,
+      PdfOcrOptions pdfs,
+      LegacyTextProfileGuard legacyText,
+      Duration pdfDeadline,
+      Supplier<String> pdfKey) {
+    this(
+        authority,
+        workspace,
+        deadline,
+        images,
+        vision,
+        audio,
+        video,
+        pdfs,
+        legacyText,
+        pdfDeadline);
+    this.pdfKey = pdfKey;
   }
 
   // Production and controlled real child processes are the two Adapters at this internal Seam.
@@ -284,10 +314,13 @@ public final class IngestionTaskProcessor {
             || !expectedRevision.equals(claim.parserRevision())) {
           throw new TextParser.Failure("parser_invalid_output");
         }
+        Duration pdfTime = pdfDeadline == null ? deadline : pdfDeadline;
         try (var parser =
             pdfs == null
                 ? parsers.apply(deadline)
-                : new ProcessTextParser(pdfDeadline == null ? deadline : pdfDeadline, pdfs)) {
+                : pdfs.remote()
+                    ? new ProcessTextParser(pdfTime, pdfs, remoteKey())
+                    : new ProcessTextParser(pdfTime, pdfs)) {
           var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
           authority.completeIngestion(claim, parsed);
         }
@@ -327,6 +360,17 @@ public final class IngestionTaskProcessor {
         MDC.put("ingestion_task_id", previousTaskId);
       }
     }
+  }
+
+  private String remoteKey() {
+    String key = pdfKey == null ? null : pdfKey.get();
+    if (key == null) {
+      throw new ApplicationException(
+          FailureKind.UNAVAILABLE,
+          "text_configuration_required",
+          "PDF 识别使用模型配置里的硅基流动 Key，请先完成并启用模型配置。");
+    }
+    return key;
   }
 
   private static void logFailure(IngestionClaim claim, RuntimeException failure, String code) {

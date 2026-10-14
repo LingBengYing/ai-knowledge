@@ -61,7 +61,10 @@ class PdfOcrRuntimeTest {
         new MockEnvironment()
             .withProperty("rag.pdf-ocr.enabled", "true")
             .withProperty("server.address", "127.0.0.1")
-            .withProperty("rag.environment", "test");
+            .withProperty("rag.environment", "test")
+            // Without an executable the default backend is SiliconFlow; an explicit Tesseract
+            // backend still needs its executable.
+            .withProperty("rag.pdf-ocr.backend", "tesseract");
     assertThrows(IllegalArgumentException.class, () -> configured(environment, true, false, false));
   }
 

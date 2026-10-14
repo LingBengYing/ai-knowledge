@@ -46,6 +46,29 @@ final class ParserProtocol {
     return new Request(filename, mime, content);
   }
 
+  /** One length-prefixed printable-ASCII secret, sent before the request; never logged. */
+  static void writeSecret(OutputStream output, String secret) throws IOException {
+    byte[] bytes = secret.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    var writer = new DataOutputStream(output);
+    writer.writeInt(bounded(bytes.length, 1, 4096));
+    writer.write(bytes);
+    writer.flush();
+  }
+
+  static String readSecret(InputStream input) throws IOException {
+    var reader = new DataInputStream(input);
+    int size = bounded(reader.readInt(), 1, 4096);
+    byte[] bytes = reader.readNBytes(size);
+    if (bytes.length != size) {
+      throw invalid();
+    }
+    String secret = new String(bytes, java.nio.charset.StandardCharsets.US_ASCII);
+    if (!secret.matches("[\\x21-\\x7E]+")) {
+      throw invalid();
+    }
+    return secret;
+  }
+
   static byte[] failure() {
     return new byte[] {0x52, 0x41, 0x47, 0x50, 0, 0, 0, 1, 0, 0, 0, 1};
   }
