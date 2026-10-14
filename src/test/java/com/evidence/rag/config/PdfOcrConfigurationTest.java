@@ -21,6 +21,26 @@ class PdfOcrConfigurationTest {
   @TempDir Path directory;
 
   @Test
+  void siliconFlowIsTheDefaultBackendAndNeedsNoKeyInTheEnvironment() {
+    var environment =
+        new MockEnvironment()
+            .withProperty("rag.pdf-ocr.enabled", "true")
+            .withProperty("server.address", "127.0.0.1")
+            .withProperty("rag.environment", "test");
+    var options = PdfOcrConfiguration.options(environment);
+    assertNotNull(options);
+    assertTrue(options.remote());
+    assertEquals("https://api.siliconflow.cn/v1", options.provider().toString());
+    assertTrue(options.parserRevision().matches("java-pdf-ocr-v1:[0-9a-f]{64}"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            PdfOcrConfiguration.options(
+                environment.withProperty(
+                    "rag.model-configuration.provider-base-url", "http://example.com/v1")));
+  }
+
+  @Test
   void wholePdfDeadlineDefaultsToFifteenMinutesAndIsBounded() {
     assertEquals(
         java.time.Duration.ofMinutes(15), PdfOcrConfiguration.timeout(new MockEnvironment()));

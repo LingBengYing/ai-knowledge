@@ -39,6 +39,7 @@ public final class ProcessTextParser implements AutoCloseable {
   private final long deadlineNanos;
   private final List<String> launch;
   private final PdfOcrOptions pdfs;
+  private String pdfKey;
   private final Object lock = new Object();
   private boolean closed;
   private Job active;
@@ -49,6 +50,15 @@ public final class ProcessTextParser implements AutoCloseable {
 
   public ProcessTextParser(Duration deadline, PdfOcrOptions pdfs) {
     this(deadline, null, List.of(), pdfs);
+  }
+
+  /** Direct SiliconFlow OCR: the model key reaches the worker only through its private stdin. */
+  public ProcessTextParser(Duration deadline, PdfOcrOptions pdfs, String key) {
+    this(deadline, null, List.of(), pdfs);
+    if (pdfs == null || !pdfs.remote() || key == null) {
+      throw new IllegalArgumentException("Remote PDF OCR requires a model key");
+    }
+    this.pdfKey = key;
   }
 
   // Trusted test seam: still uses the same JDK, cleared environment and fixed resource controls.
@@ -259,7 +269,9 @@ public final class ProcessTextParser implements AutoCloseable {
           }
           var parent = ProcessHandle.current();
           var born = parent.info().startInstant().orElseThrow(() -> failure("parser_failed"));
-          if (pdfs.pipeline()) {
+          if (pdfs.remote()) {
+            command.addAll(List.of("--pdf-remote-ocr", pdfs.provider().toString()));
+          } else if (pdfs.pipeline()) {
             command.addAll(
                 List.of(
                     "--pdf-page-ocr", pdfs.socket().toString(), PdfOcrOptions.PIPELINE_PROFILE));
@@ -305,6 +317,9 @@ public final class ProcessTextParser implements AutoCloseable {
                 (Callable<Void>)
                     () -> {
                       try (var output = process.getOutputStream()) {
+                        if (pdfOcr && pdfs.remote()) {
+                          ParserProtocol.writeSecret(output, pdfKey);
+                        }
                         ParserProtocol.writeRequest(output, filename, mime, content);
                       }
                       return null;
@@ -336,7 +351,9 @@ public final class ProcessTextParser implements AutoCloseable {
         try {
           return ParserProtocol.decode(response.toByteArray());
         } catch (TextParser.Failure failure) {
-          if (pdfOcr && pdfs.pipeline() && "unsupported_document".equals(failure.code())) {
+          if (pdfOcr
+              && (pdfs.pipeline() || pdfs.remote())
+              && "unsupported_document".equals(failure.code())) {
             throw failure("parser_failed");
           }
           throw failure;
