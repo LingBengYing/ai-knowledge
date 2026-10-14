@@ -1,4 +1,4 @@
-"""One page at a time over a filesystem-protected local Unix socket."""
+"""A bounded number of pages at a time over a filesystem-protected local Unix socket."""
 
 import os
 import select
@@ -9,17 +9,24 @@ import time
 from pathlib import Path
 
 from .execution import PageContext
+
+# Upper bound on simultaneous provider calls; each holds one page image in memory.
+MAX_CONCURRENCY = 8
 from .protocol import OcrError, decode_request, encode_response, read_frame
 
 
 class OcrServer:
-    def __init__(self, socket_path, pipeline, audit):
+    def __init__(self, socket_path, pipeline, audit, concurrency=1):
+        if type(concurrency) is not int or not 1 <= concurrency <= MAX_CONCURRENCY:
+            raise ValueError("invalid concurrency")
         self.path = Path(socket_path)
         self.pipeline = pipeline
         self.audit = audit
-        self._active = threading.Lock()
+        self.concurrency = concurrency
+        self._active = threading.BoundedSemaphore(concurrency)
         self._stopped = threading.Event()
-        self._context = None
+        self._contexts = set()
+        self._contexts_lock = threading.Lock()
         self._thread = None
         self._listener = None
 
@@ -38,7 +45,7 @@ class OcrServer:
             listener.bind(str(self.path))
             os.chmod(self.path, 0o600)
             self._identity = self.path.lstat().st_ino
-            listener.listen(1)
+            listener.listen(self.concurrency)
             listener.settimeout(0.2)
         except BaseException:
             listener.close()
@@ -57,7 +64,7 @@ class OcrServer:
                 return
             if not self._active.acquire(blocking=False):
                 # Bounded handshake solely to obtain a validated correlation UUID.
-                # No application queue and no second pipeline worker is created.
+                # No application queue and no worker beyond the configured slots is created.
                 with connection:
                     try:
                         page = decode_request(read_frame(connection, timeout=0.2))
@@ -69,6 +76,7 @@ class OcrServer:
 
     def _handle(self, connection):
         identifier = None
+        context = None
         finished = threading.Event()
         response_lock = threading.Lock()
         responded = False
@@ -93,7 +101,8 @@ class OcrServer:
             page = decode_request(read_frame(connection))
             identifier = page.request_id
             context = PageContext(identifier, page.deadline_monotonic, self.audit)
-            self._context = context
+            with self._contexts_lock:
+                self._contexts.add(context)
 
             def watch():
                 while not finished.is_set():
@@ -132,13 +141,17 @@ class OcrServer:
         finally:
             finished.set()
             connection.close()
-            self._context = None
+            if context is not None:
+                with self._contexts_lock:
+                    self._contexts.discard(context)
             self._active.release()
 
     def close(self):
         self._stopped.set()
-        if self._context is not None:
-            self._context.cancel("cancelled")
+        with self._contexts_lock:
+            contexts = tuple(self._contexts)
+        for context in contexts:
+            context.cancel("cancelled")
         if self._listener is not None:
             self._listener.close()
         if self._thread is not None:

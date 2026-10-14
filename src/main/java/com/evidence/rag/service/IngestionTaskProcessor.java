@@ -34,6 +34,7 @@ public final class IngestionTaskProcessor {
   private final VideoCompilationService video;
   private final PdfOcrOptions pdfs;
   private LegacyTextProfileGuard legacyText;
+  private Duration pdfDeadline;
 
   public IngestionTaskProcessor(IngestionService authority, String workspace, Duration deadline) {
     this(authority, workspace, deadline, ProcessTextParser::new);
@@ -99,6 +100,22 @@ public final class IngestionTaskProcessor {
       LegacyTextProfileGuard legacyText) {
     this(authority, workspace, deadline, images, vision, audio, video, pdfs);
     this.legacyText = legacyText;
+  }
+
+  /** PDF OCR recognizes every scanned page remotely, so it gets its own, longer deadline. */
+  public IngestionTaskProcessor(
+      IngestionService authority,
+      String workspace,
+      Duration deadline,
+      ImageOcrOptions images,
+      VisionModels vision,
+      AudioCompilationService audio,
+      VideoCompilationService video,
+      PdfOcrOptions pdfs,
+      LegacyTextProfileGuard legacyText,
+      Duration pdfDeadline) {
+    this(authority, workspace, deadline, images, vision, audio, video, pdfs, legacyText);
+    this.pdfDeadline = pdfDeadline;
   }
 
   // Production and controlled real child processes are the two Adapters at this internal Seam.
@@ -268,7 +285,9 @@ public final class IngestionTaskProcessor {
           throw new TextParser.Failure("parser_invalid_output");
         }
         try (var parser =
-            pdfs == null ? parsers.apply(deadline) : new ProcessTextParser(deadline, pdfs)) {
+            pdfs == null
+                ? parsers.apply(deadline)
+                : new ProcessTextParser(pdfDeadline == null ? deadline : pdfDeadline, pdfs)) {
           var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
           authority.completeIngestion(claim, parsed);
         }

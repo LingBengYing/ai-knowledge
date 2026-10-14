@@ -10,7 +10,10 @@ from .execution import AuditLog
 from .pipeline import RemotePagePipeline
 from .protocol import PROFILE
 from .provider import MODEL
-from .server import OcrServer
+from .server import MAX_CONCURRENCY, OcrServer
+
+# Pages of one PDF are recognized in parallel; the Java client sends at most this many at once.
+DEFAULT_CONCURRENCY = 4
 
 
 def read_config(environ):
@@ -25,7 +28,10 @@ def read_config(environ):
             or parsed.username or parsed.password or parsed.query or parsed.fragment
             or parsed.path != "/v1"):
         raise ValueError("invalid private OCR configuration")
-    return socket_path, api_key, base_url
+    concurrency = environ.get("OCR_CONCURRENCY", str(DEFAULT_CONCURRENCY))
+    if not (concurrency.isascii() and concurrency.isdigit()) or not 1 <= int(concurrency) <= MAX_CONCURRENCY:
+        raise ValueError("invalid private OCR configuration")
+    return socket_path, api_key, base_url, int(concurrency)
 
 
 def main():
@@ -35,12 +41,12 @@ def main():
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda number, frame: stopped.set())
     try:
-        socket_path, api_key, base_url = read_config(os.environ)
+        socket_path, api_key, base_url, concurrency = read_config(os.environ)
         os.environ.setdefault("OMP_NUM_THREADS", "1")
         os.environ.setdefault("MKL_NUM_THREADS", "1")
         audit = AuditLog(sys.stdout)
         pipeline = RemotePagePipeline(base_url, api_key)
-        server = OcrServer(socket_path, pipeline, audit)
+        server = OcrServer(socket_path, pipeline, audit, concurrency)
         server.start()
         stopped.wait()
         return 0

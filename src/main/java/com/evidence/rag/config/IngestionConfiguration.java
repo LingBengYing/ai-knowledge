@@ -68,7 +68,8 @@ public class IngestionConfiguration {
         audio.getIfAvailable(),
         video.getIfAvailable(),
         PdfOcrConfiguration.options(environment),
-        legacyText.getIfAvailable());
+        legacyText.getIfAvailable(),
+        PdfOcrConfiguration.timeout(environment));
   }
 
   @Bean(destroyMethod = "close")

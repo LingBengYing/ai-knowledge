@@ -3,13 +3,26 @@ package com.evidence.rag.config;
 import com.evidence.rag.client.ocr.SocketPageOcr;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.PdfOcrOptions;
+import com.evidence.rag.worker.parser.ProcessTextParser;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import org.springframework.core.env.Environment;
 
 /** Independent opt-in configuration for the local whole-page PDF compiler. */
 public final class PdfOcrConfiguration {
+  static final long DEFAULT_TIMEOUT_MS = 900_000;
+
   private PdfOcrConfiguration() {}
+
+  /** Whole-document PDF parse deadline; scanned pages each need a remote OCR call. */
+  public static Duration timeout(Environment environment) {
+    Long value = environment.getProperty("rag.pdf-ocr.timeout-ms", Long.class, DEFAULT_TIMEOUT_MS);
+    if (value == null || value < 10 || value > ProcessTextParser.MAX_PDF_DEADLINE.toMillis()) {
+      throw new IllegalArgumentException("Invalid PDF OCR timeout");
+    }
+    return Duration.ofMillis(value);
+  }
 
   public static PdfOcrOptions options(Environment environment) {
     if (!environment.getProperty("rag.pdf-ocr.enabled", Boolean.class, false)) {

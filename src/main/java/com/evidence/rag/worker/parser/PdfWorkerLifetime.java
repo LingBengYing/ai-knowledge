@@ -10,8 +10,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
-/** Only the isolated PDF worker owns termination and its one sequential native OCR child. */
+/** Only the isolated PDF worker owns termination and its native OCR child or OCR socket. */
 final class PdfWorkerLifetime implements AutoCloseable {
+  static final int PIPELINE_CONCURRENCY = 4;
   private final long parentPid;
   private final Instant parentStarted;
   private final long deadline;
@@ -42,7 +43,7 @@ final class PdfWorkerLifetime implements AutoCloseable {
     long timeout = Long.parseLong(args[parentOffset + 3]);
     if (parentPid <= 0
         || timeout < 10
-        || timeout > 300000
+        || timeout > ProcessTextParser.MAX_PDF_DEADLINE.toMillis()
         || ProcessHandle.current()
             .parent()
             .map(ProcessHandle::pid)
@@ -81,6 +82,11 @@ final class PdfWorkerLifetime implements AutoCloseable {
 
   PageOcr ocr() {
     return ocr;
+  }
+
+  /** The socket service recognizes several pages at once; a native child stays sequential. */
+  int concurrency() {
+    return ocr instanceof SocketPageOcr ? PIPELINE_CONCURRENCY : 1;
   }
 
   private boolean parentAlive() {

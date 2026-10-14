@@ -173,8 +173,9 @@ class SocketTest(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.path = str(Path(self.directory.name) / "ocr.sock")
 
-    def start(self, pipeline):
-        self.server = OcrServer(self.path, pipeline, audit=lambda value: None)
+    def start(self, pipeline, concurrency=1):
+        self.server = OcrServer(self.path, pipeline, audit=lambda value: None,
+                                concurrency=concurrency)
         self.server.start()
         self.addCleanup(self.server.close)
 
@@ -249,6 +250,39 @@ class SocketTest(unittest.TestCase):
         first.close()
         self.assertTrue(finished.wait(1))
         self.assertEqual(seen[0].failure, "cancelled")
+
+    def test_configured_slots_run_pages_in_parallel_and_reject_one_more(self):
+        release, lock, running = threading.Event(), threading.Lock(), []
+        both = threading.Event()
+
+        def pipeline(image, context):
+            with lock:
+                running.append(context)
+                if len(running) == 2:
+                    both.set()
+            release.wait(2)
+            context.check()
+            return "page " + context.request_id[-1]
+
+        self.start(pipeline, concurrency=2)
+        self.addCleanup(release.set)
+        first, second = self.connect(), self.connect()
+        first_value = request(request_id="00000000-0000-4000-8000-000000000001")
+        second_value = request(request_id="00000000-0000-4000-8000-000000000002")
+        first.sendall(frame(first_value))
+        second.sendall(frame(second_value))
+        self.assertTrue(both.wait(1))
+        third, value = self.connect(), request(request_id="00000000-0000-4000-8000-000000000003")
+        third.sendall(frame(value))
+        self.assertEqual(json.loads(read_frame(third))["error_code"], "busy")
+        release.set()
+        self.assertEqual(json.loads(read_frame(first))["text"], "page 1")
+        self.assertEqual(json.loads(read_frame(second))["text"], "page 2")
+
+    def test_invalid_concurrency_is_rejected(self):
+        for value in (0, 9, True, 1.5):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                OcrServer(self.path, lambda image, context: "text", lambda value: None, value)
 
     def test_pipeline_failure_never_returns_partial_or_exception(self):
         def fail(image, context):

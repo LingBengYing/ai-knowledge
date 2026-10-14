@@ -11,8 +11,20 @@ public interface PageOcr extends AutoCloseable {
 
   /** Stable failure without provider response, page content, credentials, or endpoint details. */
   final class Failure extends RuntimeException {
+    private final boolean retryable;
+
     public Failure() {
+      this(false);
+    }
+
+    /** A retryable failure (busy, rate limited, transient upstream error) may succeed again. */
+    public Failure(boolean retryable) {
       super("page_ocr_failed");
+      this.retryable = retryable;
+    }
+
+    public boolean retryable() {
+      return retryable;
     }
   }
 }

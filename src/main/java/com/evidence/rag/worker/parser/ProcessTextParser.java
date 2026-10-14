@@ -35,6 +35,7 @@ import java.util.jar.JarFile;
 public final class ProcessTextParser implements AutoCloseable {
   private static final Semaphore CAPACITY = new Semaphore(1);
   private static final long CLEANUP_NANOS = TimeUnit.SECONDS.toNanos(2);
+  public static final Duration MAX_PDF_DEADLINE = Duration.ofMinutes(30);
   private final long deadlineNanos;
   private final List<String> launch;
   private final PdfOcrOptions pdfs;
@@ -57,9 +58,10 @@ public final class ProcessTextParser implements AutoCloseable {
 
   private ProcessTextParser(
       Duration deadline, String fixtureMainClass, List<String> fixtureArgs, PdfOcrOptions pdfs) {
+    // Page-by-page PDF OCR calls a remote model per page and may need far longer than text.
     if (deadline == null
         || deadline.compareTo(Duration.ofMillis(10)) < 0
-        || deadline.compareTo(Duration.ofSeconds(300)) > 0) {
+        || deadline.compareTo(pdfs == null ? Duration.ofSeconds(300) : MAX_PDF_DEADLINE) > 0) {
       throw new IllegalArgumentException("Invalid parser deadline");
     }
     deadlineNanos = deadline.toNanos();

@@ -21,6 +21,23 @@ class PdfOcrConfigurationTest {
   @TempDir Path directory;
 
   @Test
+  void wholePdfDeadlineDefaultsToFifteenMinutesAndIsBounded() {
+    assertEquals(
+        java.time.Duration.ofMinutes(15), PdfOcrConfiguration.timeout(new MockEnvironment()));
+    assertEquals(
+        java.time.Duration.ofMinutes(30),
+        PdfOcrConfiguration.timeout(
+            new MockEnvironment().withProperty("rag.pdf-ocr.timeout-ms", "1800000")));
+    for (String invalid : List.of("9", "1800001", "-1")) {
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              PdfOcrConfiguration.timeout(
+                  new MockEnvironment().withProperty("rag.pdf-ocr.timeout-ms", invalid)));
+    }
+  }
+
+  @Test
   void pipelineBackendUsesOnlyAnExplicitNativeSocketAndPinnedRevision() throws Exception {
     Path socket = directory.resolve("ocr.sock");
     try (var server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {

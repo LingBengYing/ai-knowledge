@@ -36,7 +36,10 @@ def validate_completion(status, body):
             raise ValueError()
         choice = choices[0]
         message = choice["message"]
-        if (choice["finish_reason"] != "stop" or not isinstance(message["content"], str)
+        # "length": the provider's default output cap cut a very dense page; keep its text
+        # rather than failing the whole document.
+        if (choice["finish_reason"] not in ("stop", "length")
+                or not isinstance(message["content"], str)
                 or message.get("tool_calls") or message.get("refusal")):
             raise ValueError()
         return message["content"]

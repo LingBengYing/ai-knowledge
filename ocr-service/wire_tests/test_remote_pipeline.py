@@ -60,7 +60,7 @@ class RemotePipelineTest(unittest.TestCase):
     def test_upstream_failure_and_truncation_are_safe_codes_without_retry(self):
         for response, code in (
             (httpx.Response(503, text="private upstream diagnostic"), "upstream_unavailable"),
-            (httpx.Response(200, json={"choices": [{"finish_reason": "length", "message": {
+            (httpx.Response(200, json={"choices": [{"finish_reason": "content_filter", "message": {
                 "content": "partial"}}]}), "invalid_model_response"),
         ):
             with self.subTest(code=code), self.assertRaises(OcrError) as failure:
