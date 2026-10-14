@@ -35,93 +35,15 @@ public final class IngestionTaskProcessor {
   private final AudioCompilationService audio;
   private final VideoCompilationService video;
   private final PdfOcrOptions pdfs;
-  private LegacyTextProfileGuard legacyText;
-  private Duration pdfDeadline;
-  private Supplier<String> pdfKey;
+  private final LegacyTextProfileGuard legacyText;
+  private final Duration pdfDeadline;
+  private final Supplier<String> pdfKey;
 
-  public IngestionTaskProcessor(IngestionService authority, String workspace, Duration deadline) {
-    this(authority, workspace, deadline, ProcessTextParser::new);
-  }
-
-  public IngestionTaskProcessor(
-      IngestionService authority, String workspace, Duration deadline, ImageOcrOptions images) {
-    this(authority, workspace, deadline, ProcessTextParser::new, images);
-  }
-
-  public IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      ImageOcrOptions images,
-      VisionModels vision) {
-    this(authority, workspace, deadline, ProcessTextParser::new, images, vision);
-  }
-
-  public IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio) {
-    this(authority, workspace, deadline, ProcessTextParser::new, images, vision, audio);
-  }
-
-  public IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio,
-      VideoCompilationService video) {
-    this(authority, workspace, deadline, ProcessTextParser::new, images, vision, audio, video);
-  }
-
-  public IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio,
-      VideoCompilationService video,
-      PdfOcrOptions pdfs) {
-    this(
-        authority, workspace, deadline, ProcessTextParser::new, images, vision, audio, video, pdfs);
-  }
-
-  public IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio,
-      VideoCompilationService video,
-      PdfOcrOptions pdfs,
-      LegacyTextProfileGuard legacyText) {
-    this(authority, workspace, deadline, images, vision, audio, video, pdfs);
-    this.legacyText = legacyText;
-  }
-
-  /** PDF OCR recognizes every scanned page remotely, so it gets its own, longer deadline. */
-  public IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio,
-      VideoCompilationService video,
-      PdfOcrOptions pdfs,
-      LegacyTextProfileGuard legacyText,
-      Duration pdfDeadline) {
-    this(authority, workspace, deadline, images, vision, audio, video, pdfs, legacyText);
-    this.pdfDeadline = pdfDeadline;
-  }
-
-  /** Direct SiliconFlow PDF OCR reads its key from the managed model settings at parse time. */
+  /**
+   * PDF OCR recognizes every scanned page remotely, so it gets its own, longer deadline; direct
+   * SiliconFlow PDF OCR reads its key from the managed model settings at parse time. Optional
+   * collaborators may be null.
+   */
   public IngestionTaskProcessor(
       IngestionService authority,
       String workspace,
@@ -138,14 +60,15 @@ public final class IngestionTaskProcessor {
         authority,
         workspace,
         deadline,
+        ProcessTextParser::new,
         images,
         vision,
         audio,
         video,
         pdfs,
         legacyText,
-        pdfDeadline);
-    this.pdfKey = pdfKey;
+        pdfDeadline,
+        pdfKey);
   }
 
   // Production and controlled real child processes are the two Adapters at this internal Seam.
@@ -154,49 +77,7 @@ public final class IngestionTaskProcessor {
       String workspace,
       Duration deadline,
       Function<Duration, ProcessTextParser> parsers) {
-    this(authority, workspace, deadline, parsers, null);
-  }
-
-  private IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      Function<Duration, ProcessTextParser> parsers,
-      ImageOcrOptions images) {
-    this(authority, workspace, deadline, parsers, images, null);
-  }
-
-  private IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      Function<Duration, ProcessTextParser> parsers,
-      ImageOcrOptions images,
-      VisionModels vision) {
-    this(authority, workspace, deadline, parsers, images, vision, null);
-  }
-
-  private IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      Function<Duration, ProcessTextParser> parsers,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio) {
-    this(authority, workspace, deadline, parsers, images, vision, audio, null);
-  }
-
-  private IngestionTaskProcessor(
-      IngestionService authority,
-      String workspace,
-      Duration deadline,
-      Function<Duration, ProcessTextParser> parsers,
-      ImageOcrOptions images,
-      VisionModels vision,
-      AudioCompilationService audio,
-      VideoCompilationService video) {
-    this(authority, workspace, deadline, parsers, images, vision, audio, video, null);
+    this(authority, workspace, deadline, parsers, null, null, null, null, null, null, null, null);
   }
 
   private IngestionTaskProcessor(
@@ -208,7 +89,10 @@ public final class IngestionTaskProcessor {
       VisionModels vision,
       AudioCompilationService audio,
       VideoCompilationService video,
-      PdfOcrOptions pdfs) {
+      PdfOcrOptions pdfs,
+      LegacyTextProfileGuard legacyText,
+      Duration pdfDeadline,
+      Supplier<String> pdfKey) {
     this.authority = authority;
     this.workspace = workspace;
     this.deadline = deadline;
@@ -218,6 +102,9 @@ public final class IngestionTaskProcessor {
     this.audio = audio;
     this.video = video;
     this.pdfs = pdfs;
+    this.legacyText = legacyText;
+    this.pdfDeadline = pdfDeadline;
+    this.pdfKey = pdfKey;
   }
 
   public Optional<IngestionClaim> claim() {

@@ -1,11 +1,8 @@
 package com.evidence.rag.model.entity;
 
 import com.evidence.rag.model.domain.Actor;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import com.evidence.rag.model.domain.ModelValues;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,15 +44,7 @@ public record AuditEventEntity(
   }
 
   private static String digest(Object object) {
-    return sha256(canonical(object).getBytes(StandardCharsets.UTF_8));
-  }
-
-  private static String sha256(byte[] bytes) {
-    try {
-      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-    } catch (NoSuchAlgorithmException impossible) {
-      throw new IllegalStateException("SHA-256 unavailable", impossible);
-    }
+    return ModelValues.sha256(canonical(object));
   }
 
   private static String canonical(Object value) {

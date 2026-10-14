@@ -163,7 +163,17 @@ class AudioIngestionServiceTest {
       var claim = seedClaim(store, service, compiler.revision());
       var processor =
           new IngestionTaskProcessor(
-              service, OWNER.workspaceId(), Duration.ofSeconds(5), null, null, compiler);
+              service,
+              OWNER.workspaceId(),
+              Duration.ofSeconds(5),
+              null,
+              null,
+              compiler,
+              null,
+              null,
+              null,
+              null,
+              null);
       processor.process(claim);
       assertEquals("parsed", service.ingestionStatus(OWNER, claim.jobId()).state());
       assertEquals(3, calls.get());

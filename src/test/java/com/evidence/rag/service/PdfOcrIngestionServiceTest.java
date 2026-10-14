@@ -225,7 +225,7 @@ class PdfOcrIngestionServiceTest {
 
   private static IngestionTaskProcessor processor(IngestionService service, PdfOcrOptions pdfs) {
     return new IngestionTaskProcessor(
-        service, "org", Duration.ofSeconds(10), null, null, null, null, pdfs);
+        service, "org", Duration.ofSeconds(10), null, null, null, null, pdfs, null, null, null);
   }
 
   private static IngestionService service(AuthorityTestContext context, PdfOcrOptions pdfs) {

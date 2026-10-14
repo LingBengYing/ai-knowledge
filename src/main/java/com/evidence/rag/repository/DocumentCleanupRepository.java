@@ -137,7 +137,7 @@ public final class DocumentCleanupRepository {
     String token = UUID.randomUUID().toString();
     store.execute(
         "UPDATE document_cleanups SET state='running',claim_sha256=?,updated_at=?,error_code=NULL WHERE id=? AND state='pending'",
-        hash(token),
+        ModelValues.sha256(token),
         now,
         text(row, "id"));
     return Optional.of(
@@ -156,7 +156,7 @@ public final class DocumentCleanupRepository {
                 claim.cleanupId(),
                 claim.documentId(),
                 claim.workspaceId(),
-                hash(claim.claimToken()))
+                ModelValues.sha256(claim.claimToken()))
             == 1;
   }
 
@@ -648,9 +648,5 @@ public final class DocumentCleanupRepository {
 
   private static String textOrNull(Map<String, Object> row, String key) {
     return row.get(key) == null ? null : text(row, key);
-  }
-
-  private static String hash(String value) {
-    return ModelValues.sha256(value.getBytes(StandardCharsets.UTF_8));
   }
 }

@@ -461,7 +461,7 @@ public final class IngestionRepository {
           frame.dimensions().width(),
           frame.dimensions().height(),
           frame.text(),
-          sha(frame.text()),
+          ModelValues.sha256(frame.text()),
           frame.segments().size(),
           frame.regions().size());
       for (var segment : frame.segments()) {
@@ -474,7 +474,7 @@ public final class IngestionRepository {
             segment.start(),
             segment.end(),
             segment.text(),
-            sha(segment.text()));
+            ModelValues.sha256(segment.text()));
       }
       for (int ordinal = 0; ordinal < frame.regions().size(); ordinal++) {
         var region = frame.regions().get(ordinal);
@@ -491,10 +491,6 @@ public final class IngestionRepository {
             region.bottom());
       }
     }
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   public Optional<VideoCompilation> findVideoCompilation(String revisionId) {
@@ -797,7 +793,7 @@ public final class IngestionRepository {
     }
     var row = rows.getFirst();
     String text = AuthorityRows.text(row, "text");
-    if (!sha(text).equals(AuthorityRows.text(row, "text_sha256"))) {
+    if (!ModelValues.sha256(text).equals(AuthorityRows.text(row, "text_sha256"))) {
       throw ModelValues.invalid();
     }
     var segments =
@@ -815,7 +811,8 @@ public final class IngestionRepository {
                           AuthorityRows.integer(segment, "start_offset"),
                           AuthorityRows.integer(segment, "end_offset"),
                           AuthorityRows.text(segment, "text"));
-                  if (!sha(value.text()).equals(AuthorityRows.text(segment, "text_sha256"))
+                  if (!ModelValues.sha256(value.text())
+                          .equals(AuthorityRows.text(segment, "text_sha256"))
                       || !VideoOcrSegmentEvidence.identity(revisionId, frameId, value.ordinal())
                           .equals(AuthorityRows.text(segment, "id"))) {
                     throw ModelValues.invalid();

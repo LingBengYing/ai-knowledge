@@ -23,29 +23,6 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "rag.ingestion", name = "enabled", havingValue = "true")
 public class IngestionConfiguration {
-  IngestionTaskProcessor ingestionTaskProcessor(
-      IngestionService authority,
-      RagProperties properties,
-      IngestionSettings settings,
-      Environment environment,
-      ObjectProvider<VisionModels> vision,
-      ObjectProvider<AudioCompilationService> audio,
-      ObjectProvider<VideoCompilationService> video) {
-    String bind = environment.getProperty("server.address");
-    if (!("127.0.0.1".equals(bind) || "::1".equals(bind))) {
-      throw new IllegalArgumentException("Development ingestion requires literal loopback binding");
-    }
-    return new IngestionTaskProcessor(
-        authority,
-        properties.workspaceId(),
-        Duration.ofMillis(settings.parseTimeoutMs()),
-        ImageOcrConfiguration.options(environment),
-        vision.getIfAvailable(),
-        audio.getIfAvailable(),
-        video.getIfAvailable(),
-        PdfOcrConfiguration.options(environment));
-  }
-
   @Bean(name = "ingestionTaskProcessor")
   IngestionTaskProcessor configuredIngestionTaskProcessor(
       IngestionService authority,
@@ -58,7 +35,7 @@ public class IngestionConfiguration {
       ObjectProvider<LegacyTextProfileGuard> legacyText,
       ObjectProvider<ModelConfigurationRepository> models) {
     String bind = environment.getProperty("server.address");
-    if (!("127.0.0.1".equals(bind) || "::1".equals(bind))) {
+    if (!RuntimeGuard.isLiteralLoopback(bind)) {
       throw new IllegalArgumentException("Development ingestion requires literal loopback binding");
     }
     return new IngestionTaskProcessor(

@@ -1,6 +1,5 @@
 package com.evidence.rag.model.domain;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +50,7 @@ public record VideoOcrEvidence(List<VideoOcrSegmentEvidence> segments, String ma
           frame.frameSha256(),
           frame.dimensions().width(),
           frame.dimensions().height(),
-          sha(frame.text()),
+          ModelValues.sha256(frame.text()),
           frame.segments().size(),
           frame.regions().size());
       for (var segment : frame.segments()) {
@@ -70,7 +69,7 @@ public record VideoOcrEvidence(List<VideoOcrSegmentEvidence> segments, String ma
             segment.ordinal(),
             segment.start(),
             segment.end(),
-            sha(segment.text()));
+            ModelValues.sha256(segment.text()));
       }
       for (var region : frame.regions()) {
         fields(
@@ -87,11 +86,7 @@ public record VideoOcrEvidence(List<VideoOcrSegmentEvidence> segments, String ma
     if (points > 1_500_000 || base.projectionCount() + segments.size() > 4096) {
       throw ModelValues.invalid();
     }
-    return new VideoOcrEvidence(segments, sha(output.toString()));
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
+    return new VideoOcrEvidence(segments, ModelValues.sha256(output.toString()));
   }
 
   private static void fields(StringBuilder output, Object... values) {

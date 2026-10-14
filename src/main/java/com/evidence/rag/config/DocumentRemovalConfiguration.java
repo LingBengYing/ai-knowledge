@@ -18,7 +18,7 @@ public class DocumentRemovalConfiguration {
       SqliteAuthorityStore store, RagProperties properties, Environment environment) {
     String address = environment.getProperty("server.address");
     if (!("development".equals(properties.environment()) || "test".equals(properties.environment()))
-        || !("127.0.0.1".equals(address) || "::1".equals(address))) {
+        || !RuntimeGuard.isLiteralLoopback(address)) {
       throw new IllegalArgumentException(
           "Document removal requires a local development or test runtime");
     }

@@ -33,6 +33,7 @@ import com.evidence.rag.support.AuthorityTestContext;
 import com.evidence.rag.tool.answer.TextGrounding;
 import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.indexing.LiveIndexWorker;
+import com.evidence.rag.worker.parser.ProcessTextParser;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -193,7 +194,8 @@ class TextAnswersLiveIT {
     try (var authority = new AuthorityTestContext(directory)) {
       var uploaded = authority.ingestion().uploadDocument(OWNER, FILENAME, "application/pdf", pdf);
       var parser =
-          new IngestionTaskProcessor(authority.ingestion(), OWNER.workspaceId(), REQUEST_TIMEOUT);
+          new IngestionTaskProcessor(
+              authority.ingestion(), OWNER.workspaceId(), REQUEST_TIMEOUT, ProcessTextParser::new);
       var parseClaim = parser.claim().orElseThrow();
       assertEquals(uploaded.taskId(), parseClaim.jobId());
       assertEquals(1, parseClaim.attempt());

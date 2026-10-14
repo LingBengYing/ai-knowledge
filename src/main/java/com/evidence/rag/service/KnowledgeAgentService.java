@@ -654,8 +654,8 @@ public final class KnowledgeAgentService implements AutoCloseable {
       String answer = String.join("\n\n", paragraphs);
       var draft =
           new KnowledgeTraceDraft(
-              sha(run.question),
-              proposal.refused() ? null : sha(answer),
+              ModelValues.sha256(run.question),
+              proposal.refused() ? null : ModelValues.sha256(answer),
               proposal.refused() ? "abstained" : "answered",
               proposal.refused() ? "model_refused" : null,
               run.snapshot.modelsRevision(),
@@ -744,10 +744,6 @@ public final class KnowledgeAgentService implements AutoCloseable {
         && value
             .codePoints()
             .noneMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t');
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   private static String safeCode(String code) {

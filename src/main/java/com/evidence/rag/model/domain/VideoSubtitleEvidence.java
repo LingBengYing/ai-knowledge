@@ -1,6 +1,5 @@
 package com.evidence.rag.model.domain;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -134,7 +133,8 @@ public record VideoSubtitleEvidence(
         offset = end + 1;
       }
       var evidence =
-          new VideoSubtitleTrackEvidence(trackId, revisionId, track, text, sha(text), cues);
+          new VideoSubtitleTrackEvidence(
+              trackId, revisionId, track, text, ModelValues.sha256(text), cues);
       tracks.add(evidence);
       fields(manifest, "track", trackId, track.streamIndex(), evidence.textSha256(), cues.size());
     }
@@ -143,7 +143,7 @@ public record VideoSubtitleEvidence(
             > 4096) {
       throw ModelValues.invalid();
     }
-    return new VideoSubtitleEvidence(tracks, sha(manifest.toString()));
+    return new VideoSubtitleEvidence(tracks, ModelValues.sha256(manifest.toString()));
   }
 
   public int projectionCount() {
@@ -152,10 +152,6 @@ public record VideoSubtitleEvidence(
             .flatMap(track -> track.cues().stream())
             .filter(cue -> cue.indexOrdinal() != null)
             .count();
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   private static void fields(StringBuilder output, Object... values) {

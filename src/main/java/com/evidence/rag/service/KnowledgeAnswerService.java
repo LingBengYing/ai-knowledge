@@ -15,7 +15,6 @@ import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
 import com.evidence.rag.model.dto.KnowledgeCitation;
 import com.evidence.rag.model.dto.KnowledgeSourceResult;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -163,8 +162,8 @@ public final class KnowledgeAnswerService implements AutoCloseable {
     }
     var draft =
         new KnowledgeTraceDraft(
-            sha(command.question()),
-            proposal.answer() == null ? null : sha(proposal.answer()),
+            ModelValues.sha256(command.question()),
+            proposal.answer() == null ? null : ModelValues.sha256(proposal.answer()),
             proposal.answer() == null ? "abstained" : "answered",
             proposal.reason(),
             snapshot.modelsRevision(),
@@ -305,10 +304,6 @@ public final class KnowledgeAnswerService implements AutoCloseable {
 
   public KnowledgeSourceResult source(Actor actor, String id, int ordinal) {
     return traces.source(actor, id, ordinal);
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   private static ApplicationException unavailable() {

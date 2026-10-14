@@ -27,7 +27,6 @@ import com.evidence.rag.model.dto.VisualAnswerResult;
 import com.evidence.rag.model.dto.VisualCitationResult;
 import com.evidence.rag.model.dto.VisualSourceResult;
 import com.evidence.rag.tool.parser.TextParser;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -298,7 +297,7 @@ public final class VisualAnswerService implements AutoCloseable {
   private QueryTrace failedQuery(
       String question, List<QueryAttachment> attachments, String reason) {
     return QueryTrace.failed(
-        sha(question),
+        ModelValues.sha256(question),
         attachments,
         queries.preparationRevision(),
         queries.rankingRevision(),
@@ -418,15 +417,15 @@ public final class VisualAnswerService implements AutoCloseable {
             selected.physicalSegmentId(),
             candidates.get(best.index()).score(),
             best.score(),
-            assessment.claims().stream().map(VisualAnswerService::sha).toList(),
+            assessment.claims().stream().map(ModelValues::sha256).toList(),
             assessment.modelRevision(),
             assessment.policyRevision());
     return new Proposal(
         answer,
         selected,
         new TraceDraft(
-            sha(question),
-            sha(answer),
+            ModelValues.sha256(question),
+            ModelValues.sha256(answer),
             "answered",
             null,
             target.modelRevision(),
@@ -542,7 +541,7 @@ public final class VisualAnswerService implements AutoCloseable {
         REFUSAL,
         null,
         new TraceDraft(
-            sha(question),
+            ModelValues.sha256(question),
             null,
             "abstained",
             reason,
@@ -588,10 +587,6 @@ public final class VisualAnswerService implements AutoCloseable {
         trace.visualPolicyRevision(),
         url,
         url + "/content");
-  }
-
-  private static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 
   private record Proposal(String answer, PublishedImageEvidence source, TraceDraft trace) {
