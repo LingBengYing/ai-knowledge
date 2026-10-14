@@ -342,6 +342,168 @@ class KnowledgeAgentServiceTest {
   }
 
   @Test
+  void documentCleanupAlsoRedactsFinishedRunsStillHeldInMemory() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      String documentId = fixture.context.publish("secret.txt", "合成机密句子需要被清除。");
+      String conversation = fixture.conversations.create(fixture.context.owner, "引用").id();
+      fixture.script.set(
+          request -> {
+            fixture.read(request);
+            return answer("source-1");
+          });
+      String archivedRequest = UUID.randomUUID().toString();
+      String archived =
+          fixture.agents.start(fixture.context.owner, "资料", archivedRequest, conversation).id();
+      assertEquals("answered", fixture.await(archived).result().status());
+      String localRequest = UUID.randomUUID().toString();
+      String local = fixture.agents.start(fixture.context.owner, "资料", localRequest).id();
+      assertEquals("answered", fixture.await(local).result().status());
+      assertTrue(leaks(fixture.agents.get(fixture.context.owner, local)));
+
+      var store = fixture.context.authority.store();
+      var cleanup =
+          new DocumentCleanupService(
+              store,
+              new com.evidence.rag.repository.DocumentCleanupRepository(store),
+              new com.evidence.rag.repository.DocumentLifecycleRepository(store),
+              new com.evidence.rag.repository.ManagementRepository(store),
+              new com.evidence.rag.security.authorization.DocumentPermissionPolicy(),
+              attempts ->
+                  new com.evidence.rag.client.vector.ProjectionCleanup.Result(
+                      "completed", "completed", "completed", null));
+      cleanup.request(fixture.context.owner, documentId);
+      assertTrue(cleanup.runOnce());
+
+      var views = new java.util.ArrayList<AgentRunResult>();
+      for (String id : List.of(archived, local)) {
+        views.add(fixture.agents.get(fixture.context.owner, id));
+        try (var stream = fixture.agents.subscribe(fixture.context.owner, id)) {
+          var run = stream.next(Duration.ofSeconds(1)).run();
+          assertEquals("", run.preview());
+          views.add(
+              new AgentRunResult(
+                  run.id(),
+                  run.status(),
+                  run.events(),
+                  run.result(),
+                  run.suggestions(),
+                  run.error()));
+        }
+      }
+      views.add(fixture.agents.start(fixture.context.owner, "资料", archivedRequest, conversation));
+      views.add(fixture.agents.start(fixture.context.owner, "资料", localRequest));
+      assertEquals(2, fixture.calls.get(), "Replays never start another model run");
+      for (var view : views) {
+        assertEquals("completed", view.status());
+        assertEquals(
+            com.evidence.rag.repository.ConversationRepository.REDACTED_ANSWER,
+            view.result().answer());
+        assertEquals("abstained", view.result().status());
+        assertTrue(view.result().citations().isEmpty());
+        assertFalse(leaks(view), "A finished in-memory run must not outlive cleanup");
+      }
+    }
+  }
+
+  private static boolean leaks(AgentRunResult view) {
+    String json = new JsonMapper().writeValueAsString(view);
+    return json.contains("secret.txt") || json.contains("合成机密句子") || json.contains("资料中的有据结果");
+  }
+
+  @Test
+  void finishedRunsDoNotExhaustCapacityAndOldestAreEvictedFirst() throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      var ids = new java.util.ArrayList<String>();
+      var requests = new java.util.ArrayList<String>();
+      for (int i = 0; i <= KnowledgeAgentService.MAX_RETAINED_RUNS; i++) {
+        String request = UUID.randomUUID().toString();
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        AgentRunResult started = null;
+        while (started == null) {
+          try {
+            started = fixture.agents.start(fixture.context.owner, "资料 " + i, request);
+          } catch (ApplicationException busy) {
+            // The single admission slot is released just after the previous run turns terminal.
+            assertEquals("agent_capacity_exceeded", busy.code());
+            assertTrue(System.nanoTime() < deadline, "run " + i + " was rejected while idle");
+            Thread.sleep(1);
+          }
+        }
+        assertEquals("completed", fixture.await(started.id()).status());
+        ids.add(started.id());
+        requests.add(request);
+      }
+      assertEquals(
+          "agent_run_not_found",
+          assertThrows(
+                  ApplicationException.class,
+                  () -> fixture.agents.get(fixture.context.owner, ids.getFirst()))
+              .code());
+      assertEquals("completed", fixture.agents.get(fixture.context.owner, ids.get(1)).status());
+      assertEquals(
+          ids.getLast(),
+          fixture
+              .agents
+              .start(
+                  fixture.context.owner,
+                  "资料 " + KnowledgeAgentService.MAX_RETAINED_RUNS,
+                  requests.getLast())
+              .id());
+    }
+  }
+
+  @Test
+  void searchBeyondTheSourceLimitKeepsKnownSourcesAndCapsNewOnesInsteadOfFailing()
+      throws Exception {
+    try (var fixture = new Fixture(directory)) {
+      int documents = KnowledgeAgentService.MAX_SOURCES + 6;
+      for (int i = 0; i < documents; i++) {
+        fixture.context.publish("doc-" + i + ".txt", "合成资料第" + i + "号记录。");
+      }
+      fixture.settings.set(new RetrievalSettings(1, "vector", "weighted", 0.5, 20, false, 0.5));
+      var offset = new AtomicInteger();
+      var projection = fixture.context.projection;
+      // Each search surfaces the next window of 20 distinct published segments.
+      projection.results =
+          ignored -> {
+            var all =
+                projection.data.search(
+                    new com.evidence.rag.client.vector.RetrievalProjection.Query(
+                        "window",
+                        List.of(1.0, 0.0),
+                        projection.lastScope,
+                        100,
+                        com.evidence.rag.client.vector.RetrievalProjection.SearchMode.DENSE_ONLY));
+            int from = Math.min(offset.getAndAdd(20), all.size());
+            return new java.util.ArrayList<>(all.subList(from, Math.min(from + 20, all.size())));
+          };
+      var results = new java.util.ArrayList<AgentProtocol.SearchResult>();
+      fixture.script.set(
+          request -> {
+            for (int i = 0; i < 3; i++) {
+              results.add(fixture.agents.search(request.runId(), auth(request), "资料" + i));
+            }
+            offset.set(50); // ten already-known sources followed by ten new ones
+            results.add(fixture.agents.search(request.runId(), auth(request), "更多资料"));
+            fixture.agents.read(request.runId(), auth(request), List.of("source-64"));
+            return answer("source-64");
+          });
+      var complete = fixture.await(fixture.start());
+      assertEquals("completed", complete.status(), () -> String.valueOf(complete.error()));
+      assertEquals("answered", complete.result().status());
+      assertEquals(List.of(20, 20, 20, 14), results.stream().map(r -> r.sources().size()).toList());
+      var last = results.getLast().sources();
+      assertEquals(
+          results.get(2).sources().subList(10, 20),
+          last.subList(0, 10),
+          "Known sources keep their ids and retrieval order");
+      assertEquals(
+          List.of("source-61", "source-62", "source-63", "source-64"),
+          last.subList(10, 14).stream().map(AgentProtocol.SearchSource::sourceId).toList());
+    }
+  }
+
+  @Test
   void rapidModelDeltasAreCoalescedAndTheLatestPreviewIsStillDelivered() throws Exception {
     try (var fixture = new Fixture(directory)) {
       fixture.context.publish("stream.txt", "合成资料。");

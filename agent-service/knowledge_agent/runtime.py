@@ -33,6 +33,16 @@ CALLBACK_FAILURE_CODES = {
     ("search", 503): frozenset({"agent_tool_failed"}),
     ("read", 503): frozenset({"agent_tool_failed"}),
 }
+# Java caps the sources one run may discover. Reaching that cap is a tool result the model can
+# act on (read or answer from what it has), not a failure of the whole run.
+SOURCE_LIMIT = ("search", 429, "agent_limit_exceeded")
+SOURCE_LIMIT_RESULT = json.dumps({"sources": [], "source_limit_reached": True,
+    "note": "This run has reached its source limit; no new sources can be discovered. "
+            "Read already discovered candidates or answer from the evidence already read."})
+
+
+class SourceLimitReached(Exception):
+    """Java refused new sources for this run; the run itself remains usable."""
 
 
 def _problem_fields(pairs):
@@ -149,6 +159,8 @@ class CallbackBridge:
         # Never retain, log, or echo provider details, URLs, or arbitrary errors.
         fallback = "agent_callback_failed"
         allowed = CALLBACK_FAILURE_CODES.get((operation, response.status_code))
+        if (operation, response.status_code) == SOURCE_LIMIT[:2]:
+            allowed = frozenset({SOURCE_LIMIT[2]})
         media_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         if not allowed or media_type != "application/problem+json":
             return fallback
@@ -177,7 +189,10 @@ class CallbackBridge:
                 headers={"Authorization": "Bearer " + self.token}, follow_redirects=False,
             ) as response:
                 if response.status_code != 200:
-                    self.fail(await self._callback_failure(operation, response))
+                    code = await self._callback_failure(operation, response)
+                    if (operation, response.status_code, code) == SOURCE_LIMIT:
+                        raise SourceLimitReached()
+                    self.fail(code)
                 chunks = bytearray()
                 async for chunk in response.aiter_bytes():
                     chunks.extend(chunk)
@@ -187,7 +202,7 @@ class CallbackBridge:
                 if not isinstance(result, dict):
                     self.fail("agent_callback_invalid")
                 return result
-        except AgentFailure:
+        except (AgentFailure, SourceLimitReached):
             raise
         except (httpx.HTTPError, ValueError, UnicodeError, RecursionError):
             self.fail("agent_callback_failed")
@@ -232,7 +247,10 @@ class CallbackBridge:
         self.tool_calls += 1
         if self.tool_calls > MAX_TOOL_CALLS:
             self.fail("agent_step_limit")
-        result = await self.post("search", {"query": query})
+        try:
+            result = await self.post("search", {"query": query})
+        except SourceLimitReached:
+            return SOURCE_LIMIT_RESULT
         rows = self._sources(result, "excerpt")
         self.search_calls += 1
         for row in rows:

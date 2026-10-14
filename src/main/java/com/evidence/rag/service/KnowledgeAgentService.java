@@ -55,6 +55,12 @@ public final class KnowledgeAgentService implements AutoCloseable {
   /** Observers per run; each one parks an SSE sender thread until the next snapshot. */
   static final int MAX_SUBSCRIPTIONS = 16;
 
+  /** Process-local runs retained for idempotent replay; finished ones are evicted oldest first. */
+  static final int MAX_RETAINED_RUNS = 256;
+
+  /** Distinct sources one run may discover; later new search hits are omitted, not fatal. */
+  static final int MAX_SOURCES = 64;
+
   /** Upstream token deltas are coalesced so a long answer is not re-sent once per token. */
   static final long DELTA_PUBLISH_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
 
@@ -149,7 +155,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
         var turn = previous.get();
         var running = runs.get(turn.runId());
         if (running != null) {
-          return running.view();
+          return current(running);
         }
         if (turn.result() != null) {
           return turn.result();
@@ -164,13 +170,23 @@ public final class KnowledgeAgentService implements AutoCloseable {
       var existing = runs.get(existingId);
       if (!existing.question.equals(question))
         throw problem(FailureKind.CONFLICT, "agent_request_conflict");
-      return existing.view();
+      return current(existing);
     }
     // Retain a bounded, explicit process-local idempotency window; never auto-resume old work.
     long cutoff = System.nanoTime() - Duration.ofMinutes(30).toNanos();
     runs.values().removeIf(run -> !run.running() && run.started < cutoff);
+    // Finished runs only serve replay; when the window is full the oldest of them make room, so
+    // only work that is actually running can exhaust capacity.
+    var finished =
+        runs.values().stream()
+            .filter(run -> !run.running())
+            .sorted(java.util.Comparator.comparingLong(run -> run.started))
+            .iterator();
+    while (runs.size() >= MAX_RETAINED_RUNS && finished.hasNext()) {
+      runs.remove(finished.next().id);
+    }
     requestIds.values().removeIf(id -> !runs.containsKey(id));
-    if (runs.size() >= 256 || !admission.tryAcquire()) {
+    if (runs.size() >= MAX_RETAINED_RUNS || !admission.tryAcquire()) {
       throw problem(FailureKind.CAPACITY_EXCEEDED, "agent_capacity_exceeded");
     }
     var run = new Run(actor, question, conversationId);
@@ -257,22 +273,53 @@ public final class KnowledgeAgentService implements AutoCloseable {
   }
 
   public AgentRunResult get(Actor actor, String id) {
-    return authorized(actor, id).view();
+    return current(authorized(actor, id));
   }
 
   /** Subscribe to cumulative state, without starting or resuming any model execution. */
   public Subscription subscribe(Actor actor, String id) {
     var run = authorized(actor, id);
+    Subscription subscription;
+    long revision;
     synchronized (run) {
       if (run.streamFailed) throw problem(FailureKind.UNAVAILABLE, "agent_failed");
       if (run.subscriptions.size() >= MAX_SUBSCRIPTIONS) {
         throw problem(FailureKind.CAPACITY_EXCEEDED, "agent_capacity_exceeded");
       }
-      var subscription = new Subscription(run);
+      subscription = new Subscription(run);
       run.subscriptions.add(subscription);
-      subscription.offer(run.streamView());
-      return subscription;
+      if (run.running()) {
+        subscription.offer(run.streamView());
+        return subscription;
+      }
+      revision = run.streamRevision;
     }
+    // A finished run publishes nothing further; its only snapshot is the archived result.
+    try {
+      subscription.offer(new AgentRunStreamSnapshot(revision, archived(run), ""));
+    } catch (RuntimeException failed) {
+      subscription.close();
+      throw failed;
+    }
+    return subscription;
+  }
+
+  /**
+   * A running task is served from memory. Once finished, the durable record is authoritative: a
+   * document cleanup redacts archived results, so the in-memory copy must never outlive it.
+   */
+  private AgentRunResult current(Run run) {
+    synchronized (run) {
+      if (run.running()) return run.view();
+    }
+    return archived(run);
+  }
+
+  private AgentRunResult archived(Run run) {
+    var view = run.view();
+    return conversations == null
+        ? view
+        : conversations.archived(run.actor, run.conversationId, view);
   }
 
   /**
@@ -347,7 +394,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
   public AgentRunResult cancel(Actor actor, String id) {
     var run = authorized(actor, id);
     stop(run, "cancelled", null);
-    return run.view();
+    return current(run);
   }
 
   public AgentProtocol.ModelResult model(
@@ -390,8 +437,9 @@ public final class KnowledgeAgentService implements AutoCloseable {
               if (!original.source().equals(selected.get(i))) throw invalid();
               String sourceId = run.sourceIds.get(original.key());
               if (sourceId == null) {
-                if (run.originals.size() >= 64)
-                  throw problem(FailureKind.CAPACITY_EXCEEDED, "agent_limit_exceeded");
+                // Keep known sources and the first new ones in retrieval order; the cap is a
+                // bound on this run's evidence, not a reason to fail an otherwise healthy task.
+                if (run.originals.size() >= MAX_SOURCES) continue;
                 sourceId = "source-" + (run.originals.size() + 1);
                 run.sourceIds.put(original.key(), sourceId);
                 run.originals.put(sourceId, original);

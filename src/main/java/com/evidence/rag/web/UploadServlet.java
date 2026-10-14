@@ -141,10 +141,12 @@ public final class UploadServlet extends HttpServlet {
         }
       }
     } catch (ApplicationException problem) {
+      // New uploads share one generic rejection; a replacement keeps the specific reason (such as
+      // a category mismatch with the current document) and its own status.
       writeProblem(
           request,
           response,
-          problem.code().equals("unsupported_document")
+          documentId == null && problem.code().equals("unsupported_document")
               ? new ApplicationException(
                   FailureKind.INVALID_INPUT, "unsupported_document", "文件名、格式或内容不受支持。")
               : problem);
