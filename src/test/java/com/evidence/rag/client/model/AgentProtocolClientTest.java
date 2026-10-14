@@ -28,6 +28,37 @@ class AgentProtocolClientTest {
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   @Test
+  void dispatchedToolsRequireTaskFocusedResearchAndConclusionFirstSynthesis() throws Exception {
+    try (var server = new Server();
+        var models = models(server)) {
+      server.reply.set(toolReply("knowledge_search", "{\"query\":\"synthetic eligibility\"}"));
+      models.agentChat(List.of(new AgentMessage("user", "合成申请人符合办理条件吗？")));
+      var tools = server.request.get().path("tools");
+      String search = tools.get(0).path("function").path("description").asString();
+      String read = tools.get(1).path("function").path("description").asString();
+      String finish = tools.get(2).path("function").path("description").asString();
+      assertTrue(search.contains("core question"));
+      assertTrue(read.contains("unresolved core issue"));
+      assertTrue(finish.contains("conclusion or precise evidence gap first"));
+      assertTrue(finish.contains("not one paragraph per file"));
+      assertTrue(finish.contains("Do not write source IDs or citation markers in text"));
+      assertEquals(3, tools.size());
+      assertEquals(1, server.calls.get(), "No separate planning or summarizing request");
+      assertEquals(
+          List.of("refused", "statements", "suggestions"),
+          JSON.convertValue(
+              tools
+                  .get(2)
+                  .path("function")
+                  .path("parameters")
+                  .path("properties")
+                  .path("result")
+                  .path("required"),
+              List.class));
+    }
+  }
+
+  @Test
   void agentGenerationRequestsNativeStreaming() throws Exception {
     try (var server = new Server();
         var models = models(server)) {

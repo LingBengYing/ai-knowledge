@@ -1,6 +1,12 @@
 # AI Knowledge · Java Edition
 
-## 最新生产版本（2026-10-11，0072）：SSE 实时思考与回答
+## 最新生产版本（2026-10-13，0075）：围绕问题综合回答
+
+Agent按核心意图和证据缺口查阅，每轮区分已读来源与未读候选；最终先回答问题，再说明相关条件/步骤，不按文件逐条复述。配套Web0055安全排版并折叠分组引用，保留原有SSE和来源校验。Java、Agent、Web已配套发布，生产页面刷新、排版与引用分组已验，原资料和配置保持。本轮未调用模型，不认证新的真实语义质量；选定旧答案的4处来源发布前后均返回409，全仓旧失败仍保留。见[行为合同](docs/changes/0075-answer-focus/spec.md)、[本机验证](docs/changes/0075-answer-focus/verification.md)与[生产记录](docs/changes/0075-answer-focus/deployment-verification.md)。
+
+以下带日期段落为历史阶段，当前状态以上述最新发布记录为准。
+
+## 此前生产版本（2026-10-11，0072）：SSE 实时思考与回答
 
 Agent 上游使用 OpenAI-compatible `stream:true`，Java 将思考与回答预览经 SSE 发送到页面；工具仅在完整参数校验后执行，引用仅在终态校验后出现。Java/Web已配套发布，保留免登录和原资料；真实模型8次单问的公网首思考724ms、首回答6586ms均早于8199ms终态。原验收在额外旧合成引用处停止，随后两来源与重启回读零模型核对通过。生产页面最终显示已验，生成中增长未直接见证；不声称全仓门禁或全库质量通过。详见[生产记录](docs/changes/0072-agent-sse-streaming/deployment-verification.md)、[真实模型边界](docs/changes/0072-agent-sse-streaming/provider-run.md)与[本机验证](docs/changes/0072-agent-sse-streaming/verification.md)。
 

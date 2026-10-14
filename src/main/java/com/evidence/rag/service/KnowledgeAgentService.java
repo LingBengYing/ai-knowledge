@@ -58,7 +58,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
   /** Upstream token deltas are coalesced so a long answer is not re-sent once per token. */
   static final long DELTA_PUBLISH_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
 
-  private static final String PROMPT = "java-native-tool-knowledge-agent-v2";
+  private static final String PROMPT = "java-native-tool-knowledge-agent-v3-answer-focus";
   private static final String REFUSAL = "当前资料不足以形成可核对的完整回答。";
   private final EvidenceService evidence;
   private final ProductHelpService retrieval;
