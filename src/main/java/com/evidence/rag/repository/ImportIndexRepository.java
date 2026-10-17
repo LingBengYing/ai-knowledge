@@ -54,6 +54,11 @@ public final class ImportIndexRepository {
   }
 
   public Optional<ImportIndexRequestEntity> claim() {
+    return claim(null);
+  }
+
+  /** {@code media}: true for sound/video_av only, false for corpus only, null for either. */
+  public Optional<ImportIndexRequestEntity> claim(Boolean media) {
     var rows =
         store.rows(
             """
@@ -62,8 +67,11 @@ public final class ImportIndexRepository {
         WHERE r.state='pending'
           AND (r.pipeline!='corpus' OR j.state NOT IN ('queued','processing'))
           AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=r.document_id)
-        ORDER BY r.created_at,r.revision_id LIMIT 1
-        """);
+        """
+                + (media == null
+                    ? ""
+                    : media ? " AND r.pipeline!='corpus'" : " AND r.pipeline='corpus'")
+                + " ORDER BY r.created_at,r.revision_id LIMIT 1");
     if (rows.isEmpty()) {
       return Optional.empty();
     }
@@ -82,6 +90,14 @@ public final class ImportIndexRepository {
             AuthorityRows.text(r, "replacement_id"),
             AuthorityRows.text(r, "base_revision_id"),
             AuthorityRows.text(r, "parse_state")));
+  }
+
+  /** A dispatch that could not start (its library was at capacity) waits for its turn again. */
+  public void release(String revisionId) {
+    store.execute(
+        "UPDATE import_index_requests SET state='pending',updated_at=? WHERE revision_id=? AND state='dispatching'",
+        Instant.now().toString(),
+        revisionId);
   }
 
   public String existingTask(Actor actor, String documentId, String revisionId) {

@@ -29,5 +29,7 @@ public record DocumentBatchResult(
       @JsonProperty("revision_id") String revisionId,
       @JsonProperty("ingestion_task_id") String ingestionTaskId,
       @JsonProperty("indexing_task_id") String indexingTaskId,
-      @JsonProperty("error_code") String errorCode) {}
+      @JsonProperty("error_code") String errorCode,
+      @JsonProperty("duplicate_of_document_id") String duplicateOfDocumentId,
+      @JsonProperty("duplicate_of_ordinal") Integer duplicateOfOrdinal) {}
 }

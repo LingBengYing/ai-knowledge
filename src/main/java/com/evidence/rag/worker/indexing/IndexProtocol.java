@@ -3,6 +3,7 @@ package com.evidence.rag.worker.indexing;
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
+import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.IndexingResult;
@@ -49,10 +50,39 @@ final class IndexProtocol {
       List<ProjectionItem> items,
       String projectionGenerationId,
       IndexWorkerLifetime.Parent parent,
-      TransientRetry retry) {
+      TransientRetry retry,
+      EmbeddingThroughput throughput) {
     Request {
       items = List.copyOf(items);
       retry = retry == null ? TransientRetry.NONE : retry;
+      throughput = throughput == null ? EmbeddingThroughput.SERIAL : throughput;
+    }
+
+    Request(
+        OpenAiCompatibleModels.Configuration models,
+        MilvusRestProjection.Settings projection,
+        Duration timeout,
+        String workspaceId,
+        String documentId,
+        String revisionId,
+        IndexTarget target,
+        List<ProjectionItem> items,
+        String projectionGenerationId,
+        IndexWorkerLifetime.Parent parent,
+        TransientRetry retry) {
+      this(
+          models,
+          projection,
+          timeout,
+          workspaceId,
+          documentId,
+          revisionId,
+          target,
+          items,
+          projectionGenerationId,
+          parent,
+          retry,
+          EmbeddingThroughput.SERIAL);
     }
 
     Request(
@@ -100,6 +130,16 @@ final class IndexProtocol {
       Duration timeout,
       IndexClaim claim,
       TransientRetry retry) {
+    return request(models, projection, timeout, claim, retry, EmbeddingThroughput.SERIAL);
+  }
+
+  static Request request(
+      OpenAiCompatibleModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      Duration timeout,
+      IndexClaim claim,
+      TransientRetry retry,
+      EmbeddingThroughput throughput) {
     if (claim == null) {
       throw invalid();
     }
@@ -115,7 +155,8 @@ final class IndexProtocol {
             claim.items(),
             claim.projectionGenerationId(),
             IndexWorkerLifetime.Parent.current(),
-            retry);
+            retry,
+            throughput);
     validate(request);
     return request;
   }
@@ -234,6 +275,9 @@ final class IndexProtocol {
     writer.writeInt(request.retry().retries());
     writer.writeLong(request.retry().baseDelay().toMillis());
     writer.writeLong(request.retry().maxDelay().toMillis());
+    writer.writeInt(request.throughput().concurrency());
+    writer.writeInt(request.throughput().requestsPerMinute());
+    writer.writeInt(request.throughput().tokensPerMinute());
     bytes.writeTo(output);
     output.flush();
   }
@@ -309,6 +353,11 @@ final class IndexProtocol {
     }
     var retry =
         new TransientRetry(retries, Duration.ofMillis(baseDelay), Duration.ofMillis(maxDelay));
+    var throughput =
+        new EmbeddingThroughput(
+            bounded(reader.readInt(), 1, 8),
+            bounded(reader.readInt(), 0, 100000),
+            bounded(reader.readInt(), 0, 100000000));
     if (reader.read() != -1) {
       throw invalid();
     }
@@ -324,7 +373,8 @@ final class IndexProtocol {
             segments,
             generation,
             parent,
-            retry);
+            retry,
+            throughput);
     validate(request);
     return request;
   }

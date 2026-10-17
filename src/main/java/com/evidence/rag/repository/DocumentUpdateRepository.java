@@ -138,7 +138,8 @@ public final class DocumentUpdateRepository {
                     == 0
                 ? previous.sizeBytes()
                 : 0);
-    if (new IngestionRepository(store).storedBytes(workspace) > 256L * 1024 * 1024 - added) {
+    if (new IngestionRepository(store).storedBytes(workspace)
+        > store.workspaceOriginalBytes() - added) {
       throw new ApplicationException(
           FailureKind.CONFLICT, "ingestion_quota_exceeded", "当前组织的原文件存储已达到开发配额。");
     }

@@ -2,6 +2,7 @@ package com.evidence.rag.worker.indexing;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
+import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexingResult;
 import com.evidence.rag.model.domain.LibraryOperationGate;
@@ -52,19 +53,15 @@ public final class ProcessTextIndexer implements AutoCloseable {
     return new com.evidence.rag.model.domain.ModelRequestUsage(0, 0, !childStarted);
   }
 
+  /** Exactly the embedding requests the child will send for this claim, retries excluded. */
   public int expectedRequests(IndexClaim claim) {
-    int dimension = models.embeddingDimensions();
-    int batch =
-        Math.min(
-            16,
-            Math.min(
-                (models.maxResponseBytes() - 1024) / (dimension * 128 + 1024),
-                (projection.maxResponseBytes() - 1024)
-                    / (com.evidence.rag.client.vector.RetrievalProjection.MAX_TEXT_BYTES * 6
-                        + dimension * 32
-                        + 2048)));
-    if (batch < 1) throw new Failure("indexing_failed");
-    return (claim.items().size() + batch - 1) / batch;
+    return EmbeddingBatches.plan(
+            claim.items().stream().map(item -> item.recallText()).toList(),
+            EmbeddingBatches.countLimit(
+                models.embeddingDimensions(),
+                models.maxResponseBytes(),
+                projection.maxResponseBytes()))
+        .size();
   }
 
   public ProcessTextIndexer(
@@ -101,7 +98,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   }
 
   public IndexingResult index(IndexClaim claim) {
-    return executeIndex(claim, TransientRetry.NONE, timeout);
+    return executeIndex(claim, TransientRetry.NONE, timeout, EmbeddingThroughput.SERIAL);
   }
 
   /**
@@ -109,11 +106,18 @@ public final class ProcessTextIndexer implements AutoCloseable {
    * embedding retry allowance the batch budget reserved for it.
    */
   public IndexingResult index(IndexClaim claim, TransientRetry retry, Duration deadline) {
-    IndexProtocol.validateSettings(models, projection, deadline);
-    return executeIndex(claim, retry, deadline);
+    return index(claim, retry, deadline, EmbeddingThroughput.SERIAL);
   }
 
-  private IndexingResult executeIndex(IndexClaim claim, TransientRetry retry, Duration timeout) {
+  /** As above, with this attempt's in-flight embedding bound and the shared rate limits. */
+  public IndexingResult index(
+      IndexClaim claim, TransientRetry retry, Duration deadline, EmbeddingThroughput throughput) {
+    IndexProtocol.validateSettings(models, projection, deadline);
+    return executeIndex(claim, retry, deadline, throughput);
+  }
+
+  private IndexingResult executeIndex(
+      IndexClaim claim, TransientRetry retry, Duration timeout, EmbeddingThroughput throughput) {
     long timeoutNanos = timeout.toNanos();
     long started = System.nanoTime();
     Job job;
@@ -125,7 +129,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
       if (Thread.currentThread().isInterrupted()) {
         throw new Failure("worker_interrupted");
       }
-      var request = IndexProtocol.request(models, projection, timeout, claim, retry);
+      var request = IndexProtocol.request(models, projection, timeout, claim, retry, throughput);
       if (!CAPACITY.tryAcquire()) {
         throw new Failure("indexing_busy");
       }

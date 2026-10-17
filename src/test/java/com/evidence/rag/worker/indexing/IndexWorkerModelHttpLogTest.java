@@ -31,7 +31,7 @@ class IndexWorkerModelHttpLogTest {
                 server.settings().models(),
                 server.settings().projection(),
                 Duration.ofSeconds(15))) {
-      assertEquals(17, indexer.index(server.claim(17)).verified().segmentCount());
+      assertEquals(33, indexer.index(server.claim(33)).verified().segmentCount());
       long requests =
           server.requests.stream().filter(request -> request.path().equals("/embeddings")).count();
       assertEquals(2, requests);

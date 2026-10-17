@@ -5,6 +5,7 @@ import com.evidence.rag.model.domain.AudioCompilation;
 import com.evidence.rag.model.domain.AudioEvidence;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
 import com.evidence.rag.model.domain.AudioTranscription;
+import com.evidence.rag.model.domain.FairQueue;
 import com.evidence.rag.model.domain.ImageDimensions;
 import com.evidence.rag.model.domain.ImageEvidence;
 import com.evidence.rag.model.domain.ImageRecall;
@@ -144,14 +145,40 @@ public final class IngestionRepository {
     return replacementCurrent(task.id());
   }
 
-  public Optional<String> nextQueuedId(String workspaceId) {
-    return store
-        .rows(
-            "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id LIMIT 1",
-            workspaceId)
-        .stream()
-        .findFirst()
-        .map(row -> AuthorityRows.text(row, "id"));
+  /**
+   * Queued parsing in fair claim order: tasks outside import batches first, then the batches in
+   * round-robin order (see {@link FairQueue}).
+   */
+  public List<FairQueue.Candidate> fairQueued(String workspaceId, FairQueue fairness, int limit) {
+    var interactive =
+        store
+            .rows(
+                "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_import_files f WHERE f.ingestion_task_id=j.id) ORDER BY j.created_at,j.id LIMIT ?",
+                workspaceId,
+                limit)
+            .stream()
+            .map(row -> AuthorityRows.text(row, "id"))
+            .toList();
+    var heads =
+        store
+            .rows(
+                """
+                SELECT id,batch_id FROM (
+                  SELECT j.id,f.batch_id,ROW_NUMBER() OVER (PARTITION BY f.batch_id ORDER BY j.created_at,j.id) AS position
+                  FROM ingestion_jobs j JOIN document_import_files f ON f.ingestion_task_id=j.id
+                  JOIN documents d ON d.id=j.document_id
+                  WHERE d.workspace_id=? AND j.state='queued'
+                    AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id))
+                WHERE position<=4 ORDER BY batch_id,position
+                """,
+                workspaceId)
+            .stream()
+            .map(
+                row ->
+                    new FairQueue.Candidate(
+                        AuthorityRows.text(row, "id"), AuthorityRows.text(row, "batch_id")))
+            .toList();
+    return fairness.order(interactive, heads, limit);
   }
 
   public void markProcessing(String jobId, String tokenHash, String now) {

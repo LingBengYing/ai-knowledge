@@ -6,6 +6,7 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioEvidence;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
 import com.evidence.rag.model.domain.AudioVectorBinding;
+import com.evidence.rag.model.domain.FairQueue;
 import com.evidence.rag.model.domain.ImageEvidence;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.ImageVectorBinding;
@@ -629,14 +630,38 @@ public final class IndexingRepository {
         != 0;
   }
 
-  public List<String> queuedIds(String workspaceId) {
-    return store
-        .rows(
-            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND j.model_rebuild_id IS NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM indexing_jobs active WHERE active.document_id=d.id AND active.state='processing') ORDER BY j.created_at,j.id LIMIT 32",
-            workspaceId)
-        .stream()
-        .map(row -> AuthorityRows.text(row, "id"))
-        .toList();
+  /**
+   * Queued indexing in fair claim order: tasks outside import batches first, then the batches in
+   * round-robin order (see {@link FairQueue}). A task belongs to a batch when it indexes a batch
+   * file's own revision.
+   */
+  public List<FairQueue.Candidate> queued(String workspaceId, FairQueue fairness) {
+    String eligible =
+        "j.state='queued' AND j.model_rebuild_id IS NULL AND d.workspace_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM indexing_jobs active WHERE active.document_id=d.id AND active.state='processing')";
+    var interactive =
+        store
+            .rows(
+                "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE "
+                    + eligible
+                    + " AND NOT EXISTS(SELECT 1 FROM document_import_files f WHERE f.revision_id=j.revision_id AND f.document_id=j.document_id) ORDER BY j.created_at,j.id LIMIT 32",
+                workspaceId)
+            .stream()
+            .map(row -> AuthorityRows.text(row, "id"))
+            .toList();
+    var heads =
+        store
+            .rows(
+                "SELECT id,batch_id FROM (SELECT j.id,f.batch_id,ROW_NUMBER() OVER (PARTITION BY f.batch_id ORDER BY j.created_at,j.id) AS position FROM indexing_jobs j JOIN document_import_files f ON f.revision_id=j.revision_id AND f.document_id=j.document_id JOIN documents d ON d.id=j.document_id WHERE "
+                    + eligible
+                    + ") WHERE position<=4 ORDER BY batch_id,position",
+                workspaceId)
+            .stream()
+            .map(
+                row ->
+                    new FairQueue.Candidate(
+                        AuthorityRows.text(row, "id"), AuthorityRows.text(row, "batch_id")))
+            .toList();
+    return fairness.order(interactive, heads, 32);
   }
 
   public Optional<TaskEntity> findInternalTask(String jobId) {

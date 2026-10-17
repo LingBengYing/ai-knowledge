@@ -68,7 +68,9 @@ class IndexWorkerTest {
               .map(request -> request.body().path("input").size())
               .toList();
       assertEquals(35, batches.stream().mapToInt(Integer::intValue).sum());
-      assertTrue(batches.stream().allMatch(size -> size >= 1 && size <= 16));
+      assertTrue(
+          batches.stream()
+              .allMatch(size -> size >= 1 && size <= EmbeddingBatches.PROVIDER_MAX_INPUTS));
       assertTrue(
           server.requests.stream()
               .noneMatch(

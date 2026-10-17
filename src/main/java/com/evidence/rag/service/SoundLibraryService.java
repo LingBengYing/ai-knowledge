@@ -196,7 +196,7 @@ public final class SoundLibraryService {
         () -> {
           currentProfile();
           if (new IngestionRepository(store).storedBytes(actor.workspaceId())
-              > 256L * 1024 * 1024 - content.length) {
+              > store.workspaceOriginalBytes() - content.length) {
             throw new ApplicationException(
                 FailureKind.CONFLICT, "ingestion_quota_exceeded", "当前组织的待处理任务或原文件存储已达到开发配额。");
           }

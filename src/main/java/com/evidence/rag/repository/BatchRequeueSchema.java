@@ -46,7 +46,11 @@ final class BatchRequeueSchema {
   }
 
   void verify() {
-    new DocumentBatchSchema(store).verify(VERSION);
+    verify(VERSION);
+  }
+
+  void verify(int version) {
+    new DocumentBatchSchema(store).verify(version);
     if (store.count("SELECT COUNT(*) FROM pragma_table_info('batch_task_requeues')") != 5)
       throw new IllegalStateException("Unsupported batch requeue schema");
   }

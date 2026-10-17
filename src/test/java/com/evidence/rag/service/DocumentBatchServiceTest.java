@@ -20,7 +20,8 @@ class DocumentBatchServiceTest {
   final Actor actor = new Actor("org-main", "owner");
   final byte[] data = "Synthetic batch source".getBytes(StandardCharsets.UTF_8);
   final BatchProcessingSettings settings =
-      new BatchProcessingSettings(2, 2, 2, 10000, 3, 1000, 60000, 5000, 600000);
+      new BatchProcessingSettings(
+          2, 2, 2, 10000, 3, 1000, 60000, 5000, 600000, 2, 1, 0, 0, 10737418240L);
 
   DocumentBatchCommand command(int count, int budget) {
     var files =
@@ -30,7 +31,8 @@ class DocumentBatchServiceTest {
                     new DocumentBatchCommand.File(
                         "batch-" + i + ".txt", data.length, ModelValues.sha256(data)))
             .toList();
-    return new DocumentBatchCommand("synthetic-batch-request", files, budget);
+    // Identical bytes on purpose: these tests are about slots and budgets, so keep duplicates.
+    return new DocumentBatchCommand("synthetic-batch-request", files, budget, true);
   }
 
   @Test

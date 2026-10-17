@@ -150,6 +150,7 @@ public class ModelConfigurationConfiguration {
                 processor.configureResilience(
                     batch.transientRetry(),
                     batch.indexDeadline(Duration.ofMillis(indexLimits.timeoutMs())));
+                processor.configureThroughput(batch.embeddingThroughput());
                 var mediaBundle = media.build(models, projection, anchor);
                 var currentQueries = mediaBundle.queries();
                 var currentVideo = mediaBundle.video();

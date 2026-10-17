@@ -57,8 +57,15 @@ public final class IngestionService {
     automaticIndexingEnabled = enabled;
   }
 
-  private static final long MAX_ORIGINAL_BYTES = 256L * 1024 * 1024;
+  /** Total original bytes one workspace may hold (rag.batch.workspace-original-bytes). */
+  public long maximumWorkspaceOriginalBytes() {
+    return store.workspaceOriginalBytes();
+  }
+
   private static final int MAX_PENDING_INGESTIONS = 32;
+  // Interactive uploads first, then import batches in turn (in-memory cursor, reset by restart).
+  private final com.evidence.rag.model.domain.FairQueue fairness =
+      new com.evidence.rag.model.domain.FairQueue();
   private int pendingCapacity = MAX_PENDING_INGESTIONS;
 
   public void configureQueueCapacity(int value) {
@@ -372,7 +379,8 @@ public final class IngestionService {
     String parserRevision = video ? videoCompilerRevision : parserRevision(filename);
     String sourceHash = sha256(original);
     checkPendingQuota(owner.workspaceId());
-    if (ingestion.storedBytes(owner.workspaceId()) > MAX_ORIGINAL_BYTES - original.length) {
+    if (ingestion.storedBytes(owner.workspaceId())
+        > store.workspaceOriginalBytes() - original.length) {
       throw quotaExceeded();
     }
     String documentId = UUID.randomUUID().toString(), revisionId = UUID.randomUUID().toString();
@@ -443,11 +451,9 @@ public final class IngestionService {
     Actor worker = new Actor(workspaceId, "system:ingestion");
     return store.transaction(
         () -> {
-          for (int candidate = 0; candidate < MAX_PENDING_INGESTIONS; candidate++) {
-            var jobId = ingestion.nextQueuedId(workspaceId).orElse(null);
-            if (jobId == null) {
-              return Optional.empty();
-            }
+          for (var candidate :
+              ingestion.fairQueued(workspaceId, fairness, MAX_PENDING_INGESTIONS)) {
+            String jobId = candidate.taskId();
             var task = ingestion.findInternalTask(jobId).orElseThrow();
             if (cancelIfUnauthorized(task)) {
               continue;
@@ -473,6 +479,7 @@ public final class IngestionService {
             String token = UUID.randomUUID().toString() + UUID.randomUUID();
             ingestion.markProcessing(
                 jobId, sha256(token.getBytes(StandardCharsets.UTF_8)), Instant.now().toString());
+            fairness.served(candidate);
             audit(
                 worker,
                 task.documentId(),

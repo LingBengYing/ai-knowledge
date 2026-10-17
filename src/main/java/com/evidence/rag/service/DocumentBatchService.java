@@ -65,8 +65,11 @@ public final class DocumentBatchService {
     int budget =
         command.embeddingRequestLimit() == null ? 1000000 : command.embeddingRequestLimit();
     if (budget < 1 || budget > 1000000) throw ModelValues.invalid();
+    boolean includeDuplicates = Boolean.TRUE.equals(command.includeDuplicates());
     long bytes = 0;
     var canonical = new StringBuilder().append(budget).append('\n');
+    // Only an opt-out changes the digest, so manifests registered before v40 keep theirs.
+    if (includeDuplicates) canonical.append("include_duplicates\n");
     for (var file : command.files()) {
       if (file == null
           || file.sizeBytes() < 1
@@ -83,7 +86,7 @@ public final class DocumentBatchService {
           .append(file.sourceSha256())
           .append('\n');
     }
-    if (bytes > 256L * 1024 * 1024) throw ModelValues.invalid();
+    if (bytes > ingestion.maximumWorkspaceOriginalBytes()) throw ModelValues.invalid();
     String digest = ModelValues.sha256(canonical.toString().getBytes(StandardCharsets.UTF_8));
     String id =
         store.transaction(
@@ -94,6 +97,13 @@ public final class DocumentBatchService {
                 return (String) existing.orElseThrow().get("id");
               }
               String created = UUID.randomUUID().toString();
+              var manifest =
+                  command.files().stream()
+                      .map(
+                          f ->
+                              new BatchImportFile.Manifest(
+                                  f.filename(), f.sizeBytes(), f.sourceSha256()))
+                      .toList();
               batches.insert(
                   actor,
                   created,
@@ -101,12 +111,8 @@ public final class DocumentBatchService {
                   digest,
                   budget,
                   Instant.now().toString(),
-                  command.files().stream()
-                      .map(
-                          f ->
-                              new BatchImportFile.Manifest(
-                                  f.filename(), f.sizeBytes(), f.sourceSha256()))
-                      .toList());
+                  manifest);
+              if (!includeDuplicates) batches.markDuplicates(actor, created, manifest);
               return created;
             });
     return status(actor, id, 0, 100);
@@ -130,6 +136,7 @@ public final class DocumentBatchService {
                 throw conflict();
               if (item.get("ingestion_task_id") != null)
                 return (String) item.get("ingestion_task_id");
+              if (batches.duplicate(batchId, ordinal)) throw duplicate();
               if (batch.get("halted_reason") != null) throw conflict();
               String filename = (String) item.get("filename");
               var result =
@@ -154,20 +161,24 @@ public final class DocumentBatchService {
           var counts = batches.counts(id);
           int total = counts.values().stream().mapToInt(Long::intValue).sum();
           String halted = (String) row.get("halted_reason");
+          long skipped = counts.getOrDefault("duplicate", 0L);
           long settled =
               counts.getOrDefault("indexed", 0L)
+                  + skipped
                   + counts.getOrDefault("failed", 0L)
                   + counts.getOrDefault("cancelled", 0L)
                   + counts.getOrDefault("deleted", 0L);
+          long awaiting = counts.getOrDefault("awaiting_upload", 0L);
           // A failed or cancelled file no longer stops the batch: only a recorded halt does.
+          // A skipped duplicate is done: it counts toward completion like an indexed file.
           String state =
               CANCELLED.equals(halted)
                   ? "cancelled"
                   : halted != null
                       ? "halted"
-                      : counts.getOrDefault("indexed", 0L) == total
+                      : counts.getOrDefault("indexed", 0L) + skipped == total
                           ? "completed"
-                          : counts.getOrDefault("awaiting_upload", 0L) == total
+                          : awaiting > 0 && awaiting + skipped == total
                               ? "awaiting_upload"
                               : settled == total ? "completed_with_failures" : "processing";
           long retryable = batches.retryable(id);
@@ -202,7 +213,9 @@ public final class DocumentBatchService {
                               f.revisionId(),
                               f.ingestionTaskId(),
                               f.indexingTaskId(),
-                              f.errorCode()))
+                              f.errorCode(),
+                              f.duplicateDocumentId(),
+                              f.duplicateOrdinal()))
                   .toList());
         });
   }
@@ -313,6 +326,11 @@ public final class DocumentBatchService {
   private static ApplicationException actionConflict() {
     return new ApplicationException(
         FailureKind.CONFLICT, "batch_action_conflict", "批次当前状态不能执行该操作，请刷新批次。");
+  }
+
+  private static ApplicationException duplicate() {
+    return new ApplicationException(
+        FailureKind.CONFLICT, "batch_file_duplicate", "该文件与已有资料相同，已跳过，无需上传。");
   }
 
   private static ApplicationException conflict() {

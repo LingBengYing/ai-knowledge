@@ -57,6 +57,9 @@ public final class IndexingService {
           "index_configuration_changed");
   private final SqliteAuthorityStore store;
   private int concurrency = 1;
+  // Interactive indexing first, then import batches in turn (in-memory cursor, reset by restart).
+  private final com.evidence.rag.model.domain.FairQueue fairness =
+      new com.evidence.rag.model.domain.FairQueue();
 
   public void configureConcurrency(int value) {
     if (value < 1 || value > 4) throw new IllegalArgumentException("Invalid indexing concurrency");
@@ -385,9 +388,12 @@ public final class IndexingService {
           }
           var queued =
               batchId == null
-                  ? indexing.queuedIds(workspaceId)
-                  : indexing.queuedModelRebuildIds(workspaceId, batchId);
-          for (String jobId : queued) {
+                  ? indexing.queued(workspaceId, fairness)
+                  : indexing.queuedModelRebuildIds(workspaceId, batchId).stream()
+                      .map(id -> new com.evidence.rag.model.domain.FairQueue.Candidate(id, null))
+                      .toList();
+          for (var candidate : queued) {
+            String jobId = candidate.taskId();
             var task = indexing.findInternalTask(jobId).orElseThrow();
             if (indexing.documentProcessing(task.documentId())) continue;
             if (new com.evidence.rag.repository.DocumentBatchRepository(store)
@@ -421,6 +427,7 @@ public final class IndexingService {
             indexing.insertAttempt(task.id(), task.attempt(), generation, now);
             indexing.markProcessing(
                 task.id(), sha256(token.getBytes(StandardCharsets.UTF_8)), generation, now);
+            fairness.served(candidate);
             audit(
                 worker,
                 task.documentId(),

@@ -127,7 +127,7 @@ public final class DocumentReplacementService {
               throw conflict();
             }
             if (new IngestionRepository(store).storedBytes(actor.workspaceId())
-                > 256L * 1024 * 1024 - original.length) {
+                > store.workspaceOriginalBytes() - original.length) {
               throw new ApplicationException(
                   FailureKind.CONFLICT, "ingestion_quota_exceeded", "当前组织的原文件存储已达到开发配额。");
             }

@@ -44,7 +44,9 @@ public class ImportAutoIndexConfiguration {
   }
 
   @Bean(destroyMethod = "close")
-  ImportAutoIndexJob importAutoIndexJob(ImportAutoIndexService service) {
-    return new ImportAutoIndexJob(service);
+  ImportAutoIndexJob importAutoIndexJob(
+      ImportAutoIndexService service, ObjectProvider<BatchProcessingSettings> batch) {
+    var settings = batch.getIfAvailable();
+    return new ImportAutoIndexJob(service, settings == null ? 1 : settings.mediaIndexConcurrency());
   }
 }

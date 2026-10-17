@@ -76,4 +76,34 @@ class BoundedTaskJobTest {
       secondRelease.countDown();
     }
   }
+
+  @Test
+  void anIdleConsumerBacksOffAndAQueueSignalWakesItAtOnce() throws Exception {
+    var queue = new ConcurrentLinkedQueue<Integer>();
+    var claims = new java.util.concurrent.atomic.AtomicInteger();
+    var processed = new CountDownLatch(1);
+    try (var job =
+        new BoundedTaskJob<Integer>(
+            "batch-wakeup",
+            1,
+            null,
+            () -> {
+              claims.incrementAndGet();
+              return Optional.ofNullable(queue.poll());
+            },
+            value -> processed.countDown(),
+            value -> true,
+            value -> {})) {
+      Thread.sleep(3000);
+      // 100 ms doubling to 1.5 s: about six empty claims in three seconds, not thirty.
+      assertTrue(claims.get() <= 10, "claims while idle " + claims.get());
+      queue.add(1);
+      long signalled = System.nanoTime();
+      com.evidence.rag.model.domain.TaskWakeup.global().signal();
+      assertTrue(processed.await(5, TimeUnit.SECONDS));
+      assertTrue(
+          java.time.Duration.ofNanos(System.nanoTime() - signalled).toMillis() < 500,
+          "a signal ends the idle wait");
+    }
+  }
 }
