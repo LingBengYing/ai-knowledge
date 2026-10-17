@@ -272,6 +272,14 @@ final class AuthoritySchema {
     new BatchThroughputSchema(store).verify();
   }
 
+  void migrateVersionFortyOne() {
+    new BatchHistorySchema(store).migrate();
+  }
+
+  void verifyVersionFortyOne() {
+    new BatchHistorySchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

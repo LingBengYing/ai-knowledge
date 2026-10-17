@@ -5,6 +5,7 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
+import com.evidence.rag.model.dto.DocumentBatchList;
 import com.evidence.rag.model.dto.DocumentBatchResult;
 import com.evidence.rag.model.dto.DocumentBatchResumeCommand;
 import com.evidence.rag.model.vo.TaskResponse;
@@ -13,6 +14,7 @@ import com.evidence.rag.service.DocumentBatchService;
 import com.evidence.rag.web.converter.TaskResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,16 +45,34 @@ public final class DocumentBatchController {
         .body(service.create(AuthenticatedActor.require(request), command));
   }
 
+  /** The workspace's import batches, newest first. */
+  @GetMapping("/v1/document-batches")
+  public DocumentBatchList list(HttpServletRequest request) {
+    onlyParameters(request, Set.of("offset", "limit"));
+    return service.list(
+        AuthenticatedActor.require(request),
+        number(request.getParameter("offset"), 0),
+        number(request.getParameter("limit"), 20));
+  }
+
+  /** One page of a batch; {@code state} is an optional comma-separated list of file states. */
   @GetMapping("/v1/document-batches/{id}")
   public DocumentBatchResult status(HttpServletRequest request, @PathVariable String id) {
-    if (!Set.of("offset", "limit").containsAll(request.getParameterMap().keySet())
-        || request.getParameterMap().values().stream().anyMatch(v -> v.length != 1))
-      throw ModelValues.invalid();
+    onlyParameters(request, Set.of("offset", "limit", "state"));
+    String state = request.getParameter("state");
+    if (state != null && (state.isEmpty() || state.length() > 200)) throw ModelValues.invalid();
     return service.status(
         AuthenticatedActor.require(request),
         id,
+        state == null ? List.of() : List.of(state.split(",", -1)),
         number(request.getParameter("offset"), 0),
         number(request.getParameter("limit"), 100));
+  }
+
+  private static void onlyParameters(HttpServletRequest request, Set<String> allowed) {
+    if (!allowed.containsAll(request.getParameterMap().keySet())
+        || request.getParameterMap().values().stream().anyMatch(v -> v.length != 1))
+      throw ModelValues.invalid();
   }
 
   @PostMapping(

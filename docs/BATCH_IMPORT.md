@@ -7,7 +7,9 @@
 ## 接口
 
 1. `POST /v1/document-batches`：JSON包含`request_id`、`files`，可选`embedding_request_limit`。
-   每个file包含`filename`、`size_bytes`、`source_sha256`；最多10,000份，合计不超过工作区原件上限（`RAG_WORKSPACE_ORIGINAL_BYTES`，默认10GiB）。
+   每个file包含`filename`、`size_bytes`、`source_sha256`，可选`relative_path`（第三阶段，选择文件夹或拖入文件夹时的相对路径：
+   `/`分隔、各段非空且不是`.`/`..`、无反斜杠与控制字符、最多1024字符、最后一段等于`filename`，否则422；等于文件名时视为无路径）。
+   只有带路径的文件改变清单摘要，旧清单重放不受影响。`filename`仍是不含路径的文件名（资料名不变）；最多10,000份，合计不超过工作区原件上限（`RAG_WORKSPACE_ORIGINAL_BYTES`，默认10GiB）。
    可选`include_duplicates`（默认false）：为false时，SHA-256与工作区现存（未删除）资料相同、或与本清单更早文件相同的文件
    登记为`duplicate`并跳过——不上传、不解析、不嵌入、不计额度，视为已完成；
    文件行返回`duplicate_of_document_id`（已有资料，或本批更早文件上传后的资料）与`duplicate_of_ordinal`（本批更早文件）。
@@ -16,7 +18,11 @@
 2. `POST /v1/document-batches/{batch_id}/files/{ordinal}`：`application/octet-stream`原字节。
    同槽位相同字节返回已有任务；不同字节拒绝，丢响应先读取槽位，不盲目重传。
    `duplicate`槽位返回409`batch_file_duplicate`（网页把它当作已跳过，不算失败）。
-3. `GET /v1/document-batches/{batch_id}?offset=0&limit=100`：权威任务状态与进度。
+3. `GET /v1/document-batches/{batch_id}?offset=0&limit=100[&state=failed,cancelled]`：权威任务状态与进度。
+   可选`state`为逗号分隔的文件状态（`awaiting_upload`…`duplicate`中的已知名称，不重复），只分页这些状态的文件，`matched`为符合数（不筛选时等于`total`）；
+   `counts`、批次`state`与操作始终描述整批。文件行另有`relative_path`（文件夹相对路径或null）、`started_at`（文件被接收、解析任务创建的时间）、
+   `finished_at`（文件状态最近一次变为indexed/failed/cancelled的时间；重试后清空）；批次另有`created_at`、`updated_at`、`state_filter`与
+   `throughput{window_seconds,finished,measured_at}`：最近10分钟（批次不足10分钟则自创建起）内完成的文件数，网页据此算速度与预计剩余时间。
    文件`state`另有`duplicate`；`counts.duplicate`计数。批次`state`为`awaiting_upload`、`processing`、`completed`（已索引+跳过=总数）、`completed_with_failures`（全部结束但有失败/取消/删除）、
    `halted`（预算耗尽或用量不确定）或`cancelled`（用户取消）；
    `retryable_files`为仍可批量重试的文件数，`available_actions`列出当前适用的批量操作（`retry_failed`、`cancel`、`resume`）。
@@ -29,6 +35,11 @@
    清除`halted_reason`（预算、用量或用户取消），并把本批已取消的自动任务（首次尝试或自动重新排队的尝试）重新排队；
    重新排队取下一次尝试（任务状态机只允许failed/cancelled→queued且attempt+1），仍计为自动；已到第3次的任务保持取消。
    未停止的批次返回409；`embedding_request_limit`不合法返回422。
+
+7. `GET /v1/document-batches?offset=0&limit=20`（第三阶段）：导入记录，列出当前工作区的批次，按创建时间最新在前；
+   `limit`1–100（默认20），只接受`offset`、`limit`。授权与其他批次接口一致：批次属于工作区，同一工作区成员都能看到并打开。
+   返回`{"offset","limit","total","items":[{"batch_id","state","total","counts","halted_reason","created_at","updated_at"}]}`，
+   `state`的推导与批次详情相同。
 
 三个批量操作均无查询参数，返回`{"batch_id","action","affected","batch"}`，`batch`为操作后第一页状态。
 
@@ -152,3 +163,26 @@ v39→v40新增`document_import_file_states`表、6个索引与7个触发器（�
 按原推导为现有批次文件补齐状态行；不改写既有表行。升级前保留`v39-before-v40`一致备份。
 旧v39运行包不能直接打开v40库，回滚须使用v40兼容代码。
 （修正：资料清除后的VACUUM复核原固定校验v38，已改为校验当前v40。）
+
+## 体验（第三阶段，2026-10-17）
+
+- **文件夹与拖放**：网页导入窗口新增“选择文件夹”（`webkitdirectory`），拖放区真正接受文件和文件夹（`webkitGetAsEntry`递归，
+  最多10,000个文件、32层），隐藏文件/文件夹、Thumbs.db、desktop.ini、`__MACOSX`、`~$`锁文件和当前上传类型不支持的扩展名静默跳过，
+  显示“已跳过 N 个不支持的文件”并可展开。文件的相对路径作为清单可选`relative_path`保存（文件名规则禁止`/`，不能放进`filename`，
+  也不改资料显示名），批次页显示路径。
+- **导入记录**：`GET /v1/document-batches`，网页`#/imports`。
+- **批次页**：按状态筛选（全部/失败/处理中/已完成/已跳过（重复），服务端分页）；每个文件的开始/完成时间；整体速度与预计剩余时间。
+  速度=最近窗口内完成的文件数÷窗口分钟数（窗口不足30秒或尚无完成时不显示），预计剩余=处理中（queued/parsing/parsed/indexing，
+  不含待上传）÷速度；停止/取消的批次不显示。计算在网页（`batchThroughput`），窗口计数在后端。
+- **离开页面**：上传进行中`beforeunload`提示；之后在批次页“继续上传”重新选择同一文件夹即可，按文件名+大小+SHA-256匹配未上传槽位，
+  同内容同名的多个槽位优先匹配相同`relative_path`；文件夹中不属于本批次的文件（名称+大小都对不上的不计算哈希）跳过并提示数量。
+- **嵌入预算**：导入窗口可选“本批嵌入请求上限”并显示估算：字符≈字节，按解析分段（1200字窗口、120字重叠，单文档最多4096段）
+  每文档`ceil(段数/31)`次请求求和；中文UTF-8与压缩格式会高估，标注为估算。停止的批次“解除停止并继续”可填写新上限（不低于已预留数）。
+- **v41**：新增三表（`document_import_file_paths`、`document_import_file_times`、`document_import_batch_times`）、两个索引
+  （`document_import_file_times(batch_id,finished_at)`、`document_import_batches(workspace_id,created_at,id)`）和四个触发器
+  （批次插入/停止或改上限时更新`updated_at`；文件状态插入/变化时更新`changed_at`/`finished_at`与批次`updated_at`），共9个对象登记于
+  `cleanup_schema_objects`；不改写既有表。时间戳为毫秒UTC文本（`strftime('%Y-%m-%dT%H:%M:%fZ','now')`）。
+  迁移按现有批次补齐：文件`changed_at`取其解析/派发/索引任务最近`updated_at`（无任务取批次创建时间），已结束文件的`finished_at`同值；
+  批次`updated_at`取创建时间与文件`changed_at`的最大值。升级前保留`v40-before-v41`一致备份；旧v40运行包不能直接打开v41库，回滚须使用v41兼容代码。
+- **生产定制入口**须同步：放行`GET /v1/document-batches`（仅`offset`、`limit`），`GET /v1/document-batches/{id}`的query增加`state`
+  （`^[a-z_]{1,32}(,[a-z_]{1,32}){0,9}$`），见Web仓库`scripts/wiki-transport.mjs`；无新增静态资源。

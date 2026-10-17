@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-17 批量导入第三阶段“体验”（分支feat/batch-ux，未发布，配套Web同名分支）：新增`GET /v1/document-batches?offset&limit`导入记录（按工作区授权，与其他批次接口一致，最新在前）；批次详情可选`state`筛选（服务端分页，`matched`），文件行加`relative_path`/`started_at`/`finished_at`，批次加`created_at`/`updated_at`/`throughput`（最近10分钟完成数）；清单文件可选`relative_path`（校验：无`..`/`.`/空段/反斜杠/控制字符，≤1024，末段=文件名；仅带路径时改变清单摘要）。v41只新增三表两索引四触发器（文件路径、触发器维护的文件changed/finished时间、批次updated_at），不改写既有表，升级前`v40-before-v41`备份。生产schema仍38，发布前须验证v38→…→v41副本迁移与回滚；生产定制Web入口须放行新GET路由与`state`查询。详见docs/BATCH_IMPORT.md“体验”。
+
 2026-10-17 批量导入第二阶段“吞吐”（分支feat/batch-throughput，未发布，配套Web同名分支）：单文档嵌入最多4请求在途、Milvus按序写入，审计/预留/任务内重试保持精确；每请求片段由16改为min(32供应商上限,响应/Milvus上限)（1024维4MiB为31）；跨索引子进程文件锁令牌桶限速（默认1000请求/分、40万估算token/分）；解析/索引默认4路，图片OCR与音视频许可分离，声音/音视频自动索引独立线程；清单按SHA-256跳过与现存资料或本清单更早文件相同的文件（`duplicate`，`include_duplicates`可关闭），上传该槽位409`batch_file_duplicate`；交互式任务优先、批次轮转领取；提交唤醒+100ms→1.5s空闲退避；v40新增触发器维护的`document_import_file_states`，批次页不再四表连接；工作区原件上限可配（`RAG_WORKSPACE_ORIGINAL_BYTES`默认10GiB）。另修清除后VACUUM复核固定v38的缺陷。生产schema仍38，发布前须验证v38→v39→v40副本迁移与回滚；不部署、不调用真实模型。详见docs/BATCH_IMPORT.md“吞吐”。
 
 2026-10-17 批量导入第一阶段“稳定”（分支feat/batch-resilience，未发布）：只有`embedding_budget_exhausted`、`model_usage_uncertain`停止批次，其余解析/派发/索引失败和单任务取消只影响该文件；嵌入429/5xx/超时/连接错误及`parser_busy`/`indexing_busy`任务内有界退避重试（遵守Retry-After，重试额度只取剩余额度、审计闭合后退回未用部分）；重启把处理中的批次任务重新排队（三次尝试上限），v39新增`batch_task_requeues`；索引期限=base+每批×请求数，有上限；新增`POST /v1/document-batches/{id}/retry-failed|cancel|resume`。新配置`rag.batch.transient-retries`等五项，详见docs/BATCH_IMPORT.md。生产schema仍38，发布前须验证v38→v39副本迁移与回滚；不部署、不调用真实模型。
