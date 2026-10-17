@@ -60,7 +60,7 @@ class ImportIndexMigrationTest {
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(schema),
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(
                       store.rows(
-                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','import_index_requests') ORDER BY type,name")));
+                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','import_index_requests','document_import_batches','document_import_files','batch_request_reservations') ORDER BY type,name")));
               for (var row : rows.entrySet()) {
                 assertEquals(
                     row.getValue(),

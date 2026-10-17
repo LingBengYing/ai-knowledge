@@ -347,8 +347,21 @@ public final class IndexingService {
           for (String jobId : queued) {
             var task = indexing.findInternalTask(jobId).orElseThrow();
             if (indexing.documentProcessing(task.documentId())) continue;
-            if (!new com.evidence.rag.repository.DocumentBatchRepository(store)
-                .canRun(task.documentId())) continue;
+            if (task.attempt() == 1
+                && new com.evidence.rag.repository.DocumentBatchRepository(store)
+                    .haltedImportIndexing(task.id())) {
+              // A halted batch starts no more automatic work: its own first-attempt import task
+              // ends visibly instead of waiting forever. An explicit retry (attempt > 1) runs.
+              indexing.markCancelled(task.id(), Instant.now().toString());
+              audit(
+                  worker,
+                  task.documentId(),
+                  "indexing_cancelled",
+                  values("state", "queued"),
+                  values("state", "cancelled"),
+                  Set.of("state"));
+              continue;
+            }
             if (!creatorCanWrite(task)) {
               finishFailed(task, "authorization_changed");
               continue;

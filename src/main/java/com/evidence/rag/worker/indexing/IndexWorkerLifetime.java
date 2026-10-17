@@ -30,6 +30,9 @@ final class IndexWorkerLifetime implements AutoCloseable {
   // A fixed stripe count bounds memory. Same-target callers must not open a second channel:
   // on POSIX, closing that channel may release another caller's process-wide file lock.
   private static final Semaphore[] LOCAL_ADMISSION = localAdmission();
+  // Document leases are held while a collection lease is taken for initialization; separate
+  // stripes keep that nested acquisition from ever waiting on the caller's own permit.
+  private static final Semaphore[] DOCUMENT_ADMISSION = localAdmission();
 
   private static Semaphore[] localAdmission() {
     var stripes = new Semaphore[64];
@@ -117,7 +120,8 @@ final class IndexWorkerLifetime implements AutoCloseable {
       lifetime.watchdog =
           Thread.ofPlatform().name("index-parent-lifetime").daemon(true).start(lifetime::watch);
       Path file = leaseFile(settings, scope);
-      var admission = LOCAL_ADMISSION[Math.floorMod(file.hashCode(), LOCAL_ADMISSION.length)];
+      var stripes = scope.isEmpty() ? LOCAL_ADMISSION : DOCUMENT_ADMISSION;
+      var admission = stripes[Math.floorMod(file.hashCode(), stripes.length)];
       while (lifetime.localPermit == null) {
         lifetime.check();
         if (admission.tryAcquire(25, TimeUnit.MILLISECONDS)) {

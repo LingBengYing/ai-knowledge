@@ -72,10 +72,14 @@ public class RuntimeConfiguration {
     var runtime = managed.getIfAvailable();
     boolean textEvidenceOnly =
         environment.getProperty("rag.video.text-evidence-only", Boolean.class, false);
+    // A batch only completes through automatic import indexing; without it every file halts.
+    boolean autoIndex =
+        environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true);
     if (runtime == null) {
       return new RuntimeService(
           () ->
-              textEvidenceCapabilities(reindexCapabilities(base.capabilities()), textEvidenceOnly));
+              textEvidenceCapabilities(
+                  reindexCapabilities(base.capabilities(), autoIndex), textEvidenceOnly));
     }
     var guard = legacy.getIfAvailable();
     var configuredMedia = media.getIfAvailable();
@@ -91,7 +95,7 @@ public class RuntimeConfiguration {
         () ->
             managedCapabilities(
                 textEvidenceCapabilities(
-                    reindexCapabilities(base.capabilities()), textEvidenceOnly),
+                    reindexCapabilities(base.capabilities(), autoIndex), textEvidenceOnly),
                 runtime.currentVersion() != null,
                 guard != null && guard.compatible(),
                 visualPresent,
@@ -118,7 +122,7 @@ public class RuntimeConfiguration {
         base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
   }
 
-  private static RuntimeCapabilities reindexCapabilities(RuntimeCapabilities base) {
+  static RuntimeCapabilities reindexCapabilities(RuntimeCapabilities base, boolean autoIndex) {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
     if (enabled.contains("ingestions")
@@ -128,7 +132,8 @@ public class RuntimeConfiguration {
     } else {
       unavailable.add("document_replacements");
     }
-    if (enabled.contains("ingestions")) enabled.add("batch_upload");
+    if (autoIndex && enabled.contains("ingestions") && enabled.contains("indexings"))
+      enabled.add("batch_upload");
     else unavailable.add("batch_upload");
     if (enabled.contains("text_index") && enabled.contains("indexings")) {
       enabled.add("text_reindex");
@@ -165,6 +170,7 @@ public class RuntimeConfiguration {
           List.of(
               "text_index",
               "indexings",
+              "batch_upload",
               "text_reindex",
               "text_reindex_with_vectors",
               "batch_text_reindex",

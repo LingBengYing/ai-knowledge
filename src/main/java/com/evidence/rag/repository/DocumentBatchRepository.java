@@ -144,27 +144,44 @@ public final class DocumentBatchRepository {
     return result;
   }
 
-  public boolean canRun(String document) {
-    var rows =
-        store.rows(
-            "SELECT b.id,b.halted_reason "
-                + JOIN
-                + " JOIN document_import_batches b ON b.id=f.batch_id WHERE f.document_id=?",
-            document);
-    if (rows.isEmpty()) return true;
-    var r = rows.getFirst();
-    return r.get("halted_reason") == null;
+  /**
+   * The batch file's own import index task: the job its import request submitted, or, before the
+   * request records a task id (pending or dispatching), the non-rebuild job of that revision that
+   * dispatch adopts as existing work. Later reindexes and model rebuilds are never batch work.
+   */
+  private static final String IMPORT_INDEX_TASK =
+      """
+      FROM document_import_batches b
+      JOIN document_import_files f ON f.batch_id=b.id
+      JOIN import_index_requests a ON a.revision_id=f.revision_id
+      JOIN indexing_jobs j ON j.revision_id=f.revision_id AND j.document_id=f.document_id
+      WHERE j.id=? AND j.model_rebuild_id IS NULL
+        AND (a.task_id=j.id OR (a.task_id IS NULL AND a.state IN ('pending','dispatching')))
+      """;
+
+  /** Queued import parsing of a halted batch is terminated by the claimant, never skipped. */
+  public boolean haltedImportIngestion(String ingestionJobId) {
+    return store.count(
+            "SELECT COUNT(*) FROM document_import_files f JOIN document_import_batches b ON b.id=f.batch_id WHERE f.ingestion_task_id=? AND b.halted_reason IS NOT NULL",
+            ingestionJobId)
+        != 0;
+  }
+
+  /** Queued import indexing of a halted batch is terminated by the claimant, never skipped. */
+  public boolean haltedImportIndexing(String indexingJobId) {
+    return store.count(
+            "SELECT COUNT(*) " + IMPORT_INDEX_TASK + " AND b.halted_reason IS NOT NULL",
+            indexingJobId)
+        != 0;
   }
 
   public boolean reserve(IndexClaim claim, int requests) {
-    var rows =
-        store.rows(
-            "SELECT b.* FROM document_import_batches b JOIN document_import_files f ON f.batch_id=b.id WHERE f.document_id=?",
-            claim.documentId());
+    var rows = store.rows("SELECT b.* " + IMPORT_INDEX_TASK, claim.jobId());
     if (rows.isEmpty()) return true;
     var row = rows.getFirst();
     String batch = (String) row.get("id");
-    if (!canRun(claim.documentId())) return false;
+    // Automatic first attempts stop with the batch; explicit retries still respect the budget.
+    if (row.get("halted_reason") != null && claim.attempt() == 1) return false;
     if (store.count(
             "SELECT COUNT(*) FROM batch_request_reservations WHERE job_id=? AND attempt=?",
             claim.jobId(),

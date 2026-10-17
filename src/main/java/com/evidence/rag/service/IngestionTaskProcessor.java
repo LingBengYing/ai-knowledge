@@ -26,6 +26,28 @@ import org.slf4j.MDC;
 /** One parsing use case; authority transactions finish before the isolated worker is entered. */
 public final class IngestionTaskProcessor {
   private static final Logger LOG = LoggerFactory.getLogger(IngestionTaskProcessor.class);
+
+  /**
+   * Image OCR and native audio/video decoders admit one child per JVM and reject a second caller
+   * with parser_busy. Parallel ingestion consumers wait here instead of failing the task.
+   */
+  private static final java.util.concurrent.Semaphore SINGLE_CHILD_PARSERS =
+      new java.util.concurrent.Semaphore(1, true);
+
+  private static <T> T oneChildParser(Supplier<T> work) {
+    try {
+      SINGLE_CHILD_PARSERS.acquire();
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      throw new TextParser.Failure("parser_interrupted");
+    }
+    try {
+      return work.get();
+    } finally {
+      SINGLE_CHILD_PARSERS.release();
+    }
+  }
+
   private final IngestionService authority;
   private final String workspace;
   private final Duration deadline;
@@ -135,11 +157,13 @@ public final class IngestionTaskProcessor {
           throw new TextParser.Failure("parser_invalid_output");
         }
         var compilation =
-            video.compile(
-                claim.filename(),
-                claim.mimeType(),
-                claim.content(),
-                () -> authority.isIngestionClaimCurrent(claim));
+            oneChildParser(
+                () ->
+                    video.compile(
+                        claim.filename(),
+                        claim.mimeType(),
+                        claim.content(),
+                        () -> authority.isIngestionClaimCurrent(claim)));
         authority.completeVideoIngestion(claim, compilation);
         return;
       }
@@ -149,11 +173,13 @@ public final class IngestionTaskProcessor {
           throw new TextParser.Failure("parser_invalid_output");
         }
         var compilation =
-            audio.compile(
-                claim.filename(),
-                claim.mimeType(),
-                claim.content(),
-                () -> authority.isIngestionClaimCurrent(claim));
+            oneChildParser(
+                () ->
+                    audio.compile(
+                        claim.filename(),
+                        claim.mimeType(),
+                        claim.content(),
+                        () -> authority.isIngestionClaimCurrent(claim)));
         authority.completeAudioIngestion(claim, compilation);
         return;
       }
@@ -186,10 +212,14 @@ public final class IngestionTaskProcessor {
         }
         Duration imageDeadline =
             deadline.compareTo(Duration.ofSeconds(60)) > 0 ? Duration.ofSeconds(60) : deadline;
-        try (var parser = new ProcessImageParser(images, imageDeadline)) {
-          var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
-          authority.completeImageIngestion(claim, parsed);
-        }
+        var parsed =
+            oneChildParser(
+                () -> {
+                  try (var parser = new ProcessImageParser(images, imageDeadline)) {
+                    return parser.parse(claim.filename(), claim.mimeType(), claim.content());
+                  }
+                });
+        authority.completeImageIngestion(claim, parsed);
         return;
       }
       if ("application/pdf".equals(claim.mimeType())

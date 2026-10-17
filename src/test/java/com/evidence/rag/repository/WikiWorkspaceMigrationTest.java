@@ -42,7 +42,7 @@ class WikiWorkspaceMigrationTest {
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(originalSchema),
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(
                       store.rows(
-                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_%' AND name NOT IN ('import_index_requests','knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner') ORDER BY type,name")));
+                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'wiki_%' AND name NOT IN ('import_index_requests','knowledge_conversations','knowledge_conversation_turns','knowledge_conversations_owner','document_import_batches','document_import_files','batch_request_reservations') ORDER BY type,name")));
               for (var entry : originalRows.entrySet()) {
                 assertEquals(
                     entry.getValue(),
