@@ -60,7 +60,7 @@ class ImportIndexMigrationTest {
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(schema),
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(
                       store.rows(
-                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','import_index_requests','document_import_batches','document_import_files','batch_request_reservations','batch_task_requeues') ORDER BY type,name")));
+                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT LIKE 'wiki_page_purges%' AND name NOT IN ('wiki_page_revisions_purged','wiki_proposals_purged','import_index_requests','document_import_batches','document_import_files','batch_request_reservations','batch_task_requeues','document_import_file_states','document_import_file_states_state','document_import_files_ingestion_task','document_import_files_revision','import_index_requests_task','batch_request_reservations_batch','documents_workspace_source','batch_file_state_insert','batch_file_state_received','batch_file_state_parse','batch_file_state_request_insert','batch_file_state_request_update','batch_file_state_index','batch_file_state_tombstone') ORDER BY type,name")));
               for (var row : rows.entrySet()) {
                 assertEquals(
                     row.getValue(),

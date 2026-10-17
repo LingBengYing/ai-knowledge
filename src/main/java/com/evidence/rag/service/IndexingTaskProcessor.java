@@ -5,6 +5,7 @@ import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexDeadline;
 import com.evidence.rag.model.domain.IndexTarget;
@@ -35,6 +36,15 @@ public final class IndexingTaskProcessor {
   private final ReindexVectorVerifier receiptVerifier;
   private volatile TransientRetry retry = TransientRetry.NONE;
   private volatile IndexDeadline deadlines;
+  private volatile EmbeddingThroughput throughput = EmbeddingThroughput.SERIAL;
+
+  /**
+   * Production wiring: concurrent embedding requests within one document, paced by the shared
+   * embedding rate limit. Unconfigured processors send one request at a time without a limit.
+   */
+  public void configureThroughput(EmbeddingThroughput throughput) {
+    this.throughput = java.util.Objects.requireNonNull(throughput);
+  }
 
   /**
    * Production wiring: bounded retry of transient embedding failures and a busy indexer, and a
@@ -342,7 +352,7 @@ public final class IndexingTaskProcessor {
       Duration total) {
     for (int busy = 0; ; busy++) {
       try {
-        return worker.index(claim, attempt, remaining(started, total));
+        return worker.index(claim, attempt, remaining(started, total), throughput);
       } catch (ProcessTextIndexer.Failure failure) {
         if (!"indexing_busy".equals(failure.code()) || busy >= policy.retries()) {
           throw failure;

@@ -63,6 +63,51 @@ public final class DocumentBatchRepository {
         rows);
   }
 
+  /**
+   * Marks manifest files whose bytes already exist as a live (not removed) document of the
+   * workspace, or repeat an earlier file of the same manifest, as {@code duplicate}: they are never
+   * uploaded and count as settled. Returns how many were marked.
+   */
+  public int markDuplicates(Actor actor, String id, List<BatchImportFile.Manifest> files) {
+    var live = new java.util.HashMap<String, java.util.Optional<String>>();
+    var first = new java.util.HashMap<String, Integer>();
+    var rows = new java.util.ArrayList<Object[]>();
+    for (int i = 0; i < files.size(); i++) {
+      String sha = files.get(i).sourceSha256();
+      var existing =
+          live.computeIfAbsent(
+              sha,
+              digest ->
+                  store
+                      .rows(
+                          "SELECT d.id FROM documents d WHERE d.workspace_id=? AND d.source_sha256=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY d.updated_at DESC,d.id LIMIT 1",
+                          actor.workspaceId(),
+                          digest)
+                      .stream()
+                      .findFirst()
+                      .map(row -> AuthorityRows.text(row, "id")));
+      if (existing.isPresent()) {
+        rows.add(new Object[] {existing.orElseThrow(), null, id, i});
+      } else if (first.containsKey(sha)) {
+        rows.add(new Object[] {null, first.get(sha), id, i});
+      } else {
+        first.put(sha, i);
+      }
+    }
+    store.executeBatch(
+        "UPDATE document_import_file_states SET state='duplicate',duplicate_document_id=?,duplicate_ordinal=? WHERE batch_id=? AND ordinal=?",
+        rows);
+    return rows.size();
+  }
+
+  public boolean duplicate(String id, int ordinal) {
+    return store.count(
+            "SELECT COUNT(*) FROM document_import_file_states WHERE batch_id=? AND ordinal=? AND state='duplicate'",
+            id,
+            ordinal)
+        != 0;
+  }
+
   public Map<String, Object> file(String id, int ordinal) {
     return store
         .rows("SELECT * FROM document_import_files WHERE batch_id=? AND ordinal=?", id, ordinal)
@@ -81,35 +126,24 @@ public final class DocumentBatchRepository {
         ordinal);
   }
 
-  private static final String JOIN =
-      """
-      FROM document_import_files f
-      LEFT JOIN ingestion_jobs g ON g.id=f.ingestion_task_id
-      LEFT JOIN import_index_requests a ON a.revision_id=f.revision_id
-      LEFT JOIN indexing_jobs j ON j.id=a.task_id
-      """;
-  private static final String STATE =
-      """
-      CASE WHEN EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=f.document_id) THEN 'deleted'
-        WHEN f.document_id IS NULL THEN 'awaiting_upload'
-        WHEN g.state IN ('failed','cancelled') THEN g.state
-        WHEN a.state='failed' THEN 'failed'
-        WHEN j.state IN ('failed','cancelled') THEN j.state
-        WHEN j.state='indexed' THEN 'indexed'
-        WHEN j.state IN ('queued','processing','prepared') THEN 'indexing'
-        WHEN g.state='parsed' THEN 'parsed'
-        WHEN g.state='processing' THEN 'parsing'
-        ELSE 'queued' END
-      """;
+  private static final String JOIN = BatchThroughputSchema.INPUTS;
 
+  /** One page; the state is the trigger-maintained row, not recomputed per poll. */
   public List<BatchImportFile> files(String id, int offset, int limit) {
     return store
         .rows(
-            "SELECT f.*, "
-                + STATE
-                + " AS batch_state, j.id AS index_task, COALESCE(g.error_code,a.error_code,j.error_code) AS failure "
-                + JOIN
-                + " WHERE f.batch_id=? ORDER BY f.ordinal LIMIT ? OFFSET ?",
+            """
+            SELECT f.*,s.state AS batch_state,s.duplicate_ordinal,
+              COALESCE(s.duplicate_document_id,p.document_id) AS duplicate_document,
+              j.id AS index_task,COALESCE(g.error_code,a.error_code,j.error_code) AS failure
+            FROM document_import_files f
+            JOIN document_import_file_states s ON s.batch_id=f.batch_id AND s.ordinal=f.ordinal
+            LEFT JOIN document_import_files p ON p.batch_id=f.batch_id AND p.ordinal=s.duplicate_ordinal
+            LEFT JOIN ingestion_jobs g ON g.id=f.ingestion_task_id
+            LEFT JOIN import_index_requests a ON a.revision_id=f.revision_id
+            LEFT JOIN indexing_jobs j ON j.id=a.task_id
+            WHERE f.batch_id=? ORDER BY f.ordinal LIMIT ? OFFSET ?
+            """,
             id,
             limit,
             offset)
@@ -126,7 +160,11 @@ public final class DocumentBatchRepository {
                     (String) r.get("revision_id"),
                     (String) r.get("ingestion_task_id"),
                     (String) r.get("index_task"),
-                    (String) r.get("failure")))
+                    (String) r.get("failure"),
+                    (String) r.get("duplicate_document"),
+                    r.get("duplicate_ordinal") == null
+                        ? null
+                        : ((Number) r.get("duplicate_ordinal")).intValue()))
         .toList();
   }
 
@@ -144,12 +182,17 @@ public final class DocumentBatchRepository {
         id);
   }
 
-  /** Files a bulk retry could queue again: failed or cancelled work with attempts left. */
+  /**
+   * Files a bulk retry could queue again: failed or cancelled work with attempts left. Only files
+   * whose maintained state is failed or cancelled can qualify, so the join covers just those.
+   */
   public long retryable(String id) {
     return store.count(
-        "SELECT COUNT(*) "
-            + JOIN
-            + " WHERE f.batch_id=? AND f.document_id IS NOT NULL"
+        "SELECT COUNT(*) FROM document_import_file_states s JOIN document_import_files f ON f.batch_id=s.batch_id AND f.ordinal=s.ordinal"
+            + " LEFT JOIN ingestion_jobs g ON g.id=f.ingestion_task_id"
+            + " LEFT JOIN import_index_requests a ON a.revision_id=f.revision_id"
+            + " LEFT JOIN indexing_jobs j ON j.id=a.task_id"
+            + " WHERE s.batch_id=? AND s.state IN ('failed','cancelled') AND f.document_id IS NOT NULL"
             + " AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=f.document_id)"
             + " AND ((g.state IN ('failed','cancelled') AND g.attempt<3)"
             + " OR (g.state='parsed' AND a.state='failed' AND a.task_id IS NULL)"
@@ -181,16 +224,12 @@ public final class DocumentBatchRepository {
     store.execute("UPDATE document_import_batches SET halted_reason=NULL WHERE id=?", id);
   }
 
+  /** Per-state file counts from the maintained state rows (one covering-index range scan). */
   public Map<String, Long> counts(String id) {
     var result = new java.util.LinkedHashMap<String, Long>();
     for (var r :
         store.rows(
-            "SELECT "
-                + STATE
-                + " AS state,COUNT(*) AS amount "
-                + JOIN
-                + " WHERE f.batch_id=? GROUP BY "
-                + STATE,
+            "SELECT state,COUNT(*) AS amount FROM document_import_file_states WHERE batch_id=? GROUP BY state",
             id)) result.put((String) r.get("state"), ((Number) r.get("amount")).longValue());
     return result;
   }

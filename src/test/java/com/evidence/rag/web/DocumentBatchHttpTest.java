@@ -67,6 +67,8 @@ class DocumentBatchHttpTest {
                     "http-batch",
                     "embedding_request_limit",
                     2,
+                    "include_duplicates",
+                    true,
                     "files",
                     List.of(
                         Map.of(

@@ -7,6 +7,7 @@ import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ManagedBackupFile;
 import com.evidence.rag.model.domain.ManagedBackupInventory;
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.domain.TaskWakeup;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -37,6 +38,10 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public final class SqliteAuthorityStore implements AutoCloseable {
   private Connection connection;
+  private static final Set<String> QUEUE_TABLES =
+      Set.of("ingestion_jobs", "indexing_jobs", "import_index_requests");
+  private boolean queueChanged;
+  private volatile long workspaceOriginalBytes = 10L * 1024 * 1024 * 1024;
   private FileChannel lockChannel;
   private FileLock writerLock;
   private Thread transactionOwner;
@@ -82,6 +87,15 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         throw new IllegalStateException("Unsafe Java database path");
       }
       connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+      // Row changes to the task queues (including trigger writes) wake idle consumers on commit.
+      connection
+          .unwrap(org.sqlite.SQLiteConnection.class)
+          .addUpdateListener(
+              (type, databaseName, table, rowId) -> {
+                if (QUEUE_TABLES.contains(table)) {
+                  queueChanged = true;
+                }
+              });
       Function.create(
           connection,
           "java_wiki_page_purge_authorized",
@@ -183,7 +197,9 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 39) {
+              if (count("PRAGMA user_version") == 40) {
+                schema.verifyVersionForty();
+              } else if (count("PRAGMA user_version") == 39) {
                 schema.verifyVersionThirtyNine();
               } else if (count("PRAGMA user_version") == 38) {
                 schema.verifyVersionThirtyEight();
@@ -524,9 +540,13 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         if (exists) schema.backupVersion(canonicalDirectory, 38, 39);
         schema.migrateVersionThirtyNine();
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 39) {
+        if (exists) schema.backupVersion(canonicalDirectory, 39, 40);
+        schema.migrateVersionForty();
+      }
       transaction(
           () -> {
-            schema.verifyVersionThirtyNine();
+            schema.verifyVersionForty();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -573,9 +593,13 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     }
     try {
       rawExecute("BEGIN IMMEDIATE");
+      queueChanged = false;
       transactionOwner = Thread.currentThread();
       T result = work.get();
       rawExecute("COMMIT");
+      if (queueChanged) {
+        TaskWakeup.global().signal();
+      }
       return result;
     } catch (SQLException | RuntimeException failure) {
       try {
@@ -589,6 +613,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       throw unavailable();
     } finally {
       transactionOwner = null;
+      queueChanged = false;
     }
   }
 
@@ -727,6 +752,20 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     generatedBackups.add(destination);
   }
 
+  /**
+   * Total original bytes one workspace may hold across documents, revisions, sounds and videos
+   * (rag.batch.workspace-original-bytes, default 10 GiB).
+   */
+  public void configureWorkspaceOriginalBytes(long value) {
+    if (value < 1024L * 1024 || value > 1024L * 1024 * 1024 * 1024)
+      throw new IllegalArgumentException("Invalid workspace original bytes");
+    workspaceOriginalBytes = value;
+  }
+
+  public long workspaceOriginalBytes() {
+    return workspaceOriginalBytes;
+  }
+
   public LibraryOperationGate operationGate() {
     return operationGate;
   }
@@ -789,7 +828,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionThirtyEight();
+            new AuthoritySchema(this).verifyVersionForty();
             return null;
           });
     } catch (IOException | SQLException failure) {

@@ -410,6 +410,8 @@ class IngestionServiceTest {
     byte[] bytes = new byte[20 * 1024 * 1024];
     Arrays.fill(bytes, (byte) 'a');
     try (var authority = new AuthorityTestContext(directory)) {
+      // The cap is configurable (default 10 GiB); this test pins the former 256 MiB.
+      authority.store().configureWorkspaceOriginalBytes(256L * 1024 * 1024);
       for (int i = 0; i < 12; i++) {
         var task = authority.uploadDocument(owner, "large.txt", "application/octet-stream", bytes);
         authority.cancelIngestion(owner, (String) task.get("task_id"));

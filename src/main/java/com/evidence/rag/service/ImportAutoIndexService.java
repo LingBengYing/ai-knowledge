@@ -32,15 +32,48 @@ public final class ImportAutoIndexService {
         });
   }
 
+  /** Outcome of one dispatch attempt. */
+  public enum Dispatch {
+    DISPATCHED,
+    IDLE,
+    /** The library was at capacity; the request is pending again and the caller backs off. */
+    BUSY
+  }
+
+  /** Dispatches the oldest pending request of any pipeline. */
   public boolean processNext() {
+    return processNext(null) == Dispatch.DISPATCHED;
+  }
+
+  /**
+   * Corpus dispatch only enqueues an indexing task and returns at once; it never waits behind a
+   * sound or video_av build.
+   */
+  public Dispatch processNextCorpus() {
+    return processNext(false);
+  }
+
+  /**
+   * Sound and video_av builds run synchronously (decode, embed, publish) on their own bounded
+   * workers. A build refused only because its library is at capacity goes back to pending and is
+   * not a failure.
+   */
+  public Dispatch processNextMedia() {
+    return processNext(true);
+  }
+
+  private static final java.util.Set<String> MEDIA_BUSY =
+      java.util.Set.of("sound_index_busy", "video_av_index_busy");
+
+  private Dispatch processNext(Boolean media) {
     var lease = store.operationGate().tryOperation();
     if (lease.isEmpty()) {
-      return false;
+      return Dispatch.IDLE;
     }
     try (var operation = lease.orElseThrow()) {
-      var next = store.transaction(requests::claim);
+      var next = store.transaction(() -> requests.claim(media));
       if (next.isEmpty()) {
-        return false;
+        return Dispatch.IDLE;
       }
       var request = next.orElseThrow();
       String task = null;
@@ -48,6 +81,14 @@ public final class ImportAutoIndexService {
       try {
         task = dispatch(request);
       } catch (ApplicationException rejected) {
+        if (MEDIA_BUSY.contains(rejected.code())) {
+          store.transaction(
+              () -> {
+                requests.release(request.revisionId());
+                return null;
+              });
+          return Dispatch.BUSY;
+        }
         failure = rejected.code();
       } catch (RuntimeException unavailable) {
         failure = "indexing_failed";
@@ -59,7 +100,7 @@ public final class ImportAutoIndexService {
             requests.finish(request.revisionId(), taskId, errorCode);
             return null;
           });
-      return true;
+      return Dispatch.DISPATCHED;
     }
   }
 

@@ -108,4 +108,23 @@ class IngestionTaskProcessorTest {
     }
     assertTrue(condition.getAsBoolean(), "Expected bounded scheduler state transition");
   }
+
+  @Test
+  void imageOcrAndNativeMediaUseSeparatePermitsSoNeitherBlocksTheOther() throws Exception {
+    var image = IngestionTaskProcessor.imagePermits();
+    var audio = IngestionTaskProcessor.audioPermits();
+    assertTrue(java.util.Collections.disjoint(image, audio));
+    assertEquals(audio, IngestionTaskProcessor.videoPermits(false));
+    // OCR'd video needs both, native media first: the same order everywhere, so no cycle.
+    assertEquals(
+        java.util.List.of(audio.getFirst(), image.getFirst()),
+        IngestionTaskProcessor.videoPermits(true));
+    audio.getFirst().acquire();
+    try {
+      assertTrue(image.getFirst().tryAcquire(), "an image parses while media decodes");
+      image.getFirst().release();
+    } finally {
+      audio.getFirst().release();
+    }
+  }
 }

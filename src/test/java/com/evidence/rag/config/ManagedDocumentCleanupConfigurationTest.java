@@ -174,7 +174,8 @@ class ManagedDocumentCleanupConfigurationTest {
                   new IndexingSettings(true, 10000),
                   repository,
                   providers.createBean(ManagedMediaTextFactory.class),
-                  new BatchProcessingSettings(2, 2, 2, 10000, 0, 1, 1, 0, 600000));
+                  new BatchProcessingSettings(
+                      2, 2, 2, 10000, 0, 1, 1, 0, 600000, 2, 1, 0, 0, 10737418240L));
       context.setEnvironment(environment);
       context.register(DocumentCleanupConfiguration.class);
       context.registerBean(RagProperties.class, () -> properties);

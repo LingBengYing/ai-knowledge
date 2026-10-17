@@ -42,7 +42,9 @@ class BatchPipelineConcurrencyTest {
                                       bytes.length,
                                       ModelValues.sha256(bytes)))
                           .toList(),
-                      6))
+                      6,
+                      // Same bytes on purpose: concurrency, not dedupe, is under test.
+                      true))
               .batchId();
       for (int i = 0; i < 6; i++) batches.upload(actor, batchId, i, bytes);
       var parsing =

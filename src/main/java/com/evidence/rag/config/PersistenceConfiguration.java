@@ -31,9 +31,12 @@ import org.springframework.core.env.Environment;
 @Configuration
 public class PersistenceConfiguration {
   @Bean(destroyMethod = "close")
-  SqliteAuthorityStore authorityStore(RagProperties properties, Environment environment) {
+  SqliteAuthorityStore authorityStore(
+      RagProperties properties, Environment environment, BatchProcessingSettings batch) {
     RuntimeGuard.check(properties, environment.getProperty("server.address"));
-    return new SqliteAuthorityStore(properties.dataDirectory());
+    var store = new SqliteAuthorityStore(properties.dataDirectory());
+    store.configureWorkspaceOriginalBytes(batch.workspaceOriginalBytes());
+    return store;
   }
 
   @Bean

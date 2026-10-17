@@ -232,20 +232,7 @@ final class IndexWorkerLifetime implements AutoCloseable {
 
   private static Path leaseFile(MilvusRestProjection.Settings settings, String scope)
       throws IOException {
-    // Stable across application restart and independent of both application data and job tmpdir.
-    // POSIX is an explicit local-runtime requirement; unsupported filesystems fail closed.
-    UserPrincipal owner = currentOwner(Path.of("/tmp"));
-    Path root =
-        Path.of("/tmp")
-            .toRealPath()
-            .resolve("evidence-rag-index-leases-v1-" + hash(owner.getName()));
-    try {
-      Files.createDirectory(
-          root, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
-    } catch (FileAlreadyExistsException exists) {
-      /* Never replace an existing inode. Validate it. */
-    }
-    validate(root, true);
+    Path root = privateRoot();
     var endpoint = settings.endpoint();
     String scheme = endpoint.getScheme().toLowerCase(Locale.ROOT);
     int port = endpoint.getPort() < 0 ? (scheme.equals("https") ? 443 : 80) : endpoint.getPort();
@@ -262,7 +249,32 @@ final class IndexWorkerLifetime implements AutoCloseable {
     return root.resolve(hash(scope.isEmpty() ? target : target + "\n" + scope) + ".lease");
   }
 
-  private static UserPrincipal currentOwner(Path path) throws IOException {
+  /**
+   * The user's private, validated state directory under /tmp. Stable across application restart and
+   * independent of both application data and job tmpdir. POSIX is an explicit local-runtime
+   * requirement; unsupported filesystems fail closed.
+   */
+  static Path privateRoot() throws IOException {
+    UserPrincipal owner = currentOwner(Path.of("/tmp"));
+    Path root =
+        Path.of("/tmp")
+            .toRealPath()
+            .resolve("evidence-rag-index-leases-v1-" + hash(owner.getName()));
+    try {
+      Files.createDirectory(
+          root, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+    } catch (FileAlreadyExistsException exists) {
+      /* Never replace an existing inode. Validate it. */
+    }
+    validate(root, true);
+    return root;
+  }
+
+  static String privateName(String value) {
+    return hash(value);
+  }
+
+  static UserPrincipal currentOwner(Path path) throws IOException {
     return path.getFileSystem()
         .getUserPrincipalLookupService()
         .lookupPrincipalByName(System.getProperty("user.name"));

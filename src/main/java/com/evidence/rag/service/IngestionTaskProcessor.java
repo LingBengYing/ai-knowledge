@@ -15,6 +15,7 @@ import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.parser.ProcessImageParser;
 import com.evidence.rag.worker.parser.ProcessTextParser;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -29,23 +30,46 @@ public final class IngestionTaskProcessor {
   private static final Logger LOG = LoggerFactory.getLogger(IngestionTaskProcessor.class);
 
   /**
-   * Image OCR and native audio/video decoders admit one child per JVM and reject a second caller
-   * with parser_busy. Parallel ingestion consumers wait here instead of failing the task.
+   * Image OCR (one OCR child per JVM) and the native audio/video decoders (one ffmpeg session per
+   * JVM) each admit a single child and reject a second caller with parser_busy. Parallel ingestion
+   * consumers wait on the matching permit instead of failing the task; the two pools are separate,
+   * so images keep flowing while audio or video decodes. A video whose frames are OCR'd also needs
+   * the OCR child, so it takes both permits, always native media first (no lock-order cycle).
    */
-  private static final java.util.concurrent.Semaphore SINGLE_CHILD_PARSERS =
+  private static final java.util.concurrent.Semaphore IMAGE_OCR =
       new java.util.concurrent.Semaphore(1, true);
 
-  private static <T> T oneChildParser(Supplier<T> work) {
+  private static final java.util.concurrent.Semaphore NATIVE_MEDIA =
+      new java.util.concurrent.Semaphore(1, true);
+
+  /** The permits one parse takes, in acquisition order (native media before OCR). */
+  static List<java.util.concurrent.Semaphore> videoPermits(boolean ocr) {
+    return ocr ? List.of(NATIVE_MEDIA, IMAGE_OCR) : List.of(NATIVE_MEDIA);
+  }
+
+  static List<java.util.concurrent.Semaphore> audioPermits() {
+    return List.of(NATIVE_MEDIA);
+  }
+
+  static List<java.util.concurrent.Semaphore> imagePermits() {
+    return List.of(IMAGE_OCR);
+  }
+
+  private static <T> T withPermits(List<java.util.concurrent.Semaphore> permits, Supplier<T> work) {
+    int held = 0;
     try {
-      SINGLE_CHILD_PARSERS.acquire();
+      for (var permit : permits) {
+        permit.acquire();
+        held++;
+      }
+      return work.get();
     } catch (InterruptedException interrupted) {
       Thread.currentThread().interrupt();
       throw new TextParser.Failure("parser_interrupted");
-    }
-    try {
-      return work.get();
     } finally {
-      SINGLE_CHILD_PARSERS.release();
+      for (int i = held - 1; i >= 0; i--) {
+        permits.get(i).release();
+      }
     }
   }
 
@@ -227,7 +251,8 @@ public final class IngestionTaskProcessor {
         throw new TextParser.Failure("parser_invalid_output");
       }
       var compilation =
-          oneChildParser(
+          withPermits(
+              videoPermits(video.ocrEnabled()),
               () ->
                   video.compile(
                       claim.filename(),
@@ -243,7 +268,8 @@ public final class IngestionTaskProcessor {
         throw new TextParser.Failure("parser_invalid_output");
       }
       var compilation =
-          oneChildParser(
+          withPermits(
+              audioPermits(),
               () ->
                   audio.compile(
                       claim.filename(),
@@ -283,7 +309,8 @@ public final class IngestionTaskProcessor {
       Duration imageDeadline =
           deadline.compareTo(Duration.ofSeconds(60)) > 0 ? Duration.ofSeconds(60) : deadline;
       var parsed =
-          oneChildParser(
+          withPermits(
+              imagePermits(),
               () -> {
                 try (var parser = new ProcessImageParser(images, imageDeadline)) {
                   return parser.parse(claim.filename(), claim.mimeType(), claim.content());

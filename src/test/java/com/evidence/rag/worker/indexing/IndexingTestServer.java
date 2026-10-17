@@ -59,6 +59,14 @@ public final class IndexingTestServer implements AutoCloseable {
   public volatile int throttleStatus = 429;
   public volatile String retryAfter;
 
+  /** Extra time each successful embedding request stays in flight, to observe concurrency. */
+  public volatile long embeddingDelayMillis;
+
+  public final java.util.concurrent.atomic.AtomicInteger embeddingsInFlight =
+      new java.util.concurrent.atomic.AtomicInteger();
+  public final java.util.concurrent.atomic.AtomicInteger maxEmbeddingsInFlight =
+      new java.util.concurrent.atomic.AtomicInteger();
+
   public record Request(String path, JsonNode body) {}
 
   public IndexingTestServer() throws IOException {
@@ -196,6 +204,14 @@ public final class IndexingTestServer implements AutoCloseable {
         }
         if (failureMode.equals("block-embedding")) {
           releaseEmbedding.await();
+        }
+        if (embeddingDelayMillis > 0) {
+          maxEmbeddingsInFlight.accumulateAndGet(embeddingsInFlight.incrementAndGet(), Math::max);
+          try {
+            Thread.sleep(embeddingDelayMillis);
+          } finally {
+            embeddingsInFlight.decrementAndGet();
+          }
         }
         var vectors = new ArrayList<Object>();
         for (int i = 0; i < body.path("input").size(); i++) {

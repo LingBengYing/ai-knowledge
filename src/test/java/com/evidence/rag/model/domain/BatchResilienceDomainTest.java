@@ -57,7 +57,9 @@ class BatchResilienceDomainTest {
 
   @Test
   void settingsDeriveThePolicyAndNeverCapBelowTheBaseDeadline() {
-    var settings = new BatchProcessingSettings(2, 2, 2, 10000, 3, 1000, 60000, 5000, 60000);
+    var settings =
+        new BatchProcessingSettings(
+            2, 2, 2, 10000, 3, 1000, 60000, 5000, 60000, 2, 1, 0, 0, 10737418240L);
     assertEquals(
         new TransientRetry(3, Duration.ofSeconds(1), Duration.ofSeconds(60)),
         settings.transientRetry());
@@ -67,6 +69,8 @@ class BatchResilienceDomainTest {
         Duration.ofSeconds(60), settings.indexDeadline(Duration.ofSeconds(10)).forRequests(1000));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new BatchProcessingSettings(2, 2, 2, 10000, 3, 1000, 999, 5000, 60000));
+        () ->
+            new BatchProcessingSettings(
+                2, 2, 2, 10000, 3, 1000, 999, 5000, 60000, 2, 1, 0, 0, 10737418240L));
   }
 }

@@ -79,6 +79,7 @@ public class IndexingConfiguration {
             receiptVerifier);
     processor.configureResilience(
         batch.transientRetry(), batch.indexDeadline(Duration.ofMillis(limits.timeoutMs())));
+    processor.configureThroughput(batch.embeddingThroughput());
     return processor;
   }
 
