@@ -218,6 +218,36 @@ class DocumentBatchHttpTest {
         assertEquals("awaiting_upload", created.path("state").asString());
         assertEquals(0, created.path("retryable_files").asInt());
         assertEquals("[\"cancel\"]", created.path("available_actions").toString());
+        // The import history lists it; a state-filtered page and per-file fields are served.
+        var history =
+            send(client, base, "GET", "/v1/document-batches?offset=0&limit=5", null, null);
+        assertEquals(200, history.statusCode(), history.body());
+        var listed = json.readTree(history.body());
+        assertEquals(1, listed.path("total").asInt());
+        assertEquals(id, listed.path("items").path(0).path("batch_id").asString());
+        assertEquals("awaiting_upload", listed.path("items").path(0).path("state").asString());
+        assertFalse(listed.path("items").path(0).path("created_at").asString().isEmpty());
+        var filtered =
+            send(
+                client,
+                base,
+                "GET",
+                "/v1/document-batches/" + id + "?state=awaiting_upload,failed&offset=0&limit=10",
+                null,
+                null);
+        assertEquals(200, filtered.statusCode(), filtered.body());
+        assertEquals(1, json.readTree(filtered.body()).path("matched").asInt());
+        assertTrue(json.readTree(filtered.body()).path("items").path(0).has("relative_path"));
+        for (String rejected :
+            List.of(
+                "/v1/document-batches?offset=0&limit=101",
+                "/v1/document-batches?state=failed",
+                "/v1/document-batches?offset=0&offset=1",
+                "/v1/document-batches/" + id + "?state=bogus",
+                "/v1/document-batches/" + id + "?state=",
+                "/v1/document-batches/" + id + "?state=failed,failed"))
+          assertTrue(
+              send(client, base, "GET", rejected, null, null).statusCode() / 100 == 4, rejected);
         String path = "/v1/document-batches/" + id;
 
         var retried = send(client, base, "POST", path + "/retry-failed", null, null);

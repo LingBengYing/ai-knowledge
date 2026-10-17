@@ -61,6 +61,51 @@ public final class DocumentBatchRepository {
     store.executeBatch(
         "INSERT INTO document_import_files(batch_id,ordinal,filename,size_bytes,source_sha256) VALUES(?,?,?,?,?)",
         rows);
+    var paths = new java.util.ArrayList<Object[]>();
+    for (int i = 0; i < files.size(); i++)
+      if (files.get(i).relativePath() != null)
+        paths.add(new Object[] {id, i, files.get(i).relativePath()});
+    if (!paths.isEmpty())
+      store.executeBatch(
+          "INSERT INTO document_import_file_paths(batch_id,ordinal,relative_path) VALUES(?,?,?)",
+          paths);
+  }
+
+  /** The batch's last recorded change (a file state, a halt or a new limit). */
+  public String updatedAt(String id) {
+    return store
+        .rows("SELECT updated_at FROM document_import_batch_times WHERE batch_id=?", id)
+        .stream()
+        .findFirst()
+        .map(row -> AuthorityRows.text(row, "updated_at"))
+        .orElse(null);
+  }
+
+  /** How many batches the workspace has; every member of the workspace sees its batches. */
+  public int countForWorkspace(Actor actor) {
+    return (int)
+        store.count(
+            "SELECT COUNT(*) FROM document_import_batches WHERE workspace_id=?",
+            actor.workspaceId());
+  }
+
+  /** One page of the workspace's batches, newest first, with their last change. */
+  public List<Map<String, Object>> page(Actor actor, int offset, int limit) {
+    return store.rows(
+        "SELECT b.id,b.created_at,b.halted_reason,t.updated_at FROM document_import_batches b"
+            + " LEFT JOIN document_import_batch_times t ON t.batch_id=b.id"
+            + " WHERE b.workspace_id=? ORDER BY b.created_at DESC,b.id DESC LIMIT ? OFFSET ?",
+        actor.workspaceId(),
+        limit,
+        offset);
+  }
+
+  /** Files that finished (indexed, failed or cancelled) at or after {@code since}. */
+  public long finishedSince(String id, String since) {
+    return store.count(
+        "SELECT COUNT(*) FROM document_import_file_times WHERE batch_id=? AND finished_at>=?",
+        id,
+        since);
   }
 
   /**
@@ -130,23 +175,44 @@ public final class DocumentBatchRepository {
 
   /** One page; the state is the trigger-maintained row, not recomputed per poll. */
   public List<BatchImportFile> files(String id, int offset, int limit) {
+    return files(id, List.of(), offset, limit);
+  }
+
+  /**
+   * One page of the files whose maintained state is one of {@code states} (all files when empty),
+   * in manifest order. The state filter is a range of the (batch_id,state) index.
+   */
+  public List<BatchImportFile> files(String id, List<String> states, int offset, int limit) {
+    var arguments = new java.util.ArrayList<Object>();
+    arguments.add(id);
+    arguments.addAll(states);
+    arguments.add(limit);
+    arguments.add(offset);
+    String filter =
+        states.isEmpty()
+            ? ""
+            : " AND s.state IN ("
+                + String.join(",", java.util.Collections.nCopies(states.size(), "?"))
+                + ")";
     return store
         .rows(
             """
             SELECT f.*,s.state AS batch_state,s.duplicate_ordinal,
               COALESCE(s.duplicate_document_id,p.document_id) AS duplicate_document,
-              j.id AS index_task,COALESCE(g.error_code,a.error_code,j.error_code) AS failure
+              j.id AS index_task,COALESCE(g.error_code,a.error_code,j.error_code) AS failure,
+              r.relative_path,g.created_at AS started,t.finished_at
             FROM document_import_files f
             JOIN document_import_file_states s ON s.batch_id=f.batch_id AND s.ordinal=f.ordinal
             LEFT JOIN document_import_files p ON p.batch_id=f.batch_id AND p.ordinal=s.duplicate_ordinal
             LEFT JOIN ingestion_jobs g ON g.id=f.ingestion_task_id
             LEFT JOIN import_index_requests a ON a.revision_id=f.revision_id
             LEFT JOIN indexing_jobs j ON j.id=a.task_id
-            WHERE f.batch_id=? ORDER BY f.ordinal LIMIT ? OFFSET ?
-            """,
-            id,
-            limit,
-            offset)
+            LEFT JOIN document_import_file_paths r ON r.batch_id=f.batch_id AND r.ordinal=f.ordinal
+            LEFT JOIN document_import_file_times t ON t.batch_id=f.batch_id AND t.ordinal=f.ordinal
+            WHERE f.batch_id=?"""
+                + filter
+                + " ORDER BY f.ordinal LIMIT ? OFFSET ?",
+            arguments.toArray())
         .stream()
         .map(
             r ->
@@ -164,7 +230,10 @@ public final class DocumentBatchRepository {
                     (String) r.get("duplicate_document"),
                     r.get("duplicate_ordinal") == null
                         ? null
-                        : ((Number) r.get("duplicate_ordinal")).intValue()))
+                        : ((Number) r.get("duplicate_ordinal")).intValue(),
+                    (String) r.get("relative_path"),
+                    (String) r.get("started"),
+                    (String) r.get("finished_at")))
         .toList();
   }
 
@@ -222,6 +291,22 @@ public final class DocumentBatchRepository {
       store.execute(
           "UPDATE document_import_batches SET request_limit=? WHERE id=?", requestLimit, id);
     store.execute("UPDATE document_import_batches SET halted_reason=NULL WHERE id=?", id);
+  }
+
+  /** Per-state file counts of several batches at once, keyed by batch id. */
+  public Map<String, Map<String, Long>> counts(List<String> ids) {
+    var result = new java.util.HashMap<String, Map<String, Long>>();
+    if (ids.isEmpty()) return result;
+    for (var r :
+        store.rows(
+            "SELECT batch_id,state,COUNT(*) AS amount FROM document_import_file_states WHERE batch_id IN ("
+                + String.join(",", java.util.Collections.nCopies(ids.size(), "?"))
+                + ") GROUP BY batch_id,state ORDER BY batch_id,state",
+            ids.toArray()))
+      result
+          .computeIfAbsent((String) r.get("batch_id"), k -> new java.util.LinkedHashMap<>())
+          .put((String) r.get("state"), ((Number) r.get("amount")).longValue());
+    return result;
   }
 
   /** Per-state file counts from the maintained state rows (one covering-index range scan). */

@@ -159,7 +159,11 @@ final class BatchThroughputSchema {
   }
 
   void verify() {
-    new BatchRequeueSchema(store).verify(VERSION);
+    verify(VERSION);
+  }
+
+  void verify(int version) {
+    new BatchRequeueSchema(store).verify(version);
     if (store.count("SELECT COUNT(*) FROM pragma_table_info('document_import_file_states')") != 5
         || store.count(
                 "SELECT COUNT(*) FROM sqlite_master WHERE name IN ("

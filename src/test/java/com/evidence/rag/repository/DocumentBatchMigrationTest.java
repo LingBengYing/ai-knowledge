@@ -72,7 +72,7 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(40L, store.count("PRAGMA user_version"));
+              assertEquals(41L, store.count("PRAGMA user_version"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(0L, store.count("SELECT COUNT(*) FROM document_import_batches"));
@@ -125,8 +125,8 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(40L, store.count("PRAGMA user_version"));
-              assertEquals(40L, store.count("SELECT version FROM format_info"));
+              assertEquals(41L, store.count("PRAGMA user_version"));
+              assertEquals(41L, store.count("SELECT version FROM format_info"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(
@@ -134,6 +134,8 @@ class DocumentBatchMigrationTest {
                   store.rows(
                       "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name<>'batch_task_requeues' AND name NOT IN "
                           + V40_OBJECTS
+                          + " AND name NOT IN "
+                          + V41_OBJECTS
                           + " ORDER BY name"));
               assertEquals(0L, store.count("SELECT COUNT(*) FROM batch_task_requeues"));
               assertEquals(
@@ -214,8 +216,8 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(40L, store.count("PRAGMA user_version"));
-              assertEquals(40L, store.count("SELECT version FROM format_info"));
+              assertEquals(41L, store.count("PRAGMA user_version"));
+              assertEquals(41L, store.count("SELECT version FROM format_info"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(
@@ -223,6 +225,8 @@ class DocumentBatchMigrationTest {
                   store.rows(
                       "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT IN "
                           + V40_OBJECTS
+                          + " AND name NOT IN "
+                          + V41_OBJECTS
                           + " ORDER BY name"));
               // Existing files get their derived state; nothing is marked duplicate after the fact.
               assertEquals(
@@ -245,6 +249,135 @@ class DocumentBatchMigrationTest {
           files
               .filter(p -> p.getFileName().toString().startsWith("java-library.v39-before-v40-"))
               .count());
+    }
+  }
+
+  static final String V41_OBJECTS =
+      "('document_import_file_paths','document_import_file_times','document_import_batch_times','document_import_file_times_finished','document_import_batches_workspace','batch_times_insert','batch_times_update','batch_file_times_insert','batch_file_times_update')";
+
+  @Test
+  void actualV40SnapshotWithBatchesUpgradesToV41AddingOnlyHistoryTablesAndOneBackup()
+      throws Exception {
+    Path seed = directory.resolve("seed41"), target = directory.resolve("upgraded41");
+    IngestionMigrationTest.versionOne(seed);
+    try (var ignored = new SqliteAuthorityStore(seed)) {}
+    Path original;
+    try (var files = Files.list(seed)) {
+      original =
+          files
+              .filter(p -> p.getFileName().toString().startsWith("java-library.v40-before-v41-"))
+              .findFirst()
+              .orElseThrow();
+    }
+    Files.createDirectory(target);
+    Path database = target.resolve("java-library.db");
+    Files.copy(original, database);
+    assertEquals(
+        40L,
+        ((Number)
+                ReindexVersion23Fixture.rows(database, "PRAGMA user_version")
+                    .getFirst()
+                    .values()
+                    .iterator()
+                    .next())
+            .longValue());
+    // Two v40 batches: one never uploaded, one cancelled (a halt with no file activity).
+    for (String batch : List.of("old-a", "old-b"))
+      ReindexVersion23Fixture.execute(
+          database,
+          "INSERT INTO document_import_batches(id,workspace_id,actor_id,request_id,manifest_sha256,created_at,request_limit,halted_reason) VALUES('"
+              + batch
+              + "','org-main','owner','"
+              + batch
+              + "','"
+              + "c".repeat(64)
+              + "','2026-01-0"
+              + (batch.equals("old-a") ? "1" : "2")
+              + "T00:00:00Z',10,"
+              + (batch.equals("old-a") ? "NULL" : "'batch_cancelled'")
+              + ")");
+    for (int ordinal = 0; ordinal < 2; ordinal++)
+      ReindexVersion23Fixture.execute(
+          database,
+          "INSERT INTO document_import_files(batch_id,ordinal,filename,size_bytes,source_sha256) VALUES('old-a',"
+              + ordinal
+              + ",'old-"
+              + ordinal
+              + ".txt',1,'"
+              + "d".repeat(64)
+              + "')");
+    var objects =
+        ReindexVersion23Fixture.rows(
+            database,
+            "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name");
+    var before = new LinkedHashMap<String, List<Map<String, Object>>>();
+    for (var row :
+        ReindexVersion23Fixture.rows(
+            database,
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('format_info','cleanup_managed_backups','cleanup_schema_objects') ORDER BY name")) {
+      String name = (String) row.get("name");
+      before.put(name, ReindexVersion23Fixture.rows(database, "SELECT * FROM " + name));
+    }
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try (var store = new SqliteAuthorityStore(target)) {
+        store.transaction(
+            () -> {
+              assertEquals(41L, store.count("PRAGMA user_version"));
+              assertEquals(41L, store.count("SELECT version FROM format_info"));
+              before.forEach(
+                  (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
+              assertEquals(
+                  objects,
+                  store.rows(
+                      "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT IN "
+                          + V41_OBJECTS
+                          + " ORDER BY name"));
+              // Existing files get a time row from their batch, unfinished; no paths are invented.
+              assertEquals(
+                  List.of(
+                      Map.of("ordinal", 0, "changed_at", "2026-01-01T00:00:00Z"),
+                      Map.of("ordinal", 1, "changed_at", "2026-01-01T00:00:00Z")),
+                  store.rows(
+                      "SELECT ordinal,changed_at FROM document_import_file_times WHERE batch_id='old-a' AND finished_at IS NULL ORDER BY ordinal"));
+              assertEquals(0L, store.count("SELECT COUNT(*) FROM document_import_file_paths"));
+              assertEquals(
+                  List.of(
+                      Map.of("batch_id", "old-a", "updated_at", "2026-01-01T00:00:00Z"),
+                      Map.of("batch_id", "old-b", "updated_at", "2026-01-02T00:00:00Z")),
+                  store.rows(
+                      "SELECT batch_id,updated_at FROM document_import_batch_times ORDER BY batch_id"));
+              assertEquals(
+                  9L,
+                  store.count(
+                      "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name IN " + V41_OBJECTS));
+              return null;
+            });
+      }
+    }
+    try (var files = Files.list(target)) {
+      assertEquals(
+          1,
+          files
+              .filter(p -> p.getFileName().toString().startsWith("java-library.v40-before-v41-"))
+              .count());
+    }
+    // The upgraded library keeps maintaining the new rows: a halt moves the batch's time.
+    try (var store = new SqliteAuthorityStore(target)) {
+      store.transaction(
+          () -> {
+            store.execute(
+                "UPDATE document_import_batches SET halted_reason='batch_cancelled' WHERE id='old-a'");
+            assertTrue(
+                store
+                        .rows(
+                            "SELECT updated_at FROM document_import_batch_times WHERE batch_id='old-a'")
+                        .getFirst()
+                        .get("updated_at")
+                        .toString()
+                        .compareTo("2026-01-02")
+                    > 0);
+            return null;
+          });
     }
   }
 }

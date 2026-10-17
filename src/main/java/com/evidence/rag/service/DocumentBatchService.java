@@ -7,14 +7,19 @@ import com.evidence.rag.model.domain.BatchImportFile;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
+import com.evidence.rag.model.dto.DocumentBatchList;
 import com.evidence.rag.model.dto.DocumentBatchResult;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.repository.DocumentBatchRepository;
 import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -77,14 +82,17 @@ public final class DocumentBatchService {
           || file.sourceSha256() == null
           || !file.sourceSha256().matches("[a-f0-9]{64}")) throw ModelValues.invalid();
       ingestion.prepareUpload(file.filename(), "application/octet-stream");
+      String path = BatchImportFile.relativePath(file.relativePath(), file.filename());
       bytes = Math.addExact(bytes, file.sizeBytes());
       canonical
           .append(file.filename())
           .append('\t')
           .append(file.sizeBytes())
           .append('\t')
-          .append(file.sourceSha256())
-          .append('\n');
+          .append(file.sourceSha256());
+      // Only a folder path changes the digest, so manifests without paths keep theirs.
+      if (path != null) canonical.append('\t').append(path);
+      canonical.append('\n');
     }
     if (bytes > ingestion.maximumWorkspaceOriginalBytes()) throw ModelValues.invalid();
     String digest = ModelValues.sha256(canonical.toString().getBytes(StandardCharsets.UTF_8));
@@ -102,7 +110,10 @@ public final class DocumentBatchService {
                       .map(
                           f ->
                               new BatchImportFile.Manifest(
-                                  f.filename(), f.sizeBytes(), f.sourceSha256()))
+                                  f.filename(),
+                                  f.sizeBytes(),
+                                  f.sourceSha256(),
+                                  BatchImportFile.relativePath(f.relativePath(), f.filename())))
                       .toList();
               batches.insert(
                   actor,
@@ -153,39 +164,77 @@ public final class DocumentBatchService {
   }
 
   public DocumentBatchResult status(Actor actor, String id, int offset, int limit) {
+    return status(actor, id, List.of(), offset, limit);
+  }
+
+  /** File states a batch page can be filtered by. */
+  public static final Set<String> FILE_STATES =
+      Set.of(
+          "awaiting_upload",
+          "queued",
+          "parsing",
+          "parsed",
+          "indexing",
+          "indexed",
+          "failed",
+          "cancelled",
+          "deleted",
+          "duplicate");
+
+  /** The window the batch page's rate is measured over. */
+  static final Duration THROUGHPUT_WINDOW = Duration.ofMinutes(10);
+
+  private static final DateTimeFormatter MILLIS =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
+
+  /**
+   * One page of the batch. With {@code states}, only files in one of those states are paged ({@code
+   * matched} says how many); counts, state and actions always describe the whole batch.
+   */
+  public DocumentBatchResult status(
+      Actor actor, String id, List<String> states, int offset, int limit) {
     ModelValues.identifier(id, 128);
-    if (offset < 0 || limit < 1 || limit > 100) throw ModelValues.invalid();
+    if (offset < 0
+        || limit < 1
+        || limit > 100
+        || states == null
+        || states.size() > FILE_STATES.size()
+        || !FILE_STATES.containsAll(states)
+        || Set.copyOf(states).size() != states.size()) throw ModelValues.invalid();
     return store.transaction(
         () -> {
           var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
           var counts = batches.counts(id);
           int total = counts.values().stream().mapToInt(Long::intValue).sum();
           String halted = (String) row.get("halted_reason");
-          long skipped = counts.getOrDefault("duplicate", 0L);
-          long settled =
-              counts.getOrDefault("indexed", 0L)
-                  + skipped
-                  + counts.getOrDefault("failed", 0L)
-                  + counts.getOrDefault("cancelled", 0L)
-                  + counts.getOrDefault("deleted", 0L);
-          long awaiting = counts.getOrDefault("awaiting_upload", 0L);
-          // A failed or cancelled file no longer stops the batch: only a recorded halt does.
-          // A skipped duplicate is done: it counts toward completion like an indexed file.
-          String state =
-              CANCELLED.equals(halted)
-                  ? "cancelled"
-                  : halted != null
-                      ? "halted"
-                      : counts.getOrDefault("indexed", 0L) + skipped == total
-                          ? "completed"
-                          : awaiting > 0 && awaiting + skipped == total
-                              ? "awaiting_upload"
-                              : settled == total ? "completed_with_failures" : "processing";
+          String state = state(counts, halted);
+          long settled = settled(counts);
+          int matched =
+              states.isEmpty()
+                  ? total
+                  : states.stream()
+                      .mapToInt(name -> counts.getOrDefault(name, 0L).intValue())
+                      .sum();
           long retryable = batches.retryable(id);
           var actions = new java.util.ArrayList<String>();
           if (retryable > 0 && !CANCELLED.equals(halted)) actions.add("retry_failed");
           if (!CANCELLED.equals(halted) && settled < total) actions.add("cancel");
           if (halted != null) actions.add("resume");
+          String created = (String) row.get("created_at");
+          Instant now = Instant.now();
+          Instant start = now.minus(THROUGHPUT_WINDOW);
+          try {
+            Instant began = Instant.parse(created);
+            if (began.isAfter(start)) start = began;
+          } catch (java.time.format.DateTimeParseException ignored) {
+            // A malformed creation time only widens the window to its full length.
+          }
+          if (start.isAfter(now)) start = now;
+          var throughput =
+              new DocumentBatchResult.Throughput(
+                  Duration.between(start, now).toSeconds(),
+                  batches.finishedSince(id, MILLIS.format(start)),
+                  MILLIS.format(now));
           return new DocumentBatchResult(
               id,
               state,
@@ -200,7 +249,7 @@ public final class DocumentBatchService {
               halted,
               retryable,
               List.copyOf(actions),
-              batches.files(id, offset, limit).stream()
+              batches.files(id, states, offset, limit).stream()
                   .map(
                       f ->
                           new DocumentBatchResult.File(
@@ -215,9 +264,78 @@ public final class DocumentBatchService {
                               f.indexingTaskId(),
                               f.errorCode(),
                               f.duplicateDocumentId(),
-                              f.duplicateOrdinal()))
+                              f.duplicateOrdinal(),
+                              f.relativePath(),
+                              f.startedAt(),
+                              f.finishedAt()))
+                  .toList(),
+              created,
+              batches.updatedAt(id),
+              List.copyOf(states),
+              matched,
+              throughput);
+        });
+  }
+
+  /**
+   * The workspace's batches, newest first. Batches belong to the workspace, as for every other
+   * batch operation: any member who can open a batch by its id sees it listed.
+   */
+  public DocumentBatchList list(Actor actor, int offset, int limit) {
+    if (actor == null || offset < 0 || limit < 1 || limit > 100) throw ModelValues.invalid();
+    return store.transaction(
+        () -> {
+          int total = batches.countForWorkspace(actor);
+          var rows = batches.page(actor, offset, limit);
+          var counts = batches.counts(rows.stream().map(row -> (String) row.get("id")).toList());
+          return new DocumentBatchList(
+              offset,
+              limit,
+              total,
+              rows.stream()
+                  .map(
+                      row -> {
+                        String id = (String) row.get("id");
+                        var batchCounts = counts.getOrDefault(id, Map.of());
+                        String halted = (String) row.get("halted_reason");
+                        return new DocumentBatchList.Item(
+                            id,
+                            state(batchCounts, halted),
+                            batchCounts.values().stream().mapToInt(Long::intValue).sum(),
+                            batchCounts,
+                            halted,
+                            (String) row.get("created_at"),
+                            (String) row.get("updated_at"));
+                      })
                   .toList());
         });
+  }
+
+  private static long settled(Map<String, Long> counts) {
+    return counts.getOrDefault("indexed", 0L)
+        + counts.getOrDefault("duplicate", 0L)
+        + counts.getOrDefault("failed", 0L)
+        + counts.getOrDefault("cancelled", 0L)
+        + counts.getOrDefault("deleted", 0L);
+  }
+
+  /** The batch state from its file counts and recorded halt. */
+  private static String state(Map<String, Long> counts, String halted) {
+    long total = counts.values().stream().mapToLong(Long::longValue).sum();
+    long skipped = counts.getOrDefault("duplicate", 0L);
+    long settled = settled(counts);
+    long awaiting = counts.getOrDefault("awaiting_upload", 0L);
+    // A failed or cancelled file no longer stops the batch: only a recorded halt does.
+    // A skipped duplicate is done: it counts toward completion like an indexed file.
+    return CANCELLED.equals(halted)
+        ? "cancelled"
+        : halted != null
+            ? "halted"
+            : counts.getOrDefault("indexed", 0L) + skipped == total
+                ? "completed"
+                : awaiting > 0 && awaiting + skipped == total
+                    ? "awaiting_upload"
+                    : settled == total ? "completed_with_failures" : "processing";
   }
 
   /**

@@ -19,5 +19,10 @@ public record DocumentBatchCommand(
   public record File(
       String filename,
       @JsonProperty("size_bytes") long sizeBytes,
-      @JsonProperty("source_sha256") String sourceSha256) {}
+      @JsonProperty("source_sha256") String sourceSha256,
+      @JsonProperty("relative_path") String relativePath) {
+    public File(String filename, long sizeBytes, String sourceSha256) {
+      this(filename, sizeBytes, sourceSha256, null);
+    }
+  }
 }
