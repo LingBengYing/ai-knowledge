@@ -452,6 +452,21 @@ public final class IngestionService {
             if (cancelIfUnauthorized(task)) {
               continue;
             }
+            if (task.attempt() == 1
+                && new com.evidence.rag.repository.DocumentBatchRepository(store)
+                    .haltedImportIngestion(jobId)) {
+              // A halted batch starts no more automatic work: its own first-attempt import task
+              // ends visibly instead of waiting forever. An explicit retry (attempt > 1) runs.
+              ingestion.markCancelled(jobId, Instant.now().toString());
+              audit(
+                  worker,
+                  task.documentId(),
+                  "ingestion_cancelled",
+                  values("state", "queued"),
+                  values("state", "cancelled"),
+                  Set.of("state"));
+              continue;
+            }
             if (!new DocumentUpdateRepository(store).replacementCurrent(jobId)) {
               finishFailed(task, "parser_output_invalid");
               continue;

@@ -43,10 +43,13 @@ public final class ProcessTextIndexer implements AutoCloseable {
   private boolean closed;
   private Job active;
   private volatile com.evidence.rag.model.domain.ModelRequestUsage modelUsage;
+  private volatile boolean childStarted;
 
+  /** Without a started child no model request can exist; a lost audit stays uncertain. */
   public com.evidence.rag.model.domain.ModelRequestUsage modelUsage() {
     var value = modelUsage;
-    return value == null ? new com.evidence.rag.model.domain.ModelRequestUsage(0, 0, false) : value;
+    if (value != null) return value;
+    return new com.evidence.rag.model.domain.ModelRequestUsage(0, 0, !childStarted);
   }
 
   public int expectedRequests(IndexClaim claim) {
@@ -119,6 +122,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
       }
       try {
         modelUsage = null;
+        childStarted = false;
         job = new Job(request, claim.jobId());
       } catch (RuntimeException | Error reserveFailure) {
         CAPACITY.release();
@@ -275,6 +279,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
         checkCancelled();
         OwnedTemporaryResources.launching(directory);
         process = builder.start();
+        childStarted = true;
         OwnedTemporaryResources.childStarted(directory, process);
         auditThread =
             Thread.ofVirtual()
