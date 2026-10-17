@@ -18,7 +18,9 @@ class ImportIndexMigrationTest {
     Path seed = directory.resolve("seed");
     IngestionMigrationTest.versionOne(seed);
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(37L, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(
+          (long) HistoricalSchemaV25Fixture.CURRENT_VERSION,
+          store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path original;
     try (var paths = Files.list(seed)) {
@@ -50,7 +52,9 @@ class ImportIndexMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(37L, store.count("PRAGMA user_version"));
+              assertEquals(
+                  (long) HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                  store.count("PRAGMA user_version"));
               assertEquals(0L, store.count("SELECT COUNT(*) FROM import_index_requests"));
               assertEquals(
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(schema),

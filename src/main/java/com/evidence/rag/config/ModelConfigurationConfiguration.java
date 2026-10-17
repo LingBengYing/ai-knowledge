@@ -284,10 +284,12 @@ public class ModelConfigurationConfiguration {
 
   @Bean(name = "indexingJob", destroyMethod = "close")
   @ConditionalOnProperty(prefix = "rag.indexing", name = "enabled", havingValue = "true")
-  IndexingJob managedIndexingJob(ManagedTextRuntime runtime, SqliteAuthorityStore store) {
+  IndexingJob managedIndexingJob(
+      ManagedTextRuntime runtime, SqliteAuthorityStore store, BatchProcessingSettings batch) {
     return IndexingJob.managed(
         () -> runtime.currentVersion() == null ? null : runtime.capture().indexing(),
-        store.operationGate());
+        store.operationGate(),
+        batch.indexConcurrency());
   }
 
   @Bean(destroyMethod = "close")

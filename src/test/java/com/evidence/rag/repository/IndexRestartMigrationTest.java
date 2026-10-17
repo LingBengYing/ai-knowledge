@@ -45,7 +45,9 @@ class IndexRestartMigrationTest {
     Path seed = directory.resolve("seed");
     IngestionMigrationTest.versionOne(seed);
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(37L, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(
+          (long) HistoricalSchemaV25Fixture.CURRENT_VERSION,
+          store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path backup;
     try (var paths = Files.list(seed)) {
@@ -77,7 +79,9 @@ class IndexRestartMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(37L, store.count("PRAGMA user_version"));
+              assertEquals(
+                  (long) HistoricalSchemaV25Fixture.CURRENT_VERSION,
+                  store.count("PRAGMA user_version"));
               assertEquals(
                   1L,
                   store.count(

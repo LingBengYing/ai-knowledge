@@ -159,7 +159,7 @@ public final class IndexingRepository {
   public List<String> queuedModelRebuildIds(String workspace, String batchId) {
     return store
         .rows(
-            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.model_rebuild_id=? AND j.state='queued' ORDER BY j.created_at,j.id",
+            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.model_rebuild_id=? AND j.state='queued' ORDER BY j.created_at,j.id LIMIT 32",
             workspace,
             batchId)
         .stream()
@@ -608,15 +608,31 @@ public final class IndexingRepository {
   }
 
   public boolean hasProcessing() {
+    return processingCount() != 0;
+  }
+
+  public long processingCount() {
     return store.count(
-            "SELECT COUNT(*) FROM indexing_jobs j WHERE state='processing' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=j.document_id)")
+        "SELECT COUNT(*) FROM indexing_jobs j WHERE state='processing' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=j.document_id)");
+  }
+
+  public boolean documentProcessing(String documentId) {
+    return store.count(
+            "SELECT COUNT(*) FROM indexing_jobs WHERE document_id=? AND state='processing'",
+            documentId)
+        != 0;
+  }
+
+  public boolean hasProcessingModelRebuild() {
+    return store.count(
+            "SELECT COUNT(*) FROM indexing_jobs WHERE state='processing' AND model_rebuild_id IS NOT NULL")
         != 0;
   }
 
   public List<String> queuedIds(String workspaceId) {
     return store
         .rows(
-            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND j.model_rebuild_id IS NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id",
+            "SELECT j.id FROM indexing_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND j.model_rebuild_id IS NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM indexing_jobs active WHERE active.document_id=d.id AND active.state='processing') AND NOT EXISTS(SELECT 1 FROM document_import_files f JOIN document_import_batches b ON b.id=f.batch_id WHERE f.document_id=d.id AND b.halted_reason IS NOT NULL) ORDER BY j.created_at,j.id LIMIT 32",
             workspaceId)
         .stream()
         .map(row -> AuthorityRows.text(row, "id"))

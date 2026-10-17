@@ -106,13 +106,14 @@ class ProcessTextParserTest {
   }
 
   @Test
-  void onlyOneChildAcrossInstancesAndCloseCancelsAndWaits() throws Exception {
+  void separateInstancesRunConcurrentlyAndCloseCancelsOnlyItsOwnChild() throws Exception {
     Path pidFile = temporary.resolve("close.pid");
     var parser = fixture(Duration.ofSeconds(10), "hang", pidFile.toString());
     var running = asynchronousParse(parser);
     try (var second = new ProcessTextParser(Duration.ofSeconds(10))) {
       awaitFile(pidFile);
-      safeFailure("parser_busy", () -> second.parse("test.txt", "text/plain", bytes("x")));
+      assertEquals(
+          "x", second.parse("test.txt", "text/plain", bytes("x")).pages().getFirst().text());
       safeFailure("parser_busy", () -> parser.parse("test.txt", "text/plain", bytes("x")));
       parser.close();
       assertEquals("parser_closed:false", running.get(3, TimeUnit.SECONDS));

@@ -84,7 +84,9 @@ public class IndexingConfiguration {
       havingValue = "false",
       matchIfMissing = true)
   IndexingJob indexingJob(
-      IndexingTaskProcessor processor, ObjectProvider<LibraryOperationGate> operations) {
-    return new IndexingJob(processor, operations.getIfAvailable());
+      IndexingTaskProcessor processor,
+      ObjectProvider<LibraryOperationGate> operations,
+      BatchProcessingSettings batch) {
+    return new IndexingJob(processor, operations.getIfAvailable(), batch.indexConcurrency());
   }
 }

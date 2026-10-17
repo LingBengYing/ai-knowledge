@@ -248,6 +248,14 @@ final class AuthoritySchema {
     new IndexRestartSchema(store).verify();
   }
 
+  void migrateVersionThirtyEight() {
+    new DocumentBatchSchema(store).migrate();
+  }
+
+  void verifyVersionThirtyEight() {
+    new DocumentBatchSchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

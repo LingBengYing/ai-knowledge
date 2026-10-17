@@ -122,6 +122,7 @@ public class PersistenceConfiguration {
       ManagementRepository management,
       DocumentPermissionPolicy permissions,
       Environment environment,
+      BatchProcessingSettings batch,
       ObjectProvider<VisualIngestionOptions> visual,
       ObjectProvider<AudioCompilationService> audio,
       ObjectProvider<VideoCompilationService> video) {
@@ -140,6 +141,7 @@ public class PersistenceConfiguration {
             videoCompiler != null && videoCompiler.ocrEnabled(),
             videoCompiler != null && videoCompiler.subtitlesEnabled(),
             PdfOcrConfiguration.options(environment));
+    service.configureQueueCapacity(batch.queueCapacity());
     service.setAutomaticIndexingEnabled(
         environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true));
     service.recoverIngestions();
@@ -152,7 +154,8 @@ public class PersistenceConfiguration {
       IndexingRepository indexing,
       ManagementRepository management,
       DocumentPermissionPolicy permissions,
-      ObjectProvider<ReindexVectorVerifier> receiptVerifiers) {
+      ObjectProvider<ReindexVectorVerifier> receiptVerifiers,
+      BatchProcessingSettings batch) {
     var service =
         new IndexingService(
             store,
@@ -160,6 +163,7 @@ public class PersistenceConfiguration {
             management,
             permissions,
             (route, target) -> receiptVerifiers.getObject().supports(route, target));
+    service.configureConcurrency(batch.indexConcurrency());
     service.recoverIndexings();
     return service;
   }

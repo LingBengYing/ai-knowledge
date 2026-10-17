@@ -30,7 +30,9 @@ class WikiPageLifecycleMigrationTest {
       ReindexVersion23Fixture.execute(seed.resolve("java-library.db"), sql);
     }
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(37L, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(
+          (long) HistoricalSchemaV25Fixture.CURRENT_VERSION,
+          store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path source;
     try (var paths = Files.list(seed)) {
@@ -73,7 +75,8 @@ class WikiPageLifecycleMigrationTest {
     try (var store = new SqliteAuthorityStore(target)) {
       store.transaction(
           () -> {
-            assertEquals(37, store.count("PRAGMA user_version"));
+            assertEquals(
+                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
             assertEquals(
                 WikiPagePurgeMigrationTest.withoutReplacedGuards(schema),
                 WikiPagePurgeMigrationTest.withoutReplacedGuards(

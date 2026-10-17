@@ -56,6 +56,9 @@ public final class ImportAutoIndexService {
       store.transaction(
           () -> {
             requests.finish(request.revisionId(), taskId, errorCode);
+            if (errorCode != null)
+              new com.evidence.rag.repository.DocumentBatchRepository(store)
+                  .haltDocument(request.documentId(), errorCode);
             return null;
           });
       return true;

@@ -15,7 +15,11 @@ public final class ImportAutoIndexJob implements AutoCloseable {
     scheduler.scheduleWithFixedDelay(
         () -> {
           try {
-            service.processNext();
+            // Corpus dispatch only enqueues durable work. Drain a bounded page per tick instead
+            // of imposing four documents/second on otherwise parallel parsing/indexing workers.
+            for (int item = 0; item < 32 && service.processNext(); item++) {
+              if (Thread.currentThread().isInterrupted()) break;
+            }
           } catch (RuntimeException unavailable) {
             // An unconfirmed dispatch remains durable for explicit restart recovery, never model
             // retry.

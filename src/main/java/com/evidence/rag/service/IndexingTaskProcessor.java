@@ -148,7 +148,17 @@ public final class IndexingTaskProcessor {
         return;
       }
       try (var worker = workers.apply(plan.isPresent() ? remaining(started) : timeout)) {
-        var result = worker.index(claim);
+        if (!authority.reserveBatchRequests(claim, worker.expectedRequests(claim))) {
+          fail(claim, "indexing_failed");
+          return;
+        }
+        com.evidence.rag.model.domain.IndexingResult result;
+        try {
+          result = worker.index(claim);
+        } finally {
+          var usage = worker.modelUsage();
+          authority.recordBatchUsage(claim, usage.started(), usage.finished(), usage.complete());
+        }
         if (plan.isEmpty()) {
           authority.completeIndexing(claim, result.entryDigests(), result.verified());
         } else {

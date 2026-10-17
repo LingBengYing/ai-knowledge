@@ -33,8 +33,13 @@ public final class IndexWorker {
     try {
       var request = IndexProtocol.readRequest(input);
       try (var lifetime =
-          IndexWorkerLifetime.acquire(
-              request.projection(), request.parent(), request.timeout(), isolated)) {
+          IndexWorkerLifetime.acquireDocument(
+              request.projection(),
+              request.parent(),
+              request.timeout(),
+              isolated,
+              request.documentId(),
+              request.projectionGenerationId())) {
         response = IndexProtocol.encode(index(request, lifetime));
         output.write(response);
         output.flush();
@@ -76,7 +81,12 @@ public final class IndexWorker {
     try (var models = new OpenAiCompatibleModels(configuration);
         var projection = new MilvusRestProjection(projectionSettings)) {
       lifetime.check();
-      projection.initialize();
+      // Only collection creation/load is exclusive. Model requests use generation-fenced rows.
+      try (var initialization =
+          IndexWorkerLifetime.acquire(
+              projectionSettings, request.parent(), request.timeout(), false)) {
+        projection.initialize();
+      }
       lifetime.check();
       var digests = new TreeMap<String, String>();
       for (int offset = 0; offset < request.items().size(); offset += batchSize) {

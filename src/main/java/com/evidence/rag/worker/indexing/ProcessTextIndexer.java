@@ -31,7 +31,7 @@ import java.util.jar.JarFile;
 
 /** Resource-bounded indexing subprocess Module. */
 public final class ProcessTextIndexer implements AutoCloseable {
-  private static final Semaphore CAPACITY = new Semaphore(1);
+  private static final Semaphore CAPACITY = new Semaphore(4);
   private static final long CLEANUP_NANOS = TimeUnit.SECONDS.toNanos(2);
   private final OpenAiCompatibleModels.Configuration models;
   private final MilvusRestProjection.Settings projection;
@@ -42,6 +42,27 @@ public final class ProcessTextIndexer implements AutoCloseable {
   private final Object lock = new Object();
   private boolean closed;
   private Job active;
+  private volatile com.evidence.rag.model.domain.ModelRequestUsage modelUsage;
+
+  public com.evidence.rag.model.domain.ModelRequestUsage modelUsage() {
+    var value = modelUsage;
+    return value == null ? new com.evidence.rag.model.domain.ModelRequestUsage(0, 0, false) : value;
+  }
+
+  public int expectedRequests(IndexClaim claim) {
+    int dimension = models.embeddingDimensions();
+    int batch =
+        Math.min(
+            16,
+            Math.min(
+                (models.maxResponseBytes() - 1024) / (dimension * 128 + 1024),
+                (projection.maxResponseBytes() - 1024)
+                    / (com.evidence.rag.client.vector.RetrievalProjection.MAX_TEXT_BYTES * 6
+                        + dimension * 32
+                        + 2048)));
+    if (batch < 1) throw new Failure("indexing_failed");
+    return (claim.items().size() + batch - 1) / batch;
+  }
 
   public ProcessTextIndexer(
       OpenAiCompatibleModels.Configuration models,
@@ -88,6 +109,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
       if (closed) {
         throw new Failure("indexing_closed");
       }
+      if (active != null) throw new Failure("indexing_busy");
       if (Thread.currentThread().isInterrupted()) {
         throw new Failure("worker_interrupted");
       }
@@ -96,7 +118,8 @@ public final class ProcessTextIndexer implements AutoCloseable {
         throw new Failure("indexing_busy");
       }
       try {
-        job = new Job(request);
+        modelUsage = null;
+        job = new Job(request, claim.jobId());
       } catch (RuntimeException | Error reserveFailure) {
         CAPACITY.release();
         throw reserveFailure;
@@ -182,6 +205,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
 
   private final class Job {
     final IndexProtocol.Request request;
+    final String taskId;
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
     final LibraryOperationGate.ReservedCall<IndexingResult> body =
@@ -196,8 +220,9 @@ public final class ProcessTextIndexer implements AutoCloseable {
     final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
 
-    Job(IndexProtocol.Request request) {
+    Job(IndexProtocol.Request request, String taskId) {
       this.request = request;
+      this.taskId = taskId;
     }
 
     void cancel(String code) {
@@ -254,7 +279,11 @@ public final class ProcessTextIndexer implements AutoCloseable {
         auditThread =
             Thread.ofVirtual()
                 .name("text-index-model-audit")
-                .start(() -> IndexWorkerModelHttpLog.drain(process.getErrorStream()));
+                .start(
+                    () ->
+                        modelUsage =
+                            IndexWorkerModelHttpLog.drain(
+                                process.getErrorStream(), taskId, request.documentId()));
         checkCancelled();
         var inputBody =
             LibraryOperationGate.protectCurrent(

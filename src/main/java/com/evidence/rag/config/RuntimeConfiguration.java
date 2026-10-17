@@ -128,6 +128,8 @@ public class RuntimeConfiguration {
     } else {
       unavailable.add("document_replacements");
     }
+    if (enabled.contains("ingestions")) enabled.add("batch_upload");
+    else unavailable.add("batch_upload");
     if (enabled.contains("text_index") && enabled.contains("indexings")) {
       enabled.add("text_reindex");
       enabled.add("text_reindex_with_vectors");

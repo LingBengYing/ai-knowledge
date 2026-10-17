@@ -62,8 +62,10 @@ public class IngestionConfiguration {
 
   @Bean(destroyMethod = "close")
   IngestionJob ingestionJob(
-      IngestionTaskProcessor processor, ObjectProvider<LibraryOperationGate> operations) {
-    return new IngestionJob(processor, operations.getIfAvailable());
+      IngestionTaskProcessor processor,
+      ObjectProvider<LibraryOperationGate> operations,
+      BatchProcessingSettings batch) {
+    return new IngestionJob(processor, operations.getIfAvailable(), batch.parseConcurrency());
   }
 
   @Bean

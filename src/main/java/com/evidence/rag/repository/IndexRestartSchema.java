@@ -84,7 +84,11 @@ final class IndexRestartSchema {
   }
 
   void verify() {
-    new WikiPagePurgeSchema(store).verify(VERSION);
+    verify(VERSION);
+  }
+
+  void verify(int version) {
+    new WikiPagePurgeSchema(store).verify(version);
     if (store.count(
                 "SELECT COUNT(*) FROM pragma_table_info('knowledge_conversations') WHERE name IN ('id','workspace_id','actor_id','title','created_at','updated_at','generation','turn_count','active_run_id','summary','covered_turn_count','compression_status')")
             != 12

@@ -19,7 +19,9 @@ class ConversationMigrationTest {
     Path seed = directory.resolve("seed");
     IngestionMigrationTest.versionOne(seed);
     try (var store = new SqliteAuthorityStore(seed)) {
-      assertEquals(37, store.transaction(() -> store.count("PRAGMA user_version")));
+      assertEquals(
+          HistoricalSchemaV25Fixture.CURRENT_VERSION,
+          store.transaction(() -> store.count("PRAGMA user_version")));
     }
     Path backup;
     try (var paths = Files.list(seed)) {
@@ -51,7 +53,8 @@ class ConversationMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(37, store.count("PRAGMA user_version"));
+              assertEquals(
+                  HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
               assertEquals(
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(oldObjects),
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(

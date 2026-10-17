@@ -19,8 +19,6 @@ import com.evidence.rag.model.domain.ParsedImage;
 import com.evidence.rag.model.domain.ParsedText;
 import com.evidence.rag.model.domain.PdfOcrOptions;
 import com.evidence.rag.model.domain.SyntheticDocument;
-import com.evidence.rag.model.domain.TextPage;
-import com.evidence.rag.model.domain.TextSegment;
 import com.evidence.rag.model.domain.VideoCompilation;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.model.dto.TaskResult;
@@ -61,6 +59,14 @@ public final class IngestionService {
 
   private static final long MAX_ORIGINAL_BYTES = 256L * 1024 * 1024;
   private static final int MAX_PENDING_INGESTIONS = 32;
+  private int pendingCapacity = MAX_PENDING_INGESTIONS;
+
+  public void configureQueueCapacity(int value) {
+    if (value < 32 || value > 10000)
+      throw new IllegalArgumentException("Invalid ingestion queue capacity");
+    pendingCapacity = value;
+  }
+
   private static final Set<String> ERRORS =
       Set.of(
           "unsupported_document",
@@ -340,6 +346,12 @@ public final class IngestionService {
   }
 
   public TaskResult uploadDocument(Actor owner, String filename, String mime, byte[] content) {
+    return store.transaction(() -> uploadDocumentInTransaction(owner, filename, mime, content));
+  }
+
+  /** Package seam for atomic batch slot admission and original/task creation. */
+  TaskResult uploadDocumentInTransaction(
+      Actor owner, String filename, String mime, byte[] content) {
     if (owner == null
         || content == null
         || content.length == 0
@@ -359,55 +371,47 @@ public final class IngestionService {
                 : image ? ImageInput.canonicalMime(filename) : canonicalMime(filename);
     String parserRevision = video ? videoCompilerRevision : parserRevision(filename);
     String sourceHash = sha256(original);
-    return store.transaction(
-        () -> {
-          checkPendingQuota(owner.workspaceId());
-          if (ingestion.storedBytes(owner.workspaceId()) > MAX_ORIGINAL_BYTES - original.length) {
-            throw quotaExceeded();
-          }
-          String documentId = UUID.randomUUID().toString(),
-              revisionId = UUID.randomUUID().toString();
-          String jobId = UUID.randomUUID().toString(), now = Instant.now().toString();
-          management.insertDocument(
-              owner,
-              new SyntheticDocument(
-                  documentId,
-                  filename,
-                  video ? "video" : audio ? "audio" : image ? "image" : "document",
-                  canonicalMime,
-                  revisionId,
-                  sourceHash,
-                  original.length),
-              now);
-          management.insertGrant(documentId, owner.principalId(), "owner");
-          ingestion.insertOriginal(
-              documentId, revisionId, parserRevision, sourceHash, original, now);
-          ingestion.insertJob(jobId, documentId, revisionId, owner.principalId(), now);
-          if (automaticIndexingEnabled) {
-            new ImportIndexRepository(store)
-                .insert(owner, documentId, revisionId, "corpus", null, null);
-          }
-          audit(
-              owner,
-              documentId,
-              "ingestion_queued",
-              null,
-              values(
-                  "revision_id",
-                  revisionId,
-                  "source_sha256",
-                  sourceHash,
-                  "size_bytes",
-                  original.length,
-                  "state",
-                  "queued"),
-              Set.of("revision_id", "source_sha256", "size_bytes", "state"));
-          var task = authorizedTask(owner, jobId, false);
-          return TaskResults.ingestion(
-              task,
-              permissions.canEdit(task.currentRole()),
-              creatorCanWrite(task, owner.workspaceId()));
-        });
+    checkPendingQuota(owner.workspaceId());
+    if (ingestion.storedBytes(owner.workspaceId()) > MAX_ORIGINAL_BYTES - original.length) {
+      throw quotaExceeded();
+    }
+    String documentId = UUID.randomUUID().toString(), revisionId = UUID.randomUUID().toString();
+    String jobId = UUID.randomUUID().toString(), now = Instant.now().toString();
+    management.insertDocument(
+        owner,
+        new SyntheticDocument(
+            documentId,
+            filename,
+            video ? "video" : audio ? "audio" : image ? "image" : "document",
+            canonicalMime,
+            revisionId,
+            sourceHash,
+            original.length),
+        now);
+    management.insertGrant(documentId, owner.principalId(), "owner");
+    ingestion.insertOriginal(documentId, revisionId, parserRevision, sourceHash, original, now);
+    ingestion.insertJob(jobId, documentId, revisionId, owner.principalId(), now);
+    if (automaticIndexingEnabled) {
+      new ImportIndexRepository(store).insert(owner, documentId, revisionId, "corpus", null, null);
+    }
+    audit(
+        owner,
+        documentId,
+        "ingestion_queued",
+        null,
+        values(
+            "revision_id",
+            revisionId,
+            "source_sha256",
+            sourceHash,
+            "size_bytes",
+            original.length,
+            "state",
+            "queued"),
+        Set.of("revision_id", "source_sha256", "size_bytes", "state"));
+    var task = authorizedTask(owner, jobId, false);
+    return TaskResults.ingestion(
+        task, permissions.canEdit(task.currentRole()), creatorCanWrite(task, owner.workspaceId()));
   }
 
   /** Called only in the replacement admission transaction after its original is saved. */
@@ -764,28 +768,7 @@ public final class IngestionService {
           return persistCandidate(
               claim,
               () -> {
-                for (TextPage page : parsed.pages()) {
-                  ingestion.insertPage(
-                      claim.revisionId(),
-                      page,
-                      sha256(page.text().getBytes(StandardCharsets.UTF_8)));
-                }
-                for (TextSegment segment : parsed.segments()) {
-                  String textHash = sha256(segment.text().getBytes(StandardCharsets.UTF_8));
-                  String segmentId =
-                      sha256(
-                          (claim.workspaceId()
-                                  + "\u0000"
-                                  + claim.documentId()
-                                  + "\u0000"
-                                  + claim.revisionId()
-                                  + "\u0000"
-                                  + segment.ordinal()
-                                  + "\u0000"
-                                  + textHash)
-                              .getBytes(StandardCharsets.UTF_8));
-                  ingestion.insertSegment(segmentId, claim.revisionId(), segment, textHash);
-                }
+                ingestion.insertParsedText(claim, parsed);
                 if (image != null) {
                   for (int ordinal = 0; ordinal < image.regions().size(); ordinal++) {
                     ingestion.insertImageRegion(
@@ -960,6 +943,8 @@ public final class IngestionService {
                 FailureKind.CONFLICT, "ingestion_state_conflict", "当前任务状态不能取消。");
           }
           ingestion.markCancelled(jobId, Instant.now().toString());
+          new com.evidence.rag.repository.DocumentBatchRepository(store)
+              .haltDocument(task.documentId(), "worker_interrupted");
           audit(
               actor,
               task.documentId(),
@@ -1054,7 +1039,7 @@ public final class IngestionService {
   }
 
   private void checkPendingQuota(String workspaceId) {
-    if (ingestion.pendingCount(workspaceId) >= MAX_PENDING_INGESTIONS) {
+    if (ingestion.pendingCount(workspaceId) >= pendingCapacity) {
       throw quotaExceeded();
     }
   }
@@ -1132,6 +1117,8 @@ public final class IngestionService {
 
   private void finishFailed(TaskEntity task, String safeCode) {
     ingestion.markFailed(task.id(), safeCode, Instant.now().toString());
+    new com.evidence.rag.repository.DocumentBatchRepository(store)
+        .haltDocument(task.documentId(), safeCode);
     audit(
         new Actor(task.workspaceId(), "system:ingestion"),
         task.documentId(),

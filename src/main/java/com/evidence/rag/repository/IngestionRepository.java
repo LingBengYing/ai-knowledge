@@ -147,7 +147,7 @@ public final class IngestionRepository {
   public Optional<String> nextQueuedId(String workspaceId) {
     return store
         .rows(
-            "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) ORDER BY j.created_at,j.id LIMIT 1",
+            "SELECT j.id FROM ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE d.workspace_id=? AND j.state='queued' AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id) AND NOT EXISTS(SELECT 1 FROM document_import_files f JOIN document_import_batches b ON b.id=f.batch_id WHERE f.document_id=d.id AND b.halted_reason IS NOT NULL) ORDER BY j.created_at,j.id LIMIT 1",
             workspaceId)
         .stream()
         .findFirst()
@@ -207,6 +207,53 @@ public final class IngestionRepository {
         page.number(),
         page.text(),
         textHash);
+  }
+
+  /** Same immutable page/segment identities as single inserts, with bounded JDBC batch writes. */
+  public void insertParsedText(
+      com.evidence.rag.model.domain.IngestionClaim claim, ParsedText parsed) {
+    var pages = new java.util.ArrayList<Object[]>(parsed.pages().size());
+    for (var page : parsed.pages())
+      pages.add(
+          new Object[] {
+            claim.revisionId(),
+            page.number(),
+            page.text(),
+            ModelValues.sha256(page.text().getBytes(StandardCharsets.UTF_8))
+          });
+    store.executeBatch(
+        "INSERT INTO corpus_pages(revision_id,page_number,text,text_sha256) VALUES(?,?,?,?)",
+        pages);
+    var segments = new java.util.ArrayList<Object[]>(parsed.segments().size());
+    for (var segment : parsed.segments()) {
+      String hash = ModelValues.sha256(segment.text().getBytes(StandardCharsets.UTF_8));
+      String id =
+          ModelValues.sha256(
+              (claim.workspaceId()
+                      + "\u0000"
+                      + claim.documentId()
+                      + "\u0000"
+                      + claim.revisionId()
+                      + "\u0000"
+                      + segment.ordinal()
+                      + "\u0000"
+                      + hash)
+                  .getBytes(StandardCharsets.UTF_8));
+      segments.add(
+          new Object[] {
+            id,
+            claim.revisionId(),
+            segment.ordinal(),
+            segment.page(),
+            segment.start(),
+            segment.end(),
+            segment.text(),
+            hash
+          });
+    }
+    store.executeBatch(
+        "INSERT INTO corpus_segments(id,revision_id,ordinal,page_number,start_offset,end_offset,text,text_sha256) VALUES(?,?,?,?,?,?,?,?)",
+        segments);
   }
 
   public void insertSegment(

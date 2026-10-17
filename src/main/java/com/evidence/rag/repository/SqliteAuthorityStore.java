@@ -183,7 +183,9 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 37) {
+              if (count("PRAGMA user_version") == 38) {
+                schema.verifyVersionThirtyEight();
+              } else if (count("PRAGMA user_version") == 37) {
                 schema.verifyVersionThirtySeven();
               } else if (count("PRAGMA user_version") == 36) {
                 schema.verifyVersionThirtySix();
@@ -512,9 +514,13 @@ public final class SqliteAuthorityStore implements AutoCloseable {
           rawExecute("PRAGMA foreign_keys=ON");
         }
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 37) {
+        if (exists) schema.backupVersion(canonicalDirectory, 37, 38);
+        schema.migrateVersionThirtyEight();
+      }
       transaction(
           () -> {
-            schema.verifyVersionThirtySeven();
+            schema.verifyVersionThirtyEight();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -657,6 +663,27 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     }
   }
 
+  /** Reuse one prepared statement, flushing bounded chunks within the caller's transaction. */
+  void executeBatch(String sql, List<Object[]> rows) {
+    requireTransaction();
+    try (var statement = connection.prepareStatement(sql)) {
+      int pending = 0;
+      for (Object[] row : rows) {
+        statement.clearParameters();
+        for (int index = 0; index < row.length; index++) statement.setObject(index + 1, row[index]);
+        statement.addBatch();
+        if (++pending == 256) {
+          statement.executeBatch();
+          statement.clearBatch();
+          pending = 0;
+        }
+      }
+      if (pending > 0) statement.executeBatch();
+    } catch (SQLException failure) {
+      throw unavailable();
+    }
+  }
+
   long count(String sql, Object... args) {
     requireTransaction();
     try (var statement = prepare(sql, args);
@@ -756,7 +783,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionThirtySeven();
+            new AuthoritySchema(this).verifyVersionThirtyEight();
             return null;
           });
     } catch (IOException | SQLException failure) {

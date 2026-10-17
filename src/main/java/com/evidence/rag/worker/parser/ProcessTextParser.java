@@ -33,7 +33,7 @@ import java.util.jar.JarFile;
  * Resource-bounded parser subprocess Module. Never inherits application environment credentials.
  */
 public final class ProcessTextParser implements AutoCloseable {
-  private static final Semaphore CAPACITY = new Semaphore(1);
+  private static final Semaphore CAPACITY = new Semaphore(4);
   private static final long CLEANUP_NANOS = TimeUnit.SECONDS.toNanos(2);
   public static final Duration MAX_PDF_DEADLINE = Duration.ofMinutes(30);
   private final long deadlineNanos;
@@ -86,6 +86,7 @@ public final class ProcessTextParser implements AutoCloseable {
       if (closed) {
         throw failure("parser_closed");
       }
+      if (active != null) throw failure("parser_busy");
       if (Thread.currentThread().isInterrupted()) {
         throw failure("parser_interrupted");
       }

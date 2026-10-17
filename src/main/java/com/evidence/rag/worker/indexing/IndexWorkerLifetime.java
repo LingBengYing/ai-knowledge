@@ -81,6 +81,27 @@ final class IndexWorkerLifetime implements AutoCloseable {
 
   static IndexWorkerLifetime acquire(
       MilvusRestProjection.Settings settings, Parent parent, Duration timeout, boolean isolated) {
+    return acquire(settings, parent, timeout, isolated, "");
+  }
+
+  static IndexWorkerLifetime acquireDocument(
+      MilvusRestProjection.Settings settings,
+      Parent parent,
+      Duration timeout,
+      boolean isolated,
+      String documentId,
+      String generationId) {
+    com.evidence.rag.model.domain.ModelValues.indexIdentity(documentId);
+    com.evidence.rag.model.domain.ModelValues.indexIdentity(generationId);
+    return acquire(settings, parent, timeout, isolated, documentId + "\n" + generationId);
+  }
+
+  private static IndexWorkerLifetime acquire(
+      MilvusRestProjection.Settings settings,
+      Parent parent,
+      Duration timeout,
+      boolean isolated,
+      String scope) {
     var lifetime = new IndexWorkerLifetime(parent, timeout, isolated);
     try {
       // Only main owns process termination. Public run remains a normal, testable JVM Interface.
@@ -95,7 +116,7 @@ final class IndexWorkerLifetime implements AutoCloseable {
       lifetime.check();
       lifetime.watchdog =
           Thread.ofPlatform().name("index-parent-lifetime").daemon(true).start(lifetime::watch);
-      Path file = leaseFile(settings);
+      Path file = leaseFile(settings, scope);
       var admission = LOCAL_ADMISSION[Math.floorMod(file.hashCode(), LOCAL_ADMISSION.length)];
       while (lifetime.localPermit == null) {
         lifetime.check();
@@ -182,7 +203,8 @@ final class IndexWorkerLifetime implements AutoCloseable {
     }
   }
 
-  private static Path leaseFile(MilvusRestProjection.Settings settings) throws IOException {
+  private static Path leaseFile(MilvusRestProjection.Settings settings, String scope)
+      throws IOException {
     // Stable across application restart and independent of both application data and job tmpdir.
     // POSIX is an explicit local-runtime requirement; unsupported filesystems fail closed.
     UserPrincipal owner = currentOwner(Path.of("/tmp"));
@@ -210,7 +232,7 @@ final class IndexWorkerLifetime implements AutoCloseable {
             + settings.database()
             + "\n"
             + settings.collection();
-    return root.resolve(hash(target) + ".lease");
+    return root.resolve(hash(scope.isEmpty() ? target : target + "\n" + scope) + ".lease");
   }
 
   private static UserPrincipal currentOwner(Path path) throws IOException {

@@ -1,6 +1,7 @@
 package com.evidence.rag;
 
 import com.evidence.rag.config.AnswersSettings;
+import com.evidence.rag.config.BatchProcessingSettings;
 import com.evidence.rag.config.IndexingSettings;
 import com.evidence.rag.config.IngestionSettings;
 import com.evidence.rag.config.RagProperties;
@@ -19,7 +20,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
   RagProperties.class,
   IngestionSettings.class,
   IndexingSettings.class,
-  AnswersSettings.class
+  AnswersSettings.class,
+  BatchProcessingSettings.class
 })
 public class RagApplication {
   public static void main(String[] args) {

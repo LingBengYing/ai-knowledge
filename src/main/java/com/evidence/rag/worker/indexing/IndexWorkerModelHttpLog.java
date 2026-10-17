@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.OutputStreamAppender;
+import com.evidence.rag.model.domain.ModelRequestUsage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -38,9 +39,13 @@ final class IndexWorkerModelHttpLog {
     return new ChildLog();
   }
 
-  static void drain(InputStream input) {
+  static ModelRequestUsage drain(InputStream input) {
+    return drain(input, null, null);
+  }
+
+  static ModelRequestUsage drain(InputStream input, String taskId, String documentId) {
     var logger = LoggerFactory.getLogger(LOGGER);
-    var reader = new Reader(logger);
+    var reader = new Reader(logger, taskId, documentId);
     byte[] line = new byte[256];
     int length = 0;
     boolean oversized = false;
@@ -80,18 +85,33 @@ final class IndexWorkerModelHttpLog {
               && reader.valid
               && reader.started.equals(reader.finished));
     }
+    boolean complete =
+        reader.ready && reader.complete && reader.valid && reader.started.equals(reader.finished);
+    if (taskId != null)
+      logger.info(
+          "index_model_task_audit task_id={} document_id={} started={} finished={} complete={}",
+          taskId,
+          documentId,
+          reader.started.size(),
+          reader.finished.size(),
+          complete);
+    return new ModelRequestUsage(reader.started.size(), reader.finished.size(), complete);
   }
 
   private static final class Reader {
     private final org.slf4j.Logger logger;
+    private final String taskId;
+    private final String documentId;
     private final Set<String> started = new HashSet<>();
     private final Set<String> finished = new HashSet<>();
     private boolean ready;
     private boolean complete;
     private boolean valid = true;
 
-    Reader(org.slf4j.Logger logger) {
+    Reader(org.slf4j.Logger logger, String taskId, String documentId) {
       this.logger = logger;
+      this.taskId = taskId;
+      this.documentId = documentId;
     }
 
     void accept(String line) {
@@ -115,11 +135,23 @@ final class IndexWorkerModelHttpLog {
           && started.size() < IndexProtocol.MAX_SEGMENTS
           && started.add(start.group(1))) {
         logger.info("{}", line);
+        if (taskId != null)
+          logger.info(
+              "index_model_request task_id={} document_id={} request_id={} phase=started",
+              taskId,
+              documentId,
+              start.group(1));
         return;
       }
       var finish = FINISH.matcher(line);
       if (finish.matches() && started.contains(finish.group(1)) && finished.add(finish.group(1))) {
         logger.info("{}", line);
+        if (taskId != null)
+          logger.info(
+              "index_model_request task_id={} document_id={} request_id={} phase=finished",
+              taskId,
+              documentId,
+              finish.group(1));
         return;
       }
       discard(line);

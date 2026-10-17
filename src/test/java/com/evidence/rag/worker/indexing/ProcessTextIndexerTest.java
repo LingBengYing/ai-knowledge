@@ -64,7 +64,7 @@ class ProcessTextIndexerTest {
   }
 
   @Test
-  void onlyOneChildAcrossInstancesAndConcurrentCloseNeverLeaksThePermit() throws Exception {
+  void separateInstancesRunConcurrentlyAndConcurrentCloseNeverLeaksThePermit() throws Exception {
     try (var server = new IndexingTestServer();
         var second = fixture(server, Duration.ofSeconds(10), "success", "unused")) {
       for (int attempt = 0; attempt < 3; attempt++) {
@@ -74,7 +74,7 @@ class ProcessTextIndexerTest {
         Thread.ofVirtual().start(running);
         try {
           awaitPid(pid);
-          failure("indexing_busy", () -> second.index(server.claim(1)));
+          assertEquals(1, second.index(server.claim(1)).verified().segmentCount());
           failure("indexing_busy", () -> indexer.index(server.claim(1)));
           var start = new CountDownLatch(1);
           var closers = new ArrayList<FutureTask<Void>>();

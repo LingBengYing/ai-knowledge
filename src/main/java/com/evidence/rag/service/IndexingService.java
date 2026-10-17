@@ -56,6 +56,13 @@ public final class IndexingService {
           "authorization_changed",
           "index_configuration_changed");
   private final SqliteAuthorityStore store;
+  private int concurrency = 1;
+
+  public void configureConcurrency(int value) {
+    if (value < 1 || value > 4) throw new IllegalArgumentException("Invalid indexing concurrency");
+    concurrency = value;
+  }
+
   private final IndexingRepository indexing;
   private final ManagementRepository management;
   private final DocumentPermissionPolicy permissions;
@@ -302,6 +309,23 @@ public final class IndexingService {
     return claim(workspaceId, null);
   }
 
+  public boolean reserveBatchRequests(IndexClaim claim, int requests) {
+    return store.transaction(
+        () ->
+            currentClaim(claim) != null
+                && new com.evidence.rag.repository.DocumentBatchRepository(store)
+                    .reserve(claim, requests));
+  }
+
+  public void recordBatchUsage(IndexClaim claim, int started, int finished, boolean complete) {
+    store.transaction(
+        () -> {
+          new com.evidence.rag.repository.DocumentBatchRepository(store)
+              .usage(claim, started, finished, complete);
+          return null;
+        });
+  }
+
   public Optional<IndexClaim> claimModelRebuild(String workspaceId, String batchId) {
     identifier(batchId, 100);
     return claim(workspaceId, batchId);
@@ -311,7 +335,9 @@ public final class IndexingService {
     Actor worker = new Actor(workspaceId, "system:indexing");
     return store.transaction(
         () -> {
-          if (indexing.hasProcessing()) {
+          if (indexing.processingCount() >= concurrency
+              || (batchId != null && indexing.hasProcessing())
+              || indexing.hasProcessingModelRebuild()) {
             return Optional.empty();
           }
           var queued =
@@ -320,6 +346,9 @@ public final class IndexingService {
                   : indexing.queuedModelRebuildIds(workspaceId, batchId);
           for (String jobId : queued) {
             var task = indexing.findInternalTask(jobId).orElseThrow();
+            if (indexing.documentProcessing(task.documentId())) continue;
+            if (!new com.evidence.rag.repository.DocumentBatchRepository(store)
+                .canRun(task.documentId())) continue;
             if (!creatorCanWrite(task)) {
               finishFailed(task, "authorization_changed");
               continue;
@@ -603,6 +632,8 @@ public final class IndexingService {
             throw indexConflict();
           }
           indexing.markCancelled(jobId, Instant.now().toString());
+          new com.evidence.rag.repository.DocumentBatchRepository(store)
+              .haltDocument(task.documentId(), "worker_interrupted");
           audit(
               actor,
               task.documentId(),
@@ -787,6 +818,8 @@ public final class IndexingService {
 
   private void finishFailed(TaskEntity task, String safeCode) {
     indexing.markFailed(task.id(), safeCode, Instant.now().toString());
+    new com.evidence.rag.repository.DocumentBatchRepository(store)
+        .haltDocument(task.documentId(), safeCode);
     audit(
         new Actor(task.workspaceId(), "system:indexing"),
         task.documentId(),
