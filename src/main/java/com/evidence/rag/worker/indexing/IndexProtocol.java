@@ -7,6 +7,7 @@ import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.IndexingResult;
 import com.evidence.rag.model.domain.ProjectionItem;
+import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -47,9 +48,36 @@ final class IndexProtocol {
       IndexTarget target,
       List<ProjectionItem> items,
       String projectionGenerationId,
-      IndexWorkerLifetime.Parent parent) {
+      IndexWorkerLifetime.Parent parent,
+      TransientRetry retry) {
     Request {
       items = List.copyOf(items);
+      retry = retry == null ? TransientRetry.NONE : retry;
+    }
+
+    Request(
+        OpenAiCompatibleModels.Configuration models,
+        MilvusRestProjection.Settings projection,
+        Duration timeout,
+        String workspaceId,
+        String documentId,
+        String revisionId,
+        IndexTarget target,
+        List<ProjectionItem> items,
+        String projectionGenerationId,
+        IndexWorkerLifetime.Parent parent) {
+      this(
+          models,
+          projection,
+          timeout,
+          workspaceId,
+          documentId,
+          revisionId,
+          target,
+          items,
+          projectionGenerationId,
+          parent,
+          TransientRetry.NONE);
     }
 
     @Override
@@ -63,6 +91,15 @@ final class IndexProtocol {
       MilvusRestProjection.Settings projection,
       Duration timeout,
       IndexClaim claim) {
+    return request(models, projection, timeout, claim, TransientRetry.NONE);
+  }
+
+  static Request request(
+      OpenAiCompatibleModels.Configuration models,
+      MilvusRestProjection.Settings projection,
+      Duration timeout,
+      IndexClaim claim,
+      TransientRetry retry) {
     if (claim == null) {
       throw invalid();
     }
@@ -77,7 +114,8 @@ final class IndexProtocol {
             claim.target(),
             claim.items(),
             claim.projectionGenerationId(),
-            IndexWorkerLifetime.Parent.current());
+            IndexWorkerLifetime.Parent.current(),
+            retry);
     validate(request);
     return request;
   }
@@ -193,6 +231,9 @@ final class IndexProtocol {
     writer.writeLong(request.parent().pid());
     writer.writeLong(request.parent().started().getEpochSecond());
     writer.writeInt(request.parent().started().getNano());
+    writer.writeInt(request.retry().retries());
+    writer.writeLong(request.retry().baseDelay().toMillis());
+    writer.writeLong(request.retry().maxDelay().toMillis());
     bytes.writeTo(output);
     output.flush();
   }
@@ -261,6 +302,13 @@ final class IndexProtocol {
     var parent =
         new IndexWorkerLifetime.Parent(
             parentPid, java.time.Instant.ofEpochSecond(parentSeconds, parentNanos));
+    int retries = bounded(reader.readInt(), 0, 10);
+    long baseDelay = reader.readLong(), maxDelay = reader.readLong();
+    if (baseDelay < 1 || maxDelay < baseDelay || maxDelay > 600_000) {
+      throw invalid();
+    }
+    var retry =
+        new TransientRetry(retries, Duration.ofMillis(baseDelay), Duration.ofMillis(maxDelay));
     if (reader.read() != -1) {
       throw invalid();
     }
@@ -275,7 +323,8 @@ final class IndexProtocol {
             target,
             segments,
             generation,
-            parent);
+            parent,
+            retry);
     validate(request);
     return request;
   }

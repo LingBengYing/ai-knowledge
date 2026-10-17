@@ -130,6 +130,57 @@ public final class DocumentBatchRepository {
         .toList();
   }
 
+  /** One row per uploaded file with the task states the bulk actions decide on. */
+  public List<Map<String, Object>> actionRows(String id) {
+    return store.rows(
+        "SELECT f.ordinal,f.document_id,f.revision_id,f.ingestion_task_id,g.state AS parse_state,"
+            + automatic("ingestion", "g")
+            + " AS parse_automatic,a.state AS request_state,a.task_id AS request_task,"
+            + "j.id AS index_task,j.state AS index_state,"
+            + automatic("indexing", "j")
+            + " AS index_automatic "
+            + JOIN
+            + " WHERE f.batch_id=? AND f.document_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=f.document_id) ORDER BY f.ordinal",
+        id);
+  }
+
+  /** Files a bulk retry could queue again: failed or cancelled work with attempts left. */
+  public long retryable(String id) {
+    return store.count(
+        "SELECT COUNT(*) "
+            + JOIN
+            + " WHERE f.batch_id=? AND f.document_id IS NOT NULL"
+            + " AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=f.document_id)"
+            + " AND ((g.state IN ('failed','cancelled') AND g.attempt<3)"
+            + " OR (g.state='parsed' AND a.state='failed' AND a.task_id IS NULL)"
+            + " OR (g.state='parsed' AND j.state IN ('failed','cancelled') AND j.attempt<3))",
+        id);
+  }
+
+  /** Queued work a batch cancel stops: parsing tasks and the batch's own import index tasks. */
+  public List<Map<String, Object>> queuedTasks(String id) {
+    return store.rows(
+        "SELECT CASE WHEN g.state='queued' THEN g.id END AS parse_task,"
+            + "CASE WHEN j.state='queued' THEN j.id END AS index_task "
+            + JOIN
+            + " WHERE f.batch_id=? AND (g.state='queued' OR j.state='queued')",
+        id);
+  }
+
+  /** A user cancel is recorded as the batch's halt: no uploads and no automatic work start. */
+  public void cancel(String id) {
+    store.execute(
+        "UPDATE document_import_batches SET halted_reason='batch_cancelled' WHERE id=?", id);
+  }
+
+  /** Clears the halt; a new limit may raise or lower the budget but never below what is spent. */
+  public void resume(String id, Integer requestLimit) {
+    if (requestLimit != null)
+      store.execute(
+          "UPDATE document_import_batches SET request_limit=? WHERE id=?", requestLimit, id);
+    store.execute("UPDATE document_import_batches SET halted_reason=NULL WHERE id=?", id);
+  }
+
   public Map<String, Long> counts(String id) {
     var result = new java.util.LinkedHashMap<String, Long>();
     for (var r :
@@ -159,62 +210,139 @@ public final class DocumentBatchRepository {
         AND (a.task_id=j.id OR (a.task_id IS NULL AND a.state IN ('pending','dispatching')))
       """;
 
-  /** Queued import parsing of a halted batch is terminated by the claimant, never skipped. */
+  /**
+   * An attempt is automatic when it is the first one or was requeued by restart recovery or a
+   * resume; only an explicit user retry is not. A halt stops automatic work only.
+   */
+  private static String automatic(String kind, String alias) {
+    return "("
+        + alias
+        + ".attempt=1 OR EXISTS(SELECT 1 FROM batch_task_requeues q WHERE q.task_kind='"
+        + kind
+        + "' AND q.job_id="
+        + alias
+        + ".id AND q.attempt="
+        + alias
+        + ".attempt))";
+  }
+
+  /** Queued automatic import parsing of a halted batch is terminated by the claimant. */
   public boolean haltedImportIngestion(String ingestionJobId) {
     return store.count(
-            "SELECT COUNT(*) FROM document_import_files f JOIN document_import_batches b ON b.id=f.batch_id WHERE f.ingestion_task_id=? AND b.halted_reason IS NOT NULL",
+            "SELECT COUNT(*) FROM document_import_files f JOIN document_import_batches b ON b.id=f.batch_id JOIN ingestion_jobs g ON g.id=f.ingestion_task_id WHERE f.ingestion_task_id=? AND b.halted_reason IS NOT NULL AND "
+                + automatic("ingestion", "g"),
             ingestionJobId)
         != 0;
   }
 
-  /** Queued import indexing of a halted batch is terminated by the claimant, never skipped. */
+  /** Queued automatic import indexing of a halted batch is terminated by the claimant. */
   public boolean haltedImportIndexing(String indexingJobId) {
     return store.count(
-            "SELECT COUNT(*) " + IMPORT_INDEX_TASK + " AND b.halted_reason IS NOT NULL",
+            "SELECT COUNT(*) "
+                + IMPORT_INDEX_TASK
+                + " AND b.halted_reason IS NOT NULL AND "
+                + automatic("indexing", "j"),
             indexingJobId)
         != 0;
   }
 
-  public boolean reserve(IndexClaim claim, int requests) {
+  /** The batch of an import parsing task, with whether that batch is halted. */
+  public Optional<Boolean> ingestionBatchHalted(String ingestionJobId) {
+    return store
+        .rows(
+            "SELECT b.halted_reason FROM document_import_files f JOIN document_import_batches b ON b.id=f.batch_id WHERE f.ingestion_task_id=?",
+            ingestionJobId)
+        .stream()
+        .findFirst()
+        .map(row -> row.get("halted_reason") != null);
+  }
+
+  /** The batch of an import index task, with whether that batch is halted. */
+  public Optional<Boolean> indexingBatchHalted(String indexingJobId) {
+    return store.rows("SELECT b.halted_reason " + IMPORT_INDEX_TASK, indexingJobId).stream()
+        .findFirst()
+        .map(row -> row.get("halted_reason") != null);
+  }
+
+  public void markAutomatic(String kind, String jobId, int attempt, String reason, String now) {
+    store.execute(
+        "INSERT OR IGNORE INTO batch_task_requeues(task_kind,job_id,attempt,reason,created_at) VALUES(?,?,?,?,?)",
+        kind,
+        jobId,
+        attempt,
+        reason,
+        now);
+  }
+
+  /**
+   * Reserves this attempt's expected requests plus up to {@code retries} more for transient
+   * retries, taken only from the budget's spare room. Returns the granted retry allowance, or -1
+   * when the attempt may not start. Indexing outside a batch spends no budget.
+   *
+   * <p>With {@code mayWait}, a shortfall that other running attempts of the batch could still cover
+   * by releasing their unused retry allowance returns {@link #HELD} instead of halting: the caller
+   * waits for them and asks again. Without it, any shortfall halts the batch.
+   */
+  public int reserve(IndexClaim claim, int requests, int retries) {
+    return reserve(claim, requests, retries, false);
+  }
+
+  /** The budget is held by running attempts that may still release part of it. */
+  public static final int HELD = -2;
+
+  public int reserve(IndexClaim claim, int requests, int retries, boolean mayWait) {
     var rows = store.rows("SELECT b.* " + IMPORT_INDEX_TASK, claim.jobId());
-    if (rows.isEmpty()) return true;
+    if (rows.isEmpty()) return retries;
     var row = rows.getFirst();
     String batch = (String) row.get("id");
-    // Automatic first attempts stop with the batch; explicit retries still respect the budget.
-    if (row.get("halted_reason") != null && claim.attempt() == 1) return false;
+    // Automatic attempts stop with the batch; explicit retries still respect the budget.
+    if (row.get("halted_reason") != null && haltedImportIndexing(claim.jobId())) return -1;
     if (store.count(
             "SELECT COUNT(*) FROM batch_request_reservations WHERE job_id=? AND attempt=?",
             claim.jobId(),
             claim.attempt())
-        != 0) return false;
-    if (((Number) row.get("reserved_requests")).longValue() + requests
-        > ((Number) row.get("request_limit")).longValue()) {
+        != 0) return -1;
+    long available =
+        ((Number) row.get("request_limit")).longValue()
+            - ((Number) row.get("reserved_requests")).longValue();
+    if (requests > available) {
+      long releasable =
+          mayWait
+              ? store.count(
+                  """
+                  SELECT COALESCE(SUM(r.reserved),0) FROM batch_request_reservations r
+                  JOIN indexing_jobs j ON j.id=r.job_id AND j.attempt=r.attempt AND j.state='processing'
+                  WHERE r.batch_id=? AND r.started IS NULL AND NOT (r.job_id=? AND r.attempt=?)
+                  """,
+                  batch,
+                  claim.jobId(),
+                  claim.attempt())
+              : 0;
+      if (requests <= available + releasable) return HELD;
       store.execute(
           "UPDATE document_import_batches SET halted_reason='embedding_budget_exhausted' WHERE id=?",
           batch);
-      return false;
+      return -1;
     }
+    int allowance = (int) Math.min(retries, available - requests);
     store.execute(
         "UPDATE document_import_batches SET reserved_requests=reserved_requests+? WHERE id=?",
-        requests,
+        requests + allowance,
         batch);
     store.execute(
         "INSERT INTO batch_request_reservations(job_id,attempt,batch_id,reserved) VALUES(?,?,?,?)",
         claim.jobId(),
         claim.attempt(),
         batch,
-        requests);
-    return true;
+        requests + allowance);
+    return allowance;
   }
 
-  public void haltDocument(String document, String reason) {
-    store.execute(
-        "UPDATE document_import_batches SET halted_reason=COALESCE(halted_reason,?) WHERE id IN (SELECT batch_id FROM document_import_files WHERE document_id=?)",
-        reason,
-        document);
-  }
-
-  public void usage(IndexClaim claim, int started, int finished, boolean complete) {
+  /**
+   * Records the audited usage. A complete, closed audit releases the unused retry allowance; the
+   * expected requests stay charged as before, so {@code reserved_requests} remains an upper bound.
+   */
+  public void usage(IndexClaim claim, int started, int finished, boolean complete, int expected) {
     store.execute(
         "UPDATE batch_request_reservations SET started=?,finished=?,audit_complete=? WHERE job_id=? AND attempt=?",
         started,
@@ -222,7 +350,7 @@ public final class DocumentBatchRepository {
         complete ? 1 : 0,
         claim.jobId(),
         claim.attempt());
-    if (!complete || started != finished)
+    if (!complete || started != finished) {
       store.execute(
           """
         UPDATE document_import_batches SET halted_reason=COALESCE(halted_reason,'model_usage_uncertain')
@@ -230,6 +358,25 @@ public final class DocumentBatchRepository {
         """,
           claim.jobId(),
           claim.attempt());
+      return;
+    }
+    for (var row :
+        store.rows(
+            "SELECT batch_id,reserved FROM batch_request_reservations WHERE job_id=? AND attempt=?",
+            claim.jobId(),
+            claim.attempt())) {
+      long unused = ((Number) row.get("reserved")).longValue() - Math.max(expected, started);
+      if (unused <= 0) continue;
+      store.execute(
+          "UPDATE batch_request_reservations SET reserved=reserved-? WHERE job_id=? AND attempt=?",
+          unused,
+          claim.jobId(),
+          claim.attempt());
+      store.execute(
+          "UPDATE document_import_batches SET reserved_requests=reserved_requests-? WHERE id=?",
+          unused,
+          row.get("batch_id"));
+    }
   }
 
   public long observed(String id) {

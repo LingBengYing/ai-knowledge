@@ -134,16 +134,45 @@ public interface TextModels {
     private static final long serialVersionUID = 1L;
     private final String code;
     private final Integer httpStatus;
+    private final java.time.Duration retryAfter;
 
     public Failure(String code) {
       this(code, null);
     }
 
     public Failure(String code, Integer httpStatus) {
+      this(code, httpStatus, null);
+    }
+
+    /** {@code retryAfter} is the provider's bounded Retry-After wait, when it sent one. */
+    public Failure(String code, Integer httpStatus, java.time.Duration retryAfter) {
       super("模型调用或配置未通过安全校验。", null, false, true);
       this.code = code;
       this.httpStatus =
           httpStatus != null && httpStatus >= 100 && httpStatus <= 599 ? httpStatus : null;
+      this.retryAfter =
+          retryAfter != null
+                  && !retryAfter.isNegative()
+                  && retryAfter.compareTo(java.time.Duration.ofDays(1)) <= 0
+              ? retryAfter
+              : null;
+    }
+
+    /**
+     * Rate limits, provider-side errors, timeouts and broken connections may succeed when the same
+     * request is sent again; invalid input, configuration or responses never do.
+     */
+    public boolean isTransient() {
+      return switch (code) {
+        case "model_timeout", "model_transport_failed" -> true;
+        case "model_http_failed" ->
+            httpStatus != null && (httpStatus == 429 || httpStatus >= 500 && httpStatus <= 599);
+        default -> false;
+      };
+    }
+
+    public java.time.Duration retryAfter() {
+      return retryAfter;
     }
 
     public String code() {

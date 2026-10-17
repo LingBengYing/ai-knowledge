@@ -64,7 +64,8 @@ class IngestionSettingsTest {
                         .getBeanProvider(com.evidence.rag.service.LegacyTextProfileGuard.class),
                     new org.springframework.beans.factory.support.DefaultListableBeanFactory()
                         .getBeanProvider(
-                            com.evidence.rag.repository.ModelConfigurationRepository.class)));
+                            com.evidence.rag.repository.ModelConfigurationRepository.class),
+                    new BatchProcessingSettings(2, 2, 2, 10000, 0, 1, 1, 0, 600000)));
       }
     }
   }

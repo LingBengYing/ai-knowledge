@@ -155,6 +155,120 @@ class DocumentBatchHttpTest {
     }
   }
 
+  @Test
+  void actualHttpBulkActionsFollowTheBatchState() throws Exception {
+    var json = JsonMapper.builder().build();
+    var client = HttpClient.newHttpClient();
+    try (var upstream = new IndexingTestServer()) {
+      var defaults = new LinkedHashMap<String, Object>();
+      for (String kind : List.of("EMBEDDING", "RERANK", "GENERATION")) {
+        defaults.put("RAG_" + kind + "_BASE_URL", upstream.endpoint().toString());
+        defaults.put("RAG_" + kind + "_MODEL", "fixture-model");
+        defaults.put("RAG_" + kind + "_API_KEY", "synthetic-model-credential");
+      }
+      defaults.put("RAG_EMBEDDING_DIMENSIONS", "2");
+      defaults.put("RAG_EMBEDDING_REVISION", "fixture-v1");
+      defaults.put("RAG_MILVUS_ENDPOINT", upstream.endpoint().toString());
+      defaults.put("RAG_MILVUS_TOKEN", "synthetic-projection-credential");
+      defaults.put("RAG_MILVUS_COLLECTION", upstream.settings().projection().collection());
+      defaults.put("RAG_TEXT_ALLOW_LOOPBACK_HTTP", "true");
+      var app = new SpringApplication(RagApplication.class);
+      var environment = new StandardEnvironment();
+      environment
+          .getPropertySources()
+          .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+      environment
+          .getPropertySources()
+          .remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
+      app.setEnvironment(environment);
+      app.setDefaultProperties(defaults);
+      try (var context =
+          app.run(
+              "--server.port=0",
+              "--server.address=127.0.0.1",
+              "--rag.environment=test",
+              "--rag.auth-mode=development_headers",
+              "--rag.data-directory=" + directory,
+              "--rag.ingestion.enabled=true",
+              "--rag.indexing.enabled=true")) {
+        String base =
+            "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
+        byte[] raw = "Synthetic HTTP bulk source".getBytes(StandardCharsets.UTF_8);
+        byte[] command =
+            json.writeValueAsBytes(
+                Map.of(
+                    "request_id",
+                    "http-bulk",
+                    "files",
+                    List.of(
+                        Map.of(
+                            "filename",
+                            "one.txt",
+                            "size_bytes",
+                            raw.length,
+                            "source_sha256",
+                            ModelValues.sha256(raw)))));
+        var admitted =
+            send(client, base, "POST", "/v1/document-batches", command, "application/json");
+        assertEquals(202, admitted.statusCode(), admitted.body());
+        var created = json.readTree(admitted.body());
+        String id = created.path("batch_id").asString();
+        assertEquals("awaiting_upload", created.path("state").asString());
+        assertEquals(0, created.path("retryable_files").asInt());
+        assertEquals("[\"cancel\"]", created.path("available_actions").toString());
+        String path = "/v1/document-batches/" + id;
+
+        var retried = send(client, base, "POST", path + "/retry-failed", null, null);
+        assertEquals(200, retried.statusCode(), retried.body());
+        var retry = json.readTree(retried.body());
+        assertEquals("retry_failed", retry.path("action").asString());
+        assertEquals(0, retry.path("affected").asInt());
+        assertEquals(id, retry.path("batch").path("batch_id").asString());
+
+        assertEquals(405, send(client, base, "GET", path + "/cancel", null, null).statusCode());
+        assertEquals(
+            422, send(client, base, "POST", path + "/cancel?force=1", null, null).statusCode());
+        assertEquals(
+            404,
+            send(client, base, "POST", "/v1/document-batches/missing/cancel", null, null)
+                .statusCode());
+        var resumeEarly = send(client, base, "POST", path + "/resume", null, null);
+        assertEquals(409, resumeEarly.statusCode(), resumeEarly.body());
+        assertTrue(resumeEarly.body().contains("batch_action_conflict"));
+
+        var cancelled = send(client, base, "POST", path + "/cancel", null, null);
+        assertEquals(200, cancelled.statusCode(), cancelled.body());
+        var cancel = json.readTree(cancelled.body()).path("batch");
+        assertEquals("cancelled", cancel.path("state").asString());
+        assertEquals("batch_cancelled", cancel.path("halted_reason").asString());
+        assertEquals("[\"resume\"]", cancel.path("available_actions").toString());
+        assertEquals(409, send(client, base, "POST", path + "/cancel", null, null).statusCode());
+        assertEquals(
+            409, send(client, base, "POST", path + "/retry-failed", null, null).statusCode());
+        assertEquals(
+            409,
+            send(client, base, "POST", path + "/files/0", raw, "application/octet-stream")
+                .statusCode());
+
+        byte[] tooLow = json.writeValueAsBytes(Map.of("embedding_request_limit", 0));
+        assertEquals(
+            422,
+            send(client, base, "POST", path + "/resume", tooLow, "application/json").statusCode());
+        byte[] limit = json.writeValueAsBytes(Map.of("embedding_request_limit", 50));
+        var resumed = send(client, base, "POST", path + "/resume", limit, "application/json");
+        assertEquals(200, resumed.statusCode(), resumed.body());
+        var resume = json.readTree(resumed.body()).path("batch");
+        assertEquals("awaiting_upload", resume.path("state").asString());
+        assertEquals(50, resume.path("embedding_request_limit").asInt());
+        assertTrue(resume.path("halted_reason").isNull());
+        assertEquals(
+            202,
+            send(client, base, "POST", path + "/files/0", raw, "application/octet-stream")
+                .statusCode());
+      }
+    }
+  }
+
   static HttpResponse<String> send(
       HttpClient client, String base, String method, String path, byte[] bytes, String type)
       throws Exception {

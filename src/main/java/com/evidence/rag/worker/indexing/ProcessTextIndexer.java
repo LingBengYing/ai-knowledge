@@ -5,6 +5,7 @@ import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexingResult;
 import com.evidence.rag.model.domain.LibraryOperationGate;
+import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.worker.OwnedTemporaryResources;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -36,7 +37,6 @@ public final class ProcessTextIndexer implements AutoCloseable {
   private final OpenAiCompatibleModels.Configuration models;
   private final MilvusRestProjection.Settings projection;
   private final Duration timeout;
-  private final long timeoutNanos;
   private final List<String> launch;
   private final CleanupObserver cleanupObserver;
   private final Object lock = new Object();
@@ -96,16 +96,25 @@ public final class ProcessTextIndexer implements AutoCloseable {
     this.models = models;
     this.projection = projection;
     this.timeout = timeout;
-    timeoutNanos = timeout.toNanos();
     launch = launch(fixtureMainClass, fixtureArgs);
     this.cleanupObserver = Objects.requireNonNull(cleanupObserver);
   }
 
   public IndexingResult index(IndexClaim claim) {
-    return executeIndex(claim);
+    return executeIndex(claim, TransientRetry.NONE, timeout);
   }
 
-  private IndexingResult executeIndex(IndexClaim claim) {
+  /**
+   * One attempt with this call's own deadline (at most the protocol's 600 seconds) and the
+   * embedding retry allowance the batch budget reserved for it.
+   */
+  public IndexingResult index(IndexClaim claim, TransientRetry retry, Duration deadline) {
+    IndexProtocol.validateSettings(models, projection, deadline);
+    return executeIndex(claim, retry, deadline);
+  }
+
+  private IndexingResult executeIndex(IndexClaim claim, TransientRetry retry, Duration timeout) {
+    long timeoutNanos = timeout.toNanos();
     long started = System.nanoTime();
     Job job;
     synchronized (lock) {
@@ -116,7 +125,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
       if (Thread.currentThread().isInterrupted()) {
         throw new Failure("worker_interrupted");
       }
-      var request = IndexProtocol.request(models, projection, timeout, claim);
+      var request = IndexProtocol.request(models, projection, timeout, claim, retry);
       if (!CAPACITY.tryAcquire()) {
         throw new Failure("indexing_busy");
       }

@@ -111,7 +111,8 @@ public class ModelConfigurationConfiguration {
       AnswersSettings answerLimits,
       IndexingSettings indexLimits,
       ModelConfigurationRepository repository,
-      ManagedMediaTextFactory media) {
+      ManagedMediaTextFactory media,
+      BatchProcessingSettings batch) {
     var runtime =
         ManagedTextRuntime.anchored(
             store,
@@ -146,6 +147,9 @@ public class ModelConfigurationConfiguration {
                             target,
                             Duration.ofMillis(indexLimits.timeoutMs()),
                             receiptVerifier);
+                processor.configureResilience(
+                    batch.transientRetry(),
+                    batch.indexDeadline(Duration.ofMillis(indexLimits.timeoutMs())));
                 var mediaBundle = media.build(models, projection, anchor);
                 var currentQueries = mediaBundle.queries();
                 var currentVideo = mediaBundle.video();

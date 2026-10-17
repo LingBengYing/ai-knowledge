@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-17 批量导入第一阶段“稳定”（分支feat/batch-resilience，未发布）：只有`embedding_budget_exhausted`、`model_usage_uncertain`停止批次，其余解析/派发/索引失败和单任务取消只影响该文件；嵌入429/5xx/超时/连接错误及`parser_busy`/`indexing_busy`任务内有界退避重试（遵守Retry-After，重试额度只取剩余额度、审计闭合后退回未用部分）；重启把处理中的批次任务重新排队（三次尝试上限），v39新增`batch_task_requeues`；索引期限=base+每批×请求数，有上限；新增`POST /v1/document-batches/{id}/retry-failed|cancel|resume`。新配置`rag.batch.transient-retries`等五项，详见docs/BATCH_IMPORT.md。生产schema仍38，发布前须验证v38→v39副本迁移与回滚；不部署、不调用真实模型。
+
 2026-10-17 0083 Git同步：负责人授权仅提交/推送批量上传与写入。已按hunk从HEAD提取独立快照，排除图片/OCR与问答WIP，工作树原内容保持；提交快照验证与边界见docs/changes/0083-batch-upload-indexing/git-integration.md。历史“未提交/推送”是上一轮停点；本轮不部署、不导入TED、不调用真实模型。
 
 2026-10-16 0083/Web0059批量上传/写入LOCAL_VERIFIED：持久清单/幂等槽位、默认2路上传/解析/索引、JDBC256行批写、短集合租约和任务级计数，复用authority队列不引入Spring Batch JobRepository。Java45/45、Web466/466、格式/打包/扫描及实际浏览器2合成文件自动索引刷新通过；6份合成资料2路嵌入重叠后全部发布并重开，3827项清单批写/分页重开通过。最终架构仅同HEAD四条旧依赖，旧全仓门禁不关闭。只验本地历史v37→38副本，生产0079/schema37不变，模型0/4000未用、TED未上传、无提交推送部署。图片/OCR WIP保持未认证，整树JAR不作生产候选；发布前隔离WIP、生产副本及v38回滚验证，不旧库覆盖新业务。详见0083四工件、verification与docs/BATCH_IMPORT.md。

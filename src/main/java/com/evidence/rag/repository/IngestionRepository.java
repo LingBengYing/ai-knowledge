@@ -1027,6 +1027,12 @@ public final class IngestionRepository {
         now,
         jobId);
     replacementState(jobId, "queued", now);
+    // A failed parse made the revision's automatic index request fail too ("parsing_incomplete");
+    // parsing again re-enters auto-index, which then adopts or creates the index task.
+    store.execute(
+        "UPDATE import_index_requests SET state='pending',task_id=NULL,error_code=NULL,updated_at=? WHERE state='failed' AND task_id IS NULL AND revision_id=(SELECT revision_id FROM ingestion_jobs WHERE id=?)",
+        now,
+        jobId);
   }
 
   private void replacementState(String jobId, String state, String now) {

@@ -5,33 +5,44 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.BatchImportFile;
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
 import com.evidence.rag.model.dto.DocumentBatchResult;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.repository.DocumentBatchRepository;
+import com.evidence.rag.repository.ImportIndexRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** Manifest registration, idempotent file admission and authoritative batch progress. */
 public final class DocumentBatchService {
+  private static final String CANCELLED = "batch_cancelled";
   private final SqliteAuthorityStore store;
   private final DocumentBatchRepository batches;
   private final IngestionService ingestion;
+  private final IndexingService indexing;
   private final int maxFiles;
   private final int uploadConcurrency;
 
   public DocumentBatchService(
       SqliteAuthorityStore store, IngestionService ingestion, int maxFiles) {
-    this(store, ingestion, maxFiles, 2);
+    this(store, ingestion, null, maxFiles, 2);
   }
 
   public DocumentBatchService(
-      SqliteAuthorityStore store, IngestionService ingestion, int maxFiles, int uploadConcurrency) {
+      SqliteAuthorityStore store,
+      IngestionService ingestion,
+      IndexingService indexing,
+      int maxFiles,
+      int uploadConcurrency) {
     this.store = store;
     this.batches = new DocumentBatchRepository(store);
     this.ingestion = ingestion;
+    this.indexing = indexing;
     this.maxFiles = maxFiles;
     this.uploadConcurrency = uploadConcurrency;
   }
@@ -142,17 +153,28 @@ public final class DocumentBatchService {
           var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
           var counts = batches.counts(id);
           int total = counts.values().stream().mapToInt(Long::intValue).sum();
+          String halted = (String) row.get("halted_reason");
+          long settled =
+              counts.getOrDefault("indexed", 0L)
+                  + counts.getOrDefault("failed", 0L)
+                  + counts.getOrDefault("cancelled", 0L)
+                  + counts.getOrDefault("deleted", 0L);
+          // A failed or cancelled file no longer stops the batch: only a recorded halt does.
           String state =
-              row.get("halted_reason") != null
-                      || counts.containsKey("failed")
-                      || counts.containsKey("cancelled")
-                      || counts.containsKey("deleted")
-                  ? "halted"
-                  : counts.getOrDefault("indexed", 0L) == total
-                      ? "completed"
-                      : counts.getOrDefault("awaiting_upload", 0L) == total
-                          ? "awaiting_upload"
-                          : "processing";
+              CANCELLED.equals(halted)
+                  ? "cancelled"
+                  : halted != null
+                      ? "halted"
+                      : counts.getOrDefault("indexed", 0L) == total
+                          ? "completed"
+                          : counts.getOrDefault("awaiting_upload", 0L) == total
+                              ? "awaiting_upload"
+                              : settled == total ? "completed_with_failures" : "processing";
+          long retryable = batches.retryable(id);
+          var actions = new java.util.ArrayList<String>();
+          if (retryable > 0 && !CANCELLED.equals(halted)) actions.add("retry_failed");
+          if (!CANCELLED.equals(halted) && settled < total) actions.add("cancel");
+          if (halted != null) actions.add("resume");
           return new DocumentBatchResult(
               id,
               state,
@@ -164,7 +186,9 @@ public final class DocumentBatchService {
               ((Number) row.get("reserved_requests")).longValue(),
               batches.observed(id),
               batches.uncertain(id),
-              (String) row.get("halted_reason"),
+              halted,
+              retryable,
+              List.copyOf(actions),
               batches.files(id, offset, limit).stream()
                   .map(
                       f ->
@@ -181,6 +205,114 @@ public final class DocumentBatchService {
                               f.errorCode()))
                   .toList());
         });
+  }
+
+  /**
+   * Queues every failed or cancelled file of the batch again that still has attempts left: a parse
+   * retry (which also re-enters auto-index), a failed auto-index dispatch, or an index retry. Each
+   * is an explicit user retry, so it runs even while the batch is halted.
+   */
+  public DocumentBatchActionResult retryFailed(Actor actor, String id) {
+    ModelValues.identifier(id, 128);
+    int affected =
+        store.transaction(
+            () -> {
+              var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
+              if (CANCELLED.equals(row.get("halted_reason"))) throw actionConflict();
+              var requests = new ImportIndexRepository(store);
+              int count = 0;
+              for (var file : batches.actionRows(id)) {
+                String parse = (String) file.get("parse_state");
+                String parseTask = (String) file.get("ingestion_task_id");
+                String indexTask = (String) file.get("index_task");
+                if ("failed".equals(parse) || "cancelled".equals(parse)) {
+                  if (ingestion.retryBatchIngestionInTransaction(actor, parseTask)) count++;
+                } else if ("parsed".equals(parse)
+                    && "failed".equals(file.get("request_state"))
+                    && file.get("request_task") == null) {
+                  if (requests.retryFailed((String) file.get("revision_id"))) count++;
+                } else if ("parsed".equals(parse)
+                    && indexing != null
+                    && indexTask != null
+                    && Set.of("failed", "cancelled").contains(file.get("index_state"))) {
+                  if (indexing.retryBatchIndexingInTransaction(actor, indexTask)) count++;
+                }
+              }
+              return count;
+            });
+    return new DocumentBatchActionResult(id, "retry_failed", affected, status(actor, id, 0, 100));
+  }
+
+  /**
+   * Cancels the batch: queued parsing and index tasks stop, no further upload is admitted and no
+   * automatic work starts. Running tasks finish; resume continues the batch.
+   */
+  public DocumentBatchActionResult cancel(Actor actor, String id) {
+    ModelValues.identifier(id, 128);
+    int affected =
+        store.transaction(
+            () -> {
+              var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
+              if (CANCELLED.equals(row.get("halted_reason"))) throw actionConflict();
+              batches.cancel(id);
+              int count = 0;
+              for (var task : batches.queuedTasks(id)) {
+                String parse = (String) task.get("parse_task");
+                String index = (String) task.get("index_task");
+                if (parse != null && ingestion.cancelBatchIngestionInTransaction(actor, parse))
+                  count++;
+                if (index != null
+                    && indexing != null
+                    && indexing.cancelBatchIndexingInTransaction(actor, index)) count++;
+              }
+              return count;
+            });
+    return new DocumentBatchActionResult(id, "cancel", affected, status(actor, id, 0, 100));
+  }
+
+  /**
+   * Clears the batch's halt (budget, usage audit or a user cancel), optionally with a new embedding
+   * request limit, and queues its cancelled automatic tasks again. A limit below the requests
+   * already reserved is rejected.
+   */
+  public DocumentBatchActionResult resume(Actor actor, String id, Integer requestLimit) {
+    ModelValues.identifier(id, 128);
+    if (requestLimit != null && (requestLimit < 1 || requestLimit > 1000000))
+      throw ModelValues.invalid();
+    int affected =
+        store.transaction(
+            () -> {
+              var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
+              if (row.get("halted_reason") == null) throw actionConflict();
+              if (requestLimit != null
+                  && requestLimit < ((Number) row.get("reserved_requests")).longValue())
+                throw ModelValues.invalid();
+              batches.resume(id, requestLimit);
+              int count = 0;
+              for (var file : batches.actionRows(id)) {
+                if ("cancelled".equals(file.get("parse_state"))
+                    && truthy(file.get("parse_automatic"))) {
+                  if (ingestion.resumeBatchIngestionInTransaction(
+                      actor, (String) file.get("ingestion_task_id"))) count++;
+                } else if ("cancelled".equals(file.get("index_state"))
+                    && truthy(file.get("index_automatic"))
+                    && indexing != null) {
+                  if (indexing.resumeBatchIndexingInTransaction(
+                      actor, (String) file.get("index_task"))) count++;
+                }
+              }
+              return count;
+            });
+    return new DocumentBatchActionResult(id, "resume", affected, status(actor, id, 0, 100));
+  }
+
+  private static boolean truthy(Object value) {
+    return value instanceof Number number && number.intValue() != 0;
+  }
+
+  private static ApplicationException actionConflict() {
+    return new ApplicationException(
+        FailureKind.CONFLICT, "batch_action_conflict", "批次当前状态不能执行该操作，请刷新批次。");
   }
 
   private static ApplicationException conflict() {

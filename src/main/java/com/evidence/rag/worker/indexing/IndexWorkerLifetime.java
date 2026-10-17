@@ -173,6 +173,29 @@ final class IndexWorkerLifetime implements AutoCloseable {
     }
   }
 
+  /** Time left before this request's deadline; never negative. */
+  Duration remaining() {
+    return Duration.ofNanos(Math.max(0, deadline - System.nanoTime()));
+  }
+
+  /** Waits without outliving the parent, the deadline or an interrupt. */
+  void pause(Duration wait) {
+    long until = System.nanoTime() + wait.toNanos();
+    while (true) {
+      check();
+      long left = until - System.nanoTime();
+      if (left <= 0) {
+        return;
+      }
+      try {
+        Thread.sleep(Duration.ofNanos(Math.min(left, TimeUnit.MILLISECONDS.toNanos(100))));
+      } catch (InterruptedException interrupted) {
+        Thread.currentThread().interrupt();
+        throw failure("worker_interrupted");
+      }
+    }
+  }
+
   void check() {
     if (!parent.alive()) {
       throw failure("indexing_parent_lost");

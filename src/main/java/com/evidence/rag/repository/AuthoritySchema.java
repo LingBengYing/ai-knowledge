@@ -256,6 +256,14 @@ final class AuthoritySchema {
     new DocumentBatchSchema(store).verify();
   }
 
+  void migrateVersionThirtyNine() {
+    new BatchRequeueSchema(store).migrate();
+  }
+
+  void verifyVersionThirtyNine() {
+    new BatchRequeueSchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

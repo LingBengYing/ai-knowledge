@@ -53,12 +53,10 @@ public final class ImportAutoIndexService {
         failure = "indexing_failed";
       }
       String taskId = task, errorCode = failure;
+      // A failed dispatch fails only this file; a batch bulk retry dispatches it again.
       store.transaction(
           () -> {
             requests.finish(request.revisionId(), taskId, errorCode);
-            if (errorCode != null)
-              new com.evidence.rag.repository.DocumentBatchRepository(store)
-                  .haltDocument(request.documentId(), errorCode);
             return null;
           });
       return true;

@@ -66,15 +66,20 @@ public class IndexingConfiguration {
       TextAdapterSettings settings,
       IndexingSettings limits,
       IndexTarget target,
-      ReindexVectorVerifier receiptVerifier) {
-    return new IndexingTaskProcessor(
-        authority,
-        properties.workspaceId(),
-        settings.models(),
-        settings.projection(),
-        target,
-        Duration.ofMillis(limits.timeoutMs()),
-        receiptVerifier);
+      ReindexVectorVerifier receiptVerifier,
+      BatchProcessingSettings batch) {
+    var processor =
+        new IndexingTaskProcessor(
+            authority,
+            properties.workspaceId(),
+            settings.models(),
+            settings.projection(),
+            target,
+            Duration.ofMillis(limits.timeoutMs()),
+            receiptVerifier);
+    processor.configureResilience(
+        batch.transientRetry(), batch.indexDeadline(Duration.ofMillis(limits.timeoutMs())));
+    return processor;
   }
 
   @Bean(destroyMethod = "close")
