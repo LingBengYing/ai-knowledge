@@ -3,8 +3,10 @@ package com.evidence.rag.controller;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
 import com.evidence.rag.model.dto.DocumentBatchResult;
+import com.evidence.rag.model.dto.DocumentBatchResumeCommand;
 import com.evidence.rag.model.vo.TaskResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.DocumentBatchService;
@@ -72,6 +74,34 @@ public final class DocumentBatchController {
     } finally {
       uploads.release();
     }
+  }
+
+  /** Retries every failed or cancelled file that still has attempts left. */
+  @PostMapping("/v1/document-batches/{id}/retry-failed")
+  public DocumentBatchActionResult retryFailed(
+      HttpServletRequest request, @PathVariable String id) {
+    noQuery(request);
+    return service.retryFailed(AuthenticatedActor.require(request), id);
+  }
+
+  /** Cancels queued work and refuses further uploads; running tasks finish. */
+  @PostMapping("/v1/document-batches/{id}/cancel")
+  public DocumentBatchActionResult cancel(HttpServletRequest request, @PathVariable String id) {
+    noQuery(request);
+    return service.cancel(AuthenticatedActor.require(request), id);
+  }
+
+  /** Clears the halt, optionally with a new embedding request limit, and requeues stopped work. */
+  @PostMapping("/v1/document-batches/{id}/resume")
+  public DocumentBatchActionResult resume(
+      HttpServletRequest request,
+      @PathVariable String id,
+      @RequestBody(required = false) DocumentBatchResumeCommand command) {
+    noQuery(request);
+    return service.resume(
+        AuthenticatedActor.require(request),
+        id,
+        command == null ? null : command.embeddingRequestLimit());
   }
 
   private static int number(String value, int fallback) {

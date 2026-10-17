@@ -58,7 +58,11 @@ final class DocumentBatchSchema {
   }
 
   void verify() {
-    new IndexRestartSchema(store).verify(38);
+    verify(38);
+  }
+
+  void verify(int version) {
+    new IndexRestartSchema(store).verify(version);
     if (store.count(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('document_import_batches','document_import_files','batch_request_reservations')")
             != 3

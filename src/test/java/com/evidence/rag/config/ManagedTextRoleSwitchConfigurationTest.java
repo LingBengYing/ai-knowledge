@@ -316,7 +316,8 @@ class ManagedTextRoleSwitchConfigurationTest {
           new AnswersSettings(true, 10000, 2),
           new IndexingSettings(true, 10000),
           repository,
-          providers.createBean(ManagedMediaTextFactory.class));
+          providers.createBean(ManagedMediaTextFactory.class),
+          new BatchProcessingSettings(2, 2, 2, 10000, 0, 1, 1, 0, 600000));
     }
 
     String queue(IndexTarget target) {

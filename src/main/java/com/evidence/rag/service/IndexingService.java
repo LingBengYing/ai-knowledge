@@ -310,19 +310,62 @@ public final class IndexingService {
   }
 
   public boolean reserveBatchRequests(IndexClaim claim, int requests) {
+    return reserveBatchRequests(claim, requests, 0) >= 0;
+  }
+
+  /** The granted transient-retry allowance for this attempt, or -1 when it may not start. */
+  public int reserveBatchRequests(IndexClaim claim, int requests, int retries) {
+    return reserveBatchRequests(claim, requests, retries, false);
+  }
+
+  /**
+   * As above; with {@code mayWait} a shortfall that running attempts of the same batch may still
+   * release returns {@link com.evidence.rag.repository.DocumentBatchRepository#HELD}.
+   */
+  public int reserveBatchRequests(IndexClaim claim, int requests, int retries, boolean mayWait) {
     return store.transaction(
         () ->
-            currentClaim(claim) != null
-                && new com.evidence.rag.repository.DocumentBatchRepository(store)
-                    .reserve(claim, requests));
+            currentClaim(claim) == null
+                ? -1
+                : new com.evidence.rag.repository.DocumentBatchRepository(store)
+                    .reserve(claim, requests, retries, mayWait));
   }
 
   public void recordBatchUsage(IndexClaim claim, int started, int finished, boolean complete) {
+    recordBatchUsage(claim, started, finished, complete, Integer.MAX_VALUE);
+  }
+
+  /** {@code expected} requests stay charged; only an unused retry allowance is released. */
+  public void recordBatchUsage(
+      IndexClaim claim, int started, int finished, boolean complete, int expected) {
     store.transaction(
         () -> {
           new com.evidence.rag.repository.DocumentBatchRepository(store)
-              .usage(claim, started, finished, complete);
+              .usage(claim, started, finished, complete, expected);
           return null;
+        });
+  }
+
+  /**
+   * A halted or exhausted batch refused this attempt's reservation before any request: the file
+   * stops as cancelled so that resuming the batch can queue it again.
+   */
+  public boolean cancelUnreservedIndexing(IndexClaim claim) {
+    return store.transaction(
+        () -> {
+          var task = claimedTask(claim);
+          if (task == null) {
+            return false;
+          }
+          indexing.markCancelled(task.id(), Instant.now().toString());
+          audit(
+              new Actor(task.workspaceId(), "system:indexing"),
+              task.documentId(),
+              "indexing_cancelled",
+              values("state", "processing"),
+              values("state", "cancelled", "reason", "batch_halted"),
+              Set.of("state", "reason"));
+          return true;
         });
   }
 
@@ -347,11 +390,10 @@ public final class IndexingService {
           for (String jobId : queued) {
             var task = indexing.findInternalTask(jobId).orElseThrow();
             if (indexing.documentProcessing(task.documentId())) continue;
-            if (task.attempt() == 1
-                && new com.evidence.rag.repository.DocumentBatchRepository(store)
-                    .haltedImportIndexing(task.id())) {
-              // A halted batch starts no more automatic work: its own first-attempt import task
-              // ends visibly instead of waiting forever. An explicit retry (attempt > 1) runs.
+            if (new com.evidence.rag.repository.DocumentBatchRepository(store)
+                .haltedImportIndexing(task.id())) {
+              // A halted batch starts no more automatic work: its own automatic import task ends
+              // visibly instead of waiting forever. An explicit user retry runs.
               indexing.markCancelled(task.id(), Instant.now().toString());
               audit(
                   worker,
@@ -644,9 +686,8 @@ public final class IndexingService {
           if (!Set.of("queued", "processing").contains(task.state())) {
             throw indexConflict();
           }
+          // Cancelling one file never stops its batch; its siblings continue.
           indexing.markCancelled(jobId, Instant.now().toString());
-          new com.evidence.rag.repository.DocumentBatchRepository(store)
-              .haltDocument(task.documentId(), "worker_interrupted");
           audit(
               actor,
               task.documentId(),
@@ -743,15 +784,118 @@ public final class IndexingService {
         task, editable, indexing.publicationId(task.id()), indexing.restartable(task.id()));
   }
 
-  /** Called by startup composition before scheduling an indexing worker. */
+  /**
+   * Called by startup composition before scheduling an indexing worker. A batch import task that
+   * was running goes back to the queue as its next, automatic attempt; the three-attempt limit
+   * bounds a crash loop. A halted batch's task stops as cancelled (resumable); everything else
+   * keeps the explicit worker_interrupted failure.
+   */
   public void recoverIndexings() {
     store.transaction(
         () -> {
+          var batches = new com.evidence.rag.repository.DocumentBatchRepository(store);
           for (String id : indexing.processingIds()) {
-            finishFailed(indexing.findInternalTask(id).orElseThrow(), "worker_interrupted");
+            var task = indexing.findInternalTask(id).orElseThrow();
+            var halted = batches.indexingBatchHalted(id);
+            String now = Instant.now().toString();
+            if (halted.isPresent() && halted.orElseThrow()) {
+              indexing.markCancelled(id, now);
+              audit(
+                  new Actor(task.workspaceId(), "system:indexing"),
+                  task.documentId(),
+                  "indexing_cancelled",
+                  values("state", "processing"),
+                  values("state", "cancelled", "reason", "batch_halted"),
+                  Set.of("state", "reason"));
+            } else if (halted.isPresent() && task.attempt() < 3) {
+              // The state machine requeues only from a stopped attempt: stop it, then queue the
+              // next.
+              indexing.markCancelled(id, now);
+              indexing.markQueued(id, task.attempt() + 1, now);
+              batches.markAutomatic("indexing", id, task.attempt() + 1, "restart", now);
+              audit(
+                  new Actor(task.workspaceId(), "system:indexing"),
+                  task.documentId(),
+                  "indexing_requeued",
+                  values("state", "processing", "attempt", task.attempt()),
+                  values("state", "queued", "attempt", task.attempt() + 1),
+                  Set.of("state", "attempt"));
+            } else {
+              finishFailed(task, "worker_interrupted");
+            }
           }
           return null;
         });
+  }
+
+  /**
+   * Batch bulk retry of one import index task: the same eligibility as an explicit retry, against
+   * the task's own frozen target. Returns false (and changes nothing) when it is not retryable.
+   */
+  public boolean retryBatchIndexingInTransaction(Actor actor, String jobId) {
+    var task = indexing.findAuthorizedTask(actor, jobId, true).orElse(null);
+    if (task == null
+        || !permissions.canEdit(task.currentRole())
+        || !Set.of("failed", "cancelled").contains(task.state())
+        || !retryableInPlace(task, task.target())
+        || indexing.hasPending(task.documentId())) {
+      return false;
+    }
+    indexing.markQueued(jobId, task.attempt() + 1, Instant.now().toString());
+    audit(
+        actor,
+        task.documentId(),
+        "indexing_retried",
+        values("state", task.state(), "attempt", task.attempt()),
+        values("state", "queued", "attempt", task.attempt() + 1),
+        Set.of("state", "attempt"));
+    return true;
+  }
+
+  /** Batch cancel of one queued import index task; a running attempt is left to finish. */
+  public boolean cancelBatchIndexingInTransaction(Actor actor, String jobId) {
+    var task = indexing.findAuthorizedTask(actor, jobId, true).orElse(null);
+    if (task == null
+        || !permissions.canEdit(task.currentRole())
+        || !"queued".equals(task.state())) {
+      return false;
+    }
+    indexing.markCancelled(jobId, Instant.now().toString());
+    audit(
+        actor,
+        task.documentId(),
+        "indexing_cancelled",
+        values("state", "queued"),
+        values("state", "cancelled", "reason", "batch_cancelled"),
+        Set.of("state", "reason"));
+    return true;
+  }
+
+  /**
+   * Resume of a halted batch: a cancelled automatic import index task is queued again as its next
+   * attempt, still automatic. A task already at the attempt limit stays cancelled.
+   */
+  public boolean resumeBatchIndexingInTransaction(Actor actor, String jobId) {
+    var task = indexing.findInternalTask(jobId).orElse(null);
+    if (task == null
+        || !"cancelled".equals(task.state())
+        || task.attempt() >= 3
+        || !creatorCanWrite(task)) {
+      return false;
+    }
+    String now = Instant.now().toString();
+    int attempt = task.attempt() + 1;
+    new com.evidence.rag.repository.DocumentBatchRepository(store)
+        .markAutomatic("indexing", jobId, attempt, "resume", now);
+    indexing.markQueued(jobId, attempt, now);
+    audit(
+        actor,
+        task.documentId(),
+        "indexing_resumed",
+        values("state", "cancelled", "attempt", task.attempt()),
+        values("state", "queued", "attempt", attempt),
+        Set.of("state", "attempt"));
+    return true;
   }
 
   private TaskEntity authorizedTask(Actor actor, String jobId, boolean edit) {
@@ -830,9 +974,8 @@ public final class IndexingService {
   }
 
   private void finishFailed(TaskEntity task, String safeCode) {
+    // A failed file never stops its batch; only the budget and usage audit do.
     indexing.markFailed(task.id(), safeCode, Instant.now().toString());
-    new com.evidence.rag.repository.DocumentBatchRepository(store)
-        .haltDocument(task.documentId(), safeCode);
     audit(
         new Actor(task.workspaceId(), "system:indexing"),
         task.documentId(),

@@ -33,31 +33,35 @@ public class IngestionConfiguration {
       ObjectProvider<AudioCompilationService> audio,
       ObjectProvider<VideoCompilationService> video,
       ObjectProvider<LegacyTextProfileGuard> legacyText,
-      ObjectProvider<ModelConfigurationRepository> models) {
+      ObjectProvider<ModelConfigurationRepository> models,
+      BatchProcessingSettings batch) {
     String bind = environment.getProperty("server.address");
     if (!RuntimeGuard.isLiteralLoopback(bind)) {
       throw new IllegalArgumentException("Development ingestion requires literal loopback binding");
     }
-    return new IngestionTaskProcessor(
-        authority,
-        properties.workspaceId(),
-        Duration.ofMillis(settings.parseTimeoutMs()),
-        ImageOcrConfiguration.options(environment),
-        vision.getIfAvailable(),
-        audio.getIfAvailable(),
-        video.getIfAvailable(),
-        PdfOcrConfiguration.options(environment),
-        legacyText.getIfAvailable(),
-        PdfOcrConfiguration.timeout(environment),
-        () -> {
-          var repository = models.getIfAvailable();
-          if (repository == null) {
-            return null;
-          }
-          var active = repository.read().active();
-          // The embedding role is always SiliconFlow, so its key serves PaddleOCR-VL-1.5 too.
-          return active == null ? null : active.embedding().apiKey();
-        });
+    var processor =
+        new IngestionTaskProcessor(
+            authority,
+            properties.workspaceId(),
+            Duration.ofMillis(settings.parseTimeoutMs()),
+            ImageOcrConfiguration.options(environment),
+            vision.getIfAvailable(),
+            audio.getIfAvailable(),
+            video.getIfAvailable(),
+            PdfOcrConfiguration.options(environment),
+            legacyText.getIfAvailable(),
+            PdfOcrConfiguration.timeout(environment),
+            () -> {
+              var repository = models.getIfAvailable();
+              if (repository == null) {
+                return null;
+              }
+              var active = repository.read().active();
+              // The embedding role is always SiliconFlow, so its key serves PaddleOCR-VL-1.5 too.
+              return active == null ? null : active.embedding().apiKey();
+            });
+    processor.configureRetry(batch.transientRetry());
+    return processor;
   }
 
   @Bean(destroyMethod = "close")

@@ -52,6 +52,13 @@ public final class IndexingTestServer implements AutoCloseable {
   public volatile String failureMode = "";
   public volatile long responseDelayMillis;
 
+  /** The next this-many embedding requests answer {@code throttleStatus} with Retry-After. */
+  public final java.util.concurrent.atomic.AtomicInteger throttleEmbeddings =
+      new java.util.concurrent.atomic.AtomicInteger();
+
+  public volatile int throttleStatus = 429;
+  public volatile String retryAfter;
+
   public record Request(String path, JsonNode body) {}
 
   public IndexingTestServer() throws IOException {
@@ -182,6 +189,11 @@ public final class IndexingTestServer implements AutoCloseable {
       boolean model = path.equals("/embeddings");
       if (model) {
         embeddingStarted.countDown();
+        if (throttleEmbeddings.getAndUpdate(n -> Math.max(n - 1, 0)) > 0) {
+          if (retryAfter != null) exchange.getResponseHeaders().add("Retry-After", retryAfter);
+          exchange.sendResponseHeaders(throttleStatus, -1);
+          return;
+        }
         if (failureMode.equals("block-embedding")) {
           releaseEmbedding.await();
         }

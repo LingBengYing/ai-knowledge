@@ -19,7 +19,8 @@ class DocumentBatchServiceTest {
   @TempDir Path directory;
   final Actor actor = new Actor("org-main", "owner");
   final byte[] data = "Synthetic batch source".getBytes(StandardCharsets.UTF_8);
-  final BatchProcessingSettings settings = new BatchProcessingSettings(2, 2, 2, 10000);
+  final BatchProcessingSettings settings =
+      new BatchProcessingSettings(2, 2, 2, 10000, 3, 1000, 60000, 5000, 600000);
 
   DocumentBatchCommand command(int count, int budget) {
     var files =

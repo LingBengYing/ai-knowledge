@@ -452,11 +452,10 @@ public final class IngestionService {
             if (cancelIfUnauthorized(task)) {
               continue;
             }
-            if (task.attempt() == 1
-                && new com.evidence.rag.repository.DocumentBatchRepository(store)
-                    .haltedImportIngestion(jobId)) {
-              // A halted batch starts no more automatic work: its own first-attempt import task
-              // ends visibly instead of waiting forever. An explicit retry (attempt > 1) runs.
+            if (new com.evidence.rag.repository.DocumentBatchRepository(store)
+                .haltedImportIngestion(jobId)) {
+              // A halted batch starts no more automatic work: its own automatic import task ends
+              // visibly instead of waiting forever. An explicit user retry runs.
               ingestion.markCancelled(jobId, Instant.now().toString());
               audit(
                   worker,
@@ -957,9 +956,8 @@ public final class IngestionService {
             throw new ApplicationException(
                 FailureKind.CONFLICT, "ingestion_state_conflict", "当前任务状态不能取消。");
           }
+          // Cancelling one file never stops its batch; its siblings continue.
           ingestion.markCancelled(jobId, Instant.now().toString());
-          new com.evidence.rag.repository.DocumentBatchRepository(store)
-              .haltDocument(task.documentId(), "worker_interrupted");
           audit(
               actor,
               task.documentId(),
@@ -985,18 +983,124 @@ public final class IngestionService {
         });
   }
 
-  /** Called by startup composition before any ingestion worker is scheduled. */
+  /**
+   * Called by startup composition before any ingestion worker is scheduled. A batch import task
+   * that was parsing goes back to the queue as its next, automatic attempt; the three-attempt limit
+   * bounds a crash loop. A halted batch's task stops as cancelled (resumable); everything else
+   * keeps the explicit worker_interrupted failure.
+   */
   public void recoverIngestions() {
     store.transaction(
         () -> {
+          var batches = new com.evidence.rag.repository.DocumentBatchRepository(store);
           for (String jobId : ingestion.processingIds()) {
             var task = ingestion.findInternalTask(jobId).orElseThrow();
-            if (!cancelIfUnauthorized(task)) {
+            if (cancelIfUnauthorized(task)) {
+              continue;
+            }
+            var halted = batches.ingestionBatchHalted(jobId);
+            String now = Instant.now().toString();
+            if (halted.isPresent() && halted.orElseThrow()) {
+              ingestion.markCancelled(jobId, now);
+              audit(
+                  new Actor(task.workspaceId(), "system:ingestion"),
+                  task.documentId(),
+                  "ingestion_cancelled",
+                  values("state", "processing"),
+                  values("state", "cancelled", "reason", "batch_halted"),
+                  Set.of("state", "reason"));
+            } else if (halted.isPresent() && task.attempt() < 3) {
+              // The state machine requeues only from a stopped attempt: stop it, then queue the
+              // next.
+              ingestion.markCancelled(jobId, now);
+              ingestion.markQueued(jobId, task.attempt() + 1, now);
+              batches.markAutomatic("ingestion", jobId, task.attempt() + 1, "restart", now);
+              audit(
+                  new Actor(task.workspaceId(), "system:ingestion"),
+                  task.documentId(),
+                  "ingestion_requeued",
+                  values("state", "processing", "attempt", task.attempt()),
+                  values("state", "queued", "attempt", task.attempt() + 1),
+                  Set.of("state", "attempt"));
+            } else {
               finishFailed(task, "worker_interrupted");
             }
           }
           return null;
         });
+  }
+
+  /**
+   * Batch bulk retry of one import parsing task, with the same eligibility as an explicit retry.
+   * Returns false (and changes nothing) when it is not retryable.
+   */
+  public boolean retryBatchIngestionInTransaction(Actor actor, String jobId) {
+    var task = ingestion.findAuthorizedTask(actor, jobId, true).orElse(null);
+    if (task == null
+        || !permissions.canEdit(task.currentRole())
+        || !Set.of("failed", "cancelled").contains(task.state())
+        || task.attempt() >= 3
+        || !creatorCanWrite(task, actor.workspaceId())
+        || !new DocumentUpdateRepository(store).replacementCurrent(jobId)
+        || ingestion.pendingCount(actor.workspaceId()) >= pendingCapacity) {
+      return false;
+    }
+    ingestion.markQueued(jobId, task.attempt() + 1, Instant.now().toString());
+    audit(
+        actor,
+        task.documentId(),
+        "ingestion_retried",
+        values("state", task.state(), "attempt", task.attempt()),
+        values("state", "queued", "attempt", task.attempt() + 1),
+        Set.of("state", "attempt"));
+    return true;
+  }
+
+  /** Batch cancel of one queued import parsing task; a running parse is left to finish. */
+  public boolean cancelBatchIngestionInTransaction(Actor actor, String jobId) {
+    var task = ingestion.findAuthorizedTask(actor, jobId, true).orElse(null);
+    if (task == null
+        || !permissions.canEdit(task.currentRole())
+        || !"queued".equals(task.state())) {
+      return false;
+    }
+    ingestion.markCancelled(jobId, Instant.now().toString());
+    audit(
+        actor,
+        task.documentId(),
+        "ingestion_cancelled",
+        values("state", "queued"),
+        values("state", "cancelled", "reason", "batch_cancelled"),
+        Set.of("state", "reason"));
+    return true;
+  }
+
+  /**
+   * Resume of a halted batch: a cancelled automatic import parsing task is queued again as its next
+   * attempt, still automatic. A task already at the attempt limit stays cancelled.
+   */
+  public boolean resumeBatchIngestionInTransaction(Actor actor, String jobId) {
+    var task = ingestion.findInternalTask(jobId).orElse(null);
+    if (task == null
+        || !"cancelled".equals(task.state())
+        || task.attempt() >= 3
+        || !creatorCanWrite(task, task.workspaceId())
+        || !new DocumentUpdateRepository(store).replacementCurrent(jobId)) {
+      return false;
+    }
+    String now = Instant.now().toString();
+    int attempt = task.attempt() + 1;
+    new com.evidence.rag.repository.DocumentBatchRepository(store)
+        .markAutomatic("ingestion", jobId, attempt, "resume", now);
+    ingestion.markQueued(jobId, attempt, now);
+    audit(
+        actor,
+        task.documentId(),
+        "ingestion_resumed",
+        values("state", "cancelled", "attempt", task.attempt()),
+        values("state", "queued", "attempt", attempt),
+        Set.of("state", "attempt"));
+    return true;
   }
 
   private TaskEntity authorizedTask(Actor actor, String jobId, boolean edit) {
@@ -1131,9 +1235,8 @@ public final class IngestionService {
   }
 
   private void finishFailed(TaskEntity task, String safeCode) {
+    // A failed file never stops its batch; only the budget and usage audit do.
     ingestion.markFailed(task.id(), safeCode, Instant.now().toString());
-    new com.evidence.rag.repository.DocumentBatchRepository(store)
-        .haltDocument(task.documentId(), safeCode);
     audit(
         new Actor(task.workspaceId(), "system:ingestion"),
         task.documentId(),

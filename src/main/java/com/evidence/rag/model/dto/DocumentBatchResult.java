@@ -16,6 +16,8 @@ public record DocumentBatchResult(
     @JsonProperty("observed_requests") long observedRequests,
     @JsonProperty("usage_uncertain") boolean usageUncertain,
     @JsonProperty("halted_reason") String haltedReason,
+    @JsonProperty("retryable_files") long retryableFiles,
+    @JsonProperty("available_actions") List<String> availableActions,
     List<File> items) {
   public record File(
       int ordinal,

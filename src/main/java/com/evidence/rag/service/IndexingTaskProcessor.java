@@ -6,7 +6,9 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexClaim;
+import com.evidence.rag.model.domain.IndexDeadline;
 import com.evidence.rag.model.domain.IndexTarget;
+import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.worker.indexing.ProcessTextIndexer;
 import java.time.Duration;
@@ -31,6 +33,18 @@ public final class IndexingTaskProcessor {
   private final Function<Duration, ProcessTextIndexer> workers;
   private MilvusRestProjection.Settings cleanupProjection;
   private final ReindexVectorVerifier receiptVerifier;
+  private volatile TransientRetry retry = TransientRetry.NONE;
+  private volatile IndexDeadline deadlines;
+
+  /**
+   * Production wiring: bounded retry of transient embedding failures and a busy indexer, and a
+   * deadline that grows with the number of embedding requests. Unconfigured processors keep the
+   * fixed deadline and never retry.
+   */
+  public void configureResilience(TransientRetry retry, IndexDeadline deadlines) {
+    this.retry = java.util.Objects.requireNonNull(retry);
+    this.deadlines = deadlines;
+  }
 
   public IndexingTaskProcessor(
       IndexingService authority,
@@ -147,17 +161,24 @@ public final class IndexingTaskProcessor {
         fail(claim, "authorization_changed");
         return;
       }
-      try (var worker = workers.apply(plan.isPresent() ? remaining(started) : timeout)) {
-        if (!authority.reserveBatchRequests(claim, worker.expectedRequests(claim))) {
-          fail(claim, "indexing_failed");
+      try (var worker = workers.apply(plan.isPresent() ? remaining(started, timeout) : timeout)) {
+        var policy = retry;
+        int expected = worker.expectedRequests(claim);
+        Duration total = deadlines == null ? timeout : deadlines.forRequests(expected);
+        int allowance = reserveWhenReleased(claim, expected, policy.retries(), started, total);
+        if (allowance < 0) {
+          // Only a halted or exhausted batch refuses: this file stops unstarted, resumable later.
+          authority.cancelUnreservedIndexing(claim);
           return;
         }
+        var attempt = new TransientRetry(allowance, policy.baseDelay(), policy.maxDelay());
         com.evidence.rag.model.domain.IndexingResult result;
         try {
-          result = worker.index(claim);
+          result = indexWhenFree(worker, claim, attempt, policy, started, total);
         } finally {
           var usage = worker.modelUsage();
-          authority.recordBatchUsage(claim, usage.started(), usage.finished(), usage.complete());
+          authority.recordBatchUsage(
+              claim, usage.started(), usage.finished(), usage.complete(), expected);
         }
         if (plan.isEmpty()) {
           authority.completeIndexing(claim, result.entryDigests(), result.verified());
@@ -166,8 +187,8 @@ public final class IndexingTaskProcessor {
             fail(claim, "indexing_output_invalid");
             return;
           }
-          var verified = receiptVerifier.verify(plan.orElseThrow(), remaining(started));
-          remaining(started);
+          var verified = receiptVerifier.verify(plan.orElseThrow(), remaining(started, total));
+          remaining(started, total);
           authority.completeIndexing(claim, result.entryDigests(), result.verified(), verified);
         }
       }
@@ -286,7 +307,65 @@ public final class IndexingTaskProcessor {
     }
   }
 
+  /**
+   * Running attempts of the same batch hold their retry allowance until their audit closes. When
+   * only that held allowance stands between this attempt and its reservation, wait for it (within
+   * this attempt's deadline) instead of halting the batch; the last check halts as usual.
+   */
+  private int reserveWhenReleased(
+      IndexClaim claim, int expected, int retries, long started, Duration total) {
+    while (true) {
+      long left = total.toNanos() - (System.nanoTime() - started);
+      boolean mayWait = left > HELD_POLL.toNanos() * 2;
+      int allowance = authority.reserveBatchRequests(claim, expected, retries, mayWait);
+      if (allowance != com.evidence.rag.repository.DocumentBatchRepository.HELD) {
+        return allowance;
+      }
+      try {
+        Thread.sleep(HELD_POLL);
+      } catch (InterruptedException interrupted) {
+        Thread.currentThread().interrupt();
+        throw new ProcessTextIndexer.Failure("worker_interrupted");
+      }
+    }
+  }
+
+  private static final Duration HELD_POLL = Duration.ofMillis(500);
+
+  /** A busy indexer starts no child and sends no model request; wait for a slot and try again. */
+  private com.evidence.rag.model.domain.IndexingResult indexWhenFree(
+      ProcessTextIndexer worker,
+      IndexClaim claim,
+      TransientRetry attempt,
+      TransientRetry policy,
+      long started,
+      Duration total) {
+    for (int busy = 0; ; busy++) {
+      try {
+        return worker.index(claim, attempt, remaining(started, total));
+      } catch (ProcessTextIndexer.Failure failure) {
+        if (!"indexing_busy".equals(failure.code()) || busy >= policy.retries()) {
+          throw failure;
+        }
+        var wait = policy.delay(busy, null);
+        if (wait.compareTo(remaining(started, total)) >= 0) {
+          throw failure;
+        }
+        try {
+          Thread.sleep(wait);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          throw new ProcessTextIndexer.Failure("worker_interrupted");
+        }
+      }
+    }
+  }
+
   private Duration remaining(long started) {
+    return remaining(started, timeout);
+  }
+
+  private static Duration remaining(long started, Duration timeout) {
     long nanos = timeout.toNanos() - (System.nanoTime() - started);
     if (nanos < Duration.ofMillis(10).toNanos()) {
       throw new ProcessTextIndexer.Failure("indexing_timeout");

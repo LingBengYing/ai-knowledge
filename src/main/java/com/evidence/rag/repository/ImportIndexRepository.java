@@ -104,6 +104,21 @@ public final class ImportIndexRepository {
         revisionId);
   }
 
+  /** A failed dispatch that never produced a task is dispatched again; returns whether it was. */
+  public boolean retryFailed(String revisionId) {
+    if (store.count(
+            "SELECT COUNT(*) FROM import_index_requests WHERE revision_id=? AND state='failed' AND task_id IS NULL",
+            revisionId)
+        == 0) {
+      return false;
+    }
+    store.execute(
+        "UPDATE import_index_requests SET state='pending',error_code=NULL,updated_at=? WHERE revision_id=?",
+        Instant.now().toString(),
+        revisionId);
+    return true;
+  }
+
   /** Corpus admission has no remote side effects; an existing job closes the receipt gap. */
   public void recover() {
     for (var row :

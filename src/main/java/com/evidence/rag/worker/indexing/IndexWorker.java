@@ -1,14 +1,18 @@
 package com.evidence.rag.worker.indexing;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
+import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.TransientRetry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.TreeMap;
 
 /** Exactly one indexing request per child JVM. */
@@ -89,11 +93,13 @@ public final class IndexWorker {
       }
       lifetime.check();
       var digests = new TreeMap<String, String>();
+      var retries = new Retries(request.retry(), lifetime);
       for (int offset = 0; offset < request.items().size(); offset += batchSize) {
         lifetime.check();
         var batch =
             request.items().subList(offset, Math.min(request.items().size(), offset + batchSize));
-        var vectors = models.embed(batch.stream().map(segment -> segment.recallText()).toList());
+        var vectors =
+            embed(models, batch.stream().map(segment -> segment.recallText()).toList(), retries);
         lifetime.check();
         var entries = new ArrayList<RetrievalProjection.Entry>(batch.size());
         for (int i = 0; i < batch.size(); i++) {
@@ -126,6 +132,49 @@ public final class IndexWorker {
       var verified = projection.verify(manifest);
       lifetime.check();
       return new IndexingResult(digests, verified);
+    }
+  }
+
+  /**
+   * Each retried embedding request is a new HTTP request and is counted by the model audit like any
+   * other; the parent reserved the whole retry allowance before this child started.
+   */
+  private static List<List<Double>> embed(
+      OpenAiCompatibleModels models, List<String> texts, Retries retries) {
+    while (true) {
+      try {
+        return models.embed(texts);
+      } catch (TextModels.Failure failure) {
+        if (!failure.isTransient() || !retries.waitBeforeRetry(failure.retryAfter())) {
+          throw failure;
+        }
+      }
+    }
+  }
+
+  /** One shared allowance for the whole attempt; never waits past the request deadline. */
+  static final class Retries {
+    private final TransientRetry policy;
+    private final IndexWorkerLifetime lifetime;
+    private int used;
+
+    Retries(TransientRetry policy, IndexWorkerLifetime lifetime) {
+      this.policy = policy;
+      this.lifetime = lifetime;
+    }
+
+    boolean waitBeforeRetry(Duration retryAfter) {
+      if (used >= policy.retries()) {
+        return false;
+      }
+      var wait = policy.delay(used, retryAfter);
+      // Keep at least a second for the retried request itself, its write and the verification.
+      if (wait == null || wait.plusSeconds(1).compareTo(lifetime.remaining()) > 0) {
+        return false;
+      }
+      used++;
+      lifetime.pause(wait);
+      return true;
     }
   }
 }

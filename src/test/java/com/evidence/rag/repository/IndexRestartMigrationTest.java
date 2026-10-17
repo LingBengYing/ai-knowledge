@@ -105,8 +105,8 @@ class IndexRestartMigrationTest {
                       "active_corpus_publication_initial"),
                   changed);
               assertEquals(
-                  // The restart identity trigger plus the three v38 batch tables.
-                  oldObjects.size() + 4,
+                  // The restart identity trigger, the three v38 batch tables and the v39 requeues.
+                  oldObjects.size() + 5,
                   store.count("SELECT COUNT(*) FROM sqlite_master WHERE sql IS NOT NULL"));
               for (var row : oldRows.entrySet()) {
                 assertEquals(row.getValue(), rows(store, row.getKey()), row.getKey());

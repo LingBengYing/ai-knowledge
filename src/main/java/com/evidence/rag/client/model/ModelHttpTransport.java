@@ -200,7 +200,11 @@ final class ModelHttpTransport implements AutoCloseable {
               info -> {
                 status.set(info.statusCode());
                 if (info.statusCode() != 200 && errorDecoder == null) {
-                  body.fail(new Failure("model_http_failed", info.statusCode()));
+                  body.fail(
+                      new Failure(
+                          "model_http_failed",
+                          info.statusCode(),
+                          retryAfter(info.headers().firstValue("Retry-After").orElse(null))));
                 } else if (!info.headers()
                     .firstValue("Content-Type")
                     .orElse("")
@@ -275,6 +279,29 @@ final class ModelHttpTransport implements AutoCloseable {
       if (exchange != null && !exchange.isDone()) {
         exchange.cancel(true);
       }
+    }
+  }
+
+  /**
+   * RFC 9110 Retry-After: delta-seconds or an HTTP-date. Anything else, or more than a day, is
+   * ignored; the caller then uses its own backoff.
+   */
+  static java.time.Duration retryAfter(String value) {
+    if (value == null) return null;
+    String text = value.trim();
+    try {
+      if (text.matches("[0-9]{1,6}")) {
+        long seconds = Long.parseLong(text);
+        return seconds <= 86400 ? java.time.Duration.ofSeconds(seconds) : null;
+      }
+      var until =
+          java.time.ZonedDateTime.parse(text, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+              .toInstant();
+      var wait = java.time.Duration.between(java.time.Instant.now(), until);
+      if (wait.isNegative()) return java.time.Duration.ZERO;
+      return wait.compareTo(java.time.Duration.ofDays(1)) <= 0 ? wait : null;
+    } catch (RuntimeException invalid) {
+      return null;
     }
   }
 

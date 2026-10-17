@@ -59,7 +59,7 @@ class ConversationMigrationTest {
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(oldObjects),
                   WikiPagePurgeMigrationTest.withoutReplacedGuards(
                       store.rows(
-                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT IN ('document_import_batches','document_import_files','batch_request_reservations') ORDER BY type,name")));
+                          "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'knowledge_conversation%' AND name NOT IN ('document_import_batches','document_import_files','batch_request_reservations','batch_task_requeues') ORDER BY type,name")));
               for (var row : rows.entrySet()) {
                 assertEquals(
                     row.getValue(),

@@ -7,6 +7,7 @@ import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.IngestionClaim;
 import com.evidence.rag.model.domain.PdfOcrOptions;
+import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.tool.parser.ImageInput;
@@ -129,6 +130,15 @@ public final class IngestionTaskProcessor {
     this.pdfKey = pdfKey;
   }
 
+  private volatile TransientRetry retry = TransientRetry.NONE;
+
+  /**
+   * Production wiring: bounded retry of a busy parser slot. Unconfigured processors never retry.
+   */
+  public void configureRetry(TransientRetry retry) {
+    this.retry = java.util.Objects.requireNonNull(retry);
+  }
+
   public Optional<IngestionClaim> claim() {
     return authority.claimIngestion(workspace);
   }
@@ -143,110 +153,7 @@ public final class IngestionTaskProcessor {
       MDC.put("ingestion_task_id", claim.jobId());
     }
     try {
-      if (!authority.isIngestionClaimCurrent(claim)) {
-        return;
-      }
-      if (claim.mimeType().startsWith("video/")
-          || claim.parserRevision().startsWith("java-video-compiler-v1:")
-          || claim.parserRevision().startsWith("java-video-compiler-v2:")
-          || claim.parserRevision().startsWith("java-video-compiler-v3:")) {
-        if (legacyText != null) {
-          legacyText.requireCompatible();
-        }
-        if (video == null || !video.revision().equals(claim.parserRevision())) {
-          throw new TextParser.Failure("parser_invalid_output");
-        }
-        var compilation =
-            oneChildParser(
-                () ->
-                    video.compile(
-                        claim.filename(),
-                        claim.mimeType(),
-                        claim.content(),
-                        () -> authority.isIngestionClaimCurrent(claim)));
-        authority.completeVideoIngestion(claim, compilation);
-        return;
-      }
-      if (claim.mimeType().startsWith("audio/")
-          || claim.parserRevision().startsWith("java-audio-compiler-v1:")) {
-        if (audio == null || !audio.revision().equals(claim.parserRevision())) {
-          throw new TextParser.Failure("parser_invalid_output");
-        }
-        var compilation =
-            oneChildParser(
-                () ->
-                    audio.compile(
-                        claim.filename(),
-                        claim.mimeType(),
-                        claim.content(),
-                        () -> authority.isIngestionClaimCurrent(claim)));
-        authority.completeAudioIngestion(claim, compilation);
-        return;
-      }
-      if (vision != null
-          && new VisualIngestionOptions(vision.revision())
-              .parserRevision()
-              .equals(claim.parserRevision())) {
-        if (legacyText != null) {
-          legacyText.requireCompatible();
-        }
-        String revision = vision.revision();
-        ImageInput.validateEnvelope(claim.filename(), claim.mimeType(), claim.content());
-        ImageInput.inspect(claim.content());
-        if (!authority.isIngestionClaimCurrent(claim) || Thread.currentThread().isInterrupted()) {
-          return;
-        }
-        var description = vision.describe(new VisualImage(claim.mimeType(), claim.content()));
-        if (!revision.equals(vision.revision()) || Thread.currentThread().isInterrupted()) {
-          throw new TextParser.Failure("parser_interrupted");
-        }
-        if (authority.isIngestionClaimCurrent(claim)) {
-          authority.completeVisualIngestion(
-              claim, new ImageRecall(description.recallText(), revision));
-        }
-        return;
-      }
-      if (images != null && ImageInput.isImageName(claim.filename())) {
-        if (!images.parserRevision().equals(claim.parserRevision())) {
-          throw new TextParser.Failure("parser_invalid_output");
-        }
-        Duration imageDeadline =
-            deadline.compareTo(Duration.ofSeconds(60)) > 0 ? Duration.ofSeconds(60) : deadline;
-        var parsed =
-            oneChildParser(
-                () -> {
-                  try (var parser = new ProcessImageParser(images, imageDeadline)) {
-                    return parser.parse(claim.filename(), claim.mimeType(), claim.content());
-                  }
-                });
-        authority.completeImageIngestion(claim, parsed);
-        return;
-      }
-      if ("application/pdf".equals(claim.mimeType())
-          || claim.filename().toLowerCase(Locale.ROOT).endsWith(".pdf")
-          || claim.parserRevision().startsWith("java-pdf-ocr-v1:")) {
-        String expectedRevision = pdfs == null ? TextParser.REVISION : pdfs.parserRevision();
-        if (!"application/pdf".equals(claim.mimeType())
-            || !claim.filename().toLowerCase(Locale.ROOT).endsWith(".pdf")
-            || !expectedRevision.equals(claim.parserRevision())) {
-          throw new TextParser.Failure("parser_invalid_output");
-        }
-        Duration pdfTime = pdfDeadline == null ? deadline : pdfDeadline;
-        try (var parser =
-            pdfs == null
-                ? parsers.apply(deadline)
-                : pdfs.remote()
-                    ? new ProcessTextParser(pdfTime, pdfs, remoteKey())
-                    : new ProcessTextParser(pdfTime, pdfs)) {
-          var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
-          authority.completeIngestion(claim, parsed);
-        }
-        return;
-      }
-      try (var parser = parsers.apply(deadline)) {
-        var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
-        authority.completeIngestion(claim, parsed);
-      }
+      parseWhenFree(claim);
     } catch (TextParser.Failure failure) {
       String code =
           switch (failure.code()) {
@@ -276,6 +183,139 @@ public final class IngestionTaskProcessor {
       } else {
         MDC.put("ingestion_task_id", previousTaskId);
       }
+    }
+  }
+
+  /**
+   * A busy parser slot (one native child per JVM, or the bounded parser capacity) rejects before
+   * any work starts, so the same claim is simply tried again after a bounded backoff.
+   */
+  private void parseWhenFree(IngestionClaim claim) {
+    var policy = retry;
+    for (int busy = 0; ; busy++) {
+      try {
+        parseOnce(claim);
+        return;
+      } catch (TextParser.Failure failure) {
+        if (!"parser_busy".equals(failure.code())
+            || busy >= policy.retries()
+            || !authority.isIngestionClaimCurrent(claim)) {
+          throw failure;
+        }
+        try {
+          Thread.sleep(policy.delay(busy, null));
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          throw new TextParser.Failure("parser_interrupted");
+        }
+      }
+    }
+  }
+
+  private void parseOnce(IngestionClaim claim) {
+    if (!authority.isIngestionClaimCurrent(claim)) {
+      return;
+    }
+    if (claim.mimeType().startsWith("video/")
+        || claim.parserRevision().startsWith("java-video-compiler-v1:")
+        || claim.parserRevision().startsWith("java-video-compiler-v2:")
+        || claim.parserRevision().startsWith("java-video-compiler-v3:")) {
+      if (legacyText != null) {
+        legacyText.requireCompatible();
+      }
+      if (video == null || !video.revision().equals(claim.parserRevision())) {
+        throw new TextParser.Failure("parser_invalid_output");
+      }
+      var compilation =
+          oneChildParser(
+              () ->
+                  video.compile(
+                      claim.filename(),
+                      claim.mimeType(),
+                      claim.content(),
+                      () -> authority.isIngestionClaimCurrent(claim)));
+      authority.completeVideoIngestion(claim, compilation);
+      return;
+    }
+    if (claim.mimeType().startsWith("audio/")
+        || claim.parserRevision().startsWith("java-audio-compiler-v1:")) {
+      if (audio == null || !audio.revision().equals(claim.parserRevision())) {
+        throw new TextParser.Failure("parser_invalid_output");
+      }
+      var compilation =
+          oneChildParser(
+              () ->
+                  audio.compile(
+                      claim.filename(),
+                      claim.mimeType(),
+                      claim.content(),
+                      () -> authority.isIngestionClaimCurrent(claim)));
+      authority.completeAudioIngestion(claim, compilation);
+      return;
+    }
+    if (vision != null
+        && new VisualIngestionOptions(vision.revision())
+            .parserRevision()
+            .equals(claim.parserRevision())) {
+      if (legacyText != null) {
+        legacyText.requireCompatible();
+      }
+      String revision = vision.revision();
+      ImageInput.validateEnvelope(claim.filename(), claim.mimeType(), claim.content());
+      ImageInput.inspect(claim.content());
+      if (!authority.isIngestionClaimCurrent(claim) || Thread.currentThread().isInterrupted()) {
+        return;
+      }
+      var description = vision.describe(new VisualImage(claim.mimeType(), claim.content()));
+      if (!revision.equals(vision.revision()) || Thread.currentThread().isInterrupted()) {
+        throw new TextParser.Failure("parser_interrupted");
+      }
+      if (authority.isIngestionClaimCurrent(claim)) {
+        authority.completeVisualIngestion(
+            claim, new ImageRecall(description.recallText(), revision));
+      }
+      return;
+    }
+    if (images != null && ImageInput.isImageName(claim.filename())) {
+      if (!images.parserRevision().equals(claim.parserRevision())) {
+        throw new TextParser.Failure("parser_invalid_output");
+      }
+      Duration imageDeadline =
+          deadline.compareTo(Duration.ofSeconds(60)) > 0 ? Duration.ofSeconds(60) : deadline;
+      var parsed =
+          oneChildParser(
+              () -> {
+                try (var parser = new ProcessImageParser(images, imageDeadline)) {
+                  return parser.parse(claim.filename(), claim.mimeType(), claim.content());
+                }
+              });
+      authority.completeImageIngestion(claim, parsed);
+      return;
+    }
+    if ("application/pdf".equals(claim.mimeType())
+        || claim.filename().toLowerCase(Locale.ROOT).endsWith(".pdf")
+        || claim.parserRevision().startsWith("java-pdf-ocr-v1:")) {
+      String expectedRevision = pdfs == null ? TextParser.REVISION : pdfs.parserRevision();
+      if (!"application/pdf".equals(claim.mimeType())
+          || !claim.filename().toLowerCase(Locale.ROOT).endsWith(".pdf")
+          || !expectedRevision.equals(claim.parserRevision())) {
+        throw new TextParser.Failure("parser_invalid_output");
+      }
+      Duration pdfTime = pdfDeadline == null ? deadline : pdfDeadline;
+      try (var parser =
+          pdfs == null
+              ? parsers.apply(deadline)
+              : pdfs.remote()
+                  ? new ProcessTextParser(pdfTime, pdfs, remoteKey())
+                  : new ProcessTextParser(pdfTime, pdfs)) {
+        var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
+        authority.completeIngestion(claim, parsed);
+      }
+      return;
+    }
+    try (var parser = parsers.apply(deadline)) {
+      var parsed = parser.parse(claim.filename(), claim.mimeType(), claim.content());
+      authority.completeIngestion(claim, parsed);
     }
   }
 
