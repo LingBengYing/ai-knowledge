@@ -20,9 +20,14 @@ class BatchUploadCapabilityTest {
         RuntimeConfiguration.reindexCapabilities(base("ingestions", "indexings"), true)
             .capabilities()
             .contains("batch_upload"));
+    assertTrue(
+        RuntimeConfiguration.reindexCapabilities(base("ingestions", "indexings"), true)
+            .capabilities()
+            .contains("batch_streaming_upload"));
     var noIndexing = RuntimeConfiguration.reindexCapabilities(base("ingestions"), true);
     assertFalse(noIndexing.capabilities().contains("batch_upload"));
     assertTrue(noIndexing.unavailable().contains("batch_upload"));
+    assertTrue(noIndexing.unavailable().contains("batch_streaming_upload"));
     assertFalse(
         RuntimeConfiguration.reindexCapabilities(base("ingestions", "indexings"), false)
             .capabilities()
@@ -38,5 +43,7 @@ class BatchUploadCapabilityTest {
         RuntimeConfiguration.managedCapabilities(withBatch, false, true, true, true, true);
     assertFalse(filtered.capabilities().contains("batch_upload"));
     assertTrue(filtered.unavailable().contains("batch_upload"));
+    assertFalse(filtered.capabilities().contains("batch_streaming_upload"));
+    assertTrue(filtered.unavailable().contains("batch_streaming_upload"));
   }
 }

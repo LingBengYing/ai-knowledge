@@ -7,7 +7,9 @@ import java.util.Map;
 /**
  * One page of a batch. {@code matched} is how many files the optional state filter selects (the
  * total when unfiltered); {@code offset} and {@code limit} page through those. {@code throughput}
- * counts the files that finished within the recent window, for a rate and an estimate.
+ * counts the files that finished within the recent window, for a rate and an estimate. {@code open}
+ * is true while an open batch's manifest is still growing ({@code expectedTotal} is the announced
+ * file count of a batch registered open, null for a one-shot manifest).
  */
 public record DocumentBatchResult(
     @JsonProperty("batch_id") String batchId,
@@ -28,7 +30,9 @@ public record DocumentBatchResult(
     @JsonProperty("updated_at") String updatedAt,
     @JsonProperty("state_filter") List<String> stateFilter,
     int matched,
-    Throughput throughput) {
+    Throughput throughput,
+    boolean open,
+    @JsonProperty("expected_total") Integer expectedTotal) {
   public record File(
       int ordinal,
       String filename,

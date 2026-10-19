@@ -71,6 +71,138 @@ public final class DocumentBatchRepository {
           paths);
   }
 
+  /** Registers an open batch: no files yet, the announced count and the duplicate choice. */
+  public void open(String id, int expectedTotal, boolean includeDuplicates) {
+    store.execute(
+        "INSERT INTO document_import_batch_streams(batch_id,expected_total,include_duplicates) VALUES(?,?,?)",
+        id,
+        expectedTotal,
+        includeDuplicates ? 1 : 0);
+  }
+
+  /** The open-batch row of a batch, absent for a one-shot manifest. */
+  public Optional<Map<String, Object>> stream(String id) {
+    return store.rows("SELECT * FROM document_import_batch_streams WHERE batch_id=?", id).stream()
+        .findFirst();
+  }
+
+  /** Open-batch rows of several batches at once, keyed by batch id. */
+  public Map<String, Map<String, Object>> streams(List<String> ids) {
+    var result = new java.util.HashMap<String, Map<String, Object>>();
+    if (ids.isEmpty()) return result;
+    for (var row :
+        store.rows(
+            "SELECT * FROM document_import_batch_streams WHERE batch_id IN ("
+                + String.join(",", java.util.Collections.nCopies(ids.size(), "?"))
+                + ")",
+            ids.toArray())) result.put((String) row.get("batch_id"), row);
+    return result;
+  }
+
+  /** How many manifest entries the batch has: its ordinals are 0 to this minus one. */
+  public int registered(String id) {
+    return (int) store.count("SELECT COUNT(*) FROM document_import_files WHERE batch_id=?", id);
+  }
+
+  /** The total declared bytes of the batch's registered entries. */
+  public long registeredBytes(String id) {
+    return store.count(
+        "SELECT COALESCE(SUM(size_bytes),0) FROM document_import_files WHERE batch_id=?", id);
+  }
+
+  /** Registered entries from {@code from} to {@code to} (exclusive), with their folder paths. */
+  public List<Map<String, Object>> entries(String id, int from, int to) {
+    return store.rows(
+        "SELECT f.ordinal,f.filename,f.size_bytes,f.source_sha256,r.relative_path FROM document_import_files f"
+            + " LEFT JOIN document_import_file_paths r ON r.batch_id=f.batch_id AND r.ordinal=f.ordinal"
+            + " WHERE f.batch_id=? AND f.ordinal>=? AND f.ordinal<? ORDER BY f.ordinal",
+        id,
+        from,
+        to);
+  }
+
+  /** Appends entries at ordinals {@code base}, {@code base}+1, ... of an open batch. */
+  public void append(String id, int base, List<BatchImportFile.Manifest> files) {
+    var rows = new java.util.ArrayList<Object[]>(files.size());
+    var paths = new java.util.ArrayList<Object[]>();
+    for (int i = 0; i < files.size(); i++) {
+      var f = files.get(i);
+      rows.add(new Object[] {id, base + i, f.filename(), f.sizeBytes(), f.sourceSha256()});
+      if (f.relativePath() != null) paths.add(new Object[] {id, base + i, f.relativePath()});
+    }
+    store.executeBatch(
+        "INSERT INTO document_import_files(batch_id,ordinal,filename,size_bytes,source_sha256) VALUES(?,?,?,?,?)",
+        rows);
+    if (!paths.isEmpty())
+      store.executeBatch(
+          "INSERT INTO document_import_file_paths(batch_id,ordinal,relative_path) VALUES(?,?,?)",
+          paths);
+    touch(id);
+  }
+
+  /** Closes an open batch's manifest; returns false when it was already sealed. */
+  public boolean seal(String id) {
+    if (store.count(
+            "SELECT COUNT(*) FROM document_import_batch_streams WHERE batch_id=? AND sealed_at IS NULL",
+            id)
+        == 0) return false;
+    store.execute(
+        "UPDATE document_import_batch_streams SET sealed_at="
+            + BatchHistorySchema.NOW
+            + " WHERE batch_id=? AND sealed_at IS NULL",
+        id);
+    touch(id);
+    return true;
+  }
+
+  /** Records a manifest change as the batch's last update. */
+  private void touch(String id) {
+    store.execute(
+        "UPDATE document_import_batch_times SET updated_at="
+            + BatchHistorySchema.NOW
+            + " WHERE batch_id=?",
+        id);
+  }
+
+  /**
+   * The first registered ordinal of each of these digests that is neither a skipped duplicate nor
+   * deleted, among ordinals below {@code before}: an appended entry with the same bytes repeats
+   * that file.
+   */
+  public Map<String, Integer> firstOrdinals(
+      String id, int before, java.util.Collection<String> digests) {
+    var result = new java.util.HashMap<String, Integer>();
+    if (digests.isEmpty()) return result;
+    var arguments = new java.util.ArrayList<Object>();
+    arguments.add(id);
+    arguments.add(before);
+    arguments.addAll(digests);
+    for (var row :
+        store.rows(
+            "SELECT f.source_sha256,MIN(f.ordinal) AS first FROM document_import_files f"
+                + " JOIN document_import_file_states s ON s.batch_id=f.batch_id AND s.ordinal=f.ordinal"
+                + " WHERE f.batch_id=? AND f.ordinal<? AND s.state NOT IN ('duplicate','deleted') AND f.source_sha256 IN ("
+                + String.join(",", java.util.Collections.nCopies(digests.size(), "?"))
+                + ") GROUP BY f.source_sha256",
+            arguments.toArray()))
+      result.put((String) row.get("source_sha256"), ((Number) row.get("first")).intValue());
+    return result;
+  }
+
+  /**
+   * The maintained state of entries {@code from} to {@code to} (exclusive), for an append reply.
+   */
+  public List<Map<String, Object>> entryStates(String id, int from, int to) {
+    return store.rows(
+        "SELECT s.ordinal,s.state,s.duplicate_ordinal,COALESCE(s.duplicate_document_id,p.document_id) AS duplicate_document"
+            + " FROM document_import_file_states s"
+            + " LEFT JOIN document_import_files p ON p.batch_id=s.batch_id AND p.ordinal=s.duplicate_ordinal"
+            + " WHERE s.batch_id=? AND s.ordinal>=? AND s.ordinal<? ORDER BY s.ordinal",
+        id,
+        from,
+        to);
+  }
+
   /** The batch's last recorded change (a file state, a halt or a new limit). */
   public String updatedAt(String id) {
     return store
@@ -114,11 +246,25 @@ public final class DocumentBatchRepository {
    * uploaded and count as settled. Returns how many were marked.
    */
   public int markDuplicates(Actor actor, String id, List<BatchImportFile.Manifest> files) {
+    return markDuplicates(actor, id, 0, files, Map.of());
+  }
+
+  /**
+   * As {@link #markDuplicates(Actor, String, List)} for entries appended at ordinals {@code base}
+   * onwards: {@code earlier} maps the digests of files registered before them to the first such
+   * file, so an appended entry also repeats an earlier chunk of the same batch.
+   */
+  public int markDuplicates(
+      Actor actor,
+      String id,
+      int base,
+      List<BatchImportFile.Manifest> files,
+      Map<String, Integer> earlier) {
     var live = new java.util.HashMap<String, java.util.Optional<String>>();
-    var first = new java.util.HashMap<String, Integer>();
+    var first = new java.util.HashMap<String, Integer>(earlier);
     var rows = new java.util.ArrayList<Object[]>();
-    for (int i = 0; i < files.size(); i++) {
-      String sha = files.get(i).sourceSha256();
+    for (int i = base; i < base + files.size(); i++) {
+      String sha = files.get(i - base).sourceSha256();
       var existing =
           live.computeIfAbsent(
               sha,

@@ -41,7 +41,17 @@
    返回`{"offset","limit","total","items":[{"batch_id","state","total","counts","halted_reason","created_at","updated_at"}]}`，
    `state`的推导与批次详情相同。
 
-三个批量操作均无查询参数，返回`{"batch_id","action","affected","batch"}`，`batch`为操作后第一页状态。
+8. `POST /v1/document-batches`带`"open":true`与`"expected_total":n`（1–批次文件上限，默认10,000）、不带`files`（或空数组）：登记**开放批次**（v42，见下文“边传边登记”），
+   可选`embedding_request_limit`、`include_duplicates`同上；同一`request_id`同样选项重放得到原批次，选项不同409`batch_upload_conflict`。
+   不带`open`时`expected_total`必须缺省，原一次性清单行为完全不变。
+9. `POST /v1/document-batches/{batch_id}/files`（v42）：JSON`{"files":[{"ordinal","filename","size_bytes","source_sha256","relative_path"?}]}`，1–1,000条，ordinal连续。
+   已登记的ordinal必须与原条目完全相同（重放成功、不改变任何东西），否则409`batch_upload_conflict`；新条目必须紧接已登记数（跳号409`batch_manifest_gap`），
+   总数不超过`expected_total`、累计字节不超过工作区原件上限（422）；已结束登记的批次只接受重放（新条目409`batch_sealed`），用户取消的批次拒绝新条目（409`batch_action_conflict`），
+   一次性清单批次409`batch_not_open`。返回200`{"batch_id","registered","expected_total","open","items":[{"ordinal","state","duplicate_of_document_id","duplicate_of_ordinal"}]}`，
+   `items`为本请求各条目的当前状态（新条目为`awaiting_upload`或`duplicate`）。
+10. `POST /v1/document-batches/{batch_id}/seal`（v42）：结束开放批次的登记（可少于`expected_total`），重复调用无害（`affected`为0）；一次性清单409`batch_not_open`。返回同批量操作。
+
+批量操作均无查询参数，返回`{"batch_id","action","affected","batch"}`，`batch`为操作后第一页状态。
 
 清单登记与每个文件的原件/任务/槽位关联分别在SQLite短事务内提交；
 清单、解析页和文本片段使用复用预编译语句的JDBC批写，每256行执行一批，仍在同一事务内原子提交或回滚。
@@ -186,3 +196,29 @@ v39→v40新增`document_import_file_states`表、6个索引与7个触发器（�
   批次`updated_at`取创建时间与文件`changed_at`的最大值。升级前保留`v40-before-v41`一致备份；旧v40运行包不能直接打开v41库，回滚须使用v41兼容代码。
 - **生产定制入口**须同步：放行`GET /v1/document-batches`（仅`offset`、`limit`），`GET /v1/document-batches/{id}`的query增加`state`
   （`^[a-z_]{1,32}(,[a-z_]{1,32}){0,9}$`），见Web仓库`scripts/wiki-transport.mjs`；无新增静态资源。
+
+## 边传边登记（v42，2026-10-19）
+
+现象：选择3,827个小XML文件后，浏览器要先算完全部SHA-256、登记完整清单才开始第一个上传，期间看不到上传进度。
+
+- **开放批次**：网页（后端报告`batch_streaming_upload`能力时）先登记`open:true`的空批次，每算完一小批指纹（第一批50个，之后每批至多500个，
+  或距上次登记满1秒、或上传路空闲时）就追加一段清单并立即上传这一段，后续继续算指纹、追加；最后一段登记后`seal`，上传仍在进行。
+  3,827个文件（每个文件读取5ms、往返40ms的模拟）第一个上传约在0.2秒开始，原来约5.7秒（本地文件读取更慢时差距按比例放大）。
+- **状态**：开放批次（未`seal`）的批次状态永远不是`completed`/`completed_with_failures`：已登记文件全部完成时显示`awaiting_upload`（等待更多文件）。
+  批次详情与导入记录条目新增`open`（布尔）与`expected_total`（开放批次登记时宣布的文件数，一次性清单为null）；开放批次的`available_actions`含`seal`，
+  `cancel`在开放期间始终可用。`total`、`counts`只统计已登记的文件。
+- **去重**：未选“包含重复”时，每段新条目与资料库现存（未删除）资料、本批更早登记的文件（不含已跳过/已删除）以及同段更早条目比对，规则与一次性清单相同；
+  更早文件已上传时，指向它生成的资料（`duplicate_of_document_id`）。
+- **额度、停止、取消、继续、重试、列表筛选**：沿用原逻辑（追加不消耗嵌入额度；预算停止时仍可追加登记，上传照原规则被拒；取消后拒绝新条目，继续后可再追加）。
+- **刷新与续传**：页面在登记中途关闭时批次保持开放。批次页显示“批次登记未完成：已登记 N / M 份”，可“继续上传”（重新选择同一文件夹：
+  已登记未上传的文件按文件名+大小+SHA-256匹配上传；没有同路径（无路径时同名）且同大小条目的文件计算指纹后追加登记并上传，至多到`expected_total`；之后结束登记），
+  也可“按已登记的文件结束登记”。选择的文件与本批无关时既不追加也不结束登记。
+- **兼容**：一次性清单（不带`open`）的请求、摘要、状态推导完全不变；旧网页不受影响。网页在入口不认识追加路由（404/405且无服务错误码）且尚未登记任何条目时，
+  取消该空开放批次并改用一次性清单（新`request_id`），因此网页可以先于入口更新发布。
+- **v42**：只新增`document_import_batch_streams`一表（`batch_id`主键、`expected_total` 1–10000、`include_duplicates`、`sealed_at`），登记于`cleanup_schema_objects`；
+  不改写既有表，已有批次都是一次性清单（无行）。升级前保留`v41-before-v42`一致备份；旧v41运行包不能直接打开v42库，回滚须使用v42兼容代码。
+- **生产定制入口**（Web仓库`scripts/external-server.mjs`的定制版）须同步：
+  1) WIKI_ROUTES新增`POST /v1/document-batches/{id}/files`（`^/v1/document-batches/[A-Za-z0-9_-]{1,128}/files$`，与上传路由`/files/{ordinal}`不同），种类同批次JSON接口（`wiki-batch`，要求`application/json`，不带查询）；
+  2) 批量操作路由的`(retry-failed|cancel|resume)`加上`seal`；
+  3) 追加请求与`POST /v1/document-batches`一样：请求体上限4MiB、计时器用`uploadDeadlineMs`（见Web仓库`scripts/wiki-transport.mjs`的`batchManifestRequest`）；
+  4) 无新增静态资源（`batch-upload.mjs`、`wiki-workspace.mjs`、`wiki-workspace-api.mjs`、`wiki-workspace.css`内容更新）。

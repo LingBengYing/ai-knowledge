@@ -139,7 +139,11 @@ final class BatchHistorySchema {
   }
 
   void verify() {
-    new BatchThroughputSchema(store).verify(VERSION);
+    verify(VERSION);
+  }
+
+  void verify(int version) {
+    new BatchThroughputSchema(store).verify(version);
     if (store.count("SELECT COUNT(*) FROM pragma_table_info('document_import_file_paths')") != 3
         || store.count("SELECT COUNT(*) FROM pragma_table_info('document_import_file_times')") != 4
         || store.count("SELECT COUNT(*) FROM pragma_table_info('document_import_batch_times')") != 2

@@ -132,9 +132,14 @@ public class RuntimeConfiguration {
     } else {
       unavailable.add("document_replacements");
     }
-    if (autoIndex && enabled.contains("ingestions") && enabled.contains("indexings"))
+    // Open batches (append entries while uploading, then seal) come with batch upload itself.
+    if (autoIndex && enabled.contains("ingestions") && enabled.contains("indexings")) {
       enabled.add("batch_upload");
-    else unavailable.add("batch_upload");
+      enabled.add("batch_streaming_upload");
+    } else {
+      unavailable.add("batch_upload");
+      unavailable.add("batch_streaming_upload");
+    }
     if (enabled.contains("text_index") && enabled.contains("indexings")) {
       enabled.add("text_reindex");
       enabled.add("text_reindex_with_vectors");
@@ -171,6 +176,7 @@ public class RuntimeConfiguration {
               "text_index",
               "indexings",
               "batch_upload",
+              "batch_streaming_upload",
               "text_reindex",
               "text_reindex_with_vectors",
               "batch_text_reindex",

@@ -4,6 +4,8 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.DocumentBatchActionResult;
+import com.evidence.rag.model.dto.DocumentBatchAppendCommand;
+import com.evidence.rag.model.dto.DocumentBatchAppendResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
 import com.evidence.rag.model.dto.DocumentBatchList;
 import com.evidence.rag.model.dto.DocumentBatchResult;
@@ -94,6 +96,25 @@ public final class DocumentBatchController {
     } finally {
       uploads.release();
     }
+  }
+
+  /**
+   * Appends manifest entries to an open batch (explicit, consecutive ordinals; replays allowed).
+   */
+  @PostMapping(value = "/v1/document-batches/{id}/files", consumes = "application/json")
+  public DocumentBatchAppendResult append(
+      HttpServletRequest request,
+      @PathVariable String id,
+      @RequestBody DocumentBatchAppendCommand command) {
+    noQuery(request);
+    return service.append(AuthenticatedActor.require(request), id, command);
+  }
+
+  /** Closes an open batch's manifest with the entries registered so far. */
+  @PostMapping("/v1/document-batches/{id}/seal")
+  public DocumentBatchActionResult seal(HttpServletRequest request, @PathVariable String id) {
+    noQuery(request);
+    return service.seal(AuthenticatedActor.require(request), id);
   }
 
   /** Retries every failed or cancelled file that still has attempts left. */
