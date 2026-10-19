@@ -17,5 +17,7 @@ public record DocumentBatchList(int offset, int limit, int total, List<Item> ite
       Map<String, Long> counts,
       @JsonProperty("halted_reason") String haltedReason,
       @JsonProperty("created_at") String createdAt,
-      @JsonProperty("updated_at") String updatedAt) {}
+      @JsonProperty("updated_at") String updatedAt,
+      boolean open,
+      @JsonProperty("expected_total") Integer expectedTotal) {}
 }

@@ -297,6 +297,103 @@ class DocumentBatchHttpTest {
             202,
             send(client, base, "POST", path + "/files/0", raw, "application/octet-stream")
                 .statusCode());
+        assertFalse(resume.path("open").asBoolean());
+        assertTrue(resume.path("expected_total").isNull());
+        assertEquals(
+            409, send(client, base, "POST", path + "/seal", null, null).statusCode(), "one-shot");
+
+        // v42: an open batch grows by appended chunks, uploads in between, then is sealed.
+        byte[] open =
+            json.writeValueAsBytes(
+                Map.of("request_id", "http-open", "open", true, "expected_total", 2));
+        var opened = send(client, base, "POST", "/v1/document-batches", open, "application/json");
+        assertEquals(202, opened.statusCode(), opened.body());
+        var openBatch = json.readTree(opened.body());
+        String openPath = "/v1/document-batches/" + openBatch.path("batch_id").asString();
+        assertTrue(openBatch.path("open").asBoolean());
+        assertEquals(2, openBatch.path("expected_total").asInt());
+        assertEquals("[\"cancel\",\"seal\"]", openBatch.path("available_actions").toString());
+        byte[] other = "Synthetic HTTP open source".getBytes(StandardCharsets.UTF_8);
+        byte[] chunk =
+            json.writeValueAsBytes(
+                Map.of(
+                    "files",
+                    List.of(
+                        Map.of(
+                            "ordinal",
+                            0,
+                            "filename",
+                            "three.txt",
+                            "size_bytes",
+                            other.length,
+                            "source_sha256",
+                            ModelValues.sha256(other),
+                            "relative_path",
+                            "folder/three.txt"))));
+        var appended = send(client, base, "POST", openPath + "/files", chunk, "application/json");
+        assertEquals(200, appended.statusCode(), appended.body());
+        var appendResult = json.readTree(appended.body());
+        assertEquals(1, appendResult.path("registered").asInt());
+        assertEquals(
+            "awaiting_upload", appendResult.path("items").path(0).path("state").asString());
+        assertEquals(
+            200,
+            send(client, base, "POST", openPath + "/files", chunk, "application/json").statusCode(),
+            "a replay succeeds");
+        byte[] conflicting =
+            json.writeValueAsBytes(
+                Map.of(
+                    "files",
+                    List.of(
+                        Map.of(
+                            "ordinal",
+                            0,
+                            "filename",
+                            "four.txt",
+                            "size_bytes",
+                            other.length,
+                            "source_sha256",
+                            ModelValues.sha256(other)))));
+        var conflict =
+            send(client, base, "POST", openPath + "/files", conflicting, "application/json");
+        assertEquals(409, conflict.statusCode(), conflict.body());
+        assertTrue(conflict.body().contains("batch_upload_conflict"));
+        assertEquals(
+            422,
+            send(client, base, "POST", openPath + "/files?x=1", chunk, "application/json")
+                .statusCode());
+        assertEquals(
+            202,
+            send(client, base, "POST", openPath + "/files/0", other, "application/octet-stream")
+                .statusCode());
+        var sealed = send(client, base, "POST", openPath + "/seal", null, null);
+        assertEquals(200, sealed.statusCode(), sealed.body());
+        var seal = json.readTree(sealed.body());
+        assertEquals("seal", seal.path("action").asString());
+        assertFalse(seal.path("batch").path("open").asBoolean());
+        assertEquals(1, seal.path("batch").path("total").asInt());
+        var sealedAppend =
+            send(
+                client,
+                base,
+                "POST",
+                openPath + "/files",
+                json.writeValueAsBytes(
+                    Map.of(
+                        "files",
+                        List.of(
+                            Map.of(
+                                "ordinal",
+                                1,
+                                "filename",
+                                "five.txt",
+                                "size_bytes",
+                                1,
+                                "source_sha256",
+                                "e".repeat(64))))),
+                "application/json");
+        assertEquals(409, sealedAppend.statusCode(), sealedAppend.body());
+        assertTrue(sealedAppend.body().contains("batch_sealed"));
       }
     }
   }

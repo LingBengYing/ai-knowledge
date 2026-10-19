@@ -197,7 +197,9 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 41) {
+              if (count("PRAGMA user_version") == 42) {
+                schema.verifyVersionFortyTwo();
+              } else if (count("PRAGMA user_version") == 41) {
                 schema.verifyVersionFortyOne();
               } else if (count("PRAGMA user_version") == 40) {
                 schema.verifyVersionForty();
@@ -550,9 +552,13 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         if (exists) schema.backupVersion(canonicalDirectory, 40, 41);
         schema.migrateVersionFortyOne();
       }
+      if (transaction(() -> count("PRAGMA user_version")) == 41) {
+        if (exists) schema.backupVersion(canonicalDirectory, 41, 42);
+        schema.migrateVersionFortyTwo();
+      }
       transaction(
           () -> {
-            schema.verifyVersionFortyOne();
+            schema.verifyVersionFortyTwo();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -834,7 +840,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionFortyOne();
+            new AuthoritySchema(this).verifyVersionFortyTwo();
             return null;
           });
     } catch (IOException | SQLException failure) {

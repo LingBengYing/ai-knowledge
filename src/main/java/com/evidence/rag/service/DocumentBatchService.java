@@ -6,6 +6,8 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.BatchImportFile;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.DocumentBatchActionResult;
+import com.evidence.rag.model.dto.DocumentBatchAppendCommand;
+import com.evidence.rag.model.dto.DocumentBatchAppendResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
 import com.evidence.rag.model.dto.DocumentBatchList;
 import com.evidence.rag.model.dto.DocumentBatchResult;
@@ -61,8 +63,10 @@ public final class DocumentBatchService {
   }
 
   public DocumentBatchResult create(Actor actor, DocumentBatchCommand command) {
+    if (command != null && Boolean.TRUE.equals(command.open())) return createOpen(actor, command);
     if (actor == null
         || command == null
+        || command.expectedTotal() != null
         || command.files() == null
         || command.files().isEmpty()
         || command.files().size() > maxFiles) throw ModelValues.invalid();
@@ -76,12 +80,8 @@ public final class DocumentBatchService {
     // Only an opt-out changes the digest, so manifests registered before v40 keep theirs.
     if (includeDuplicates) canonical.append("include_duplicates\n");
     for (var file : command.files()) {
-      if (file == null
-          || file.sizeBytes() < 1
-          || file.sizeBytes() > ingestion.maximumUploadBytes()
-          || file.sourceSha256() == null
-          || !file.sourceSha256().matches("[a-f0-9]{64}")) throw ModelValues.invalid();
-      ingestion.prepareUpload(file.filename(), "application/octet-stream");
+      if (file == null) throw ModelValues.invalid();
+      checkEntry(file.filename(), file.sizeBytes(), file.sourceSha256());
       String path = BatchImportFile.relativePath(file.relativePath(), file.filename());
       bytes = Math.addExact(bytes, file.sizeBytes());
       canonical
@@ -127,6 +127,176 @@ public final class DocumentBatchService {
               return created;
             });
     return status(actor, id, 0, 100);
+  }
+
+  /** The most entries one append may carry; a browser sends far fewer at a time. */
+  public static final int MAX_APPEND = 1000;
+
+  private void checkEntry(String filename, long sizeBytes, String sha256) {
+    if (sizeBytes < 1
+        || sizeBytes > ingestion.maximumUploadBytes()
+        || sha256 == null
+        || !sha256.matches("[a-f0-9]{64}")) throw ModelValues.invalid();
+    ingestion.prepareUpload(filename, "application/octet-stream");
+  }
+
+  /**
+   * Registers an open batch: no entries yet, {@code expected_total} announced (at most the batch
+   * file limit). Entries are appended in ordinal order and the batch is sealed afterwards; until
+   * then it never counts as completed. The same request ID with the same options returns the same
+   * batch, so a lost reply is safely repeated.
+   */
+  private DocumentBatchResult createOpen(Actor actor, DocumentBatchCommand command) {
+    Integer expected = command.expectedTotal();
+    if (actor == null
+        || (command.files() != null && !command.files().isEmpty())
+        || expected == null
+        || expected < 1
+        || expected > maxFiles) throw ModelValues.invalid();
+    ModelValues.identifier(command.requestId(), 128);
+    int budget =
+        command.embeddingRequestLimit() == null ? 1000000 : command.embeddingRequestLimit();
+    if (budget < 1 || budget > 1000000) throw ModelValues.invalid();
+    boolean includeDuplicates = Boolean.TRUE.equals(command.includeDuplicates());
+    // A one-shot manifest line has three or more tab-separated fields, so this never collides.
+    String digest =
+        ModelValues.sha256(
+            (budget
+                    + "\n"
+                    + (includeDuplicates ? "include_duplicates\n" : "")
+                    + "open\t"
+                    + expected
+                    + "\n")
+                .getBytes(StandardCharsets.UTF_8));
+    String id =
+        store.transaction(
+            () -> {
+              var existing = batches.byRequest(actor, command.requestId());
+              if (existing.isPresent()) {
+                if (!digest.equals(existing.orElseThrow().get("manifest_sha256"))) throw conflict();
+                return (String) existing.orElseThrow().get("id");
+              }
+              String created = UUID.randomUUID().toString();
+              batches.insert(
+                  actor,
+                  created,
+                  command.requestId(),
+                  digest,
+                  budget,
+                  Instant.now().toString(),
+                  List.of());
+              batches.open(created, expected, includeDuplicates);
+              return created;
+            });
+    return status(actor, id, 0, 100);
+  }
+
+  /**
+   * Appends manifest entries to an open batch. Ordinals are consecutive within the request; an
+   * entry at an already registered ordinal must equal it (a replay of a lost reply succeeds),
+   * otherwise 409. New entries continue right after the last registered one, so a lost chunk is
+   * never skipped over. Unless the batch was opened with duplicates included, each new entry whose
+   * bytes are already in the library, or repeat an earlier entry of the batch, is skipped as a
+   * duplicate. A sealed or cancelled batch takes no new entries.
+   */
+  public DocumentBatchAppendResult append(
+      Actor actor, String batchId, DocumentBatchAppendCommand command) {
+    ModelValues.identifier(batchId, 128);
+    if (actor == null
+        || command == null
+        || command.files() == null
+        || command.files().isEmpty()
+        || command.files().size() > MAX_APPEND) throw ModelValues.invalid();
+    var entries = command.files();
+    var manifest = new java.util.ArrayList<BatchImportFile.Manifest>(entries.size());
+    for (int i = 0; i < entries.size(); i++) {
+      var entry = entries.get(i);
+      if (entry == null
+          || entry.ordinal() == null
+          || entry.ordinal() < 0
+          || entry.ordinal() >= maxFiles
+          || entry.ordinal() != entries.getFirst().ordinal() + i) throw ModelValues.invalid();
+      checkEntry(entry.filename(), entry.sizeBytes(), entry.sourceSha256());
+      manifest.add(
+          new BatchImportFile.Manifest(
+              entry.filename(),
+              entry.sizeBytes(),
+              entry.sourceSha256(),
+              BatchImportFile.relativePath(entry.relativePath(), entry.filename())));
+    }
+    int first = entries.getFirst().ordinal(), end = first + entries.size();
+    return store.transaction(
+        () -> {
+          var batch = batches.find(actor, batchId).orElseThrow(ModelValues::notFound);
+          var stream = batches.stream(batchId).orElseThrow(DocumentBatchService::notOpen);
+          int expected = ((Number) stream.get("expected_total")).intValue();
+          int registered = batches.registered(batchId);
+          if (first > registered) throw gap(registered);
+          // Entries already registered must be repeated exactly.
+          var stored = batches.entries(batchId, first, Math.min(end, registered));
+          for (var row : stored) {
+            var entry = manifest.get(((Number) row.get("ordinal")).intValue() - first);
+            if (!entry.filename().equals(row.get("filename"))
+                || entry.sizeBytes() != ((Number) row.get("size_bytes")).longValue()
+                || !entry.sourceSha256().equals(row.get("source_sha256"))
+                || !java.util.Objects.equals(entry.relativePath(), row.get("relative_path")))
+              throw conflict();
+          }
+          var added =
+              manifest.subList(Math.min(registered - first, manifest.size()), manifest.size());
+          if (!added.isEmpty()) {
+            if (stream.get("sealed_at") != null) throw sealed();
+            if (CANCELLED.equals(batch.get("halted_reason"))) throw actionConflict();
+            if (end > expected) throw ModelValues.invalid();
+            long bytes = batches.registeredBytes(batchId);
+            for (var entry : added) bytes = Math.addExact(bytes, entry.sizeBytes());
+            if (bytes > ingestion.maximumWorkspaceOriginalBytes()) throw ModelValues.invalid();
+            batches.append(batchId, registered, added);
+            if (((Number) stream.get("include_duplicates")).intValue() == 0)
+              batches.markDuplicates(
+                  actor,
+                  batchId,
+                  registered,
+                  added,
+                  batches.firstOrdinals(
+                      batchId,
+                      registered,
+                      added.stream()
+                          .map(BatchImportFile.Manifest::sourceSha256)
+                          .distinct()
+                          .toList()));
+          }
+          var items =
+              batches.entryStates(batchId, first, end).stream()
+                  .map(
+                      row ->
+                          new DocumentBatchAppendResult.Item(
+                              ((Number) row.get("ordinal")).intValue(),
+                              (String) row.get("state"),
+                              (String) row.get("duplicate_document"),
+                              row.get("duplicate_ordinal") == null
+                                  ? null
+                                  : ((Number) row.get("duplicate_ordinal")).intValue()))
+                  .toList();
+          return new DocumentBatchAppendResult(
+              batchId, Math.max(registered, end), expected, stream.get("sealed_at") == null, items);
+        });
+  }
+
+  /**
+   * Closes an open batch's manifest with the entries registered so far (possibly fewer than
+   * announced). Sealing again is harmless; a one-shot batch has nothing to seal.
+   */
+  public DocumentBatchActionResult seal(Actor actor, String id) {
+    ModelValues.identifier(id, 128);
+    int affected =
+        store.transaction(
+            () -> {
+              batches.find(actor, id).orElseThrow(ModelValues::notFound);
+              batches.stream(id).orElseThrow(DocumentBatchService::notOpen);
+              return batches.seal(id) ? 1 : 0;
+            });
+    return new DocumentBatchActionResult(id, "seal", affected, status(actor, id, 0, 100));
   }
 
   public TaskResult upload(Actor actor, String batchId, int ordinal, byte[] bytes) {
@@ -207,7 +377,9 @@ public final class DocumentBatchService {
           var counts = batches.counts(id);
           int total = counts.values().stream().mapToInt(Long::intValue).sum();
           String halted = (String) row.get("halted_reason");
-          String state = state(counts, halted);
+          var stream = batches.stream(id);
+          boolean open = stream.isPresent() && stream.orElseThrow().get("sealed_at") == null;
+          String state = state(counts, halted, open);
           long settled = settled(counts);
           int matched =
               states.isEmpty()
@@ -218,8 +390,9 @@ public final class DocumentBatchService {
           long retryable = batches.retryable(id);
           var actions = new java.util.ArrayList<String>();
           if (retryable > 0 && !CANCELLED.equals(halted)) actions.add("retry_failed");
-          if (!CANCELLED.equals(halted) && settled < total) actions.add("cancel");
+          if (!CANCELLED.equals(halted) && (settled < total || open)) actions.add("cancel");
           if (halted != null) actions.add("resume");
+          if (open) actions.add("seal");
           String created = (String) row.get("created_at");
           Instant now = Instant.now();
           Instant start = now.minus(THROUGHPUT_WINDOW);
@@ -273,7 +446,9 @@ public final class DocumentBatchService {
               batches.updatedAt(id),
               List.copyOf(states),
               matched,
-              throughput);
+              throughput,
+              open,
+              stream.map(r -> ((Number) r.get("expected_total")).intValue()).orElse(null));
         });
   }
 
@@ -287,7 +462,9 @@ public final class DocumentBatchService {
         () -> {
           int total = batches.countForWorkspace(actor);
           var rows = batches.page(actor, offset, limit);
-          var counts = batches.counts(rows.stream().map(row -> (String) row.get("id")).toList());
+          var ids = rows.stream().map(row -> (String) row.get("id")).toList();
+          var counts = batches.counts(ids);
+          var streams = batches.streams(ids);
           return new DocumentBatchList(
               offset,
               limit,
@@ -298,14 +475,20 @@ public final class DocumentBatchService {
                         String id = (String) row.get("id");
                         var batchCounts = counts.getOrDefault(id, Map.of());
                         String halted = (String) row.get("halted_reason");
+                        var stream = streams.get(id);
+                        boolean open = stream != null && stream.get("sealed_at") == null;
                         return new DocumentBatchList.Item(
                             id,
-                            state(batchCounts, halted),
+                            state(batchCounts, halted, open),
                             batchCounts.values().stream().mapToInt(Long::intValue).sum(),
                             batchCounts,
                             halted,
                             (String) row.get("created_at"),
-                            (String) row.get("updated_at"));
+                            (String) row.get("updated_at"),
+                            open,
+                            stream == null
+                                ? null
+                                : ((Number) stream.get("expected_total")).intValue());
                       })
                   .toList());
         });
@@ -319,7 +502,15 @@ public final class DocumentBatchService {
         + counts.getOrDefault("deleted", 0L);
   }
 
-  /** The batch state from its file counts and recorded halt. */
+  /**
+   * The batch state from its file counts, recorded halt and whether its manifest is still open. An
+   * open batch expects more files, so it waits for uploads instead of ever being completed.
+   */
+  private static String state(Map<String, Long> counts, String halted, boolean open) {
+    String state = state(counts, halted);
+    return open && state.startsWith("completed") ? "awaiting_upload" : state;
+  }
+
   private static String state(Map<String, Long> counts, String halted) {
     long total = counts.values().stream().mapToLong(Long::longValue).sum();
     long skipped = counts.getOrDefault("duplicate", 0L);
@@ -444,6 +635,22 @@ public final class DocumentBatchService {
   private static ApplicationException actionConflict() {
     return new ApplicationException(
         FailureKind.CONFLICT, "batch_action_conflict", "批次当前状态不能执行该操作，请刷新批次。");
+  }
+
+  private static ApplicationException notOpen() {
+    return new ApplicationException(
+        FailureKind.CONFLICT, "batch_not_open", "该批次的清单已一次登记完成，不能追加或结束登记。");
+  }
+
+  private static ApplicationException sealed() {
+    return new ApplicationException(FailureKind.CONFLICT, "batch_sealed", "批次已结束登记，不能再追加文件。");
+  }
+
+  private static ApplicationException gap(int registered) {
+    return new ApplicationException(
+        FailureKind.CONFLICT,
+        "batch_manifest_gap",
+        "批次已登记 " + registered + " 份文件，追加须从第 " + (registered + 1) + " 份接着登记，请刷新批次。");
   }
 
   private static ApplicationException duplicate() {
