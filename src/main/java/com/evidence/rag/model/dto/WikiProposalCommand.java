@@ -12,7 +12,18 @@ public record WikiProposalCommand(
     String title,
     String kind,
     List<String> documentIds,
-    String generationMethod) {
+    String generationMethod,
+    List<WikiSourceVersion> sourceVersions) {
+  public WikiProposalCommand(
+      String pageId,
+      long baseVersion,
+      String title,
+      String kind,
+      List<String> documentIds,
+      String generationMethod) {
+    this(pageId, baseVersion, title, kind, documentIds, generationMethod, null);
+  }
+
   public WikiProposalCommand {
     if (pageId != null) {
       ModelValues.identifier(pageId, 128);
@@ -38,6 +49,19 @@ public record WikiProposalCommand(
       }
     }
     documentIds = List.copyOf(documentIds);
+    if (sourceVersions != null) {
+      if (sourceVersions.size() != documentIds.size()
+          || sourceVersions.stream().anyMatch(value -> value == null)
+          || sourceVersions.stream().map(WikiSourceVersion::documentId).distinct().count()
+              != sourceVersions.size()
+          || !Set.copyOf(documentIds)
+              .equals(
+                  Set.copyOf(
+                      sourceVersions.stream().map(WikiSourceVersion::documentId).toList()))) {
+        throw ModelValues.invalid();
+      }
+      sourceVersions = List.copyOf(sourceVersions);
+    }
   }
 
   @Override

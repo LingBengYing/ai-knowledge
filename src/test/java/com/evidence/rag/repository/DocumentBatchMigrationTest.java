@@ -72,7 +72,7 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(42L, store.count("PRAGMA user_version"));
+              assertEquals(43L, store.count("PRAGMA user_version"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(0L, store.count("SELECT COUNT(*) FROM document_import_batches"));
@@ -125,8 +125,8 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(42L, store.count("PRAGMA user_version"));
-              assertEquals(42L, store.count("SELECT version FROM format_info"));
+              assertEquals(43L, store.count("PRAGMA user_version"));
+              assertEquals(43L, store.count("SELECT version FROM format_info"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(
@@ -138,7 +138,7 @@ class DocumentBatchMigrationTest {
                           + V41_OBJECTS
                           + " AND name NOT IN "
                           + V42_OBJECTS
-                          + " ORDER BY name"));
+                          + " AND name<>'document_import_batch_placement' ORDER BY name"));
               assertEquals(0L, store.count("SELECT COUNT(*) FROM batch_task_requeues"));
               assertEquals(
                   1L,
@@ -218,8 +218,8 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(42L, store.count("PRAGMA user_version"));
-              assertEquals(42L, store.count("SELECT version FROM format_info"));
+              assertEquals(43L, store.count("PRAGMA user_version"));
+              assertEquals(43L, store.count("SELECT version FROM format_info"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(
@@ -231,7 +231,7 @@ class DocumentBatchMigrationTest {
                           + V41_OBJECTS
                           + " AND name NOT IN "
                           + V42_OBJECTS
-                          + " ORDER BY name"));
+                          + " AND name<>'document_import_batch_placement' ORDER BY name"));
               // Existing files get their derived state; nothing is marked duplicate after the fact.
               assertEquals(
                   List.of(
@@ -328,8 +328,8 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(42L, store.count("PRAGMA user_version"));
-              assertEquals(42L, store.count("SELECT version FROM format_info"));
+              assertEquals(43L, store.count("PRAGMA user_version"));
+              assertEquals(43L, store.count("SELECT version FROM format_info"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(
@@ -339,7 +339,7 @@ class DocumentBatchMigrationTest {
                           + V41_OBJECTS
                           + " AND name NOT IN "
                           + V42_OBJECTS
-                          + " ORDER BY name"));
+                          + " AND name<>'document_import_batch_placement' ORDER BY name"));
               // Existing files get a time row from their batch, unfinished; no paths are invented.
               assertEquals(
                   List.of(
@@ -447,8 +447,8 @@ class DocumentBatchMigrationTest {
       try (var store = new SqliteAuthorityStore(target)) {
         store.transaction(
             () -> {
-              assertEquals(42L, store.count("PRAGMA user_version"));
-              assertEquals(42L, store.count("SELECT version FROM format_info"));
+              assertEquals(43L, store.count("PRAGMA user_version"));
+              assertEquals(43L, store.count("SELECT version FROM format_info"));
               before.forEach(
                   (name, rows) -> assertEquals(rows, store.rows("SELECT * FROM " + name), name));
               assertEquals(
@@ -456,7 +456,7 @@ class DocumentBatchMigrationTest {
                   store.rows(
                       "SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT IN "
                           + V42_OBJECTS
-                          + " ORDER BY name"));
+                          + " AND name<>'document_import_batch_placement' ORDER BY name"));
               // Existing batches stay one-shot manifests: no open-batch row is invented.
               assertEquals(0L, store.count("SELECT COUNT(*) FROM document_import_batch_streams"));
               assertEquals(

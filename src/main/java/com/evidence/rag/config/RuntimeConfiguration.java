@@ -125,6 +125,7 @@ public class RuntimeConfiguration {
   static RuntimeCapabilities reindexCapabilities(RuntimeCapabilities base, boolean autoIndex) {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
+    enabled.add("wiki_maintenance");
     if (enabled.contains("ingestions")
         || enabled.contains("sound_upload")
         || enabled.contains("video_av_upload")) {
@@ -136,9 +137,13 @@ public class RuntimeConfiguration {
     if (autoIndex && enabled.contains("ingestions") && enabled.contains("indexings")) {
       enabled.add("batch_upload");
       enabled.add("batch_streaming_upload");
+      enabled.add("batch_organization");
+      enabled.add("batch_sources");
     } else {
       unavailable.add("batch_upload");
       unavailable.add("batch_streaming_upload");
+      unavailable.add("batch_organization");
+      unavailable.add("batch_sources");
     }
     if (enabled.contains("text_index") && enabled.contains("indexings")) {
       enabled.add("text_reindex");
@@ -177,6 +182,8 @@ public class RuntimeConfiguration {
               "indexings",
               "batch_upload",
               "batch_streaming_upload",
+              "batch_organization",
+              "batch_sources",
               "text_reindex",
               "text_reindex_with_vectors",
               "batch_text_reindex",

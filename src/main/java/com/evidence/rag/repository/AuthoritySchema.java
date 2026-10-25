@@ -288,6 +288,14 @@ final class AuthoritySchema {
     new BatchStreamSchema(store).verify();
   }
 
+  void migrateVersionFortyThree() {
+    new BatchPlacementSchema(store).migrate();
+  }
+
+  void verifyVersionFortyThree() {
+    new BatchPlacementSchema(store).verify();
+  }
+
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(

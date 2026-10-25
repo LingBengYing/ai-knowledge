@@ -4,6 +4,8 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.dto.WikiPageLifecycleCommand;
 import com.evidence.rag.model.dto.WikiProposalCommand;
+import com.evidence.rag.model.dto.WikiRefreshCommand;
+import com.evidence.rag.model.dto.WikiSourceVersion;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +46,7 @@ public final class WikiRequestMapper {
     var node = object(bytes);
     var fields = new HashSet<>(node.propertyNames());
     fields.remove("page_id");
+    fields.remove("source_versions");
     if (!fields.equals(PROPOSAL_FIELDS) || !node.path("document_ids").isArray()) {
       throw invalid();
     }
@@ -59,7 +62,37 @@ public final class WikiRequestMapper {
         text(node.path("title")),
         text(node.path("kind")),
         documents,
-        text(node.path("generation_method")));
+        text(node.path("generation_method")),
+        node.has("source_versions") ? sourceVersions(node.path("source_versions")) : null);
+  }
+
+  public static WikiRefreshCommand refresh(byte[] bytes) {
+    var node = object(bytes);
+    if (!Set.copyOf(node.propertyNames())
+        .equals(Set.of("base_version", "generation_method", "source_versions"))) {
+      throw invalid();
+    }
+    return new WikiRefreshCommand(
+        integer(node.path("base_version")),
+        text(node.path("generation_method")),
+        sourceVersions(node.path("source_versions")));
+  }
+
+  private static java.util.List<WikiSourceVersion> sourceVersions(JsonNode node) {
+    if (!node.isArray()) {
+      throw invalid();
+    }
+    var versions = new ArrayList<WikiSourceVersion>();
+    for (var value : node) {
+      if (!value.isObject()
+          || !Set.copyOf(value.propertyNames()).equals(Set.of("document_id", "publication_id"))) {
+        throw invalid();
+      }
+      versions.add(
+          new WikiSourceVersion(
+              text(value.path("document_id")), text(value.path("publication_id"))));
+    }
+    return versions;
   }
 
   public static long accept(byte[] bytes) {

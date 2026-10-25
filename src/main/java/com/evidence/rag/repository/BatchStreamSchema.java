@@ -58,7 +58,11 @@ final class BatchStreamSchema {
   }
 
   void verify() {
-    new BatchHistorySchema(store).verify(VERSION);
+    verify(VERSION);
+  }
+
+  void verify(int version) {
+    new BatchHistorySchema(store).verify(version);
     if (store.count("SELECT COUNT(*) FROM pragma_table_info('document_import_batch_streams')") != 4
         || store.count("SELECT COUNT(*) FROM sqlite_master WHERE name IN (" + names() + ")")
             != OBJECTS.size()) throw new IllegalStateException("Unsupported batch stream schema");

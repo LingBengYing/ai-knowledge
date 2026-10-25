@@ -305,6 +305,18 @@ public final class ManagementRepository {
         != 0;
   }
 
+  /** Name-key lookup for assigning one imported file without listing every directory. */
+  public Optional<FolderEntity> findVisibleFolderByNameKey(Actor actor, String key) {
+    return store
+        .rows(
+            "SELECT f.* FROM folders f WHERE f.workspace_id=? AND f.name_key=?",
+            actor.workspaceId(),
+            key)
+        .stream()
+        .findFirst()
+        .map(AuthorityRows::folder);
+  }
+
   public void insertFolder(Actor actor, String id, String name, String key, String now) {
     store.execute(
         "INSERT INTO folders VALUES(?,?,?,?,?,?)",

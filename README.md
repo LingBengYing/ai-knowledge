@@ -277,3 +277,7 @@ node scripts/check-secrets.mjs --history
 - [llms.txt](llms.txt)：机器可读文档导航，不保证被任何搜索引擎或模型收录
 
 本仓库尚未指定开源许可证；公开可读不等于已授予 MIT/Apache 等许可。
+
+## 知识建设与增量维护
+
+批次导入后按已发布来源生成待审提案；原件更新后查看受影响知识并生成局部修订，采纳后保留不可变版本。使用方式、API及规则质量待办见[知识建设说明](docs/KNOWLEDGE_CONSTRUCTION.md)，发布与真实模型验证见[0094变更](docs/changes/0094-knowledge-construction/deployment-plan.md)。

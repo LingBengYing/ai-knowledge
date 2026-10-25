@@ -146,6 +146,24 @@ class DocumentBatchHttpTest {
           Thread.sleep(100);
         } while (System.nanoTime() < until);
         assertEquals("completed", status);
+        var sources =
+            send(
+                client, base, "GET", "/v1/document-batches/" + id + "/sources?limit=1", null, null);
+        assertEquals(200, sources.statusCode(), sources.body());
+        var selection = json.readTree(sources.body());
+        assertEquals(2, selection.path("total").asInt());
+        assertEquals(1, selection.path("items").size());
+        assertFalse(selection.path("items").get(0).path("publication_id").asString().isEmpty());
+        assertEquals(
+            422,
+            send(
+                    client,
+                    base,
+                    "GET",
+                    "/v1/document-batches/" + id + "/sources?unexpected=1",
+                    null,
+                    null)
+                .statusCode());
         assertEquals(
             2, upstream.requests.stream().filter(r -> r.path().equals("/embeddings")).count());
         assertEquals(

@@ -4,6 +4,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.BatchImportFile;
+import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchAppendCommand;
@@ -11,9 +12,12 @@ import com.evidence.rag.model.dto.DocumentBatchAppendResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
 import com.evidence.rag.model.dto.DocumentBatchList;
 import com.evidence.rag.model.dto.DocumentBatchResult;
+import com.evidence.rag.model.dto.DocumentBatchSourcesResult;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.repository.DocumentBatchRepository;
+import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.ImportIndexRepository;
+import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -30,6 +34,7 @@ public final class DocumentBatchService {
   private static final String CANCELLED = "batch_cancelled";
   private final SqliteAuthorityStore store;
   private final DocumentBatchRepository batches;
+  private final BatchPlacementService placement;
   private final IngestionService ingestion;
   private final IndexingService indexing;
   private final int maxFiles;
@@ -48,6 +53,7 @@ public final class DocumentBatchService {
       int uploadConcurrency) {
     this.store = store;
     this.batches = new DocumentBatchRepository(store);
+    this.placement = new BatchPlacementService(new ManagementRepository(store));
     this.ingestion = ingestion;
     this.indexing = indexing;
     this.maxFiles = maxFiles;
@@ -79,6 +85,7 @@ public final class DocumentBatchService {
     var canonical = new StringBuilder().append(budget).append('\n');
     // Only an opt-out changes the digest, so manifests registered before v40 keep theirs.
     if (includeDuplicates) canonical.append("include_duplicates\n");
+    appendPlacementDigest(canonical, command);
     for (var file : command.files()) {
       if (file == null) throw ModelValues.invalid();
       checkEntry(file.filename(), file.sizeBytes(), file.sourceSha256());
@@ -105,6 +112,11 @@ public final class DocumentBatchService {
                 return (String) existing.orElseThrow().get("id");
               }
               String created = UUID.randomUUID().toString();
+              var destination =
+                  placement.prepare(
+                      actor,
+                      command.targetFolderId(),
+                      Boolean.TRUE.equals(command.preservePaths()));
               var manifest =
                   command.files().stream()
                       .map(
@@ -115,6 +127,7 @@ public final class DocumentBatchService {
                                   f.sourceSha256(),
                                   BatchImportFile.relativePath(f.relativePath(), f.filename())))
                       .toList();
+              for (var entry : manifest) placement.validatePath(destination, entry.relativePath());
               batches.insert(
                   actor,
                   created,
@@ -123,6 +136,7 @@ public final class DocumentBatchService {
                   budget,
                   Instant.now().toString(),
                   manifest);
+              batches.savePlacement(created, destination);
               if (!includeDuplicates) batches.markDuplicates(actor, created, manifest);
               return created;
             });
@@ -159,15 +173,11 @@ public final class DocumentBatchService {
     if (budget < 1 || budget > 1000000) throw ModelValues.invalid();
     boolean includeDuplicates = Boolean.TRUE.equals(command.includeDuplicates());
     // A one-shot manifest line has three or more tab-separated fields, so this never collides.
-    String digest =
-        ModelValues.sha256(
-            (budget
-                    + "\n"
-                    + (includeDuplicates ? "include_duplicates\n" : "")
-                    + "open\t"
-                    + expected
-                    + "\n")
-                .getBytes(StandardCharsets.UTF_8));
+    var canonical = new StringBuilder().append(budget).append('\n');
+    if (includeDuplicates) canonical.append("include_duplicates\n");
+    canonical.append("open\t").append(expected).append('\n');
+    appendPlacementDigest(canonical, command);
+    String digest = ModelValues.sha256(canonical.toString().getBytes(StandardCharsets.UTF_8));
     String id =
         store.transaction(
             () -> {
@@ -186,9 +196,23 @@ public final class DocumentBatchService {
                   Instant.now().toString(),
                   List.of());
               batches.open(created, expected, includeDuplicates);
+              batches.savePlacement(
+                  created,
+                  placement.prepare(
+                      actor,
+                      command.targetFolderId(),
+                      Boolean.TRUE.equals(command.preservePaths())));
               return created;
             });
     return status(actor, id, 0, 100);
+  }
+
+  private static void appendPlacementDigest(StringBuilder canonical, DocumentBatchCommand command) {
+    if (command.targetFolderId() != null) {
+      ModelValues.identifier(command.targetFolderId(), 100);
+      canonical.append("target_folder\t").append(command.targetFolderId()).append('\n');
+    }
+    if (Boolean.TRUE.equals(command.preservePaths())) canonical.append("preserve_paths\n");
   }
 
   /**
@@ -228,6 +252,8 @@ public final class DocumentBatchService {
     return store.transaction(
         () -> {
           var batch = batches.find(actor, batchId).orElseThrow(ModelValues::notFound);
+          var destination = batches.placement(batchId);
+          for (var entry : manifest) placement.validatePath(destination, entry.relativePath());
           var stream = batches.stream(batchId).orElseThrow(DocumentBatchService::notOpen);
           int expected = ((Number) stream.get("expected_total")).intValue();
           int registered = batches.registered(batchId);
@@ -328,6 +354,11 @@ public final class DocumentBatchService {
                       original);
               batches.received(
                   batchId, ordinal, result.documentId(), result.revisionId(), result.taskId());
+              placement.place(
+                  actor,
+                  result.documentId(),
+                  batches.placement(batchId),
+                  batches.relativePath(batchId, ordinal));
               return result.taskId();
             });
     return ingestion.ingestionStatus(actor, task);
@@ -374,6 +405,7 @@ public final class DocumentBatchService {
     return store.transaction(
         () -> {
           var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
+          var destination = batches.placement(id);
           var counts = batches.counts(id);
           int total = counts.values().stream().mapToInt(Long::intValue).sum();
           String halted = (String) row.get("halted_reason");
@@ -448,7 +480,81 @@ public final class DocumentBatchService {
               matched,
               throughput,
               open,
-              stream.map(r -> ((Number) r.get("expected_total")).intValue()).orElse(null));
+              stream.map(r -> ((Number) r.get("expected_total")).intValue()).orElse(null),
+              destination.targetFolderId(),
+              destination.targetFolderName(),
+              destination.preservePaths());
+        });
+  }
+
+  /** Bounded batch metadata, not a whole-library compile or a read of every source's body. */
+  public DocumentBatchSourcesResult sources(
+      Actor actor, String id, String query, String folder, int offset, int limit) {
+    ModelValues.identifier(id, 128);
+    if (actor == null || offset < 0 || limit < 1 || limit > 100) throw ModelValues.invalid();
+    String search = query == null ? "" : query.strip();
+    ModelValues.bounded(search, 200);
+    String prefix = folder == null ? "" : folder;
+    if (!prefix.isEmpty()) BatchImportFile.relativePath(prefix + "/source.txt", "source.txt");
+    return store.transaction(
+        () -> {
+          batches.find(actor, id).orElseThrow(ModelValues::notFound);
+          var candidates = batches.sourceCandidates(id);
+          var publications =
+              new java.util.HashMap<String, com.evidence.rag.model.domain.PublicationVersion>();
+          var documentIds =
+              candidates.stream().map(row -> (String) row.get("document_id")).distinct().toList();
+          // Keep SQL parameter counts bounded while reusing the complete authority publication
+          // checks.
+          for (int start = 0; start < documentIds.size(); start += 256)
+            new EvidenceRepository(store)
+                .findActivePublications(
+                    actor,
+                    DocumentSelection.selected(
+                        documentIds.subList(start, Math.min(start + 256, documentIds.size()))))
+                .forEach(publication -> publications.put(publication.documentId(), publication));
+          var items = new java.util.ArrayList<DocumentBatchSourcesResult.Item>();
+          var folders = new java.util.TreeMap<String, Integer>();
+          String needle = search.toLowerCase(java.util.Locale.ROOT);
+          for (var row : candidates) {
+            var publication = publications.get(row.get("document_id"));
+            if (publication == null
+                || !publication.sourceRevisionId().equals(row.get("revision_id"))) continue;
+            String path = (String) row.get("relative_path");
+            String parent = BatchPlacementService.folder(path);
+            folders.merge(parent, 1, Integer::sum);
+            if (!prefix.isEmpty() && !parent.equals(prefix) && !parent.startsWith(prefix + "/"))
+              continue;
+            String filename = (String) row.get("filename"),
+                displayName = (String) row.get("display_name");
+            if (!needle.isEmpty()
+                && !java.util.stream.Stream.of(filename, displayName, path)
+                    .filter(java.util.Objects::nonNull)
+                    .anyMatch(value -> value.toLowerCase(java.util.Locale.ROOT).contains(needle)))
+              continue;
+            items.add(
+                new DocumentBatchSourcesResult.Item(
+                    ((Number) row.get("ordinal")).intValue(),
+                    publication.documentId(),
+                    filename,
+                    displayName,
+                    path,
+                    publication.publicationId(),
+                    publication.sourceRevisionId()));
+          }
+          int from = Math.min(offset, items.size()),
+              to = (int) Math.min((long) from + limit, items.size());
+          return new DocumentBatchSourcesResult(
+              id,
+              items.size(),
+              offset,
+              limit,
+              List.copyOf(items.subList(from, to)),
+              folders.entrySet().stream()
+                  .map(
+                      entry ->
+                          new DocumentBatchSourcesResult.Folder(entry.getKey(), entry.getValue()))
+                  .toList());
         });
   }
 

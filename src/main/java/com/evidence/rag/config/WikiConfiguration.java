@@ -5,11 +5,13 @@ import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.SynopsisMaterialRepository;
 import com.evidence.rag.repository.WikiCatalogRepository;
 import com.evidence.rag.repository.WikiDraftRepository;
+import com.evidence.rag.repository.WikiMaintenanceRepository;
 import com.evidence.rag.repository.WikiWorkspaceRepository;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.WikiCatalogService;
 import com.evidence.rag.service.WikiCompilationService;
 import com.evidence.rag.service.WikiDraftService;
+import com.evidence.rag.service.WikiMaintenanceService;
 import com.evidence.rag.service.WikiWorkspaceService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +20,21 @@ import org.springframework.context.annotation.Configuration;
 /** Reading/reviewing Wiki does not require paid models; generation opts in per explicit request. */
 @Configuration(proxyBeanMethods = false)
 public class WikiConfiguration {
+  @Bean
+  WikiMaintenanceRepository wikiMaintenanceRepository(SqliteAuthorityStore store) {
+    return new WikiMaintenanceRepository(store);
+  }
+
+  @Bean
+  WikiMaintenanceService wikiMaintenanceService(
+      SqliteAuthorityStore store,
+      WikiMaintenanceRepository repository,
+      WikiWorkspaceRepository wiki,
+      RagProperties properties) {
+    return new WikiMaintenanceService(
+        store, repository, wiki, new SynopsisMaterialRepository(store), properties.workspaceId());
+  }
+
   @Bean
   WikiCatalogRepository wikiCatalogRepository(SqliteAuthorityStore store) {
     return new WikiCatalogRepository(store);

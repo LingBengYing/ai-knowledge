@@ -1,0 +1,145 @@
+{
+  "scope": "Touched files; shared files may retain earlier WIP. This is not a production release manifest.",
+  "files": [
+    {
+      "path": "src/main/java/com/evidence/rag/config/RuntimeConfiguration.java",
+      "sha256": "0e613d8940e1efc7676543bb7820d67b3805ae2a5fc53c8632f50aa5e042e9f5"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/config/WikiConfiguration.java",
+      "sha256": "0135bedb9f7b5dfcac3cfd3b037feacce296afdfd0cd3402124cae17ff1e57ed"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/DocumentBatchController.java",
+      "sha256": "160aa7e9b501d70b45a802503f286354a0fc680e96495aebe2797b6fc6ec1f1a"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/controller/WikiMaintenanceController.java",
+      "sha256": "fbd9f0069a03abca74a7abfe4dde5241b9f9035c7c735c89d9daeb22319933c6"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/BatchPlacement.java",
+      "sha256": "48745ca43c97796d3bbc478a4130c65207a4da4e02ffa9fecc0c8984ec9bbd68"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/WikiMaintenanceSnapshot.java",
+      "sha256": "f023dcf5c6f71a94d5c02803a7ade975efdaeedf65bfbfde0ca829f103d8f015"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/domain/WikiSourcePreview.java",
+      "sha256": "461b6540d9be9e3211ffa1616e5c8a57e84d69dbbc1bbb70f2ce426019bb50ca"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentBatchCommand.java",
+      "sha256": "9ddd994926f2993f1e38c3c9da01a4b29c07c84e23f7d9cd46c56d357c483534"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentBatchResult.java",
+      "sha256": "d39a8f621528b327a6e70de509c77e847ea6cb21a97f52e5bfcb94dad2f27167"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/DocumentBatchSourcesResult.java",
+      "sha256": "5bd687a50b68995fa90f50b51821d9ec79bf05fa188367ec00ffbf7411415281"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/WikiMaintenanceResult.java",
+      "sha256": "5c427146158e9c28819fc6ef4e3421570f18626772b503877c4dee0671940d9f"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/WikiProposalCommand.java",
+      "sha256": "3b9284ae691ba697c4f8ab0933ea40f626dd49027fb159d4c4a4aa704bc9f4bc"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/WikiRefreshCommand.java",
+      "sha256": "acfb11bbb320769a129a0467e2460e52dad6899a6b692dd156057aff92a068a4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/WikiSourceChangesResult.java",
+      "sha256": "93896588da34bfbe15d579f46e94d9cf87c04f9ca55c01c3d961edca8b8053c4"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/model/dto/WikiSourceVersion.java",
+      "sha256": "002d51fed1d60f414db7cedfd72b6fe20cb41373a91d51224ad04ecb966b3368"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/AuthoritySchema.java",
+      "sha256": "cb690c28ec82aa6299d98eb4aac41894f8f760ef5faa6bdc90e29603fde4a233"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/BatchPlacementSchema.java",
+      "sha256": "1788c09372a7bb759b417a0b98971aea2fefdddfa42a12d3daa393e8afc95327"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/BatchStreamSchema.java",
+      "sha256": "114fd3e46b3d691613caaaebba1ed7e4ba639266e8fd072927f5046e635e5404"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/DocumentBatchRepository.java",
+      "sha256": "8e09a40acdeaa3f67eaa188a549a11c07f2520cbe6eab5924e21bec35e13776e"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/ManagementRepository.java",
+      "sha256": "47bf34d254d2d722adb20843547a92ff940aa79c77ed9c8b9968e65ada7ded41"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/SqliteAuthorityStore.java",
+      "sha256": "39f153c10c7f99577b3750728be4904bea3ad094f362fda350272f3c46cf4859"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/repository/WikiMaintenanceRepository.java",
+      "sha256": "3b8021815e65263dde33a520309501422b901dcf82bc877a28567569dcf00421"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/BatchPlacementService.java",
+      "sha256": "f8fc13caff518e5ab51b797111de38c5ad71341265656780249dcbdc0a222046"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/DocumentBatchService.java",
+      "sha256": "386975a4fe5440639118023cbb169b7a8b25fe3eb5e0e195797c88d7f2e829aa"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/WikiMaintenanceService.java",
+      "sha256": "2251345294007629a9e9517f08aff0101428e1f73502585b27d8f8d9645772b3"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/service/WikiWorkspaceService.java",
+      "sha256": "7c02fec544c8f83ac8aa6e1204e96073c45f2bc66a2ad76d9c8fbc3b65d05e38"
+    },
+    {
+      "path": "src/main/java/com/evidence/rag/web/converter/WikiRequestMapper.java",
+      "sha256": "4fe1d0a2707a9ef67bdb9fe57d078ef73d9f4c7fb9ecfdee660e46bff06eb7e5"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/config/BatchUploadCapabilityTest.java",
+      "sha256": "6fc6e864ddd2f5467969099547988dcb8111c76aad02ba475dbebc7bb55453b7"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/BatchPlacementMigrationTest.java",
+      "sha256": "1a482074fbf52c24b80d7d48e06a49d95acc079954a74052f50b030b4da60d91"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/repository/DocumentBatchMigrationTest.java",
+      "sha256": "756c4c46b82c99cf9ee23930daf5cbadecee6c80f6ac561696c1a2286e955677"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/DocumentBatchConstructionTest.java",
+      "sha256": "4deec454eeaadf9f9402fd8b1f5d31e34de2de57078d543609bf5ec1ccbe6e97"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/service/WikiMaintenanceServiceTest.java",
+      "sha256": "ba7625ca00e6f8a593d6a1b7e4b778cd064b0e4871fb1b2aec5c9947abd9c146"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/support/KnowledgeConstructionHttpTest.java",
+      "sha256": "df844a120ed174ab156bf42a04b0474de4cee2444b55453bec1bd0e9d8e589ec"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/DocumentBatchHttpTest.java",
+      "sha256": "cb58b003dcfe82d910b472513de6324f8dde81dabfbb8b45891cc839b5f4a6d4"
+    },
+    {
+      "path": "src/test/java/com/evidence/rag/web/converter/WikiRequestMapperTest.java",
+      "sha256": "6d14bd8b1ae95ee7a6d6dbadb8a0f05cac50bb3fd55aa97a6bb804796c4146c4"
+    }
+  ]
+}

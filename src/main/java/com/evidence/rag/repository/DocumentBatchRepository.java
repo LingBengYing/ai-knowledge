@@ -2,6 +2,7 @@ package com.evidence.rag.repository;
 
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.BatchImportFile;
+import com.evidence.rag.model.domain.BatchPlacement;
 import com.evidence.rag.model.domain.IndexClaim;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,65 @@ public final class DocumentBatchRepository {
             id)
         .stream()
         .findFirst();
+  }
+
+  public void savePlacement(String batchId, BatchPlacement placement) {
+    if (placement.targetFolderId() == null && !placement.preservePaths()) return;
+    store.execute(
+        "INSERT INTO document_import_batch_placement(batch_id,target_folder_id,target_folder_name,preserve_paths) VALUES(?,?,?,?)",
+        batchId,
+        placement.targetFolderId(),
+        placement.targetFolderName(),
+        placement.preservePaths() ? 1 : 0);
+  }
+
+  public BatchPlacement placement(String batchId) {
+    return store
+        .rows("SELECT * FROM document_import_batch_placement WHERE batch_id=?", batchId)
+        .stream()
+        .findFirst()
+        .map(
+            row ->
+                new BatchPlacement(
+                    (String) row.get("target_folder_id"),
+                    (String) row.get("target_folder_name"),
+                    ((Number) row.get("preserve_paths")).intValue() == 1))
+        .orElse(BatchPlacement.NONE);
+  }
+
+  public String relativePath(String batchId, int ordinal) {
+    return store
+        .rows(
+            "SELECT relative_path FROM document_import_file_paths WHERE batch_id=? AND ordinal=?",
+            batchId,
+            ordinal)
+        .stream()
+        .findFirst()
+        .map(row -> (String) row.get("relative_path"))
+        .orElse(null);
+  }
+
+  /**
+   * Metadata only; the service also resolves these candidates through the authority publication
+   * contract.
+   */
+  public List<Map<String, Object>> sourceCandidates(String batchId) {
+    return store.rows(
+        """
+        SELECT f.ordinal,f.document_id,f.filename,d.display_name,r.relative_path,f.revision_id
+        FROM document_import_files f
+        JOIN documents d ON d.id=f.document_id
+        JOIN active_corpus_publications a ON a.document_id=d.id AND a.revision_id=f.revision_id
+        LEFT JOIN document_import_file_paths r ON r.batch_id=f.batch_id AND r.ordinal=f.ordinal
+        WHERE f.batch_id=? AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+          AND (EXISTS(SELECT 1 FROM index_publication_entries e WHERE e.publication_id=a.publication_id)
+            OR EXISTS(SELECT 1 FROM audio_publication_entries e WHERE e.publication_id=a.publication_id)
+            OR EXISTS(SELECT 1 FROM video_transcript_publication_entries e WHERE e.publication_id=a.publication_id)
+            OR EXISTS(SELECT 1 FROM video_ocr_publication_entries e WHERE e.publication_id=a.publication_id)
+            OR EXISTS(SELECT 1 FROM video_subtitle_publication_entries e WHERE e.publication_id=a.publication_id))
+        ORDER BY f.ordinal
+        """,
+        batchId);
   }
 
   public void insert(

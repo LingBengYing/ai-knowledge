@@ -32,7 +32,10 @@ public record DocumentBatchResult(
     int matched,
     Throughput throughput,
     boolean open,
-    @JsonProperty("expected_total") Integer expectedTotal) {
+    @JsonProperty("expected_total") Integer expectedTotal,
+    @JsonProperty("target_folder_id") String targetFolderId,
+    @JsonProperty("target_folder_name") String targetFolderName,
+    @JsonProperty("preserve_paths") boolean preservePaths) {
   public record File(
       int ordinal,
       String filename,

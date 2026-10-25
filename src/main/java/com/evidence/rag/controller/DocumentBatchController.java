@@ -10,6 +10,7 @@ import com.evidence.rag.model.dto.DocumentBatchCommand;
 import com.evidence.rag.model.dto.DocumentBatchList;
 import com.evidence.rag.model.dto.DocumentBatchResult;
 import com.evidence.rag.model.dto.DocumentBatchResumeCommand;
+import com.evidence.rag.model.dto.DocumentBatchSourcesResult;
 import com.evidence.rag.model.vo.TaskResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.DocumentBatchService;
@@ -75,6 +76,18 @@ public final class DocumentBatchController {
     if (!allowed.containsAll(request.getParameterMap().keySet())
         || request.getParameterMap().values().stream().anyMatch(v -> v.length != 1))
       throw ModelValues.invalid();
+  }
+
+  @GetMapping("/v1/document-batches/{id}/sources")
+  public DocumentBatchSourcesResult sources(HttpServletRequest request, @PathVariable String id) {
+    onlyParameters(request, Set.of("offset", "limit", "q", "folder"));
+    return service.sources(
+        AuthenticatedActor.require(request),
+        id,
+        request.getParameter("q"),
+        request.getParameter("folder"),
+        number(request.getParameter("offset"), 0),
+        number(request.getParameter("limit"), 50));
   }
 
   @PostMapping(

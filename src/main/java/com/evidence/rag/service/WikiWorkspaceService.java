@@ -19,12 +19,14 @@ import com.evidence.rag.model.dto.WikiPageResult;
 import com.evidence.rag.model.dto.WikiProposalCommand;
 import com.evidence.rag.model.dto.WikiProposalListResult;
 import com.evidence.rag.model.dto.WikiProposalResult;
+import com.evidence.rag.model.dto.WikiRefreshCommand;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.SynopsisMaterialRepository;
 import com.evidence.rag.repository.WikiWorkspaceRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -62,59 +64,134 @@ public final class WikiWorkspaceService {
     }
     try (var lease = store.operationGate().enter()) {
       var prepared = store.transaction(() -> prepare(actor, command));
-      TextRuntimeSnapshot snapshot = null;
-      List<WikiContent.Section> sections;
-      String modelRevision;
-      if ("model".equals(command.generationMethod())) {
-        if (runtime == null) {
-          throw new ApplicationException(
-              FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
-        }
-        snapshot = runtime.capture();
-        try {
-          sections = compiler.compile(snapshot.models(), command.title(), prepared.inputs());
-        } catch (TextModels.Failure unavailable) {
-          throw new ApplicationException(
-              FailureKind.UNAVAILABLE, "wiki_compilation_unavailable", "知识编译模型暂不可用，未保存或发布提案。");
-        }
-        modelRevision = snapshot.modelsRevision();
-      } else {
-        sections = compiler.extract(prepared.inputs());
-        modelRevision = "extractive-v1";
-      }
-      if (snapshot != null && !runtime.isCurrent(snapshot)) {
-        throw new ApplicationException(
-            FailureKind.CONFLICT, "configuration_changed", "编译期间模型配置已改变，请重新创建提案。");
-      }
-      var content = new WikiContent(command.title(), command.kind(), sections);
-      String policyRevision =
-          WikiCompilationService.POLICY_REVISION
-              + ("model".equals(command.generationMethod())
-                  ? ":" + TextModels.WIKI_COMPILATION_PROMPT_REVISION
-                  : "");
-      var proposal =
-          new WikiProposal(
-              UUID.randomUUID().toString(),
-              prepared.pageId(),
-              command.baseVersion(),
-              prepared.before(),
-              content,
-              command.generationMethod(),
-              modelRevision,
-              policyRevision,
-              "pending",
-              Instant.now().toEpochMilli(),
-              null);
-      return store.transaction(
-          () -> {
-            requireBase(actor, prepared.pageId(), command.baseVersion());
-            for (var input : prepared.inputs()) {
-              requireCurrent(actor, input.publication());
-            }
-            repository.insertProposal(actor, proposal);
-            return proposalResult(actor, proposal);
-          });
+      return compilePrepared(actor, command, prepared);
     }
+  }
+
+  /** Refresh only affected sections; every source snapshot remains a publication precondition. */
+  public WikiProposalResult refreshProposal(
+      Actor actor, String pageId, WikiRefreshCommand refresh) {
+    requireMember(actor);
+    ModelValues.identifier(pageId, 128);
+    if (refresh == null) {
+      throw ModelValues.invalid();
+    }
+    try (var lease = store.operationGate().enter()) {
+      var command =
+          store.transaction(
+              () -> {
+                var before = requireBase(actor, pageId, refresh.baseVersion());
+                var ids =
+                    before.sections().stream()
+                        .flatMap(section -> section.sources().stream())
+                        .map(source -> source.publication().documentId())
+                        .distinct()
+                        .toList();
+                return new WikiProposalCommand(
+                    pageId,
+                    refresh.baseVersion(),
+                    before.title(),
+                    before.kind(),
+                    ids,
+                    refresh.generationMethod(),
+                    refresh.sourceVersions());
+              });
+      var prepared = store.transaction(() -> prepareRefresh(actor, command));
+      return compilePrepared(actor, command, prepared);
+    }
+  }
+
+  private WikiProposalResult compilePrepared(
+      Actor actor, WikiProposalCommand command, Prepared prepared) {
+    TextRuntimeSnapshot snapshot = null;
+    List<WikiContent.Section> sections;
+    String modelRevision;
+    if ("model".equals(command.generationMethod())) {
+      if (runtime == null) {
+        throw new ApplicationException(
+            FailureKind.UNAVAILABLE, "text_configuration_required", "请先完成并应用文字模型配置。");
+      }
+      snapshot = runtime.capture();
+      try {
+        sections = compiler.compile(snapshot.models(), command.title(), prepared.inputs());
+      } catch (TextModels.Failure unavailable) {
+        throw new ApplicationException(
+            FailureKind.UNAVAILABLE, "wiki_compilation_unavailable", "知识编译模型暂不可用，未保存或发布提案。");
+      }
+      modelRevision = snapshot.modelsRevision();
+    } else {
+      sections = compiler.extract(prepared.inputs());
+      modelRevision = "extractive-v1";
+    }
+    if (snapshot != null && !runtime.isCurrent(snapshot)) {
+      throw new ApplicationException(
+          FailureKind.CONFLICT, "configuration_changed", "编译期间模型配置已改变，请重新创建提案。");
+    }
+    if (!prepared.retainedSections().isEmpty()) {
+      var replacements = new ArrayList<WikiContent.Section>();
+      var renamed = new HashMap<String, WikiContent.Source>();
+      for (var section : sections) {
+        replacements.add(
+            new WikiContent.Section(
+                "refresh-" + UUID.randomUUID(),
+                section.heading(),
+                section.body(),
+                section.sources().stream()
+                    .map(
+                        source ->
+                            renamed.computeIfAbsent(
+                                source.id(),
+                                ignored ->
+                                    new WikiContent.Source(
+                                        "refresh-" + UUID.randomUUID(),
+                                        source.publication(),
+                                        source.reference())))
+                    .toList()));
+      }
+      var retainedIds =
+          prepared.retainedSections().stream()
+              .map(WikiContent.Section::id)
+              .collect(java.util.stream.Collectors.toSet());
+      var merged = new ArrayList<WikiContent.Section>();
+      boolean inserted = false;
+      for (var previous : prepared.before().sections()) {
+        if (retainedIds.contains(previous.id())) {
+          merged.add(previous);
+        } else if (!inserted) {
+          merged.addAll(replacements);
+          inserted = true;
+        }
+      }
+      sections = List.copyOf(merged);
+    }
+    var content = new WikiContent(command.title(), command.kind(), sections);
+    String policyRevision =
+        WikiCompilationService.POLICY_REVISION
+            + ("model".equals(command.generationMethod())
+                ? ":" + TextModels.WIKI_COMPILATION_PROMPT_REVISION
+                : "");
+    var proposal =
+        new WikiProposal(
+            UUID.randomUUID().toString(),
+            prepared.pageId(),
+            command.baseVersion(),
+            prepared.before(),
+            content,
+            command.generationMethod(),
+            modelRevision,
+            policyRevision,
+            "pending",
+            Instant.now().toEpochMilli(),
+            null);
+    return store.transaction(
+        () -> {
+          requireBase(actor, prepared.pageId(), command.baseVersion());
+          for (var publication : prepared.requiredPublications()) {
+            requireCurrent(actor, publication);
+          }
+          repository.insertProposal(actor, proposal);
+          return proposalResult(actor, proposal);
+        });
   }
 
   public WikiPageListResult pages(Actor actor, int offset, int limit, String query) {
@@ -306,11 +383,82 @@ public final class WikiWorkspaceService {
     WikiContent before = requireBase(actor, pageId, command.baseVersion());
     var inputs = new ArrayList<WikiCompilationInput>();
     for (String documentId : command.documentIds()) {
-      var publication = materials.publication(actor, documentId).orElseThrow(ModelValues::notFound);
+      var publication =
+          materials
+              .publication(actor, documentId)
+              .orElseThrow(
+                  () ->
+                      command.sourceVersions() == null
+                          ? ModelValues.notFound()
+                          : new ApplicationException(
+                              FailureKind.CONFLICT,
+                              "wiki_source_changed",
+                              "所选来源已撤下或尚未发布，请刷新来源后再生成提案。"));
+      requireExpected(command, publication);
       inputs.add(
           new WikiCompilationInput(publication, materials.document(actor, publication).evidence()));
     }
-    return new Prepared(pageId, before, List.copyOf(inputs));
+    return new Prepared(
+        pageId,
+        before,
+        List.copyOf(inputs),
+        List.of(),
+        inputs.stream().map(WikiCompilationInput::publication).toList());
+  }
+
+  private Prepared prepareRefresh(Actor actor, WikiProposalCommand command) {
+    var before = requireBase(actor, command.pageId(), command.baseVersion());
+    var current = new LinkedHashMap<String, PublicationVersion>();
+    for (String id : command.documentIds()) {
+      var publication =
+          materials
+              .publication(actor, id)
+              .orElseThrow(
+                  () ->
+                      new ApplicationException(
+                          FailureKind.CONFLICT, "wiki_source_changed", "有来源已撤下或尚未发布，请先处理来源资料。"));
+      requireExpected(command, publication);
+      current.put(id, publication);
+    }
+    var retained = new ArrayList<WikiContent.Section>();
+    var affected = new java.util.LinkedHashSet<String>();
+    for (var section : before.sections()) {
+      if (section.sources().stream()
+          .allMatch(
+              source ->
+                  source.publication().equals(current.get(source.publication().documentId())))) {
+        retained.add(section);
+      } else {
+        section.sources().forEach(source -> affected.add(source.publication().documentId()));
+      }
+    }
+    if (affected.isEmpty()) {
+      throw new ApplicationException(
+          FailureKind.CONFLICT, "wiki_sources_current", "知识页来源没有变化，无需生成更新提案。");
+    }
+    var inputs =
+        affected.stream()
+            .map(
+                id -> {
+                  var publication = current.get(id);
+                  return new WikiCompilationInput(
+                      publication, materials.document(actor, publication).evidence());
+                })
+            .toList();
+    return new Prepared(
+        command.pageId(), before, inputs, List.copyOf(retained), List.copyOf(current.values()));
+  }
+
+  private static void requireExpected(WikiProposalCommand command, PublicationVersion publication) {
+    if (command.sourceVersions() != null
+        && command.sourceVersions().stream()
+            .noneMatch(
+                value ->
+                    value.documentId().equals(publication.documentId())
+                        && value.publicationId().equals(publication.publicationId()))) {
+      throw new ApplicationException(
+          FailureKind.CONFLICT, "wiki_source_changed", "所选来源版本已改变，请刷新来源后再生成提案。");
+    }
   }
 
   private WikiContent requireBase(Actor actor, String pageId, long expectedVersion) {
@@ -476,5 +624,10 @@ public final class WikiWorkspaceService {
         FailureKind.CONFLICT, "wiki_version_conflict", "知识页版本已改变，请刷新后审阅。");
   }
 
-  private record Prepared(String pageId, WikiContent before, List<WikiCompilationInput> inputs) {}
+  private record Prepared(
+      String pageId,
+      WikiContent before,
+      List<WikiCompilationInput> inputs,
+      List<WikiContent.Section> retainedSections,
+      List<PublicationVersion> requiredPublications) {}
 }

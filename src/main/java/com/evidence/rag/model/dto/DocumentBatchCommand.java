@@ -9,13 +9,33 @@ public record DocumentBatchCommand(
     @JsonProperty("embedding_request_limit") Integer embeddingRequestLimit,
     @JsonProperty("include_duplicates") Boolean includeDuplicates,
     Boolean open,
-    @JsonProperty("expected_total") Integer expectedTotal) {
+    @JsonProperty("expected_total") Integer expectedTotal,
+    @JsonProperty("target_folder_id") String targetFolderId,
+    @JsonProperty("preserve_paths") Boolean preservePaths) {
   public DocumentBatchCommand {
     files = files == null ? null : List.copyOf(files);
   }
 
   public DocumentBatchCommand(String requestId, List<File> files, Integer embeddingRequestLimit) {
     this(requestId, files, embeddingRequestLimit, null);
+  }
+
+  public DocumentBatchCommand(
+      String requestId,
+      List<File> files,
+      Integer embeddingRequestLimit,
+      Boolean includeDuplicates,
+      Boolean open,
+      Integer expectedTotal) {
+    this(
+        requestId,
+        files,
+        embeddingRequestLimit,
+        includeDuplicates,
+        open,
+        expectedTotal,
+        null,
+        null);
   }
 
   public DocumentBatchCommand(

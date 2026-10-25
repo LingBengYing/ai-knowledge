@@ -95,6 +95,45 @@ class WikiRequestMapperTest {
     assertThrows(ApplicationException.class, () -> WikiRequestMapper.proposal(null));
   }
 
+  @Test
+  void publicationSelectionsMustExactlyMatchDocumentsAndRefreshRequiresThem() {
+    String bound =
+        PROPOSAL.replace(
+            "\"generation_method\":\"extractive\"",
+            "\"generation_method\":\"extractive\",\"source_versions\":[{\"document_id\":\"doc-1\",\"publication_id\":\"pub-1\"}]");
+    assertEquals(
+        "pub-1",
+        WikiRequestMapper.proposal(bytes(bound)).sourceVersions().getFirst().publicationId());
+    for (String invalid :
+        List.of(
+            bound.replace("\"document_id\":\"doc-1\"", "\"document_id\":\"doc-2\""),
+            bound.replace(
+                "\"publication_id\":\"pub-1\"", "\"publication_id\":\"pub-1\",\"extra\":true"),
+            bound.replace("[{\"document_id\":\"doc-1\",\"publication_id\":\"pub-1\"}]", "[]"))) {
+      assertThrows(ApplicationException.class, () -> WikiRequestMapper.proposal(bytes(invalid)));
+    }
+    String refresh =
+        "{\"base_version\":1,\"generation_method\":\"extractive\",\"source_versions\":[{\"document_id\":\"doc-1\",\"publication_id\":\"pub-1\"}]}";
+    assertEquals(1, WikiRequestMapper.refresh(bytes(refresh)).baseVersion());
+    assertThrows(
+        ApplicationException.class,
+        () ->
+            WikiRequestMapper.refresh(
+                bytes("{\"base_version\":1,\"generation_method\":\"model\"}")));
+    assertThrows(
+        ApplicationException.class,
+        () ->
+            WikiRequestMapper.refresh(
+                bytes(refresh.replace("\"base_version\":1", "\"base_version\":0"))));
+    assertThrows(
+        ApplicationException.class,
+        () ->
+            WikiRequestMapper.refresh(
+                bytes(
+                    refresh.replace(
+                        "[{\"document_id\":\"doc-1\",\"publication_id\":\"pub-1\"}]", "[]"))));
+  }
+
   private static byte[] bytes(String text) {
     return text.getBytes(StandardCharsets.UTF_8);
   }

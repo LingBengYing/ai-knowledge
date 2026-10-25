@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-10-25 0094/Web0062知识建设：负责人已授权本版推送Git、配套Java/Web生产发布与新合成资料真实模型验收。批次归档/选源提案、来源变化局部修订、规则质量待办，schema43增加批次归档设置。旧图片/OCR/问答WIP不纳入本提交；生产Milvus0093、Agent/OCR和配置保持。发布状态与边界以docs/changes/0094-knowledge-construction/deployment-plan.md及后续deployment-verification.md为准，不把本地验证称为真实生产验收。
+
 2026-10-19 批量导入边传边登记（分支feat/batch-streaming-upload，未发布，配套Web同名分支）：`POST /v1/document-batches`可带`open:true`+`expected_total`登记开放批次，`POST /v1/document-batches/{id}/files`按连续ordinal追加清单条目（同条目重放成功，不同条目409，跳号409`batch_manifest_gap`，结束后新条目409`batch_sealed`），`POST /v1/document-batches/{id}/seal`结束登记；开放批次在seal前永不completed，逐段去重（资料库、本批更早条目、同段条目），批次与导入记录新增`open`、`expected_total`，配置能力新增`batch_streaming_upload`。v42只新增`document_import_batch_streams`一表，升级前`v41-before-v42`备份。一次性清单不变。**生产定制Web入口须放行追加路由（4MiB、上传时限）与`seal`**，详见docs/BATCH_IMPORT.md“边传边登记”。
 
 2026-10-17 批量导入第三阶段“体验”（分支feat/batch-ux，未发布，配套Web同名分支）：新增`GET /v1/document-batches?offset&limit`导入记录（按工作区授权，与其他批次接口一致，最新在前）；批次详情可选`state`筛选（服务端分页，`matched`），文件行加`relative_path`/`started_at`/`finished_at`，批次加`created_at`/`updated_at`/`throughput`（最近10分钟完成数）；清单文件可选`relative_path`（校验：无`..`/`.`/空段/反斜杠/控制字符，≤1024，末段=文件名；仅带路径时改变清单摘要）。v41只新增三表两索引四触发器（文件路径、触发器维护的文件changed/finished时间、批次updated_at），不改写既有表，升级前`v40-before-v41`备份。生产schema仍38，发布前须验证v38→…→v41副本迁移与回滚；生产定制Web入口须放行新GET路由与`state`查询。详见docs/BATCH_IMPORT.md“体验”。
