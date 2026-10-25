@@ -14,6 +14,7 @@ import com.evidence.rag.model.domain.SynopsisEvidence.Kind;
 import com.evidence.rag.model.domain.SynopsisEvidence.TimeRange;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.model.domain.WikiCompilationInput;
+import com.evidence.rag.model.domain.WikiContent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -171,6 +172,173 @@ class WikiCompilationServiceTest {
     assertThrows(ApplicationException.class, () -> service.extract(List.of()));
   }
 
+  @Test
+  void revisionIsOneCallWithExactTargetsAndReorderedResultsKeepSectionIdentity() {
+    var inputs =
+        List.of(
+            input("changed", List.of(text("first", Kind.TEXT))),
+            input("stable", List.of(text("second", Kind.TEXT))));
+    var originals = service.extract(inputs);
+    var overview =
+        new WikiContent.Section(
+            "overview",
+            "综合概述",
+            "旧概述",
+            List.of(
+                originals.getFirst().sources().getFirst(),
+                originals.getLast().sources().getFirst()));
+    var changed =
+        new WikiContent.Section("changed-section", "操作", "旧操作", originals.getFirst().sources());
+    var models = new Models();
+    models.revisionResult =
+        new TextModels.WikiRevisionDraft(
+            List.of(
+                new TextModels.WikiSectionRevision(
+                    "changed-section", "操作", "新操作", List.of("source-1")),
+                new TextModels.WikiSectionRevision(
+                    "overview", "综合概述", "新概述", List.of("source-1", "source-2"))));
+    var result = service.revise(models, "知识页", inputs, List.of(overview, changed));
+    assertEquals(1, models.calls);
+    assertEquals(
+        List.of("overview", "changed-section"),
+        result.stream().map(WikiContent.Section::id).toList());
+    assertEquals(List.of("source-1", "source-2"), models.targets.getFirst().evidenceIds());
+    assertEquals(List.of("source-1"), models.targets.getLast().evidenceIds());
+    assertEquals("旧概述", models.targets.getFirst().body());
+    assertEquals(2, result.getFirst().sources().size());
+    assertEquals(result.getFirst().sources().getFirst(), result.getLast().sources().getFirst());
+    assertFalse(result.getFirst().sources().getFirst().id().equals("source-1"));
+  }
+
+  @Test
+  void revisionRejectsMissingDuplicateUnknownOrUnchangedOnlyExtraSection() {
+    var inputs =
+        List.of(
+            input("changed", List.of(text("first", Kind.TEXT))),
+            input("stable", List.of(text("second", Kind.TEXT))));
+    var originals = service.extract(inputs);
+    var overview =
+        new WikiContent.Section(
+            "overview",
+            "概述",
+            "旧概述",
+            List.of(
+                originals.getFirst().sources().getFirst(),
+                originals.getLast().sources().getFirst()));
+    var changed = new WikiContent.Section("changed", "操作", "旧操作", originals.getFirst().sources());
+    var one =
+        new TextModels.WikiSectionRevision(
+            "overview", "概述", "新概述", List.of("source-1", "source-2"));
+    var two = new TextModels.WikiSectionRevision("changed", "操作", "新操作", List.of("source-1"));
+    var retained =
+        new TextModels.WikiSectionRevision("retained", "未变规范", "重复内容", List.of("source-2"));
+    for (var result :
+        List.of(
+            List.of(one), List.of(one, one), List.of(one, retained), List.of(one, two, retained))) {
+      var models = new Models();
+      models.revisionResult = new TextModels.WikiRevisionDraft(result);
+      assertEquals(
+          "model_invalid_response",
+          assertThrows(
+                  TextModels.Failure.class,
+                  () -> service.revise(models, "知识页", inputs, List.of(overview, changed)))
+              .code());
+      assertEquals(1, models.calls);
+    }
+  }
+
+  @Test
+  void revisionCannotBorrowUnrelatedEvidenceOrDropOneDocumentFromMixedOverview() {
+    var inputs =
+        List.of(
+            input("changed", List.of(text("first", Kind.TEXT))),
+            input("stable", List.of(text("second", Kind.TEXT))));
+    var originals = service.extract(inputs);
+    var overview =
+        new WikiContent.Section(
+            "overview",
+            "概述",
+            "旧概述",
+            List.of(
+                originals.getFirst().sources().getFirst(),
+                originals.getLast().sources().getFirst()));
+    var changed = new WikiContent.Section("changed", "操作", "旧操作", originals.getFirst().sources());
+    for (var ids :
+        List.of(List.of("source-2"), List.of("unknown"), List.of("source-1", "source-2"))) {
+      var models = new Models();
+      models.revisionResult =
+          new TextModels.WikiRevisionDraft(
+              List.of(new TextModels.WikiSectionRevision("changed", "操作", "新操作", ids)));
+      assertThrows(
+          TextModels.Failure.class, () -> service.revise(models, "知识页", inputs, List.of(changed)));
+    }
+    var models = new Models();
+    models.revisionResult =
+        new TextModels.WikiRevisionDraft(
+            List.of(
+                new TextModels.WikiSectionRevision(
+                    "overview", "概述", "遗漏未变资料", List.of("source-1"))));
+    assertThrows(
+        TextModels.Failure.class, () -> service.revise(models, "知识页", inputs, List.of(overview)));
+  }
+
+  @Test
+  void revisionCannotSilentlyOmitAnUnavailableTargetDocument() {
+    var inputs =
+        List.of(
+            input("changed", List.of(text("first", Kind.TEXT))),
+            input("stable", List.of(text("second", Kind.TEXT))));
+    var originals = service.extract(inputs);
+    var overview =
+        new WikiContent.Section(
+            "overview",
+            "概述",
+            "旧概述",
+            List.of(
+                originals.getFirst().sources().getFirst(),
+                originals.getLast().sources().getFirst()));
+    var models = new Models();
+    assertThrows(
+        ApplicationException.class,
+        () -> service.revise(models, "知识页", List.of(inputs.getFirst()), List.of(overview)));
+    assertEquals(0, models.calls);
+  }
+
+  @Test
+  void multiSegmentTargetsExposeRequiredDocumentGroupsWithoutRequiringEverySegment() {
+    var inputs =
+        List.of(
+            input(
+                "first-document", List.of(text("first-a", Kind.TEXT), text("first-b", Kind.TEXT))),
+            input(
+                "second-document",
+                List.of(text("second-a", Kind.TEXT), text("second-b", Kind.TEXT))));
+    var originals = service.extract(inputs);
+    var overview =
+        new WikiContent.Section(
+            "overview",
+            "概述",
+            "旧概述",
+            List.of(
+                originals.getFirst().sources().getFirst(), originals.get(2).sources().getFirst()));
+    var models = new Models();
+    models.revisionResult =
+        new TextModels.WikiRevisionDraft(
+            List.of(
+                new TextModels.WikiSectionRevision(
+                    "overview", "概述", "多源新概述", List.of("source-2", "source-3"))));
+    var revised = service.revise(models, "知识页", inputs, List.of(overview));
+    assertEquals(
+        List.of(List.of("source-1", "source-2"), List.of("source-3", "source-4")),
+        models.targets.getFirst().requiredEvidenceGroups());
+    assertEquals(
+        List.of("first-document", "second-document"),
+        revised.getFirst().sources().stream()
+            .map(source -> source.publication().documentId())
+            .toList());
+    assertEquals(1, models.calls);
+  }
+
   private static WikiCompilationInput input(String id, List<SynopsisEvidence> evidence) {
     return new WikiCompilationInput(
         new PublicationVersion(
@@ -210,6 +378,18 @@ class WikiCompilationServiceTest {
     String title;
     List<Evidence> evidence;
     WikiDraft result;
+    List<WikiSectionTarget> targets;
+    WikiRevisionDraft revisionResult;
+
+    @Override
+    public WikiRevisionDraft reviseWiki(
+        String title, List<Evidence> evidence, List<WikiSectionTarget> targets) {
+      calls++;
+      this.title = title;
+      this.evidence = evidence;
+      this.targets = targets;
+      return revisionResult;
+    }
 
     @Override
     public WikiDraft compileWiki(String title, List<Evidence> evidence) {

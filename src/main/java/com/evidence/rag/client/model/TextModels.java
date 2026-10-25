@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 public interface TextModels {
   String KNOWLEDGE_ANSWER_PROMPT_REVISION = "java-knowledge-answer-v2-shared-contexts";
   String WIKI_COMPILATION_PROMPT_REVISION = "java-wiki-compilation-v1-review-draft";
+  String WIKI_REVISION_PROMPT_REVISION = "java-wiki-section-revision-v1-bound-targets";
 
   List<List<Double>> embed(List<String> texts);
 
@@ -24,6 +25,12 @@ public interface TextModels {
   /** Produces a derived draft for human review, never authoritative answer evidence. */
   default WikiDraft compileWiki(String title, List<Evidence> evidence) {
     throw new Failure("model_wiki_compilation_unavailable");
+  }
+
+  /** Revises exactly the supplied section slots; the caller retains all other sections. */
+  default WikiRevisionDraft reviseWiki(
+      String title, List<Evidence> evidence, List<WikiSectionTarget> targets) {
+    throw new Failure("model_wiki_revision_unavailable");
   }
 
   /** Native tool turn. Does not change index identity or existing prompt contracts. */
@@ -64,6 +71,46 @@ public interface TextModels {
     @Override
     public String toString() {
       return "WikiSectionDraft[redacted]";
+    }
+  }
+
+  record WikiSectionTarget(
+      String sectionId,
+      String heading,
+      String body,
+      List<String> evidenceIds,
+      List<List<String>> requiredEvidenceGroups) {
+    public WikiSectionTarget {
+      evidenceIds = List.copyOf(evidenceIds);
+      requiredEvidenceGroups = requiredEvidenceGroups.stream().map(List::copyOf).toList();
+    }
+
+    @Override
+    public String toString() {
+      return "WikiSectionTarget[redacted]";
+    }
+  }
+
+  record WikiRevisionDraft(List<WikiSectionRevision> sections) {
+    public WikiRevisionDraft {
+      sections = List.copyOf(sections);
+    }
+
+    @Override
+    public String toString() {
+      return "WikiRevisionDraft[redacted]";
+    }
+  }
+
+  record WikiSectionRevision(
+      String sectionId, String heading, String body, List<String> evidenceIds) {
+    public WikiSectionRevision {
+      evidenceIds = List.copyOf(evidenceIds);
+    }
+
+    @Override
+    public String toString() {
+      return "WikiSectionRevision[redacted]";
     }
   }
 

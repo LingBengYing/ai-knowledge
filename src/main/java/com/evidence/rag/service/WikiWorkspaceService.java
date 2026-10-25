@@ -105,6 +105,7 @@ public final class WikiWorkspaceService {
       Actor actor, WikiProposalCommand command, Prepared prepared) {
     TextRuntimeSnapshot snapshot = null;
     List<WikiContent.Section> sections;
+    boolean revision = !prepared.affectedSections().isEmpty();
     String modelRevision;
     if ("model".equals(command.generationMethod())) {
       if (runtime == null) {
@@ -113,7 +114,14 @@ public final class WikiWorkspaceService {
       }
       snapshot = runtime.capture();
       try {
-        sections = compiler.compile(snapshot.models(), command.title(), prepared.inputs());
+        sections =
+            revision
+                ? compiler.revise(
+                    snapshot.models(),
+                    command.title(),
+                    prepared.inputs(),
+                    prepared.affectedSections())
+                : compiler.compile(snapshot.models(), command.title(), prepared.inputs());
       } catch (TextModels.Failure unavailable) {
         throw new ApplicationException(
             FailureKind.UNAVAILABLE, "wiki_compilation_unavailable", "知识编译模型暂不可用，未保存或发布提案。");
@@ -127,48 +135,28 @@ public final class WikiWorkspaceService {
       throw new ApplicationException(
           FailureKind.CONFLICT, "configuration_changed", "编译期间模型配置已改变，请重新创建提案。");
     }
-    if (!prepared.retainedSections().isEmpty()) {
-      var replacements = new ArrayList<WikiContent.Section>();
-      var renamed = new HashMap<String, WikiContent.Source>();
-      for (var section : sections) {
-        replacements.add(
-            new WikiContent.Section(
-                "refresh-" + UUID.randomUUID(),
-                section.heading(),
-                section.body(),
-                section.sources().stream()
-                    .map(
-                        source ->
-                            renamed.computeIfAbsent(
-                                source.id(),
-                                ignored ->
-                                    new WikiContent.Source(
-                                        "refresh-" + UUID.randomUUID(),
-                                        source.publication(),
-                                        source.reference())))
-                    .toList()));
-      }
-      var retainedIds =
-          prepared.retainedSections().stream()
-              .map(WikiContent.Section::id)
-              .collect(java.util.stream.Collectors.toSet());
-      var merged = new ArrayList<WikiContent.Section>();
-      boolean inserted = false;
-      for (var previous : prepared.before().sections()) {
-        if (retainedIds.contains(previous.id())) {
-          merged.add(previous);
-        } else if (!inserted) {
-          merged.addAll(replacements);
-          inserted = true;
-        }
-      }
-      sections = List.copyOf(merged);
+    if (revision && "model".equals(command.generationMethod())) {
+      var replacements = new LinkedHashMap<String, WikiContent.Section>();
+      sections.forEach(section -> replacements.put(section.id(), section));
+      sections =
+          prepared.before().sections().stream()
+              .map(previous -> replacements.getOrDefault(previous.id(), previous))
+              .toList();
+    } else if (revision) {
+      sections = mergeExtractedRevision(prepared, sections);
     }
     var content = new WikiContent(command.title(), command.kind(), sections);
     String policyRevision =
-        WikiCompilationService.POLICY_REVISION
+        (revision
+                ? ("model".equals(command.generationMethod())
+                    ? WikiCompilationService.REVISION_POLICY_REVISION
+                    : WikiCompilationService.EXTRACTIVE_REVISION_POLICY_REVISION)
+                : WikiCompilationService.POLICY_REVISION)
             + ("model".equals(command.generationMethod())
-                ? ":" + TextModels.WIKI_COMPILATION_PROMPT_REVISION
+                ? ":"
+                    + (revision
+                        ? TextModels.WIKI_REVISION_PROMPT_REVISION
+                        : TextModels.WIKI_COMPILATION_PROMPT_REVISION)
                 : "");
     var proposal =
         new WikiProposal(
@@ -192,6 +180,64 @@ public final class WikiWorkspaceService {
           repository.insertProposal(actor, proposal);
           return proposalResult(actor, proposal);
         });
+  }
+
+  /** Extractive updates remain bounded original segments, not model section rewrites. */
+  private static List<WikiContent.Section> mergeExtractedRevision(
+      Prepared prepared, List<WikiContent.Section> sections) {
+    var affectedIds =
+        prepared.affectedSections().stream()
+            .map(WikiContent.Section::id)
+            .collect(java.util.stream.Collectors.toSet());
+    var retainedSources =
+        prepared.before().sections().stream()
+            .filter(section -> !affectedIds.contains(section.id()))
+            .flatMap(section -> section.sources().stream())
+            .toList();
+    var renamed = new HashMap<String, WikiContent.Source>();
+    var replacements =
+        sections.stream()
+            .filter(
+                section ->
+                    !section.sources().stream()
+                        .allMatch(
+                            source ->
+                                retainedSources.stream()
+                                    .anyMatch(
+                                        retained ->
+                                            retained.publication().equals(source.publication())
+                                                && retained
+                                                    .reference()
+                                                    .equals(source.reference()))))
+            .map(
+                section ->
+                    new WikiContent.Section(
+                        "refresh-" + UUID.randomUUID(),
+                        section.heading(),
+                        section.body(),
+                        section.sources().stream()
+                            .map(
+                                source ->
+                                    renamed.computeIfAbsent(
+                                        source.id(),
+                                        ignored ->
+                                            new WikiContent.Source(
+                                                "refresh-" + UUID.randomUUID(),
+                                                source.publication(),
+                                                source.reference())))
+                            .toList()))
+            .toList();
+    var merged = new ArrayList<WikiContent.Section>();
+    boolean inserted = false;
+    for (var previous : prepared.before().sections()) {
+      if (!affectedIds.contains(previous.id())) {
+        merged.add(previous);
+      } else if (!inserted) {
+        merged.addAll(replacements);
+        inserted = true;
+      }
+    }
+    return List.copyOf(merged);
   }
 
   public WikiPageListResult pages(Actor actor, int offset, int limit, String query) {
@@ -420,15 +466,14 @@ public final class WikiWorkspaceService {
       requireExpected(command, publication);
       current.put(id, publication);
     }
-    var retained = new ArrayList<WikiContent.Section>();
+    var affectedSections = new ArrayList<WikiContent.Section>();
     var affected = new java.util.LinkedHashSet<String>();
     for (var section : before.sections()) {
       if (section.sources().stream()
-          .allMatch(
+          .anyMatch(
               source ->
-                  source.publication().equals(current.get(source.publication().documentId())))) {
-        retained.add(section);
-      } else {
+                  !source.publication().equals(current.get(source.publication().documentId())))) {
+        affectedSections.add(section);
         section.sources().forEach(source -> affected.add(source.publication().documentId()));
       }
     }
@@ -446,7 +491,11 @@ public final class WikiWorkspaceService {
                 })
             .toList();
     return new Prepared(
-        command.pageId(), before, inputs, List.copyOf(retained), List.copyOf(current.values()));
+        command.pageId(),
+        before,
+        inputs,
+        List.copyOf(affectedSections),
+        List.copyOf(current.values()));
   }
 
   private static void requireExpected(WikiProposalCommand command, PublicationVersion publication) {
@@ -628,6 +677,6 @@ public final class WikiWorkspaceService {
       String pageId,
       WikiContent before,
       List<WikiCompilationInput> inputs,
-      List<WikiContent.Section> retainedSections,
+      List<WikiContent.Section> affectedSections,
       List<PublicationVersion> requiredPublications) {}
 }
