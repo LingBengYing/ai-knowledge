@@ -1,0 +1,103 @@
+{
+  "backend_release": "20261025-knowledge-construction-0094-r2",
+  "frontend_release": "20261025-knowledge-construction-0094",
+  "backend_commit": "e94a6e17281fd572b1c1b6fb7501796e981c0dd0",
+  "frontend_commit": "17fc7429add3b592252cfa1cf6a407f37a657276",
+  "jar_sha256": "bcd3dde6dc5923fd3186dd9c540e7e76fc5c1366967e73ca94c3ee2d24bcd57f",
+  "schema": 43,
+  "batch_id": "bd9a366f-2912-4ff7-9326-e3a8d95d5204",
+  "page_id": "2eec9ede-0625-45da-b224-73c332d2e245",
+  "accepted_proposal_id": "3af0a6cd-2e74-4180-baeb-cca5b853012a",
+  "versions": [
+    1,
+    2
+  ],
+  "sections": 3,
+  "unchanged_sections": 1,
+  "audit": {
+    "started": 6,
+    "finished": 6,
+    "embedding": 3,
+    "generation": 3,
+    "failed_transport_attempts": 0
+  },
+  "readback": {
+    "status": "passed",
+    "section_ids_and_order_preserved": true,
+    "v1_original_sha_verified_before_replacement": true,
+    "v2_and_unchanged_original_sha_verified": true,
+    "historical_original_download_after_replacement": "not_supported_by_current_api",
+    "read_only_model_requests": 0
+  },
+  "strong": {
+    "passed": true,
+    "documents": 2,
+    "rows": 2,
+    "milvus_http_requests": 7,
+    "model_http_requests": 0,
+    "authority_unchanged": true
+  },
+  "preservation": {
+    "preserved": true,
+    "old_tables": 109,
+    "old_rows": 172178,
+    "old_files": 21,
+    "old_managed_backups": 11,
+    "changed_or_missing_old_files": 0,
+    "changed_or_missing_old_managed_backups": 0,
+    "global_business_row_exceptions": []
+  },
+  "restart": {
+    "readback_status": "passed",
+    "model_http_before": 6,
+    "model_http_after": 6,
+    "model_http_added": 0,
+    "exact_rows_files_ddl_preserved": true,
+    "backend_start_commands": 1,
+    "database_restored": false
+  },
+  "services": {
+    "agent": {
+      "ActiveState": "active",
+      "NRestarts": "0"
+    },
+    "backend": {
+      "ActiveState": "active",
+      "NRestarts": "0"
+    },
+    "entry": {
+      "ActiveState": "active",
+      "NRestarts": "0"
+    },
+    "ocr": {
+      "ActiveState": "active",
+      "NRestarts": "0"
+    }
+  },
+  "original_failed_run_bytes_preserved": true,
+  "proof_sha256": {
+    "r2_rehearsed": "f4d2efe6b11a66e0c1ffa463e198fdff8081490ea6f67527093087f3378a418d",
+    "r2_opened": "1c7f2a536a9050620f26a01299177981fc6adb09a0c61648fde42f3e8bc7d2f5",
+    "strong": "f6222ce7e5471fcd18f6d70281cbfd46abdcb6b5b5fc55f5ab00127c69fe5635",
+    "preservation": "8bd21ba82e0d7a085dcb23693a0118ebb172829bb7556d898f4d739084c67c20",
+    "restart": "4d216a0ec56e93b520587ea1d5e7b118e849501346f3d3aef560a866d9090c1e"
+  },
+  "public": {
+    "checks": 45,
+    "tls_verified": true,
+    "model_http": 0
+  },
+  "human_review": {
+    "production_browser": true,
+    "accepted_v1_and_v2": true,
+    "duplicate_unchanged_section_fixed": true,
+    "current_source_and_history_seen": true,
+    "post_restart_current_page_seen": true
+  },
+  "limitations": [
+    "two_synthetic_documents_only",
+    "historical_original_download_after_replacement_not_supported",
+    "historical_full_repository_gates_open",
+    "no_multimodal_or_scale_certification"
+  ]
+}
