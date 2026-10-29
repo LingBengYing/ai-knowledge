@@ -650,7 +650,7 @@ public final class DocumentBatchRepository {
               : 0;
       if (requests <= available + releasable) return HELD;
       store.execute(
-          "UPDATE document_import_batches SET halted_reason='embedding_budget_exhausted' WHERE id=?",
+          "UPDATE document_import_batches SET halted_reason=COALESCE(halted_reason,'embedding_budget_exhausted') WHERE id=?",
           batch);
       return -1;
     }
