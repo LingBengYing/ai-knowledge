@@ -189,6 +189,36 @@ class DocumentBatchHaltScopeTest {
   }
 
   @Test
+  void aBudgetShortfallAfterACancelKeepsTheBatchCancelled() {
+    try (var authority = new AuthorityTestContext(directory)) {
+      var batches = batches(authority);
+      String id = batch(batches, 1, a, b);
+      var first = batches.upload(actor, id, 0, a);
+      parse(authority, "source-0.txt", a);
+      var second = batches.upload(actor, id, 1, b);
+      parse(authority, "source-1.txt", b);
+      authority.indexing().createIndexing(actor, first.documentId(), target);
+      var taskB = authority.indexing().createIndexing(actor, second.documentId(), target);
+      dispatchImports(authority);
+
+      var cancelled = batches.cancel(actor, id);
+      assertEquals("cancelled", cancelled.batch().state());
+      assertEquals("batch_cancelled", cancelled.batch().haltedReason());
+
+      // An explicit retry still runs after the cancel, but the budget cannot cover it.
+      authority.indexing().retryIndexing(actor, taskB.taskId(), target);
+      var retried = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
+      assertEquals(taskB.taskId(), retried.jobId());
+      assertFalse(authority.indexing().reserveBatchRequests(retried, 50));
+
+      // The refusal must not turn the user's cancel into a resumable budget halt.
+      var status = batches.status(actor, id, 0, 100);
+      assertEquals("batch_cancelled", status.haltedReason());
+      assertEquals("cancelled", status.state());
+    }
+  }
+
+  @Test
   void indexingOutsideTheImportRequestIgnoresTheHaltAndSpendsNoBudget() {
     try (var authority = new AuthorityTestContext(directory)) {
       var batches = batches(authority);
