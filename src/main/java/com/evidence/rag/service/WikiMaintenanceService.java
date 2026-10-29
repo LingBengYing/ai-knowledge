@@ -13,10 +13,12 @@ import com.evidence.rag.repository.WikiMaintenanceRepository;
 import com.evidence.rag.repository.WikiWorkspaceRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /** Read-only source impact and maintenance rules. Generation still uses reviewed Wiki proposals. */
 public final class WikiMaintenanceService {
+  private static final String STALE = "stale_knowledge";
   private final SqliteAuthorityStore store;
   private final WikiMaintenanceRepository repository;
   private final WikiWorkspaceRepository wiki;
@@ -55,9 +57,14 @@ public final class WikiMaintenanceService {
     return store.transaction(
         () -> {
           var snapshot = repository.list(actor, offset, limit, selected);
+          // "all" is the source-quality queue; stale knowledge is its own queue (kind
+          // stale_knowledge), so it is counted in counts but not listed or totalled under "all".
           long total =
               "all".equals(selected)
-                  ? snapshot.counts().values().stream().mapToLong(Long::longValue).sum()
+                  ? snapshot.counts().entrySet().stream()
+                      .filter(entry -> !STALE.equals(entry.getKey()))
+                      .mapToLong(Map.Entry::getValue)
+                      .sum()
                   : snapshot.counts().get(selected);
           return new WikiMaintenanceResult(
               snapshot.observations().stream()

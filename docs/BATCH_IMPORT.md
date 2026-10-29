@@ -229,10 +229,10 @@ v39→v40新增`document_import_file_states`表、6个索引与7个触发器（�
 
 - `target_folder_id` 是当前组织中已有目录的 ID，空值表示未指定。`preserve_paths` 默认为 `false`。
 - 保留相对路径时复用现有平面目录，以完整路径作为目录名。例如目标“教材”与清单 `课程/第一课.txt` 对应目录“教材/课程”。这不新增目录树；完整目录名遵守现有 80 字上限，超长会明确拒绝清单，不截断或归并。原文件名、原字节和源版本不变。
-- 目录名称以批次创建时目标名称为准；仅本批新上传资料归档。被去重跳过的旧资料保持原目录。目标目录不存在时拒绝后续上传，不静默丢失归档选项。
-- 批次详情新增 `target_folder_id`、`target_folder_name`（创建时名称）、`preserve_paths`，供续传回读。配置新增 `batch_organization` 能力；旧后端没有该能力时新前端不展示这些选项。
+- 目录名称以上传时目标目录的当前名称为准（创建后改名会跟随）；仅本批新上传资料归档。被去重跳过的旧资料保持原目录。目标目录在登记后被删除时，后续上传照常接收、资料保持未分类，并在管理审计中记录 `batch_placement_skipped`（`reason=target_removed`），批次不会因此卡住；改名后路径目录名超过 80 字上限时，资料直接归入目标目录并记录 `reason=path_unrepresentable`。
+- 批次详情新增 `target_folder_id`、`target_folder_name`（目标目录当前名称；目录已删除时为 `null`）、`preserve_paths`，供续传回读。配置新增 `batch_organization` 能力；旧后端没有该能力时新前端不展示这些选项。
 - `GET /v1/document-batches/{id}/sources?offset=0&limit=50&q=&folder=` 返回可用于知识建设的该批已发布来源。仅返回当前权威发布仍有效、源版本与本批一致且有文字证据的资料；已替换、撤下、未发布或纯视觉资料不会混入。此读取不调用模型，不读取全部正文，也不触发编译。
-- 结果为 `{batch_id,total,offset,limit,items,folders}`。每行包含 `ordinal,document_id,filename,display_name,relative_path,publication_id,source_revision_id`；`folders` 是本批合资格来源的实际目录分组 `{path,count}`（无路径为 `""`）。`q` 对文件名、显示名和相对路径做大小写不敏感字面匹配，`folder` 选择该相对目录及其下级；先过滤再计数与分页，`limit` 为 1–100。
+- 结果为 `{batch_id,total,offset,limit,items,folders}`。每行包含 `ordinal,document_id,filename,display_name,relative_path,publication_id,source_revision_id`；`folders` 是本批合资格来源的目录分组 `{path,count}`：每个目录计入其下全部层级的来源，只含子目录的上级目录也会列出；`""` 只计根层文件。`q` 对文件名、显示名和相对路径做大小写不敏感字面匹配，`folder` 选择该相对目录及其下级；先过滤再计数与分页，`limit` 为 1–100。
 - 前端依 `batch_sources` 能力显示“整理为知识页”，显式选择一组资料后使用原提案 API。已有单提案上限 50 份保持，不能把一整个导入批次自动送进模型。提案仍需审阅采纳，读取、勾选或导入完成都不会直接发布知识页。
 - v43 只新增 `document_import_batch_placement` 表并登记受管 schema 对象，旧批次没有该表记录时使用默认设置；迁移前保留 `v42-before-v43` 一致备份。生产发布须验证真实 v42 副本及兼容回退包，不能以旧库覆盖新业务。此节描述本地实现，生产状态以当前变更验收记录为准。
 - 生产入口需要精确放行新增只读 `GET /v1/document-batches/{id}/sources` 和 `offset,limit,q,folder` 参数；不扩大模型或上传代理权限。

@@ -31,6 +31,16 @@ public final class WikiMaintenanceRepository {
           AND COALESCE((SELECT l.state FROM wiki_page_lifecycle l
             WHERE l.workspace_id=p.workspace_id AND l.page_id=p.page_id
             ORDER BY l.lifecycle_version DESC LIMIT 1),'active')='active'
+      ), cited AS (
+        SELECT DISTINCT json_extract(source.value,'$.publication.documentId') AS document_id
+        FROM current_pages p, json_each(p.content_json,'$.sections') section,
+          json_each(section.value,'$.sources') source
+      ), current_publications AS (
+        SELECT d.id AS document_id,p.id AS publication_id
+      """
+          + EvidenceRepository.CURRENT_PUBLICATIONS
+          + """
+          AND d.id IN (SELECT document_id FROM cited)
       ), observations AS (
         SELECT 'parse_failed' AS kind,'document' AS target_type,d.id AS target_id,d.display_name AS title,
           j.revision_id,j.error_code,NULL AS related_document_id
@@ -53,9 +63,9 @@ public final class WikiMaintenanceRepository {
         FROM current_pages p WHERE EXISTS(
           SELECT 1 FROM json_each(p.content_json,'$.sections') section,
             json_each(section.value,'$.sources') source
-          LEFT JOIN live d ON d.id=json_extract(source.value,'$.publication.documentId')
-          LEFT JOIN active_corpus_publications a ON a.document_id=d.id
-          WHERE d.id IS NULL OR a.publication_id IS NULL
+          LEFT JOIN current_publications a
+            ON a.document_id=json_extract(source.value,'$.publication.documentId')
+          WHERE a.publication_id IS NULL
             OR a.publication_id!=json_extract(source.value,'$.publication.publicationId'))
       )
       """;
@@ -76,6 +86,7 @@ public final class WikiMaintenanceRepository {
         store.rows(
             OBSERVATIONS + "SELECT kind,COUNT(*) AS total FROM observations GROUP BY kind",
             actor.workspaceId(),
+            actor.workspaceId(),
             actor.workspaceId())) {
       counts.put(AuthorityRows.text(row, "kind"), AuthorityRows.number(row, "total"));
     }
@@ -83,7 +94,8 @@ public final class WikiMaintenanceRepository {
         store
             .rows(
                 OBSERVATIONS
-                    + "SELECT * FROM observations WHERE (?='all' OR kind=?) ORDER BY kind,target_id LIMIT ? OFFSET ?",
+                    + "SELECT * FROM observations WHERE (?='all' AND kind!='stale_knowledge') OR kind=? ORDER BY kind,target_id LIMIT ? OFFSET ?",
+                actor.workspaceId(),
                 actor.workspaceId(),
                 actor.workspaceId(),
                 kind,

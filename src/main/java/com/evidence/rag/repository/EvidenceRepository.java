@@ -364,7 +364,8 @@ public final class EvidenceRepository {
         integer(row, "height"));
   }
 
-  private static final String CURRENT_PUBLICATIONS =
+  /** The authority rule for a document's current publication, shared with Wiki maintenance. */
+  static final String CURRENT_PUBLICATIONS =
       """
       FROM documents d
       JOIN corpus_documents c ON c.document_id=d.id
@@ -393,6 +394,7 @@ public final class EvidenceRepository {
           +(SELECT COUNT(*) FROM video_ocr_publication_entries e WHERE e.publication_id=p.id)
           +(SELECT COUNT(*) FROM video_subtitle_publication_entries e WHERE e.publication_id=p.id)
       """;
+
   private static final String PUBLISHED_SOURCES =
       """
       FROM index_publication_entries e

@@ -252,7 +252,7 @@ public final class DocumentBatchService {
     return store.transaction(
         () -> {
           var batch = batches.find(actor, batchId).orElseThrow(ModelValues::notFound);
-          var destination = batches.placement(batchId);
+          var destination = placement.current(actor, batches.placement(batchId));
           for (var entry : manifest) placement.validatePath(destination, entry.relativePath());
           var stream = batches.stream(batchId).orElseThrow(DocumentBatchService::notOpen);
           int expected = ((Number) stream.get("expected_total")).intValue();
@@ -405,7 +405,7 @@ public final class DocumentBatchService {
     return store.transaction(
         () -> {
           var row = batches.find(actor, id).orElseThrow(ModelValues::notFound);
-          var destination = batches.placement(id);
+          var destination = placement.current(actor, batches.placement(id));
           var counts = batches.counts(id);
           int total = counts.values().stream().mapToInt(Long::intValue).sum();
           String halted = (String) row.get("halted_reason");
@@ -522,7 +522,14 @@ public final class DocumentBatchService {
                 || !publication.sourceRevisionId().equals(row.get("revision_id"))) continue;
             String path = (String) row.get("relative_path");
             String parent = BatchPlacementService.folder(path);
-            folders.merge(parent, 1, Integer::sum);
+            // A folder counts every source beneath it, matching the prefix filter below, so a
+            // parent that holds only subfolders is listed too. "" counts root-level files only.
+            if (parent.isEmpty()) folders.merge("", 1, Integer::sum);
+            else
+              for (int end = parent.indexOf('/'); ; end = parent.indexOf('/', end + 1)) {
+                folders.merge(end < 0 ? parent : parent.substring(0, end), 1, Integer::sum);
+                if (end < 0) break;
+              }
             if (!prefix.isEmpty() && !parent.equals(prefix) && !parent.startsWith(prefix + "/"))
               continue;
             String filename = (String) row.get("filename"),

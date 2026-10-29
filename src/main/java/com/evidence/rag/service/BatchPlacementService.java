@@ -6,6 +6,7 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.BatchPlacement;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.entity.AuditEventEntity;
+import com.evidence.rag.model.entity.FolderEntity;
 import com.evidence.rag.repository.ManagementRepository;
 import java.time.Instant;
 import java.util.Locale;
@@ -31,33 +32,45 @@ final class BatchPlacementService {
     return new BatchPlacement(targetId, target.name(), preservePaths);
   }
 
-  void validatePath(BatchPlacement placement, String relativePath) {
-    String name = directoryName(placement, relativePath);
-    if (name != null && (name.codePointCount(0, name.length()) > 80 || !name.equals(name.strip())))
-      throw new ApplicationException(
-          FailureKind.INVALID_REQUEST, "batch_folder_name_invalid", "保留路径后的目录名需在80字以内，且不能带首尾空格。");
+  /**
+   * The stored placement with its target's current name, so a rename after registration is
+   * followed. A target removed since registration keeps its id with a null name.
+   */
+  BatchPlacement current(Actor actor, BatchPlacement stored) {
+    if (stored.targetFolderId() == null) return stored;
+    return new BatchPlacement(
+        stored.targetFolderId(),
+        management
+            .findVisibleFolder(actor, stored.targetFolderId(), false)
+            .map(FolderEntity::name)
+            .orElse(null),
+        stored.preservePaths());
   }
 
-  void place(Actor actor, String documentId, BatchPlacement placement, String relativePath) {
-    if (placement.targetFolderId() != null)
-      management
-          .findVisibleFolder(actor, placement.targetFolderId(), false)
-          .orElseThrow(ModelValues::notFound);
-    validatePath(placement, relativePath);
-    String name = directoryName(placement, relativePath);
+  /** Rejects, before anything is registered, a preserved path no flat folder name can hold. */
+  void validatePath(BatchPlacement placement, String relativePath) {
+    if (removed(placement)) return;
+    if (!representable(directoryName(placement, relativePath)))
+      throw new ApplicationException(
+          FailureKind.INVALID_INPUT, "batch_folder_name_invalid", "保留路径后的目录名需在80字以内，且不能带首尾空格。");
+  }
+
+  /**
+   * Files one received document. Placement never fails an upload: a target removed after
+   * registration leaves the file unfiled, and a target renamed so that the preserved path no longer
+   * fits files it directly in the target. Either fallback is recorded in the audit log.
+   */
+  void place(Actor actor, String documentId, BatchPlacement stored, String relativePath) {
+    var placement = current(actor, stored);
+    if (removed(placement)) {
+      skipped(actor, documentId, placement.targetFolderId(), "target_removed");
+      return;
+    }
     String folderId = placement.targetFolderId();
-    String relativeFolder = folder(relativePath);
-    if (placement.preservePaths() && !relativeFolder.isEmpty()) {
-      String key = fold(name);
-      var existing = management.findVisibleFolderByNameKey(actor, key);
-      if (existing.isPresent()) folderId = existing.orElseThrow().id();
-      else {
-        folderId = UUID.randomUUID().toString();
-        management.insertFolder(actor, folderId, name, key, Instant.now().toString());
-        management.insertAudit(
-            AuditEventEntity.create(
-                actor, folderId, "folder_created", null, Map.of("name", name), Set.of("name")));
-      }
+    if (placement.preservePaths() && !folder(relativePath).isEmpty()) {
+      String name = directoryName(placement, relativePath);
+      if (representable(name)) folderId = folderNamed(actor, name);
+      else skipped(actor, documentId, placement.targetFolderId(), "path_unrepresentable");
     }
     if (folderId != null) {
       var document =
@@ -75,6 +88,40 @@ final class BatchPlacementService {
               Map.of("folder_id", folderId),
               Set.of("folder_id")));
     }
+  }
+
+  private String folderNamed(Actor actor, String name) {
+    String key = fold(name);
+    var existing = management.findVisibleFolderByNameKey(actor, key);
+    if (existing.isPresent()) return existing.orElseThrow().id();
+    String folderId = UUID.randomUUID().toString();
+    management.insertFolder(actor, folderId, name, key, Instant.now().toString());
+    management.insertAudit(
+        AuditEventEntity.create(
+            actor, folderId, "folder_created", null, Map.of("name", name), Set.of("name")));
+    return folderId;
+  }
+
+  private void skipped(Actor actor, String documentId, String targetId, String reason) {
+    var intended = new java.util.HashMap<String, Object>();
+    intended.put("folder_id", targetId);
+    intended.put("reason", reason);
+    management.insertAudit(
+        AuditEventEntity.create(
+            actor,
+            documentId,
+            "batch_placement_skipped",
+            intended,
+            null,
+            Set.of("folder_id", "reason")));
+  }
+
+  private static boolean removed(BatchPlacement placement) {
+    return placement.targetFolderId() != null && placement.targetFolderName() == null;
+  }
+
+  private static boolean representable(String name) {
+    return name == null || name.codePointCount(0, name.length()) <= 80 && name.equals(name.strip());
   }
 
   static String folder(String relativePath) {

@@ -116,7 +116,7 @@ class WikiWorkspaceServiceTest {
           service.createProposal(
               owner,
               new WikiProposalCommand(
-                  null, 0, "灯塔", "topic", List.of(first, second), "extractive"));
+                  null, 0, "灯塔", "topic", List.of(first, second), "extractive", null));
       var sources =
           proposal.after().sections().stream().flatMap(s -> s.sources().stream()).toList();
       assertEquals(2, sources.size());
@@ -250,7 +250,13 @@ class WikiWorkspaceServiceTest {
                       service.createProposal(
                           owner,
                           new WikiProposalCommand(
-                              page.pageId(), 1, "不得调用模型", "topic", List.of(documentId), "model")))
+                              page.pageId(),
+                              1,
+                              "不得调用模型",
+                              "topic",
+                              List.of(documentId),
+                              "model",
+                              null)))
               .code());
       assertEquals("deleted", service.page(owner, page.pageId()).state());
       assertEquals(1, service.version(owner, page.pageId(), 1).version());
@@ -269,7 +275,7 @@ class WikiWorkspaceServiceTest {
                   service.createProposal(
                       owner,
                       new WikiProposalCommand(
-                          null, 0, "模型页", "topic", List.of(documentId), "model")));
+                          null, 0, "模型页", "topic", List.of(documentId), "model", null)));
       assertEquals(FailureKind.UNAVAILABLE, failure.kind());
       assertEquals(0, service.proposals(owner, 0, 20, "pending").total());
     }
@@ -295,7 +301,8 @@ class WikiWorkspaceServiceTest {
         var result =
             service.createProposal(
                 owner,
-                new WikiProposalCommand(null, 0, "模型知识页", "topic", List.of(documentId), "model"));
+                new WikiProposalCommand(
+                    null, 0, "模型知识页", "topic", List.of(documentId), "model", null));
         assertEquals(1, calls.get());
         assertEquals("model", result.generationMethod());
         assertEquals(models.revision(), result.modelRevision());
@@ -334,7 +341,7 @@ class WikiWorkspaceServiceTest {
                     service.createProposal(
                         owner,
                         new WikiProposalCommand(
-                            null, 0, "模型知识页", "topic", List.of(documentId), "model")));
+                            null, 0, "模型知识页", "topic", List.of(documentId), "model", null)));
         assertEquals("wiki_source_changed", failure.code());
         assertEquals(1, calls.get());
         assertEquals(0, service.proposals(owner, 0, 20, "pending").total());
@@ -370,7 +377,7 @@ class WikiWorkspaceServiceTest {
                     service.createProposal(
                         owner,
                         new WikiProposalCommand(
-                            null, 0, "模型知识页", "topic", List.of(documentId), "model")));
+                            null, 0, "模型知识页", "topic", List.of(documentId), "model", null)));
         assertEquals(FailureKind.UNAVAILABLE, failure.kind());
         assertEquals("wiki_compilation_unavailable", failure.code());
         assertEquals(1, calls.get());
@@ -475,6 +482,6 @@ class WikiWorkspaceServiceTest {
   private static WikiProposalCommand command(
       String pageId, long version, String title, String documentId) {
     return new WikiProposalCommand(
-        pageId, version, title, "topic", List.of(documentId), "extractive");
+        pageId, version, title, "topic", List.of(documentId), "extractive", null);
   }
 }
