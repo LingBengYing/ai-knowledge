@@ -63,5 +63,6 @@ printf '\n知识库已启动：https://%s:%s/\n' "$KB_HOST" "$KB_PORT"
 printf '首次浏览器访问使用本机生成的自签证书，可能需要手动确认。模型密钥在“模型设置”中配置一次。\n'
 printf '以后再次运行本文件即可；停止请运行 stop.sh（不会删除资料）。\n'
 if [ "${KB_NO_BROWSER:-0}" != 1 ]; then
-  if command -v open >/dev/null 2>&1; then open "https://$KB_HOST:$KB_PORT/"; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "https://$KB_HOST:$KB_PORT/" >/dev/null 2>&1 || true; fi
+  # Only macOS open(1) opens URLs; on Debian/Ubuntu `open` is openvt. Never fail a started install over the browser.
+  if [ "$(uname -s)" = Darwin ]; then open "https://$KB_HOST:$KB_PORT/" || true; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "https://$KB_HOST:$KB_PORT/" >/dev/null 2>&1 || true; fi
 fi
