@@ -528,7 +528,8 @@ public final class DocumentBatchRepository {
   /**
    * The batch file's own import index task: the job its import request submitted, or, before the
    * request records a task id (pending or dispatching), the non-rebuild job of that revision that
-   * dispatch adopts as existing work. Later reindexes and model rebuilds are never batch work.
+   * dispatch adopts as existing work. A user restart of that task repoints the request to the new
+   * task, which becomes the batch work. Later reindexes and model rebuilds are never batch work.
    */
   private static final String IMPORT_INDEX_TASK =
       """
@@ -542,12 +543,16 @@ public final class DocumentBatchRepository {
 
   /**
    * An attempt is automatic when it is the first one or was requeued by restart recovery or a
-   * resume; only an explicit user retry is not. A halt stops automatic work only.
+   * resume; an explicit user retry is not. A user restart of an exhausted index task starts a new
+   * task (recorded in {@code restart_of}) whose first attempt is explicit too. A halt stops
+   * automatic work only.
    */
   private static String automatic(String kind, String alias) {
-    return "("
+    return "(("
         + alias
-        + ".attempt=1 OR EXISTS(SELECT 1 FROM batch_task_requeues q WHERE q.task_kind='"
+        + ".attempt=1"
+        + ("indexing".equals(kind) ? " AND " + alias + ".restart_of IS NULL" : "")
+        + ") OR EXISTS(SELECT 1 FROM batch_task_requeues q WHERE q.task_kind='"
         + kind
         + "' AND q.job_id="
         + alias

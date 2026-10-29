@@ -243,6 +243,20 @@ public final class IndexingRepository {
         restartOf);
   }
 
+  /**
+   * An import request (batch or single upload) that submitted {@code previousJobId} for this
+   * revision follows the user's restart of it, so the import's state tracks the new task.
+   */
+  public void repointImportRequest(
+      String previousJobId, String jobId, String revisionId, String now) {
+    store.execute(
+        "UPDATE import_index_requests SET task_id=?,updated_at=? WHERE task_id=? AND revision_id=?",
+        jobId,
+        now,
+        previousJobId,
+        revisionId);
+  }
+
   /** Current active metadata, never inferred from whichever task happens to be latest. */
   public Optional<IndexPublicationEntity> activePublication(String documentId) {
     return store
