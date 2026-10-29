@@ -38,3 +38,9 @@ TCR temporary login logged out and private temporary Docker configuration remove
 提交前将初始化脚本的随机凭据写入改为带格式的 printf，字段和随机长度保持不变；隔离临时目录验证两种启动入口均生成正确格式，二次初始化不改变凭据与证书。验证 Dockerfile 的固定合成测试值使用 env 显式传入。原有已交付压缩包和镜像摘要保持不变，这些源码整理未重新发布镜像。
 
 29 个 Shell/Node 入口语法检查、两份初始化生成及重复执行检查、7 项隔离下载流程检查通过。以上不新增模型调用或生产操作，也不替代新机器完整拉取及真实模型验收。
+
+## 共享网络命名空间持有者（2026-10-29）
+
+原编排让 milvus/agent/web/gateway 使用 `network_mode: service:api`，端口也发布在 api 上。api 带 `-XX:+ExitOnOutOfMemoryError` 与 `restart: unless-stopped`，自行退出后 Docker 以新网络命名空间重启它，其他容器仍挂在旧命名空间，端口发布及 api↔milvus 回环通信中断，直到手动 stop.sh + start.sh。两份 compose 新增常驻 `net` 服务（复用 images.lock 中已固定的 api 镜像，sh 空等待循环，TERM 即退出），端口改由 `net` 发布，五个运行服务均为 `network_mode: service:net`，api/milvus 显式依赖 `net` 已启动，原健康检查依赖顺序不变。未新增镜像，images.lock、images.sha256、install/pull.sh、evidence/images.json 无需变更。start.sh 在检测到旧布局（存在 api 容器但无 net 容器）时先执行一次不删卷的 `down` 再启动，避免新 `net` 与旧 api 争用端口。
+
+已验证：两份 compose 在样例 .env 下 `docker compose config --quiet`（含/不含 `--profile setup`）通过；Shell `sh -n`/`bash -n`、Node `--check` 通过；dash 下空等待循环收到 TERM 返回 0；7 项隔离下载流程检查通过。本轮环境无 Docker 守护进程，未实际执行启动、OOM 重启或升级迁移。
