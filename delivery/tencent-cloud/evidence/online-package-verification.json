@@ -1,0 +1,8 @@
+{
+  "archive": "delivery/knowledge-online-20261028-linux-amd64.tar.gz",
+  "bytes": 9514,
+  "files": 19,
+  "sha256": "e9cae0cb744506a34ae3420c9cfafeda40f262c6082745a9d6190ff1fc3e878d",
+  "images_included": false,
+  "private_runtime_excluded": true
+}

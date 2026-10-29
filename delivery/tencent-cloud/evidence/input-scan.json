@@ -1,0 +1,11 @@
+{
+  "scanned_contexts": [
+    "api",
+    "web",
+    "agent",
+    "ocr",
+    "milvus"
+  ],
+  "credential_pattern_findings": [],
+  "production_data_in_context": false
+}

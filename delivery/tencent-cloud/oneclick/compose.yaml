@@ -1,0 +1,172 @@
+name: ${KB_PROJECT:?}
+x-common: &common
+  platform: linux/amd64
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  stop_grace_period: 60s
+services:
+  init:
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-api:20261028-0094r2
+    platform: linux/amd64
+    profiles: [setup]
+    user: "0:0"
+    network_mode: none
+    entrypoint: [sh, /installer/scripts/init.sh]
+    environment:
+      PUBLIC_HOST: ${KB_HOST}
+      PUBLIC_PORT: ${KB_PORT}
+    volumes:
+      - ./scripts:/installer/scripts:ro
+      - runtime:/runtime
+      - data:/data
+      - ocr-socket:/ocr
+  api:
+    <<: *common
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-api:20261028-0094r2
+    entrypoint: [sh, /installer/api.sh]
+    mem_limit: 1536m
+    ports:
+      - "127.0.0.1:${KB_PORT}:8443"
+    volumes:
+      - ./scripts:/installer:ro
+      - runtime:/run/config:ro
+      - data:/data
+      - ocr-socket:/run/knowledge-ocr
+    environment:
+      RAG_ENVIRONMENT: development
+      RAG_AUTH_MODE: jwt
+      RAG_JWT_ISSUER: ai-knowledge-isolated
+      RAG_DATA_DIRECTORY: /data
+      RAG_EXTERNAL_ENTRY_ENABLED: "true"
+      RAG_PUBLIC_ORIGIN: https://${KB_HOST}:${KB_PORT}
+      RAG_INGESTION_ENABLED: "true"
+      RAG_INDEXING_ENABLED: "true"
+      RAG_ANSWERS_ENABLED: "true"
+      RAG_DOCUMENT_REMOVAL_ENABLED: "true"
+      RAG_DOCUMENT_CLEANUP_ENABLED: "true"
+      RAG_MODEL_CONFIGURATION_ENABLED: "true"
+      RAG_MODEL_CONFIGURATION_ALLOW_LOOPBACK_HTTP: "true"
+      RAG_MODEL_CONFIGURATION_ADMINISTRATORS: owner
+      RAG_MODEL_CONFIGURATION_DEEPSEEK_BASE_URL: https://api.deepseek.com/v1
+      RAG_MILVUS_ENDPOINT: http://127.0.0.1:19530
+      RAG_MILVUS_COLLECTION: java_knowledge_text
+      RAG_MILVUS_ANALYZER: chinese
+      RAG_IMAGE_OCR_ENABLED: "true"
+      RAG_IMAGE_OCR_BACKEND: tesseract
+      RAG_IMAGE_OCR_EXECUTABLE: /usr/bin/tesseract
+      RAG_IMAGE_OCR_LANGUAGE: chi_sim+eng
+      RAG_IMAGE_OCR_REVISION: tesseract-local-v1
+      RAG_PDF_OCR_ENABLED: "true"
+      RAG_PDF_OCR_EXECUTABLE: /usr/bin/tesseract
+      RAG_PDF_OCR_LANGUAGE: chi_sim+eng
+      RAG_PDF_OCR_REVISION: tesseract-local-v1
+      RAG_BATCH_PARSE_CONCURRENCY: "2"
+      RAG_BATCH_INDEX_CONCURRENCY: "2"
+      RAG_BATCH_EMBEDDING_CONCURRENCY: "2"
+      RAG_BATCH_MEDIA_INDEX_CONCURRENCY: "1"
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:18084/health/live]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+  milvus:
+    <<: *common
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-milvus:2.6.24-0093
+    network_mode: service:api
+    entrypoint: [/tini, --, sh, /installer/milvus.sh]
+    mem_limit: 3g
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      ETCD_CONFIG_PATH: /installer/embedEtcd.yaml
+      COMMON_STORAGETYPE: local
+      DEPLOY_MODE: STANDALONE
+    volumes:
+      - ./scripts/milvus.sh:/installer/milvus.sh:ro
+      - ./config/embedEtcd.yaml:/installer/embedEtcd.yaml:ro
+      - ./config/milvus.yaml:/milvus/configs/user.yaml:ro
+      - runtime:/run/config:ro
+      - milvus:/var/lib/milvus
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:9091/healthz]
+      interval: 10s
+      timeout: 10s
+      retries: 36
+      start_period: 60s
+  agent:
+    <<: *common
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-agent:20261028-0076
+    user: "10001:10001"
+    network_mode: service:api
+    entrypoint: [sh, /installer/agent.sh]
+    mem_limit: 512m
+    volumes:
+      - ./scripts/agent.sh:/installer/agent.sh:ro
+      - runtime:/run/config:ro
+    environment:
+      KNOWLEDGE_JAVA_ORIGIN: http://127.0.0.1:18084
+      AGENT_SERVICE_PORT: "18112"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, /app/.venv/bin/python, -c, "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:18112/health').status==200"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  web:
+    <<: *common
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-web:20261028-0062
+    user: "10001:10001"
+    network_mode: service:api
+    entrypoint: [sh, /installer/web.sh]
+    mem_limit: 384m
+    volumes:
+      - ./scripts/web.sh:/installer/web.sh:ro
+      - runtime:/run/config:ro
+    environment:
+      RAG_PUBLIC_ORIGIN: https://${KB_HOST}:${KB_PORT}
+      RAG_WEB_BACKEND_ORIGIN: http://127.0.0.1:18084
+      RAG_OPEN_ACCESS_ENABLED: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "const s=require('node:net').connect(18085,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+  gateway:
+    <<: *common
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-web:20261028-0062
+    user: "10001:10001"
+    network_mode: service:api
+    entrypoint: [node, /installer/gateway.mjs]
+    mem_limit: 128m
+    volumes:
+      - ./scripts:/installer:ro
+      - runtime:/run/config:ro
+    environment:
+      RAG_PUBLIC_ORIGIN: https://${KB_HOST}:${KB_PORT}
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "const https=require('node:https'),fs=require('node:fs');const u=new URL(process.env.RAG_PUBLIC_ORIGIN);https.get({host:'127.0.0.1',port:8443,servername:u.hostname,ca:fs.readFileSync('/run/config/tls.crt'),headers:{host:u.host},path:'/'},r=>{r.resume();process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+volumes:
+  data:
+  runtime:
+  milvus:
+  ocr-socket:

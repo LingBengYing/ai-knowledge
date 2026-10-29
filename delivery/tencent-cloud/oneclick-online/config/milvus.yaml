@@ -1,0 +1,10 @@
+mq:
+  type: woodpecker
+woodpecker:
+  storage:
+    type: local
+common:
+  security:
+    authorizationEnabled: true
+log:
+  level: warn

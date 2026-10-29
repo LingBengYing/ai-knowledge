@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-28",
+  "platform": "Mac ARM64; Docker Linux AMD64 emulation",
+  "docker_desktop_before": "4.43.0",
+  "docker_desktop_after": "4.97.0",
+  "engine_after": "29.9.2",
+  "file_sharing": "VirtioFS restored after ineffective gRPC FUSE trial",
+  "cloud_model_http": 0,
+  "production_modified": false,
+  "checks": {
+    "full_start_script": true,
+    "five_runtime_containers_healthy": true,
+    "tls_verified_public_entry_200": true,
+    "session_authenticated": true,
+    "config_and_agent_config_200": true,
+    "synthetic_txt_parse": true,
+    "original_bytes_equal": true,
+    "milvus_synthetic_strong_query": true,
+    "milvus_anonymous_rejected_401": true,
+    "restart_persistence": true,
+    "credentials_preserved": true,
+    "offline_archive_load": true,
+    "frozen_start_script_repeat": true
+  },
+  "earlier_failures_retained": [
+    "Docker 4.43 Created hang",
+    "installer collection prefix / loopback configuration",
+    "acceptance fixture wrong MIME 415",
+    "editing running shell during restart; final frozen repeat passed"
+  ],
+  "not_certified": [
+    "cloud model quality",
+    "full corpus",
+    "public network deployment",
+    "native ARM64",
+    "browser self-signed certificate acceptance"
+  ]
+}

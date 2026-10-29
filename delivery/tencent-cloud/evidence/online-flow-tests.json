@@ -1,0 +1,33 @@
+{
+  "kind": "isolated fake Docker control-flow tests, not remote pull acceptance",
+  "results": [
+    {
+      "case": "cached",
+      "passed": true
+    },
+    {
+      "case": "pull",
+      "passed": true
+    },
+    {
+      "case": "auth",
+      "passed": true
+    },
+    {
+      "case": "noninteractive",
+      "passed": true
+    },
+    {
+      "case": "network",
+      "passed": true
+    },
+    {
+      "case": "denied",
+      "passed": true
+    },
+    {
+      "case": "identity",
+      "passed": true
+    }
+  ]
+}

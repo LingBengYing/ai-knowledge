@@ -1,0 +1,9 @@
+*.tar
+*.tar.gz
+*.zip
+**/images.tar
+**/.env
+**/logs/
+**/.startup-lock/
+**/__pycache__/
+*.pyc

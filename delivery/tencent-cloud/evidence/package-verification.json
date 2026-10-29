@@ -1,0 +1,8 @@
+{
+  "archive": "delivery/knowledge-oneclick-20261028-linux-amd64.tar.gz",
+  "bytes": 1099759126,
+  "files": 21,
+  "sha256": "826d14a5445a0a91379cfd479ac9d19b532d079fbb02590c57af9c6be432f66d",
+  "embedded_images_sha256_ok": true,
+  "runtime_config_excluded": true
+}
