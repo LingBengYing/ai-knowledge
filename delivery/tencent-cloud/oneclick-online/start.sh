@@ -35,6 +35,12 @@ docker compose config --quiet
 mkdir -p logs
 printf '初始化本机配置与数据卷……\n'
 docker compose --profile setup run --rm --no-deps --pull never init > logs/init.log 2>&1 || fail '初始化失败，详情见 logs/init.log。'
+# One-time migration: older installs published the port on api and shared its network
+# namespace. The new net holder cannot bind the port while those containers exist.
+if [ -n "$(docker compose ps -a -q api 2>/dev/null)" ] && [ -z "$(docker compose ps -a -q net 2>/dev/null)" ]; then
+  printf '升级容器网络布局：先停止旧容器（资料和配置保留）……\n'
+  docker compose down --timeout 60 || fail '停止旧容器失败，请先运行 stop.sh 后重新启动。'
+fi
 printf '启动知识库，首次启动需要等待数据库就绪……\n'
 docker compose up -d --pull never --wait --wait-timeout 420 || {
   docker compose ps > logs/status.log

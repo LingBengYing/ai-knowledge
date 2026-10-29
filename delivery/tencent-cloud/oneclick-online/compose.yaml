@@ -24,13 +24,27 @@ services:
       - runtime:/runtime
       - data:/data
       - ocr-socket:/ocr
+  # Long-lived holder of the shared loopback network namespace and the published port.
+  # Every runtime service joins it, so an app container that exits and is restarted by
+  # Docker (e.g. api on ExitOnOutOfMemoryError) rejoins the same namespace instead of
+  # leaving the others on a stale one. Reuses the pinned api image; no extra image.
+  net:
+    <<: *common
+    image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-api:20261028-0094r2
+    entrypoint: [sh, -c, 'trap "exit 0" TERM INT; while :; do sleep 86400 & wait $$!; done']
+    mem_limit: 32m
+    stop_grace_period: 10s
+    ports:
+      - "127.0.0.1:${KB_PORT}:8443"
   api:
     <<: *common
     image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-api:20261028-0094r2
+    network_mode: service:net
     entrypoint: [sh, /installer/api.sh]
     mem_limit: 1536m
-    ports:
-      - "127.0.0.1:${KB_PORT}:8443"
+    depends_on:
+      net:
+        condition: service_started
     volumes:
       - ./scripts:/installer:ro
       - runtime:/run/config:ro
@@ -77,9 +91,12 @@ services:
   milvus:
     <<: *common
     image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-milvus:2.6.24-0093
-    network_mode: service:api
+    network_mode: service:net
     entrypoint: [/tini, --, sh, /installer/milvus.sh]
     mem_limit: 3g
+    depends_on:
+      net:
+        condition: service_started
     environment:
       ETCD_USE_EMBED: "true"
       ETCD_DATA_DIR: /var/lib/milvus/etcd
@@ -102,7 +119,7 @@ services:
     <<: *common
     image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-agent:20261028-0076
     user: "10001:10001"
-    network_mode: service:api
+    network_mode: service:net
     entrypoint: [sh, /installer/agent.sh]
     mem_limit: 512m
     volumes:
@@ -123,7 +140,7 @@ services:
     <<: *common
     image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-web:20261028-0062
     user: "10001:10001"
-    network_mode: service:api
+    network_mode: service:net
     entrypoint: [sh, /installer/web.sh]
     mem_limit: 384m
     volumes:
@@ -149,7 +166,7 @@ services:
     <<: *common
     image: ccr.ccs.tencentyun.com/lingbenying-knowledge/knowledge-web:20261028-0062
     user: "10001:10001"
-    network_mode: service:api
+    network_mode: service:net
     entrypoint: [node, /installer/gateway.mjs]
     mem_limit: 128m
     volumes:
