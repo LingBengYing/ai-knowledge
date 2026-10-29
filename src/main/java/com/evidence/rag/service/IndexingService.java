@@ -761,7 +761,12 @@ public final class IndexingService {
         && configuredTask(internal);
   }
 
-  /** An exhausted never-published initial task is followed by a fresh initial task. */
+  /**
+   * An exhausted never-published initial task is followed by a fresh initial task. An import
+   * request (and so a batch file) that pointed at the old task follows the new one in the same
+   * transaction; the new task's first attempt counts as an explicit user attempt ({@code
+   * restart_of}), so a batch halt does not stop it.
+   */
   private TaskResult restartIndexing(Actor actor, TaskEntity task, IndexTarget target) {
     var revision =
         indexing.parsedRevision(task.documentId()).orElseThrow(IndexingService::indexConflict);
@@ -775,6 +780,7 @@ public final class IndexingService {
         task.id(),
         indexing.nextRebuildSequence(task.documentId()),
         now);
+    indexing.repointImportRequest(task.id(), jobId, revision.id(), now);
     audit(
         actor,
         task.documentId(),
