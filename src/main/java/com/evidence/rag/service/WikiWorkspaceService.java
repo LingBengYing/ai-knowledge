@@ -26,6 +26,7 @@ import com.evidence.rag.repository.WikiWorkspaceRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -87,6 +88,17 @@ public final class WikiWorkspaceService {
                         .map(source -> source.publication().documentId())
                         .distinct()
                         .toList();
+                // The reviewed source list no longer describes this page: a stale review, not a
+                // malformed request.
+                if (!Set.copyOf(ids)
+                    .equals(
+                        Set.copyOf(
+                            refresh.sourceVersions().stream()
+                                .map(value -> value.documentId())
+                                .toList()))) {
+                  throw new ApplicationException(
+                      FailureKind.CONFLICT, "wiki_source_changed", "知识页来源已改变，请刷新来源变化后再生成提案。");
+                }
                 return new WikiProposalCommand(
                     pageId,
                     refresh.baseVersion(),
@@ -182,62 +194,83 @@ public final class WikiWorkspaceService {
         });
   }
 
-  /** Extractive updates remain bounded original segments, not model section rewrites. */
+  /**
+   * Extractive updates remain bounded original segments, not model section rewrites. Each affected
+   * section is replaced in place: a changed source contributes every segment of its current version
+   * (once per page), while an unchanged source keeps only the segments that section already cited.
+   * Segments a retained section still cites are never repeated, and new headings never reuse a
+   * retained heading.
+   */
   private static List<WikiContent.Section> mergeExtractedRevision(
-      Prepared prepared, List<WikiContent.Section> sections) {
-    var affectedIds =
-        prepared.affectedSections().stream()
-            .map(WikiContent.Section::id)
-            .collect(java.util.stream.Collectors.toSet());
-    var retainedSources =
-        prepared.before().sections().stream()
-            .filter(section -> !affectedIds.contains(section.id()))
-            .flatMap(section -> section.sources().stream())
-            .toList();
+      Prepared prepared, List<WikiContent.Section> extracted) {
+    var current = new HashMap<String, PublicationVersion>();
+    prepared.requiredPublications().forEach(value -> current.put(value.documentId(), value));
+    var affectedIds = new HashSet<String>();
+    prepared.affectedSections().forEach(section -> affectedIds.add(section.id()));
+    var emitted = new HashSet<List<Object>>();
+    var headings = new HashSet<String>();
+    for (var section : prepared.before().sections()) {
+      if (!affectedIds.contains(section.id())) {
+        headings.add(section.heading());
+        section.sources().forEach(source -> emitted.add(segment(source)));
+      }
+    }
+    var segments = new LinkedHashMap<List<Object>, WikiContent.Section>();
+    for (var section : extracted) {
+      segments.put(segment(section.sources().getFirst()), section);
+    }
+    var changedEmitted = new HashSet<String>();
     var renamed = new HashMap<String, WikiContent.Source>();
-    var replacements =
-        sections.stream()
-            .filter(
-                section ->
-                    !section.sources().stream()
-                        .allMatch(
-                            source ->
-                                retainedSources.stream()
-                                    .anyMatch(
-                                        retained ->
-                                            retained.publication().equals(source.publication())
-                                                && retained
-                                                    .reference()
-                                                    .equals(source.reference()))))
-            .map(
-                section ->
-                    new WikiContent.Section(
-                        "refresh-" + UUID.randomUUID(),
-                        section.heading(),
-                        section.body(),
-                        section.sources().stream()
-                            .map(
-                                source ->
-                                    renamed.computeIfAbsent(
-                                        source.id(),
-                                        ignored ->
-                                            new WikiContent.Source(
-                                                "refresh-" + UUID.randomUUID(),
-                                                source.publication(),
-                                                source.reference())))
-                            .toList()))
-            .toList();
+    int[] ordinal = {0};
     var merged = new ArrayList<WikiContent.Section>();
-    boolean inserted = false;
     for (var previous : prepared.before().sections()) {
       if (!affectedIds.contains(previous.id())) {
         merged.add(previous);
-      } else if (!inserted) {
-        merged.addAll(replacements);
-        inserted = true;
+        continue;
+      }
+      var chosen = new ArrayList<WikiContent.Section>();
+      for (var source : previous.sources()) {
+        String documentId = source.publication().documentId();
+        if (source.publication().equals(current.get(documentId))) {
+          var segment = segments.get(segment(source));
+          if (segment != null && emitted.add(segment(source))) chosen.add(segment);
+        } else if (changedEmitted.add(documentId)) {
+          for (var entry : segments.entrySet()) {
+            var publication = entry.getValue().sources().getFirst().publication();
+            if (publication.documentId().equals(documentId) && emitted.add(entry.getKey())) {
+              chosen.add(entry.getValue());
+            }
+          }
+        }
+      }
+      for (var section : chosen) {
+        String heading;
+        do {
+          heading = "原文摘编 " + ++ordinal[0];
+        } while (!headings.add(heading));
+        merged.add(
+            new WikiContent.Section(
+                "refresh-" + UUID.randomUUID(),
+                heading,
+                section.body(),
+                section.sources().stream()
+                    .map(
+                        source ->
+                            renamed.computeIfAbsent(
+                                source.id(),
+                                ignored ->
+                                    new WikiContent.Source(
+                                        "refresh-" + UUID.randomUUID(),
+                                        source.publication(),
+                                        source.reference())))
+                    .toList()));
       }
     }
     return List.copyOf(merged);
+  }
+
+  private static List<Object> segment(WikiContent.Source source) {
+    return List.of(source.publication(), source.reference());
   }
 
   public WikiPageListResult pages(Actor actor, int offset, int limit, String query) {

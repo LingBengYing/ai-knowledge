@@ -14,16 +14,6 @@ public record WikiProposalCommand(
     List<String> documentIds,
     String generationMethod,
     List<WikiSourceVersion> sourceVersions) {
-  public WikiProposalCommand(
-      String pageId,
-      long baseVersion,
-      String title,
-      String kind,
-      List<String> documentIds,
-      String generationMethod) {
-    this(pageId, baseVersion, title, kind, documentIds, generationMethod, null);
-  }
-
   public WikiProposalCommand {
     if (pageId != null) {
       ModelValues.identifier(pageId, 128);

@@ -62,7 +62,11 @@ class DocumentBatchConstructionTest {
       assertEquals(2, service.sources(actor, batch.batchId(), "", "manual", 0, 50).total());
       assertEquals(1, service.sources(actor, batch.batchId(), "B.TXT", "manual", 0, 50).total());
       assertEquals(0, service.sources(actor, batch.batchId(), "%", "", 0, 50).total());
-      assertEquals(3, all.folders().stream().mapToInt(f -> f.count()).sum());
+      // A folder counts everything beneath it; "" counts root-level files only.
+      assertEquals(
+          Map.of("", 1, "manual", 2, "manual/part", 1),
+          all.folders().stream()
+              .collect(java.util.stream.Collectors.toMap(f -> f.path(), f -> f.count())));
       String withdrawn = all.items().getFirst().documentId();
       try (var connection =
               java.sql.DriverManager.getConnection(

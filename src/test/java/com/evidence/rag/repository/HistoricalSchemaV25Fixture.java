@@ -19,7 +19,7 @@ import java.util.Map;
 
 /** Test-only physical v25 restoration; newer authority history is never discarded. */
 final class HistoricalSchemaV25Fixture {
-  static final int CURRENT_VERSION = 42;
+  static final int CURRENT_VERSION = BatchPlacementSchema.VERSION;
   private static Template template;
 
   private HistoricalSchemaV25Fixture() {}

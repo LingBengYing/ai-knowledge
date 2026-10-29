@@ -67,7 +67,8 @@ class WikiMaintenanceServiceTest {
                     "两份独立规范",
                     "topic",
                     List.of(changed.documentId(), stable.documentId()),
-                    "model"));
+                    "model",
+                    null));
         var page = service.accept(owner, initial.id(), 0);
         var original = page.content().sections();
         assertEquals(3, original.size());
@@ -143,7 +144,8 @@ class WikiMaintenanceServiceTest {
                   "大文档摘编",
                   "topic",
                   List.of(changed.documentId(), stable.documentId()),
-                  "extractive"));
+                  "extractive",
+                  null));
       var page = service.accept(owner, initial.id(), 0);
       var retained = page.content().sections().getLast();
       assertTrue(page.content().sections().size() > 5);
@@ -200,7 +202,8 @@ class WikiMaintenanceServiceTest {
                     "独立规范",
                     "topic",
                     List.of(changed.documentId(), stable.documentId()),
-                    "model"));
+                    "model",
+                    null));
         var page = service.accept(owner, initial.id(), 0);
         var retained = page.content().sections().getLast();
         replace(fixture, changed.documentId(), changed.revisionId(), "设备启动 3 秒。");
@@ -241,7 +244,8 @@ class WikiMaintenanceServiceTest {
                     "独立规范",
                     "topic",
                     List.of(changed.documentId(), stable.documentId()),
-                    "model"));
+                    "model",
+                    null));
         var page = service.accept(owner, initial.id(), 0);
         models.extraSectionId = page.content().sections().getLast().id();
         replace(fixture, changed.documentId(), changed.revisionId(), "设备启动 3 秒。");
@@ -279,7 +283,8 @@ class WikiMaintenanceServiceTest {
                     "独立规范",
                     "topic",
                     List.of(changed.documentId(), stable.documentId()),
-                    "model"));
+                    "model",
+                    null));
         var page = service.accept(owner, initial.id(), 0);
         replace(fixture, changed.documentId(), changed.revisionId(), "设备启动 3 秒。");
         models.onRevision =
@@ -317,7 +322,8 @@ class WikiMaintenanceServiceTest {
                   "规则页",
                   "topic",
                   List.of(changed.documentId(), stable.documentId()),
-                  "extractive"));
+                  "extractive",
+                  null));
       var page = wiki.accept(owner, initial.id(), 0);
       pageId = page.pageId();
       var unchanged = page.content().sections().get(1);
@@ -379,7 +385,7 @@ class WikiMaintenanceServiceTest {
           wiki.createProposal(
               owner,
               new WikiProposalCommand(
-                  null, 0, "知识", "topic", List.of(document.documentId()), "extractive"));
+                  null, 0, "知识", "topic", List.of(document.documentId()), "extractive", null));
       var page = wiki.accept(owner, proposal.id(), 0);
       var old =
           maintenance(fixture.authority.store())
@@ -447,7 +453,7 @@ class WikiMaintenanceServiceTest {
           wiki.createProposal(
               owner,
               new WikiProposalCommand(
-                  null, 0, "保留知识", "topic", List.of(claim.documentId()), "extractive"));
+                  null, 0, "保留知识", "topic", List.of(claim.documentId()), "extractive", null));
       var page = wiki.accept(owner, proposal.id(), 0);
       try (var connection =
               DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
