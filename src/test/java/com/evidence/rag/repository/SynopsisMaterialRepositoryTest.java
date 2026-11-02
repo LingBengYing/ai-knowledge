@@ -2,6 +2,7 @@ package com.evidence.rag.repository;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -43,7 +44,7 @@ class SynopsisMaterialRepositoryTest {
       String original = "首😀".repeat(900) + "尾部事实42。";
       var published = text(fixture, original);
       var repository = new SynopsisMaterialRepository(fixture.store());
-      var input = tx(fixture, () -> repository.load(OWNER, published));
+      var input = tx(fixture, () -> repository.document(OWNER, published));
       assertEquals(published.segmentCount(), input.evidence().size());
       assertTrue(input.evidence().size() > 1);
       assertTrue(
@@ -75,7 +76,7 @@ class SynopsisMaterialRepositoryTest {
       var repository = new SynopsisMaterialRepository(fixture.store());
       for (boolean ocr : List.of(false, true)) {
         var published = image(fixture, ocr);
-        var input = tx(fixture, () -> repository.load(OWNER, published));
+        var input = tx(fixture, () -> repository.document(OWNER, published));
         assertEquals(1, input.evidence().size());
         var item = input.evidence().getFirst();
         var source = tx(fixture, () -> repository.source(OWNER, published, reference(item)));
@@ -104,7 +105,7 @@ class SynopsisMaterialRepositoryTest {
     try (var fixture = new AuthorityTestContext(directory)) {
       var published = audio(fixture, List.of("第一事实", "", "远处尾部事实"));
       var repository = new SynopsisMaterialRepository(fixture.store());
-      var input = tx(fixture, () -> repository.load(OWNER, published));
+      var input = tx(fixture, () -> repository.document(OWNER, published));
       assertEquals(
           List.of("第一事实", "远处尾部事实"),
           input.evidence().stream()
@@ -132,7 +133,7 @@ class SynopsisMaterialRepositoryTest {
     try (var fixture = new AuthorityTestContext(directory)) {
       var published = video(fixture, 2);
       var repository = new SynopsisMaterialRepository(fixture.store());
-      var input = tx(fixture, () -> repository.load(OWNER, published));
+      var input = tx(fixture, () -> repository.document(OWNER, published));
       assertEquals(
           List.of(
               SynopsisEvidence.Kind.VIDEO_FRAME,
@@ -187,12 +188,7 @@ class SynopsisMaterialRepositoryTest {
       var tooLong = audio(fixture, IntStream.range(0, 17).mapToObj(i -> "字".repeat(4000)).toList());
       var tooManyImages = video(fixture, 9);
       for (var published : List.of(tooMany, tooLong, tooManyImages)) {
-        assertEquals(
-            "input_capacity_exceeded",
-            assertThrows(
-                    ApplicationException.class,
-                    () -> tx(fixture, () -> repository.load(OWNER, published)))
-                .code());
+        assertFalse(tx(fixture, () -> repository.document(OWNER, published)).bounded());
         assertEquals(
             published,
             tx(fixture, () -> repository.publication(OWNER, published.documentId()).orElseThrow()));
@@ -205,7 +201,7 @@ class SynopsisMaterialRepositoryTest {
     try (var fixture = new AuthorityTestContext(directory)) {
       var published = text(fixture, "private original");
       var repository = new SynopsisMaterialRepository(fixture.store());
-      var input = tx(fixture, () -> repository.load(OWNER, published));
+      var input = tx(fixture, () -> repository.document(OWNER, published));
       var item = input.evidence().getFirst();
       for (var forged :
           List.of(
@@ -234,7 +230,8 @@ class SynopsisMaterialRepositoryTest {
       assertEquals(
           "not_found",
           assertThrows(
-                  ApplicationException.class, () -> tx(fixture, () -> repository.load(OWNER, old)))
+                  ApplicationException.class,
+                  () -> tx(fixture, () -> repository.document(OWNER, old)))
               .code());
       var member = new Actor(OWNER.workspaceId(), "second-member");
       assertTrue(
@@ -268,7 +265,7 @@ class SynopsisMaterialRepositoryTest {
           "not_found",
           assertThrows(
                   ApplicationException.class,
-                  () -> tx(fixture, () -> repository.load(OWNER, published)))
+                  () -> tx(fixture, () -> repository.document(OWNER, published)))
               .code());
     }
   }
@@ -281,7 +278,7 @@ class SynopsisMaterialRepositoryTest {
       published = image(fixture, true);
       var repository = new SynopsisMaterialRepository(fixture.store());
       reference =
-          reference(tx(fixture, () -> repository.load(OWNER, published)).evidence().getFirst());
+          reference(tx(fixture, () -> repository.document(OWNER, published)).evidence().getFirst());
     }
     try (var store = new SqliteAuthorityStore(directory)) {
       var repository = new SynopsisMaterialRepository(store);

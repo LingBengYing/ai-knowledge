@@ -56,12 +56,6 @@ class SynopsisFileMaterialRepositoryTest {
                       new FileSynopsis.Reference(
                           tail.id(), tail.sha256(), tail.kind(), tail.time())));
       assertTrue(((SynopsisEvidence.Text) source.evidence().content()).text().contains("否则预算为0"));
-      assertEquals(
-          "input_capacity_exceeded",
-          assertThrows(
-                  ApplicationException.class,
-                  () -> store.transaction(() -> repository.load(OWNER, publication)))
-              .code());
     }
   }
 
@@ -138,9 +132,9 @@ class SynopsisFileMaterialRepositoryTest {
               fixture.image(true),
               fixture.audio(List.of("音频")),
               fixture.video(2))) {
-        var before = store.transaction(() -> repository.load(OWNER, publication));
         var file = store.transaction(() -> repository.document(OWNER, publication));
         assertTrue(file.bounded());
+        var before = file.toBounded();
         assertEquals(before.fingerprint(), file.fingerprint());
         assertEquals(
             before.evidence().stream().map(SynopsisEvidence::id).toList(),

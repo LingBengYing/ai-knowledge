@@ -110,8 +110,4 @@ final class CleanupPayloadTables {
   }
 
   private CleanupPayloadTables() {}
-
-  static List<String> names() {
-    return TABLES.stream().map(Table::name).toList();
-  }
 }

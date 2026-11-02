@@ -13,7 +13,6 @@ import com.evidence.rag.model.domain.PublicationVersion;
 import com.evidence.rag.model.domain.PublishedVideoSubtitleEvidence;
 import com.evidence.rag.model.domain.SynopsisEvidence;
 import com.evidence.rag.model.domain.SynopsisFileInput;
-import com.evidence.rag.model.domain.SynopsisInput;
 import com.evidence.rag.model.domain.SynopsisSourceMaterial;
 import com.evidence.rag.model.domain.VideoTranscriptEvidence;
 import com.evidence.rag.model.domain.VisualImage;
@@ -43,40 +42,6 @@ public final class SynopsisMaterialRepository {
         .findActivePublications(actor, DocumentSelection.selected(List.of(documentId)))
         .stream()
         .findFirst();
-  }
-
-  public SynopsisInput load(Actor actor, PublicationVersion publication) {
-    var scope = current(actor, publication);
-    var entries = entries(actor, publication);
-    long images =
-        entries.stream()
-            .filter(
-                e ->
-                    e.kind() == SynopsisEvidence.Kind.IMAGE
-                        || e.kind() == SynopsisEvidence.Kind.VIDEO_FRAME)
-            .count();
-    if (entries.size() > SynopsisInput.MAX_EVIDENCE || images > SynopsisInput.MAX_IMAGES) {
-      throw capacity();
-    }
-    var original = original(actor, publication);
-    var subtitles = subtitles(scope, entries);
-    var items = new ArrayList<SynopsisEvidence>();
-    long codePoints = 0;
-    long imageBytes = 0;
-    for (var entry : entries) {
-      var item = material(scope, entry, original, subtitles).evidence();
-      switch (item.content()) {
-        case SynopsisEvidence.Text text ->
-            codePoints += text.text().codePointCount(0, text.text().length());
-        case SynopsisEvidence.Image image -> imageBytes += image.image().content().length;
-      }
-      if (codePoints > SynopsisInput.MAX_TEXT_CODE_POINTS
-          || imageBytes > SynopsisInput.MAX_IMAGE_BYTES) {
-        throw capacity();
-      }
-      items.add(item);
-    }
-    return new SynopsisInput(publication, items);
   }
 
   public SynopsisFileInput document(Actor actor, PublicationVersion publication) {

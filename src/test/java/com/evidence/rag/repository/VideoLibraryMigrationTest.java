@@ -126,7 +126,11 @@ class VideoLibraryMigrationTest {
             assertEquals(
                 authority.manifestSha256(),
                 VideoEvidence.fromCompilation("revision", actual).manifestSha256());
-            assertEquals(authority.groups(), repository.findVideoGroups("revision"));
+            // findVideoCompilation verifies the stored groups against the recomputed authority.
+            assertEquals(
+                authority.groups().size(),
+                store.count(
+                    "SELECT COUNT(*) FROM video_evidence_groups WHERE revision_id=?", "revision"));
             assertArrayEquals(
                 VideoCompilationFixture.ORIGINAL, repository.original("document-revision"));
             assertTrue(repository.findVideoCompilation("missing").isEmpty());
