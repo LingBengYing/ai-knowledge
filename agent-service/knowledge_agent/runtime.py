@@ -16,7 +16,7 @@ FAILURE_CODES = frozenset({
     "agent_model_tool_required", "agent_model_unavailable", "agent_model_timeout",
     "agent_invalid_action", "agent_invalid_tool_input", "agent_tool_failed",
     "agent_invalid_result", "agent_step_limit", "agent_timeout", "agent_execution_failed",
-    "agent_cancelled", "agent_busy",
+    "agent_cancelled",
 })
 STAGES = frozenset({"starting", "model", "search", "read", "action", "result"})
 ACTIONS = frozenset({"knowledge_search", "knowledge_read", "terminate"})

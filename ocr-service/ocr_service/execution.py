@@ -9,7 +9,7 @@ from .protocol import OcrError
 
 
 class AuditLog:
-    """A retained stream bypasses SDK stdout suppression, never SDK diagnostics."""
+    """Writes only the whitelisted audit fields, one JSON object per line."""
 
     def __init__(self, stream):
         self.stream = stream

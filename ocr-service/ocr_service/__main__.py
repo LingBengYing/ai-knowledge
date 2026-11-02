@@ -37,16 +37,13 @@ def read_config(environ):
 def main():
     os.umask(0o077)
     stopped = threading.Event()
-    server, pipeline = None, None
+    server = None
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda number, frame: stopped.set())
     try:
         socket_path, api_key, base_url, concurrency = read_config(os.environ)
-        os.environ.setdefault("OMP_NUM_THREADS", "1")
-        os.environ.setdefault("MKL_NUM_THREADS", "1")
         audit = AuditLog(sys.stdout)
-        pipeline = RemotePagePipeline(base_url, api_key)
-        server = OcrServer(socket_path, pipeline, audit, concurrency)
+        server = OcrServer(socket_path, RemotePagePipeline(base_url, api_key), audit, concurrency)
         server.start()
         stopped.wait()
         return 0
@@ -56,11 +53,6 @@ def main():
     finally:
         if server is not None:
             server.close()
-        if pipeline is not None:
-            try:
-                pipeline.close()
-            except Exception:
-                pass
 
 
 if __name__ == "__main__":

@@ -9,10 +9,10 @@ import time
 from pathlib import Path
 
 from .execution import PageContext
+from .protocol import OcrError, decode_request, encode_response, read_frame
 
 # Upper bound on simultaneous provider calls; each holds one page image in memory.
 MAX_CONCURRENCY = 8
-from .protocol import OcrError, decode_request, encode_response, read_frame
 
 
 class OcrServer:
