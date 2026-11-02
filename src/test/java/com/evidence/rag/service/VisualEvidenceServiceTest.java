@@ -62,7 +62,7 @@ class VisualEvidenceServiceTest {
       assertNull(before.trace());
       assertArrayEquals(original, before.original().content());
       var receipt =
-          fixture.evidence.finish(scope, draft(physicalId), () -> AnswerEligibility.ELIGIBLE);
+          fixture.evidence.finish(scope, draft(physicalId), () -> AnswerEligibility.ELIGIBLE, null);
       assertEquals("answered", receipt.outcome());
       answerId = receipt.traceId();
     }

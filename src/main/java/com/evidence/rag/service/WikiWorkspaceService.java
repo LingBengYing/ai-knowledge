@@ -273,10 +273,6 @@ public final class WikiWorkspaceService {
     return List.of(source.publication(), source.reference());
   }
 
-  public WikiPageListResult pages(Actor actor, int offset, int limit, String query) {
-    return pages(actor, offset, limit, query, "active");
-  }
-
   public WikiPageListResult pages(Actor actor, int offset, int limit, String query, String state) {
     requireMember(actor);
     pagination(offset, limit);

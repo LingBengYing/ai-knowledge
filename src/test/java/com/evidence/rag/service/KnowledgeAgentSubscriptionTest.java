@@ -131,7 +131,7 @@ class KnowledgeAgentSubscriptionTest {
                             throw new AssertionError("No indexing in Agent task");
                           }),
                       () -> {}));
-      var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration());
+      var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration(), null);
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
         runtime.install(snapshot, lease, () -> {});
       }
@@ -151,7 +151,7 @@ class KnowledgeAgentSubscriptionTest {
 
     /** An empty library completes without the external agent; observers still stay attached. */
     String completedRun() throws InterruptedException {
-      String id = agents.start(context.owner, "问题", UUID.randomUUID().toString()).id();
+      String id = agents.start(context.owner, "问题", UUID.randomUUID().toString(), null).id();
       long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
       while ("running".equals(agents.get(context.owner, id).status())) {
         assertTrue(System.nanoTime() < deadline, "run did not finish");

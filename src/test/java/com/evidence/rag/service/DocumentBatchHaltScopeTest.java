@@ -58,7 +58,7 @@ class DocumentBatchHaltScopeTest {
 
   /** The indexing processor's path when the budget refuses a claimed attempt. */
   private static void refuse(AuthorityTestContext authority, IndexClaim claim, int requests) {
-    assertFalse(authority.indexing().reserveBatchRequests(claim, requests));
+    assertFalse(authority.indexing().reserveBatchRequests(claim, requests, 0, false) >= 0);
     assertTrue(authority.indexing().cancelUnreservedIndexing(claim));
   }
 
@@ -171,7 +171,7 @@ class DocumentBatchHaltScopeTest {
       var retried = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(taskB.taskId(), retried.jobId());
       assertEquals(2, retried.attempt());
-      assertTrue(authority.indexing().reserveBatchRequests(retried, 1));
+      assertTrue(authority.indexing().reserveBatchRequests(retried, 1, 0, false) >= 0);
       assertEquals(1, batches.status(actor, id, 0, 100).reservedRequests());
       authority.indexing().recordBatchUsage(retried, 1, 1, true, 1);
       assertTrue(authority.indexing().failIndexing(retried, "indexing_failed"));
@@ -184,7 +184,7 @@ class DocumentBatchHaltScopeTest {
       var again = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(taskA.taskId(), again.jobId());
       assertEquals(2, again.attempt());
-      assertTrue(authority.indexing().reserveBatchRequests(again, 50));
+      assertTrue(authority.indexing().reserveBatchRequests(again, 50, 0, false) >= 0);
     }
   }
 
@@ -209,7 +209,7 @@ class DocumentBatchHaltScopeTest {
       authority.indexing().retryIndexing(actor, taskB.taskId(), target);
       var retried = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(taskB.taskId(), retried.jobId());
-      assertFalse(authority.indexing().reserveBatchRequests(retried, 50));
+      assertFalse(authority.indexing().reserveBatchRequests(retried, 50, 0, false) >= 0);
 
       // The refusal must not turn the user's cancel into a resumable budget halt.
       var status = batches.status(actor, id, 0, 100);
@@ -239,8 +239,8 @@ class DocumentBatchHaltScopeTest {
       var manual = authority.indexing().createIndexing(actor, file.documentId(), target);
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(manual.taskId(), claim.jobId());
-      assertTrue(authority.indexing().reserveBatchRequests(claim, 50));
-      authority.indexing().recordBatchUsage(claim, 50, 50, true);
+      assertTrue(authority.indexing().reserveBatchRequests(claim, 50, 0, false) >= 0);
+      authority.indexing().recordBatchUsage(claim, 50, 50, true, Integer.MAX_VALUE);
       var status = batches.status(actor, id, 0, 100);
       assertEquals(0, status.reservedRequests());
       assertEquals(0, status.observedRequests());

@@ -89,32 +89,14 @@ public final class ManagementService {
         indexing,
         permissions,
         reindexEnabled,
-        (actor, documentId) -> indexing.canReindex(documentId));
+        (actor, documentId) -> indexing.canReindex(documentId),
+        null);
   }
 
   /**
    * Installed continuation path supplies current authority and exact runtime target eligibility.
+   * The processor is resolved only for an admitted explicit batch action.
    */
-  public ManagementService(
-      SqliteAuthorityStore store,
-      ManagementRepository management,
-      IngestionRepository ingestion,
-      IndexingRepository indexing,
-      DocumentPermissionPolicy permissions,
-      boolean reindexEnabled,
-      BiPredicate<Actor, String> reindexEligibility) {
-    this(
-        store,
-        management,
-        ingestion,
-        indexing,
-        permissions,
-        reindexEnabled,
-        reindexEligibility,
-        null);
-  }
-
-  /** The processor is resolved only for an admitted explicit batch action. */
   public ManagementService(
       SqliteAuthorityStore store,
       ManagementRepository management,

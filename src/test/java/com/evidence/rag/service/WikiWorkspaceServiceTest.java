@@ -53,7 +53,7 @@ class WikiWorkspaceServiceTest {
       assertEquals("extractive", proposal.generationMethod());
       assertEquals(WikiCompilationService.POLICY_REVISION, proposal.policyRevision());
       assertEquals("current", proposal.sourceState());
-      assertEquals(0, service.pages(owner, 0, 20, "").total());
+      assertEquals(0, service.pages(owner, 0, 20, "", "active").total());
       assertEquals(1, service.proposals(owner, 0, 20, "pending").total());
       assertEquals(text, proposal.after().sections().getFirst().body());
       var source = proposal.after().sections().getFirst().sources().getFirst();
@@ -67,8 +67,8 @@ class WikiWorkspaceServiceTest {
       assertEquals(1, page.version());
       assertEquals(pageId, page.pageId());
       assertEquals("accepted", service.proposal(owner, proposalId).status());
-      assertEquals(1, service.pages(owner, 0, 20, "灯塔").total());
-      assertEquals(0, service.pages(owner, 0, 20, "不存在").total());
+      assertEquals(1, service.pages(owner, 0, 20, "灯塔", "active").total());
+      assertEquals(0, service.pages(owner, 0, 20, "不存在", "active").total());
     }
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var service = service(fixture.authority.store());
@@ -191,13 +191,14 @@ class WikiWorkspaceServiceTest {
           FailureKind.FORBIDDEN,
           assertThrows(ApplicationException.class, () -> service.page(other, page.pageId()))
               .kind());
-      assertThrows(ApplicationException.class, () -> service.pages(other, 0, 20, ""));
+      assertThrows(ApplicationException.class, () -> service.pages(other, 0, 20, "", "active"));
       assertThrows(
           ApplicationException.class,
           () -> service.createProposal(other, command(null, 0, "越界", documentId)));
       assertEquals(
           FailureKind.UNAUTHENTICATED,
-          assertThrows(ApplicationException.class, () -> service.pages(null, 0, 20, "")).kind());
+          assertThrows(ApplicationException.class, () -> service.pages(null, 0, 20, "", "active"))
+              .kind());
     }
   }
 
@@ -208,7 +209,7 @@ class WikiWorkspaceServiceTest {
       var service = service(fixture.authority.store());
       var proposal = service.createProposal(owner, command(null, 0, "待审", documentId));
       assertEquals("dismissed", service.dismiss(owner, proposal.id()).status());
-      assertEquals(0, service.pages(owner, 0, 20, "").total());
+      assertEquals(0, service.pages(owner, 0, 20, "", "active").total());
       assertEquals(1, service.proposals(owner, 0, 20, "dismissed").total());
       assertThrows(ApplicationException.class, () -> service.accept(owner, proposal.id(), 0));
       assertThrows(ApplicationException.class, () -> service.dismiss(owner, proposal.id()));
@@ -312,7 +313,7 @@ class WikiWorkspaceServiceTest {
                 + TextModels.WIKI_COMPILATION_PROMPT_REVISION,
             result.policyRevision());
         assertEquals("pending", result.status());
-        assertEquals(0, service.pages(owner, 0, 20, "").total());
+        assertEquals(0, service.pages(owner, 0, 20, "", "active").total());
         assertEquals(1, service.accept(owner, result.id(), 0).version());
       }
       assertTrue(store.operationGate().isIdle());

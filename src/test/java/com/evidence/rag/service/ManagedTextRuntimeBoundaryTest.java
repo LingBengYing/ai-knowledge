@@ -65,7 +65,7 @@ class ManagedTextRuntimeBoundaryTest {
           runtime.install(old, lease, () -> {});
         }
 
-        assertThrows(ApplicationException.class, () -> runtime.prepare(2, requested));
+        assertThrows(ApplicationException.class, () -> runtime.prepare(2, requested, null));
 
         assertEquals(1, released.get());
         assertFalse(candidate.isOpen());
@@ -88,7 +88,7 @@ class ManagedTextRuntimeBoundaryTest {
             new ManagedTextRuntime(fixture.context.authority.store(), (version, config) -> null)) {
       assertThrows(
           ApplicationException.class,
-          () -> runtime.prepare(1, ManagedTextTestFixture.configuration()));
+          () -> runtime.prepare(1, ManagedTextTestFixture.configuration(), null));
       assertNull(runtime.currentVersion());
       assertNull(runtime.currentTarget());
       assertTrue(fixture.context.authority.store().operationGate().isIdle());
@@ -209,7 +209,7 @@ class ManagedTextRuntimeBoundaryTest {
       }
       assertThrows(
           ApplicationException.class,
-          () -> fixture.runtime.prepare(2, ManagedTextTestFixture.configuration()));
+          () -> fixture.runtime.prepare(2, ManagedTextTestFixture.configuration(), null));
       assertTrue(replacement.isOpen());
       replacement.close();
     }

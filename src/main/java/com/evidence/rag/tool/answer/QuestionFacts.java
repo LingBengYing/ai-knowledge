@@ -269,10 +269,6 @@ final class QuestionFacts {
       return false;
     }
 
-    default boolean matches(String field) {
-      return value(field) != null;
-    }
-
     default String sha256() {
       return ModelValues.sha256(("fact-v1\n" + requirement()).getBytes(StandardCharsets.UTF_8));
     }
@@ -405,12 +401,6 @@ final class QuestionFacts {
         return null;
       }
       return payload.replaceFirst("^(?:是|为|[:：=]|is\\s+|are\\s+)\\s*", "");
-    }
-
-    @Override
-    public boolean matches(String field) {
-      String value = value(field);
-      return value != null && !EXCLUDED_NUMERIC_SEQUENCE.matcher(value).matches();
     }
 
     @Override

@@ -1262,11 +1262,6 @@ public final class EvidenceService {
   }
 
   public TraceReceipt finish(
-      EvidenceScope snapshot, TraceDraft draft, Supplier<AnswerEligibility> eligibility) {
-    return finish(snapshot, draft, eligibility, null);
-  }
-
-  public TraceReceipt finish(
       EvidenceScope snapshot,
       TraceDraft draft,
       Supplier<AnswerEligibility> eligibility,

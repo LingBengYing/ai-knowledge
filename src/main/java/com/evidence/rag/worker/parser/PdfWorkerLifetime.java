@@ -26,10 +26,6 @@ final class PdfWorkerLifetime implements AutoCloseable {
   private Thread watchdog;
   private Thread hook;
 
-  PdfWorkerLifetime(String[] args) {
-    this(args, InputStream.nullInputStream());
-  }
-
   /** Remote mode reads the model key from the private stdin frame that precedes the request. */
   PdfWorkerLifetime(String[] args, InputStream input) {
     boolean remote = args.length == 6 && args[0].equals("--pdf-remote-ocr");

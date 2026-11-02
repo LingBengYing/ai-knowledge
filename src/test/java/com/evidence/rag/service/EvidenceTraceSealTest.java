@@ -35,7 +35,10 @@ class EvidenceTraceSealTest {
               owner, DocumentSelection.selected(List.of(first.documentId())), TARGET);
       var receipt =
           fixture.evidence.finish(
-              scope, answered(physicalIds(first).getFirst()), () -> AnswerEligibility.ELIGIBLE);
+              scope,
+              answered(physicalIds(first).getFirst()),
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       try (var db =
               DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
           var statement = db.createStatement()) {
@@ -85,7 +88,8 @@ class EvidenceTraceSealTest {
           fixture.evidence.finish(
               scope,
               answered(physicalIds(publication).getFirst()),
-              () -> AnswerEligibility.ELIGIBLE);
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       try (var db =
               DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
           var statement = db.createStatement()) {

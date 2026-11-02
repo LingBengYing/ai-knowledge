@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.evidence.rag.model.domain.EmbeddingThroughput;
+import com.evidence.rag.model.domain.TransientRetry;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -29,7 +31,9 @@ class IndexWorkerLifetimeTest {
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(5),
-              server.claim(1));
+              server.claim(1),
+              TransientRetry.NONE,
+              EmbeddingThroughput.SERIAL);
       var request =
           new IndexProtocol.Request(
               original.models(),
@@ -41,7 +45,9 @@ class IndexWorkerLifetimeTest {
               original.target(),
               original.items(),
               original.projectionGenerationId(),
-              forged);
+              forged,
+              TransientRetry.NONE,
+              EmbeddingThroughput.SERIAL);
       var input = new ByteArrayOutputStream();
       IndexProtocol.writeRequest(input, request);
       var output = new ByteArrayOutputStream();
@@ -151,7 +157,9 @@ class IndexWorkerLifetimeTest {
                 server.settings().models(),
                 server.settings().projection(),
                 Duration.ofMillis(350),
-                server.claim(1)));
+                server.claim(1),
+                TransientRetry.NONE,
+                EmbeddingThroughput.SERIAL));
       }
       assertTrue(
           probe.waitFor(3, TimeUnit.SECONDS),

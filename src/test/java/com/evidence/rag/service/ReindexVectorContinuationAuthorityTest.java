@@ -71,11 +71,11 @@ class ReindexVectorContinuationAuthorityTest {
       ImageVectorEvidenceServiceTest.publishVector(context, old, document);
       var configured = new AtomicBoolean(false);
       var service = ReindexVectorTestSupport.service(context, (route, target) -> configured.get());
-      assertFalse(service.canReindexWithVectors(context.owner, document, context.target));
+      assertFalse(canReindexWithVectors(context, service, context.owner, document, context.target));
       assertFalse(
-          service.canReindexWithVectors(
-              new Actor("org-main", "stranger"), document, context.target));
-      assertFalse(service.canReindexWithVectors(context.owner, document, null));
+          canReindexWithVectors(
+              context, service, new Actor("org-main", "stranger"), document, context.target));
+      assertFalse(canReindexWithVectors(context, service, context.owner, document, null));
       var refused =
           assertThrows(
               ApplicationException.class,
@@ -88,7 +88,7 @@ class ReindexVectorContinuationAuthorityTest {
       assertEquals("index_configuration_changed", refused.code());
       assertEquals(1, context.scalar("SELECT COUNT(*) FROM indexing_jobs"));
       configured.set(true);
-      assertTrue(service.canReindexWithVectors(context.owner, document, context.target));
+      assertTrue(canReindexWithVectors(context, service, context.owner, document, context.target));
       var claim = ReindexVectorTestSupport.claim(context, service, document);
       var verification =
           ReindexVectorTestSupport.verified(service.reindexVectorPlan(claim).orElseThrow());
@@ -213,12 +213,10 @@ class ReindexVectorContinuationAuthorityTest {
                       service.canReindexWithVectorsInTransaction(
                           context.owner, document, context.target)));
       var other = new IndexTarget("other", "f".repeat(64), "other", 2);
-      assertFalse(service.canReindexWithVectors(context.owner, document, other));
+      assertFalse(canReindexWithVectors(context, service, context.owner, document, other));
       assertFalse(
-          context
-              .authority
-              .indexing()
-              .canReindexWithVectors(context.owner, document, context.target));
+          canReindexWithVectors(
+              context, context.authority.indexing(), context.owner, document, context.target));
       assertTrue(
           context
               .authority
@@ -226,6 +224,18 @@ class ReindexVectorContinuationAuthorityTest {
               .transaction(
                   () -> new IndexingRepository(context.authority.store()).canReindex(document)));
     }
+  }
+
+  private static boolean canReindexWithVectors(
+      AnswerTestContext context,
+      IndexingService service,
+      Actor actor,
+      String document,
+      IndexTarget target) {
+    return context
+        .authority
+        .store()
+        .transaction(() -> service.canReindexWithVectorsInTransaction(actor, document, target));
   }
 
   private AnswerTestContext context() {

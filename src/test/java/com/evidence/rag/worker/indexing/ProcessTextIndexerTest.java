@@ -8,9 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.client.vector.RetrievalProjection;
+import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -226,7 +228,9 @@ class ProcessTextIndexerTest {
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(10),
-              server.claim(2));
+              server.claim(2),
+              TransientRetry.NONE,
+              EmbeddingThroughput.SERIAL);
       var good = receipt(request);
       byte[] encoded = IndexProtocol.encode(good);
       var cases = new ArrayList<byte[]>();

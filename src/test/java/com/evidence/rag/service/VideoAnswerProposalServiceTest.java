@@ -53,7 +53,7 @@ class VideoAnswerProposalServiceTest {
           result.sources().stream()
               .allMatch(s -> !s.trace().physicalSegmentId().startsWith("video-")));
       var receipt =
-          context.evidence.finish(scope, result.trace(), () -> AnswerEligibility.ELIGIBLE);
+          context.evidence.finish(scope, result.trace(), () -> AnswerEligibility.ELIGIBLE, null);
       assertEquals("answered", receipt.outcome());
       assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
       for (var source : result.sources()) {

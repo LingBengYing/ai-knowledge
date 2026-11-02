@@ -19,10 +19,6 @@ public final class SynopsisJob implements AutoCloseable {
   private Thread executing;
   private boolean closed;
 
-  public SynopsisJob(SynopsisTaskProcessor processor) {
-    this(processor, null);
-  }
-
   public SynopsisJob(SynopsisTaskProcessor processor, LibraryOperationGate operations) {
     this.operations = operations;
     this.processor = Objects.requireNonNull(processor);

@@ -128,7 +128,8 @@ class AnswerQueryAttachmentTest {
                   List.of())
               .withQueryTrace(queryTrace);
       var receipt =
-          context.evidence.finish(scope, draft, () -> AnswerEligibility.CONFIGURATION_CHANGED);
+          context.evidence.finish(
+              scope, draft, () -> AnswerEligibility.CONFIGURATION_CHANGED, null);
       assertEquals("configuration_changed", receipt.reasonCode());
       assertEquals(
           1,

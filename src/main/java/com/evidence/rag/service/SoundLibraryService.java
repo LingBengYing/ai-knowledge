@@ -155,10 +155,6 @@ public final class SoundLibraryService {
     this.indexer = indexer;
   }
 
-  public IndexTarget target() {
-    return target;
-  }
-
   public String profileFingerprint() {
     return profile;
   }

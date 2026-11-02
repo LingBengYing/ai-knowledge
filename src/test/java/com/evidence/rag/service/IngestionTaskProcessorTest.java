@@ -38,7 +38,9 @@ class IngestionTaskProcessorTest {
                     limit ->
                         calls.getAndIncrement() == 0
                             ? SlowParserFixture.parser(limit, pidFile)
-                            : new ProcessTextParser(limit)))) {
+                            : new ProcessTextParser(limit)),
+                null,
+                1)) {
       var job =
           authority.uploadDocument(
               owner, "synthetic.txt", "text/plain", "合成取消重试证据".getBytes(StandardCharsets.UTF_8));
@@ -70,7 +72,9 @@ class IngestionTaskProcessorTest {
                   authority.ingestion(),
                   "org",
                   Duration.ofSeconds(8),
-                  limit -> SlowParserFixture.parser(limit, pidFile)))) {
+                  limit -> SlowParserFixture.parser(limit, pidFile)),
+              null,
+              1)) {
         String taskId =
             (String)
                 authority

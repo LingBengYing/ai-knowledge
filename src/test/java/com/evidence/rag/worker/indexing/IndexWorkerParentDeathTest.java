@@ -7,8 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
+import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.TransientRetry;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -32,7 +34,9 @@ class IndexWorkerParentDeathTest {
                   server.settings().models(),
                   server.settings().projection(),
                   Duration.ofSeconds(15),
-                  claim));
+                  claim,
+                  TransientRetry.NONE,
+                  EmbeddingThroughput.SERIAL));
         }
         assertTrue(
             server.embeddingStarted.await(5, TimeUnit.SECONDS),
@@ -91,7 +95,9 @@ class IndexWorkerParentDeathTest {
                   server.settings().models(),
                   server.settings().projection(),
                   Duration.ofSeconds(15),
-                  oldClaim));
+                  oldClaim,
+                  TransientRetry.NONE,
+                  EmbeddingThroughput.SERIAL));
         }
         assertTrue(
             server.upsertStarted.await(5, TimeUnit.SECONDS),

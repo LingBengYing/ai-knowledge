@@ -335,10 +335,6 @@ public final class SynopsisLibraryService {
         });
   }
 
-  public int recover(String workspace) {
-    return recoverProcessing(store, repository, workspace);
-  }
-
   /** Startup use case has no model dependency and keeps its transaction in the Service layer. */
   public static int recoverProcessing(
       SqliteAuthorityStore store, SynopsisRepository repository, String workspace) {

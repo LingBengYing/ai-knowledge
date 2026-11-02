@@ -32,18 +32,7 @@ public final class RuntimeService {
       boolean indexing,
       boolean answers,
       boolean documentRemoval) {
-    this(authMode, workspaceId, ingestion, indexing, answers, documentRemoval, false);
-  }
-
-  public RuntimeService(
-      String authMode,
-      String workspaceId,
-      boolean ingestion,
-      boolean indexing,
-      boolean answers,
-      boolean documentRemoval,
-      boolean imageOcr) {
-    this(authMode, workspaceId, ingestion, indexing, answers, documentRemoval, imageOcr, false);
+    this(authMode, workspaceId, ingestion, indexing, answers, documentRemoval, false, false);
   }
 
   public RuntimeService(
@@ -64,29 +53,7 @@ public final class RuntimeService {
         documentRemoval,
         imageOcr,
         visual,
-        false);
-  }
-
-  public RuntimeService(
-      String authMode,
-      String workspaceId,
-      boolean ingestion,
-      boolean indexing,
-      boolean answers,
-      boolean documentRemoval,
-      boolean imageOcr,
-      boolean visual,
-      boolean audio) {
-    this(
-        authMode,
-        workspaceId,
-        ingestion,
-        indexing,
-        answers,
-        documentRemoval,
-        imageOcr,
-        visual,
-        audio,
+        false,
         false);
   }
 

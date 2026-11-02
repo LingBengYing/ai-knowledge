@@ -43,6 +43,11 @@ class SynopsisLibraryServiceTest {
         revision::get);
   }
 
+  private static int recover(SqliteAuthorityStore store, String workspace) {
+    return SynopsisLibraryService.recoverProcessing(
+        store, new SynopsisRepository(store), workspace);
+  }
+
   @Test
   void fullPublicationBecomesDurableSummaryWithOriginalSourceAndIdempotentReceipt() {
     String documentId;
@@ -79,7 +84,7 @@ class SynopsisLibraryServiceTest {
       var library = service(fixture.authority.store());
       assertEquals(expected, library.get(owner, documentId).synopsis());
       assertEquals(taskId, library.get(owner, documentId).synopsisId());
-      assertEquals(0, library.recover(owner.workspaceId()));
+      assertEquals(0, recover(fixture.authority.store(), owner.workspaceId()));
       assertNotNull(library.source(owner, taskId, 2, 0));
     }
   }
@@ -163,10 +168,10 @@ class SynopsisLibraryServiceTest {
     }
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var library = service(fixture.authority.store());
-      assertEquals(1, library.recover(owner.workspaceId()));
+      assertEquals(1, recover(fixture.authority.store(), owner.workspaceId()));
       assertEquals("worker_interrupted", library.task(owner, taskId).errorCode());
       assertEquals("unavailable", library.task(owner, taskId).state());
-      assertEquals(0, library.recover(owner.workspaceId()));
+      assertEquals(0, recover(fixture.authority.store(), owner.workspaceId()));
       assertTrue(library.claim(owner.workspaceId()).isEmpty());
       assertNotEquals(taskId, library.create(owner, documentId).taskId());
     }

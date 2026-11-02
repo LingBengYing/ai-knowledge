@@ -39,10 +39,6 @@ final class IndexWorkerModelHttpLog {
     return new ChildLog();
   }
 
-  static ModelRequestUsage drain(InputStream input) {
-    return drain(input, null, null);
-  }
-
   static ModelRequestUsage drain(InputStream input, String taskId, String documentId) {
     var logger = LoggerFactory.getLogger(LOGGER);
     var reader = new Reader(logger, taskId, documentId);
