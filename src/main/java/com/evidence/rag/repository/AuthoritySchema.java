@@ -331,39 +331,12 @@ final class AuthoritySchema {
                           + ")");
           execute("DROP TRIGGER active_corpus_publications_no_update");
           execute(active);
-          String inventoryGuard = schemaSql("trigger", "cleanup_schema_objects_no_update");
-          execute("DROP TRIGGER cleanup_schema_objects_no_update");
-          for (var row :
-              store.rows(
-                  "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-            String name = (String) row.get("name");
-            String type = (String) row.get("type");
-            String digest =
-                ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
-            if (count(
-                    "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=? AND object_type=?",
-                    name,
-                    type)
-                == 0) {
-              execute(
-                  "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-                  name,
-                  type,
-                  digest);
-            } else if (List.of(
-                    "indexing_jobs",
-                    "indexing_identity",
-                    "indexing_rebuild_identity",
-                    "active_corpus_publications_no_update")
-                .contains(name)) {
-              execute(
-                  "UPDATE cleanup_schema_objects SET sql_sha256=? WHERE name=? AND object_type=?",
-                  digest,
-                  name,
-                  type);
-            }
-          }
-          execute(inventoryGuard);
+          recordSchemaObjects(
+              List.of(
+                  "indexing_jobs",
+                  "indexing_identity",
+                  "indexing_rebuild_identity",
+                  "active_corpus_publications_no_update"));
           execute("UPDATE format_info SET version=25 WHERE format=?", FORMAT);
           execute("PRAGMA user_version=25");
           verifyVersionTwentyFive();
@@ -588,41 +561,49 @@ final class AuthoritySchema {
                   WHERE p.id=NEW.publication_id AND j.rebuild_sequence=0 AND j.base_publication_id IS NULL)
               BEGIN SELECT RAISE(ABORT,'invalid initial active publication'); END
               """);
-          String inventoryGuard = schemaSql("trigger", "cleanup_schema_objects_no_update");
-          execute("DROP TRIGGER cleanup_schema_objects_no_update");
-          for (var row :
-              store.rows(
-                  "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-            String name = (String) row.get("name");
-            String type = (String) row.get("type");
-            String digest =
-                ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
-            if (count(
-                    "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=? AND object_type=?",
-                    name,
-                    type)
-                == 0) {
-              execute(
-                  "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-                  name,
-                  type,
-                  digest);
-            } else if (List.of(
-                    "indexing_jobs", "indexing_identity", "active_corpus_publications_no_update")
-                .contains(name)) {
-              execute(
-                  "UPDATE cleanup_schema_objects SET sql_sha256=? WHERE name=? AND object_type=?",
-                  digest,
-                  name,
-                  type);
-            }
-          }
-          execute(inventoryGuard);
+          recordSchemaObjects(
+              List.of(
+                  "indexing_jobs", "indexing_identity", "active_corpus_publications_no_update"));
           execute("UPDATE format_info SET version=24 WHERE format=?", FORMAT);
           execute("PRAGMA user_version=24");
           verifyVersionTwentyFour();
           return null;
         });
+  }
+
+  /**
+   * v24/v25 inventory step: records new schema objects and rehashes only {@code changed} ones, with
+   * the immutable inventory guard dropped and then restored from its exact original SQL.
+   */
+  private void recordSchemaObjects(List<String> changed) {
+    String inventoryGuard = schemaSql("trigger", "cleanup_schema_objects_no_update");
+    execute("DROP TRIGGER cleanup_schema_objects_no_update");
+    for (var row :
+        store.rows(
+            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+      String name = (String) row.get("name");
+      String type = (String) row.get("type");
+      String digest =
+          ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
+      if (count(
+              "SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=? AND object_type=?",
+              name,
+              type)
+          == 0) {
+        execute(
+            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
+            name,
+            type,
+            digest);
+      } else if (changed.contains(name)) {
+        execute(
+            "UPDATE cleanup_schema_objects SET sql_sha256=? WHERE name=? AND object_type=?",
+            digest,
+            name,
+            type);
+      }
+    }
+    execute(inventoryGuard);
   }
 
   private String schemaSql(String type, String name) {
