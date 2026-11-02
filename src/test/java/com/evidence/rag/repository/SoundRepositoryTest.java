@@ -3,14 +3,10 @@ package com.evidence.rag.repository;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentOriginal;
-import com.evidence.rag.model.domain.DocumentSelection;
-import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.query.DocumentQuery;
@@ -18,7 +14,6 @@ import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.ManagementService;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -27,7 +22,7 @@ class SoundRepositoryTest {
   private static final Actor OWNER = new Actor("sound-workspace", "owner");
 
   @Test
-  void rawSoundIsGenuineManagedAudioWithoutSpeechTaskAndMissingIndexStopsScope() {
+  void rawSoundIsGenuineManagedAudioWithoutSpeechTask() {
     try (var store = new SqliteAuthorityStore(directory)) {
       var management = new ManagementRepository(store);
       var repository = new SoundRepository(store);
@@ -64,17 +59,6 @@ class SoundRepositoryTest {
                     .findOriginal(
                         new Actor("other-workspace", OWNER.principalId()), original.documentId())
                     .isEmpty());
-            assertEquals(
-                "sound_index_required",
-                assertThrows(
-                        ApplicationException.class,
-                        () ->
-                            repository.scope(
-                                OWNER,
-                                DocumentSelection.selected(List.of(original.documentId())),
-                                new IndexTarget("embedding", "a".repeat(64), "embedding", 2),
-                                "b".repeat(64)))
-                    .code());
             return null;
           });
       var service =

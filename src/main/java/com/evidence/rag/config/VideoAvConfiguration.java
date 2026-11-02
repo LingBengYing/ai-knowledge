@@ -10,20 +10,16 @@ import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.VideoAvAnswerService;
 import com.evidence.rag.service.VideoAvCompilationService;
 import com.evidence.rag.service.VideoAvLibraryService;
-import com.evidence.rag.web.BoundedMediaQueryServlet;
 import com.evidence.rag.web.OriginalMediaUploadServlet;
 import com.evidence.rag.web.ProblemHandler;
-import com.evidence.rag.web.converter.VideoAvQueryRequestMapper;
 import com.evidence.rag.worker.parser.ProcessVideoAvDecoder;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashSet;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -137,31 +133,6 @@ public class VideoAvConfiguration {
   }
 
   @Bean(destroyMethod = "close")
-  GeminiVideoAvModels videoAvModels(VideoAvSettings settings) {
-    return new GeminiVideoAvModels(settings.models());
-  }
-
-  @Bean(destroyMethod = "close")
-  GeminiVideoAvEmbeddingModels videoAvEmbeddingModels(VideoAvSettings settings) {
-    return new GeminiVideoAvEmbeddingModels(settings.embedding());
-  }
-
-  @Bean(destroyMethod = "close")
-  MilvusRestProjection videoAvVideoProjection(VideoAvSettings settings) {
-    return new MilvusRestProjection(settings.visualProjection());
-  }
-
-  @Bean(destroyMethod = "close")
-  MilvusRestProjection videoAvAudioProjection(VideoAvSettings settings) {
-    return new MilvusRestProjection(settings.audioProjection());
-  }
-
-  @Bean
-  VideoAvTargets videoAvTargets(VideoAvSettings settings) {
-    return settings.targets();
-  }
-
-  @Bean(destroyMethod = "close")
   VideoAvLibraryService videoAvLibraryService(
       SqliteAuthorityStore store,
       VideoAvRepository repository,
@@ -189,35 +160,6 @@ public class VideoAvConfiguration {
     return service;
   }
 
-  @Bean(destroyMethod = "close")
-  VideoAvAnswerService videoAvAnswerService(
-      SqliteAuthorityStore store,
-      VideoAvRepository repository,
-      ManagementRepository management,
-      DocumentPermissionPolicy permissions,
-      VideoAvCompilationService compilation,
-      GeminiVideoAvModels models,
-      GeminiVideoAvEmbeddingModels embedding,
-      @Qualifier("videoAvVideoProjection") MilvusRestProjection visualProjection,
-      @Qualifier("videoAvAudioProjection") MilvusRestProjection audioProjection,
-      VideoAvSettings settings,
-      VideoAvLibraryService library) {
-    return new VideoAvAnswerService(
-        store,
-        repository,
-        management,
-        permissions,
-        compilation,
-        models,
-        embedding,
-        visualProjection,
-        audioProjection,
-        settings.targets(),
-        library.profileFingerprint(),
-        settings.processingBudget(),
-        settings.maxConcurrent());
-  }
-
   @Bean
   ServletRegistrationBean<OriginalMediaUploadServlet> videoAvUploadServlet(
       VideoAvLibraryService library, JsonMapper json, ProblemHandler errors) {
@@ -225,31 +167,6 @@ public class VideoAvConfiguration {
         new ServletRegistrationBean<>(
             OriginalMediaUploadServlet.videoAv(library, json, errors), "/v1/video-av-documents");
     registration.setName("videoAvUploadServlet");
-    registration.setAsyncSupported(true);
-    return registration;
-  }
-
-  @Bean
-  ServletRegistrationBean<BoundedMediaQueryServlet> videoAvQueryServlet(
-      VideoAvAnswerService answers,
-      VideoAvSettings settings,
-      JsonMapper json,
-      ProblemHandler errors) {
-    var registration =
-        new ServletRegistrationBean<>(
-            new BoundedMediaQueryServlet(
-                (actor, body) -> {
-                  var command = VideoAvQueryRequestMapper.attached(body);
-                  return answers.answerAttached(actor, command.answer(), command.attachments());
-                },
-                VideoAvQueryRequestMapper.MAX_REQUEST_BYTES,
-                30000,
-                Math.toIntExact(settings.processingBudget().toMillis()),
-                settings.maxConcurrent(),
-                json,
-                errors),
-            "/v1/video-av-query-answers");
-    registration.setName("videoAvQueryServlet");
     registration.setAsyncSupported(true);
     return registration;
   }

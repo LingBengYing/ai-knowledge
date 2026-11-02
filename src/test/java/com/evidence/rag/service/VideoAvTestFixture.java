@@ -1,7 +1,5 @@
 package com.evidence.rag.service;
 
-import com.evidence.rag.client.model.VideoAvEmbeddingModels;
-import com.evidence.rag.client.model.VideoAvModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioWaveform;
@@ -14,13 +12,10 @@ import com.evidence.rag.model.domain.VideoAvAudioMetadata;
 import com.evidence.rag.model.domain.VideoAvClip;
 import com.evidence.rag.model.domain.VideoAvCompilation;
 import com.evidence.rag.model.domain.VideoAvEpoch;
-import com.evidence.rag.model.domain.VideoAvFact;
 import com.evidence.rag.model.domain.VideoAvFrameTiming;
-import com.evidence.rag.model.domain.VideoAvMode;
 import com.evidence.rag.model.domain.VideoAvProfile;
 import com.evidence.rag.model.domain.VideoAvPublication;
 import com.evidence.rag.model.domain.VideoAvPublishedWindow;
-import com.evidence.rag.model.domain.VideoAvRequirement;
 import com.evidence.rag.model.domain.VideoAvRoute;
 import com.evidence.rag.model.domain.VideoAvRouteReceipt;
 import com.evidence.rag.model.domain.VideoAvTargets;
@@ -29,7 +24,6 @@ import com.evidence.rag.model.domain.VideoAvWindow;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.VideoAvRepository;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.worker.parser.VideoAvDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -42,10 +36,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
-/** Real temporary SQLite with explicit synthetic media/model seams; no native quality claim. */
+/** Real temporary SQLite with an explicit synthetic decoder seam; no native quality claim. */
 final class VideoAvTestFixture implements AutoCloseable {
   static final Actor OWNER = new Actor("av-workspace", "owner");
   static final String MODEL = "synthetic-av-model-v1";
@@ -57,8 +49,6 @@ final class VideoAvTestFixture implements AutoCloseable {
           new IndexTarget(EMBEDDING, "a".repeat(64), EMBEDDING, 2),
           new IndexTarget(EMBEDDING, "b".repeat(64), EMBEDDING, 2));
   static final String PROFILE = VideoAvProfile.fingerprint(TARGETS, MODEL, DECODER, 1);
-  static final String QUESTION = "画面和声音出现了什么，是否同步？";
-  static final String FACT = "敲击动作与响声同步。";
   final Path directory;
   final SqliteAuthorityStore store;
   final ManagementRepository management;
@@ -66,45 +56,8 @@ final class VideoAvTestFixture implements AutoCloseable {
   final VideoAvCompilationService compiler;
   final List<VideoAvPublication> publications = new ArrayList<>();
   final Map<String, VideoAvCompilation> compilations = new HashMap<>();
-  final List<Invocation> queries = new ArrayList<>();
-  final List<VideoAvWindow> drafts = new ArrayList<>();
-  final List<VideoAvWindow> verifies = new ArrayList<>();
-  final List<String> questions = new ArrayList<>();
-  final List<VideoAvEpoch> epochs = new ArrayList<>();
   int decodes;
-  int textEmbeds;
-  String modelRevision = MODEL;
-  String embeddingRevision = EMBEDDING;
   String decoderRevision = DECODER;
-  List<Double> vector = List.of(1.0, 0.0);
-  Runnable afterVerify = () -> {};
-  BiFunction<VideoAvWindow, VideoAvMode, VideoAvModels.Draft> draft =
-      (window, mode) ->
-          new VideoAvModels.Draft(
-              true,
-              List.of(new VideoAvModels.Claim(FACT, VideoAvRequirement.valueOf(mode.name()))));
-  Function<List<VideoAvFact>, VideoAvModels.Verification> verify =
-      facts ->
-          new VideoAvModels.Verification(
-              true,
-              facts.stream()
-                  .map(
-                      f ->
-                          new VideoAvModels.Support(
-                              f.id(),
-                              true,
-                              f.requirement() != VideoAvRequirement.AUDIO,
-                              f.requirement() != VideoAvRequirement.VISUAL))
-                  .toList());
-  BiFunction<VideoAvRoute, RetrievalProjection.Query, List<RetrievalProjection.Candidate>> search =
-      (route, query) ->
-          publications.stream()
-              .filter(p -> query.scope().documentRevisions().containsKey(p.documentId()))
-              .flatMap(p -> p.windows().stream())
-              .map(w -> route == VideoAvRoute.VISUAL ? w.visualPhysicalId() : w.audioPhysicalId())
-              .filter(java.util.Objects::nonNull)
-              .map(id -> new RetrievalProjection.Candidate(id, 1.0))
-              .toList();
 
   VideoAvTestFixture(Path directory) {
     this.directory = directory;
@@ -304,113 +257,6 @@ final class VideoAvTestFixture implements AutoCloseable {
             physical, OWNER.workspaceId(), document, generation, text, List.of(1.0, 0.0)));
   }
 
-  VideoAvAnswerService answers() {
-    return answers(Duration.ofSeconds(10), 2);
-  }
-
-  VideoAvAnswerService answers(Duration budget, int concurrency) {
-    var models =
-        new VideoAvModels() {
-          public String revision() {
-            return modelRevision;
-          }
-
-          public Draft draft(
-              String question, VideoAvWindow window, VideoAvEpoch epoch, VideoAvMode mode) {
-            store.transaction(() -> null);
-            questions.add(question);
-            drafts.add(window);
-            epochs.add(epoch);
-            return draft.apply(window, mode);
-          }
-
-          public Verification verify(
-              String question,
-              VideoAvWindow window,
-              VideoAvEpoch epoch,
-              VideoAvMode mode,
-              List<VideoAvFact> facts) {
-            store.transaction(() -> null);
-            questions.add(question);
-            verifies.add(window);
-            epochs.add(epoch);
-            var result = verify.apply(facts);
-            afterVerify.run();
-            return result;
-          }
-        };
-    var embedding =
-        new VideoAvEmbeddingModels() {
-          public String revision() {
-            return embeddingRevision;
-          }
-
-          public int dimensions() {
-            return 2;
-          }
-
-          public List<Double> embedText(String question) {
-            store.transaction(() -> null);
-            questions.add(question);
-            textEmbeds++;
-            return vector;
-          }
-
-          public List<Double> embedVideo(VideoAvClip clip) {
-            throw new AssertionError("Text question never embeds query clips");
-          }
-
-          public List<Double> embedAudio(AudioWaveform waveform) {
-            throw new AssertionError("Text question never embeds query audio");
-          }
-        };
-    return new VideoAvAnswerService(
-        store,
-        repository,
-        management,
-        new DocumentPermissionPolicy(),
-        compiler,
-        models,
-        embedding,
-        projection(VideoAvRoute.VISUAL),
-        projection(VideoAvRoute.AUDIO),
-        TARGETS,
-        PROFILE,
-        budget,
-        concurrency);
-  }
-
-  private RetrievalProjection projection(VideoAvRoute route) {
-    return new RetrievalProjection() {
-      public String identity() {
-        return (route == VideoAvRoute.VISUAL ? TARGETS.visual() : TARGETS.audio())
-            .projectionIdentity();
-      }
-
-      public void initialize() {
-        throw new AssertionError("Question cannot initialize index");
-      }
-
-      public void prepareSearch() {
-        store.transaction(() -> null);
-      }
-
-      public VerifiedRevision verify(RevisionManifest manifest) {
-        throw new AssertionError("Question cannot verify writes");
-      }
-
-      public void upsert(List<Entry> entries) {
-        throw new AssertionError("Question cannot index");
-      }
-
-      public List<Candidate> search(Query query) {
-        store.transaction(() -> null);
-        queries.add(new Invocation(route, query));
-        return search.apply(route, query);
-      }
-    };
-  }
-
   long count(String sql) {
     try (var connection =
             DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
@@ -432,8 +278,6 @@ final class VideoAvTestFixture implements AutoCloseable {
       throw new AssertionError(failure);
     }
   }
-
-  record Invocation(VideoAvRoute route, RetrievalProjection.Query query) {}
 
   public void close() {
     compiler.close();

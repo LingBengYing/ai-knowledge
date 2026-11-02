@@ -1,6 +1,8 @@
 # 原视频音画知识库
 
-0029新增完整连续视频与原音轨的独立索引和问答，前端0018提供「原视频音画」上传及画面、声音、联合三种文字问题模式。原件管理、索引和引用独立于旧视频的抽帧描述、转录、OCR和字幕路径。
+0029新增完整连续视频与原音轨的独立索引和问答，前端0018提供「原视频音画」上传及画面、声音、联合三种文字问题模式。
+
+> 2026-11-02已删除视频音画问答与来源接口：`POST /v1/video-av-answers`、`POST /v1/video-av-query-answers`、`GET /v1/video-av-sources/{answer_id}/{ordinal}`及`/content`不再路由（404），对应Service、请求映射与trace读写代码一并删除。原件上传、索引、撤下清理保留；`video_av_traces`等trace表结构保持不变但不再写入或读取。下文问答/来源/事实段落仅为历史说明，后续新功能另行规划。原件管理、索引和引用独立于旧视频的抽帧描述、转录、OCR和字幕路径。
 
 ## 使用顺序
 
@@ -9,13 +11,8 @@
 | 保存原视频 | `POST /v1/video-av-documents` | octet-stream；`X-Filename`只解码一次UTF-8百分号，字面加号保留；201四字段receipt |
 | 读取索引 | `GET /v1/documents/{id}/video-av-index` | reader可读，十四字段missing/available；零解码和模型 |
 | 显式建立 | `POST /v1/documents/{id}/video-av-index` | editor明确建立全部实际窗口和两路receipt；当前完整索引幂等回读 |
-| 提问 | `POST /v1/video-av-answers` | 精确JSON `question`、显式`mode: VISUAL/AUDIO/JOINT`及可选`document_ids` |
-| 来源说明 | `GET /v1/video-av-sources/{answer_id}/{ordinal}` | 原回答者当前授权、完整保存scope和proof复验 |
-| 原视频 | 上述来源加`/content` | 完整同SHA原视频200，支持单byte Range |
 
-省略范围表示全部当前授权真实视频，含没有音轨或最终未引用的视频；显式空数组保持空范围。任一资料缺当前完整同profile索引时返回409 `video_av_index_required`，不开始解码或provider请求。此切接文字问题；视频参考附件未接此新入口。
-
-索引和来源接口禁止query/body。raw上传只核对MP4/MOV/WebM/MKV扩展名、对应magic及20MiB大小上限，保存完整原件时不解码。显式建立索引时才由native核验实际封装与完整轨时间，要求源时长≤600秒；失败不会发布部分索引。前端核对上传原件完整SHA，建立索引期间保留整理草稿；停止等待后显示结果未知，须回读状态。
+索引接口禁止query/body。raw上传只核对MP4/MOV/WebM/MKV扩展名、对应magic及20MiB大小上限，保存完整原件时不解码。显式建立索引时才由native核验实际封装与完整轨时间，要求源时长≤600秒；失败不会发布部分索引。前端核对上传原件完整SHA，建立索引期间保留整理草稿；停止等待后显示结果未知，须回读状态。
 
 ## 时间、媒体与事实
 
@@ -25,11 +22,11 @@
 
 索引只嵌入实际MP4/WAV，分别写入两个新的`java_video_av_`集合，在同一个显式多模态embedding空间内召回。索引不生成描述或转录；新UUID publication也是两路共同generation。只有所有条目和双路完整receipt、source/profile/ACL复验合格后才封存。v20追加六个不可变表，派生媒体不存数据库。
 
-召回后先映射每路全部candidate，再融合到最多64个窗口；按父原件逐个重新完整编译并核对封存窗口组。模型draft与独立verify各收到完整原问题、当前模式所需实际媒体及窗口偏移；单窗口必须回答完整问题，不拼接半个答案。
+（历史，已删除）召回后先映射每路全部candidate，再融合到最多64个窗口；按父原件逐个重新完整编译并核对封存窗口组。模型draft与独立verify各收到完整原问题、当前模式所需实际媒体及窗口偏移；单窗口必须回答完整问题，不拼接半个答案。
 
-服务器给每个事实固定ID，核验不能增删改ID。事实用精确五字段JSON及SHA绑定到question/publication/epoch/window/媒体/模型/policy。VISUAL事实只贡献画面，AUDIO事实只贡献声音，JOINT事实须两者贡献；联合答案可分别回答独立属性，但因果、同步或发声主体关系须联合关系事实。语义正确性仍依赖真实模型质量，不能由这些结构规则单独认证。
+（历史，已删除）服务器给每个事实固定ID，核验不能增删改ID。事实用精确五字段JSON及SHA绑定到question/publication/epoch/window/媒体/模型/policy。VISUAL事实只贡献画面，AUDIO事实只贡献声音，JOINT事实须两者贡献；联合答案可分别回答独立属性，但因果、同步或发声主体关系须联合关系事实。语义正确性仍依赖真实模型质量，不能由这些结构规则单独认证。
 
-来源时间由服务器产生，精度为`server_window`，不是事件逐词时间。tick/sample/epoch long全部用规范字符串传递，前端通过BigInt复验后使用floor/ceil毫秒展示。完整原视频SHA校验后播放，离页/身份或问题变化释放播放器和Blob。浏览器对非零媒体epoch的实际定位仍由用户页面验收。
+（历史，已删除）来源时间由服务器产生，精度为`server_window`，不是事件逐词时间。tick/sample/epoch long全部用规范字符串传递，前端通过BigInt复验后使用floor/ceil毫秒展示。完整原视频SHA校验后播放，离页/身份或问题变化释放播放器和Blob。浏览器对非零媒体epoch的实际定位仍由用户页面验收。
 
 ## 配置和验收边界
 
@@ -37,6 +34,6 @@
 
 原文件/native/model/collection身份和chunk大小绑定profile。模型请求无history、tools或file URI，`store/stream/background=false`，实际序列化UTF-8请求最多14MiB。Google视频处理当前1fps采样，可能漏掉短暂动作，不能宣称每帧语义理解。窗口材料完整性也不等于模型采样充分。
 
-单操作默认120秒，最多2项在途，同资料最多一次构建，无自动建立或重试。实际Library和Answer共同装配后才声明`video_av_upload/index/answers/sources`四能力。启动不访问provider；来源复验完整保存scope及原件SHA，重启回读不调用模型或解码；撤下只在tombstone后擦除raw blob，保留历史metadata/proof。
+单操作默认120秒，最多2项在途，同资料最多一次构建，无自动建立或重试。实际VideoAvLibraryService装配后声明`video_av_upload/index/answers/sources`四能力；后两项自2026-11-02起只是网页兼容标记（网页`videoAvEnabled`仍检查这四项），背后已无接口，待网页改为只检查上传/索引后删除。`video_av_query_attachments`能力已删除。启动不访问provider；撤下只在tombstone后擦除raw blob，保留历史metadata。
 
 当前实现和验收记录见[0029验证](changes/0029-video-audiovisual/verification.md)。合成本机Spring/SQLite/FFmpeg和loopback协议替身不认证真实Google/Milvus语义质量、一般容量、浏览器或生产。用户负责页面验收，Git和部署归原责任方；没有新增真实模型调用，完整开发目标保持active。

@@ -331,48 +331,6 @@ public final class RuntimeService {
       boolean audioVectorRetrieval,
       boolean sound,
       boolean videoAv,
-      boolean videoAvQueryAttachments) {
-    this(
-        authMode,
-        workspaceId,
-        ingestion,
-        indexing,
-        answers,
-        documentRemoval,
-        imageOcr,
-        visual,
-        audio,
-        video,
-        synopsis,
-        queryAttachments,
-        pdfOcr,
-        imageVectorRetrieval,
-        audioVectorRetrieval,
-        sound,
-        videoAv,
-        videoAvQueryAttachments,
-        false);
-  }
-
-  public RuntimeService(
-      String authMode,
-      String workspaceId,
-      boolean ingestion,
-      boolean indexing,
-      boolean answers,
-      boolean documentRemoval,
-      boolean imageOcr,
-      boolean visual,
-      boolean audio,
-      boolean video,
-      boolean synopsis,
-      boolean queryAttachments,
-      boolean pdfOcr,
-      boolean imageVectorRetrieval,
-      boolean audioVectorRetrieval,
-      boolean sound,
-      boolean videoAv,
-      boolean videoAvQueryAttachments,
       boolean documentCleanup) {
     var enabled =
         new ArrayList<>(
@@ -452,6 +410,7 @@ public final class RuntimeService {
       enabled.add("audio_vector_retrieval");
     }
     if (sound && ingestion) {
+      // Answer/source/query names are web-compat markers only: the routes were removed 2026-11-02.
       enabled.addAll(
           List.of(
               "sound_upload",
@@ -461,11 +420,9 @@ public final class RuntimeService {
               "sound_query_attachments"));
     }
     if (videoAv && ingestion) {
+      // Answer/source names are web-compat markers only: the routes were removed 2026-11-02.
       enabled.addAll(
           List.of("video_av_upload", "video_av_index", "video_av_answers", "video_av_sources"));
-      if (videoAvQueryAttachments) {
-        enabled.add("video_av_query_attachments");
-      }
     }
     capabilities =
         new RuntimeCapabilities(

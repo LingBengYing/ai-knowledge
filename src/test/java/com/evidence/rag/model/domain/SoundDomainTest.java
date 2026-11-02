@@ -101,45 +101,6 @@ class SoundDomainTest {
     }
   }
 
-  @Test
-  void proofChecksExactFactsAndTraceRefusalCannotCarryCitations() {
-    var original = original();
-    String generation = UUID.randomUUID().toString();
-    String id = SoundProfile.spanId(original.revisionId(), 0);
-    var span =
-        new SoundSpan(
-            id, 0, 0, 1, HASH, "untrusted", SoundProfile.physicalSegmentId(generation, id), HASH);
-    var source = new SoundPublishedSpan(publication(original, generation, List.of(span)), span);
-    var facts = List.of("A tone is audible.");
-    var proof = new SoundProof(source, facts, SoundProof.factsSha256(facts), HASH);
-    assertEquals(facts, proof.facts());
-    assertThrows(RuntimeException.class, () -> new SoundProof(source, facts, HASH, HASH));
-    assertThrows(
-        RuntimeException.class, () -> new SoundProof(source, List.of("same", "same"), HASH, HASH));
-    assertThrows(
-        RuntimeException.class,
-        () ->
-            new SoundTraceDraft(
-                HASH,
-                null,
-                "abstained",
-                "no_evidence",
-                List.of(proof),
-                "sound-v1",
-                "java-sound-answer-v1"));
-    assertEquals(
-        "abstained",
-        new SoundTraceDraft(
-                HASH,
-                null,
-                "abstained",
-                "no_evidence",
-                List.of(),
-                "sound-v1",
-                "java-sound-answer-v1")
-            .status());
-  }
-
   private static DocumentOriginal original() {
     byte[] content = new byte[] {1, 2};
     return new DocumentOriginal(

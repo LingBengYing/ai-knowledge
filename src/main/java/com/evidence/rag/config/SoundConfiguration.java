@@ -9,19 +9,15 @@ import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.SoundAnswerService;
 import com.evidence.rag.service.SoundCompilationService;
 import com.evidence.rag.service.SoundLibraryService;
-import com.evidence.rag.web.BoundedMediaQueryServlet;
 import com.evidence.rag.web.OriginalMediaUploadServlet;
 import com.evidence.rag.web.ProblemHandler;
-import com.evidence.rag.web.converter.SoundRequestMapper;
 import com.evidence.rag.worker.parser.ProcessAudioDecoder;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -130,26 +126,6 @@ public class SoundConfiguration {
     }
   }
 
-  @Bean(destroyMethod = "close")
-  GeminiSoundModels soundModels(SoundSettings settings) {
-    return new GeminiSoundModels(settings.models());
-  }
-
-  @Bean(destroyMethod = "close")
-  GeminiSoundEmbeddingModels soundEmbeddingModels(SoundSettings settings) {
-    return new GeminiSoundEmbeddingModels(settings.embedding());
-  }
-
-  @Bean(destroyMethod = "close")
-  MilvusRestProjection soundProjection(SoundSettings settings) {
-    return new MilvusRestProjection(settings.projection());
-  }
-
-  @Bean
-  IndexTarget soundTarget(SoundSettings settings) {
-    return settings.target();
-  }
-
   @Bean
   SoundLibraryService soundLibraryService(
       SqliteAuthorityStore store,
@@ -177,33 +153,6 @@ public class SoundConfiguration {
     return service;
   }
 
-  @Bean(destroyMethod = "close")
-  SoundAnswerService soundAnswerService(
-      SqliteAuthorityStore store,
-      SoundRepository repository,
-      ManagementRepository management,
-      DocumentPermissionPolicy permissions,
-      SoundCompilationService compilation,
-      GeminiSoundModels models,
-      GeminiSoundEmbeddingModels embedding,
-      @Qualifier("soundProjection") MilvusRestProjection projection,
-      SoundSettings settings,
-      SoundLibraryService library) {
-    return new SoundAnswerService(
-        store,
-        repository,
-        management,
-        permissions,
-        compilation,
-        models,
-        embedding,
-        projection,
-        settings.target(),
-        library.profileFingerprint(),
-        settings.processingBudget(),
-        settings.maxConcurrent());
-  }
-
   @Bean
   ServletRegistrationBean<OriginalMediaUploadServlet> soundUploadServlet(
       SoundLibraryService library, JsonMapper json, ProblemHandler errors) {
@@ -211,28 +160,6 @@ public class SoundConfiguration {
         new ServletRegistrationBean<>(
             OriginalMediaUploadServlet.sound(library, json, errors), "/v1/sound-documents");
     registration.setName("soundUploadServlet");
-    registration.setAsyncSupported(true);
-    return registration;
-  }
-
-  @Bean
-  ServletRegistrationBean<BoundedMediaQueryServlet> soundQueryServlet(
-      SoundAnswerService answers, SoundSettings settings, JsonMapper json, ProblemHandler errors) {
-    var registration =
-        new ServletRegistrationBean<>(
-            new BoundedMediaQueryServlet(
-                (actor, body) -> {
-                  var command = SoundRequestMapper.attached(body);
-                  return answers.answerAttached(actor, command.answer(), command.attachments());
-                },
-                SoundRequestMapper.MAX_REQUEST_BYTES,
-                30000,
-                Math.toIntExact(settings.processingBudget().toMillis()),
-                settings.maxConcurrent(),
-                json,
-                errors),
-            "/v1/sound-query-answers");
-    registration.setName("soundQueryServlet");
     registration.setAsyncSupported(true);
     return registration;
   }

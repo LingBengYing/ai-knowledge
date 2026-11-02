@@ -3,7 +3,6 @@ package com.evidence.rag.service;
 import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.QueryAttachment;
 import com.evidence.rag.model.domain.VideoAvCompilation;
 import com.evidence.rag.model.domain.VideoAvProfile;
 import com.evidence.rag.model.domain.VideoAvWindow;
@@ -77,32 +76,6 @@ public final class VideoAvCompilationService implements AutoCloseable {
         original.content(),
         original.sourceSha256(),
         original.revisionId(),
-        current);
-  }
-
-  /** Admits one complete reference at the HTTP boundary without starting a decoder. */
-  public static void validateQueryInput(QueryAttachment attachment) {
-    if (attachment == null || attachment.kind() != QueryAttachment.Kind.VIDEO) {
-      throw ModelValues.invalid();
-    }
-    VideoInput.validateEnvelope(
-        attachment.filename(), attachment.mediaType(), attachment.content());
-  }
-
-  public VideoAvCompilation compileQuery(QueryAttachment attachment, BooleanSupplier current) {
-    if (attachment == null || attachment.kind() != QueryAttachment.Kind.VIDEO || current == null) {
-      throw ModelValues.invalid();
-    }
-    String sourceSha = attachment.sha256();
-    String queryRevision =
-        "query-"
-            + ModelValues.sha256((sourceSha + "\0" + revision).getBytes(StandardCharsets.UTF_8));
-    return compile(
-        attachment.filename(),
-        attachment.mediaType(),
-        attachment.content(),
-        sourceSha,
-        queryRevision,
         current);
   }
 
