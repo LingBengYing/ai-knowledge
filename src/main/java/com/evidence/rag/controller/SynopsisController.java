@@ -36,7 +36,7 @@ public final class SynopsisController {
   @PostMapping("/v1/documents/{documentId}/synopsis")
   public ResponseEntity<SynopsisTaskResponse> create(
       HttpServletRequest request, @PathVariable String documentId) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     return ResponseEntity.accepted()
         .body(
             SynopsisResponseMapper.task(
@@ -45,13 +45,13 @@ public final class SynopsisController {
 
   @GetMapping("/v1/synopsis-tasks/{taskId}")
   public SynopsisTaskResponse task(HttpServletRequest request, @PathVariable String taskId) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     return SynopsisResponseMapper.task(library.task(AuthenticatedActor.require(request), taskId));
   }
 
   @GetMapping("/v1/documents/{documentId}/synopsis")
   public SynopsisDocumentResponse get(HttpServletRequest request, @PathVariable String documentId) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     return SynopsisResponseMapper.document(
         library.get(AuthenticatedActor.require(request), documentId));
   }
@@ -101,19 +101,11 @@ public final class SynopsisController {
 
   private SynopsisSourceMaterial resolve(
       HttpServletRequest request, String synopsisId, int entryOrdinal, int sourceOrdinal) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     if (entryOrdinal < 1 || entryOrdinal > 32 || sourceOrdinal < 1 || sourceOrdinal > 8) {
       throw ModelValues.invalid();
     }
     return library.source(
         AuthenticatedActor.require(request), synopsisId, entryOrdinal - 1, sourceOrdinal - 1);
-  }
-
-  private static void noQueryOrBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
   }
 }

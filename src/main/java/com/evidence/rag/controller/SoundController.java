@@ -37,7 +37,7 @@ public final class SoundController {
       value = "/v1/documents/{documentId}/sound-index",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public SoundIndexResult get(HttpServletRequest request, @PathVariable String documentId) {
-    noBody(request);
+    RequestGuards.noQueryOrBody(request);
     return SoundResponseMapper.index(
         library.get(AuthenticatedActor.require(request), documentId), library.soundModelRevision());
   }
@@ -46,7 +46,7 @@ public final class SoundController {
       value = "/v1/documents/{documentId}/sound-index",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public SoundIndexResult build(HttpServletRequest request, @PathVariable String documentId) {
-    noBody(request);
+    RequestGuards.noQueryOrBody(request);
     return SoundResponseMapper.index(
         library.build(AuthenticatedActor.require(request), documentId),
         library.soundModelRevision());
@@ -85,16 +85,8 @@ public final class SoundController {
   }
 
   private static void sourceRequest(HttpServletRequest request, int ordinal) {
-    noBody(request);
+    RequestGuards.noQueryOrBody(request);
     if (ordinal < 1 || ordinal > 32) {
-      throw ModelValues.invalid();
-    }
-  }
-
-  private static void noBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
       throw ModelValues.invalid();
     }
   }

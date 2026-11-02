@@ -42,7 +42,7 @@ public final class DocumentReplacementController {
   @GetMapping("/v1/documents/{documentId}/replacement")
   public DocumentReplacementResponse get(
       HttpServletRequest request, @PathVariable String documentId) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     return DocumentReplacementResponseMapper.from(
         replacements.get(AuthenticatedActor.require(request), documentId));
   }
@@ -77,13 +77,5 @@ public final class DocumentReplacementController {
             command.baseRevisionId());
     return ResponseEntity.status("published".equals(result.state()) ? 200 : 202)
         .body(DocumentReplacementResponseMapper.from(result));
-  }
-
-  private static void noQueryOrBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
   }
 }
