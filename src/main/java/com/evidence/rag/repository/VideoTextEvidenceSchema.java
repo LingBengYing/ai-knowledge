@@ -1,14 +1,13 @@
 package com.evidence.rag.repository;
 
-import com.evidence.rag.model.domain.ModelValues;
-import java.nio.charset.StandardCharsets;
-
 /** v28 preserves decoded frames while permitting an explicit caption-free video compiler. */
 final class VideoTextEvidenceSchema {
   private final SqliteAuthorityStore store;
+  private final SchemaObjects schemaObjects;
 
   VideoTextEvidenceSchema(SqliteAuthorityStore store) {
     this.store = store;
+    this.schemaObjects = new SchemaObjects(store);
   }
 
   void migrate() {
@@ -18,7 +17,7 @@ final class VideoTextEvidenceSchema {
           authority.verifyVersionTwentySeven();
           String compilation =
               replaceRequired(
-                  sql("table", "video_compilations"),
+                  schemaObjects.sql("table", "video_compilations"),
                   "projection_count BETWEEN frame_count AND frame_count+span_count",
                   "projection_count BETWEEN CASE WHEN compiler_revision LIKE 'java-video-compiler-v4:%' THEN 0 ELSE frame_count END AND CASE WHEN compiler_revision LIKE 'java-video-compiler-v4:%' THEN span_count ELSE frame_count+span_count END");
           compilation =
@@ -26,7 +25,7 @@ final class VideoTextEvidenceSchema {
                   compilation,
                   "CHECK(compiler_revision NOT LIKE 'java-video-compiler-v4:%' OR (length(compiler_revision)=87 AND substr(compiler_revision,24) NOT GLOB '*[^a-f0-9]*'))");
           rebuild("video_compilations", compilation);
-          String frames = sql("table", "video_frames");
+          String frames = schemaObjects.sql("table", "video_frames");
           for (String column :
               new String[] {"recall_text", "recall_sha256", "description_revision"}) {
             frames = replaceRequired(frames, column + " TEXT NOT NULL", column + " TEXT");
@@ -61,7 +60,7 @@ final class VideoTextEvidenceSchema {
                   + " WHEN NEW.parser_revision LIKE 'java-video-compiler-v4:%' AND NOT EXISTS(SELECT 1 FROM corpus_revisions r WHERE r.id=NEW.revision_id AND r.parsed_at IS NOT NULL AND "
                   + authority.videoTextPreparationComplete("r")
                   + ") BEGIN SELECT RAISE(ABORT,'incomplete video text publication'); END");
-          refreshInventory();
+          schemaObjects.refreshInventory();
           store.execute("UPDATE format_info SET version=28");
           store.execute("PRAGMA user_version=28");
           verify();
@@ -164,12 +163,6 @@ final class VideoTextEvidenceSchema {
     }
   }
 
-  private String sql(String type, String name) {
-    return AuthorityRows.text(
-        store.rows("SELECT sql FROM sqlite_master WHERE type=? AND name=?", type, name).getFirst(),
-        "sql");
-  }
-
   private static String replaceRequired(String sql, String oldText, String newText) {
     if (!sql.contains(oldText)) {
       throw new IllegalStateException("Unexpected video authority format");
@@ -180,31 +173,5 @@ final class VideoTextEvidenceSchema {
   private static String insertConstraint(String sql, String constraint) {
     int closing = sql.lastIndexOf(')');
     return sql.substring(0, closing) + "," + constraint + sql.substring(closing);
-  }
-
-  private void refreshInventory() {
-    String guard = sql("trigger", "cleanup_schema_objects_no_update");
-    store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    for (var row :
-        store.rows(
-            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-      String name = AuthorityRows.text(row, "name");
-      String hash =
-          ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
-      if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name) == 0) {
-        store.execute(
-            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-            name,
-            row.get("type"),
-            hash);
-      } else {
-        store.execute(
-            "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-            row.get("type"),
-            hash,
-            name);
-      }
-    }
-    store.execute(guard);
   }
 }

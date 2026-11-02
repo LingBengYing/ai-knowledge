@@ -4,15 +4,16 @@ import com.evidence.rag.model.domain.ModelValues;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 /** v26 adds staged immutable originals while retaining current aliases and historical jobs. */
 final class DocumentReplacementSchema {
   private final SqliteAuthorityStore store;
+  private final SchemaObjects schemaObjects;
 
   DocumentReplacementSchema(SqliteAuthorityStore store) {
     this.store = store;
+    this.schemaObjects = new SchemaObjects(store);
   }
 
   void migrate() {
@@ -28,12 +29,13 @@ final class DocumentReplacementSchema {
           store.execute(
               "CREATE UNIQUE INDEX index_publications_document_identity ON index_publications(id,document_id)");
           String ingestion =
-              sql("table", "ingestion_jobs")
+              schemaObjects
+                  .sql("table", "ingestion_jobs")
                   .replace(
                       "document_id TEXT NOT NULL UNIQUE REFERENCES corpus_documents(document_id)",
                       "document_id TEXT NOT NULL REFERENCES corpus_documents(document_id)");
           ingestion =
-              insertColumn(
+              SchemaObjects.insertColumn(
                   ingestion,
                   "replacement_id TEXT REFERENCES document_replacements(id) ON DELETE RESTRICT");
           ingestion = append(ingestion, "UNIQUE(document_id,revision_id)");
@@ -41,7 +43,8 @@ final class DocumentReplacementSchema {
           store.execute(
               "CREATE UNIQUE INDEX ingestion_one_pending ON ingestion_jobs(document_id) WHERE state IN ('queued','processing')");
           String indexing =
-              sql("table", "indexing_jobs")
+              schemaObjects
+                  .sql("table", "indexing_jobs")
                   .replace(
                       "FOREIGN KEY(base_publication_id,document_id,revision_id) REFERENCES index_publications(id,document_id,revision_id)",
                       "FOREIGN KEY(base_publication_id,document_id) REFERENCES index_publications(id,document_id)")
@@ -49,7 +52,7 @@ final class DocumentReplacementSchema {
                       "CHECK((rebuild_sequence=0 AND base_publication_id IS NULL) OR (rebuild_sequence>0 AND base_publication_id IS NOT NULL))",
                       "CHECK(replacement_id IS NOT NULL OR (rebuild_sequence=0 AND base_publication_id IS NULL) OR (rebuild_sequence>0 AND base_publication_id IS NOT NULL))");
           indexing =
-              insertColumn(
+              SchemaObjects.insertColumn(
                   indexing,
                   "replacement_id TEXT REFERENCES document_replacements(id) ON DELETE RESTRICT");
           rebuild("indexing_jobs", indexing);
@@ -63,7 +66,7 @@ final class DocumentReplacementSchema {
               wrapUpdate(AuthorityRows.text(row, "name"), "OLD.document_id");
             }
           }
-          wrapCondition("indexing_rebuild_identity", "NEW.replacement_id IS NULL");
+          schemaObjects.wrapTrigger("indexing_rebuild_identity", "NEW.replacement_id IS NULL");
           store.execute(
               "CREATE TRIGGER indexing_replacement_identity BEFORE INSERT ON indexing_jobs WHEN NEW.replacement_id IS NOT NULL AND (NEW.base_vector_set_sha256 IS NOT NULL OR NEW.state!='queued' OR NEW.attempt!=1 OR NEW.rebuild_sequence!=(SELECT COALESCE(MAX(rebuild_sequence),0)+1 FROM indexing_jobs WHERE document_id=NEW.document_id) OR NOT EXISTS(SELECT 1 FROM document_replacements u JOIN document_original_revisions o ON o.revision_id=u.candidate_revision_id AND o.document_id=u.document_id JOIN corpus_revisions r ON r.id=o.revision_id AND r.document_id=o.document_id JOIN ingestion_jobs parsed ON parsed.replacement_id=u.id AND parsed.revision_id=r.id AND parsed.state='parsed' JOIN documents d ON d.id=u.document_id WHERE u.id=NEW.replacement_id AND u.pipeline='corpus' AND u.state IN ('parsed','failed','cancelled') AND d.active_revision_id=u.base_revision_id AND u.document_id=NEW.document_id AND u.candidate_revision_id=NEW.revision_id AND u.base_publication_id IS NEW.base_publication_id AND o.source_sha256=NEW.source_sha256 AND r.source_sha256=o.source_sha256 AND r.parser_revision=NEW.parser_revision AND r.parsed_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM document_tombstones WHERE document_id=d.id) AND ((u.base_publication_id IS NULL AND NOT EXISTS(SELECT 1 FROM active_corpus_publications WHERE document_id=d.id)) OR EXISTS(SELECT 1 FROM active_corpus_publications a JOIN index_publications p ON p.id=a.publication_id WHERE a.document_id=d.id AND p.id=u.base_publication_id AND p.embedding_identity=NEW.embedding_identity AND p.projection_identity=NEW.projection_identity AND p.model_revision=NEW.model_revision AND p.dimensions=NEW.dimensions)))) BEGIN SELECT RAISE(ABORT,'invalid replacement index identity'); END");
           store.execute(
@@ -71,12 +74,12 @@ final class DocumentReplacementSchema {
           addIdentityColumn("ingestion_identity", "ingestion_jobs");
           addIdentityColumn("indexing_identity", "indexing_jobs");
           // Both old guarded CAS and old initial insertion stay strict outside the dedicated scope.
-          wrapCondition(
+          schemaObjects.wrapTrigger(
               "active_corpus_publications_no_update",
               "java_replacement_authorized(OLD.document_id)=0");
           store.execute(
               "CREATE TRIGGER active_corpus_replacement_identity BEFORE UPDATE ON active_corpus_publications WHEN java_replacement_authorized(OLD.document_id)=1 AND NOT EXISTS(SELECT 1 FROM index_publications p JOIN indexing_jobs j ON j.id=p.job_id AND j.state='processing' AND j.attempt=p.attempt AND j.projection_generation_id=p.projection_generation_id JOIN document_replacements u ON u.id=j.replacement_id JOIN documents d ON d.id=u.document_id WHERE p.id=NEW.publication_id AND p.document_id=NEW.document_id AND p.revision_id=NEW.revision_id AND NEW.document_id=OLD.document_id AND u.document_id=OLD.document_id AND u.base_publication_id=OLD.publication_id AND u.base_revision_id=OLD.revision_id AND u.candidate_revision_id=NEW.revision_id AND d.active_revision_id=NEW.revision_id AND d.source_sha256=p.source_sha256 AND u.state='indexing') BEGIN SELECT RAISE(ABORT,'invalid replacement publication switch'); END");
-          wrapCondition(
+          schemaObjects.wrapTrigger(
               "active_corpus_publication_initial",
               "java_replacement_authorized(NEW.document_id)=0");
           store.execute(
@@ -95,7 +98,7 @@ final class DocumentReplacementSchema {
               "CREATE TRIGGER document_replacements_no_delete BEFORE DELETE ON document_replacements BEGIN SELECT RAISE(ABORT,'immutable replacement'); END");
           store.execute(
               "CREATE TRIGGER cleanup_completed_original_revisions BEFORE UPDATE ON document_cleanups WHEN NEW.state='completed' AND EXISTS(SELECT 1 FROM document_original_revisions o WHERE o.document_id=NEW.document_id AND (o.payload_purged!=1 OR length(o.original_blob)!=0)) BEGIN SELECT RAISE(ABORT,'original revision payload remains'); END");
-          refreshInventory();
+          schemaObjects.refreshInventory();
           store.execute("UPDATE format_info SET version=26");
           store.execute("PRAGMA user_version=26");
           verify();
@@ -203,74 +206,18 @@ final class DocumentReplacementSchema {
     }
   }
 
-  private static String insertColumn(String sql, String column) {
-    int opening = sql.indexOf('(') + 1;
-    return sql.substring(0, opening) + column + "," + sql.substring(opening);
-  }
-
   private static String append(String sql, String columns) {
     int end = sql.lastIndexOf(')');
     return sql.substring(0, end) + "," + columns + sql.substring(end);
   }
 
-  private String sql(String type, String name) {
-    return (String)
-        store
-            .rows("SELECT sql FROM sqlite_master WHERE type=? AND name=?", type, name)
-            .getFirst()
-            .get("sql");
-  }
-
   private void wrapUpdate(String name, String document) {
-    wrapCondition(name, "java_replacement_authorized(" + document + ")=0");
-  }
-
-  private void wrapCondition(String name, String condition) {
-    String original = sql("trigger", name);
-    int begin = original.toUpperCase(Locale.ROOT).indexOf("BEGIN");
-    var matcher = Pattern.compile("(?i)\\bWHEN\\b").matcher(original.substring(0, begin));
-    int when = matcher.find() ? matcher.start() : -1;
-    String old = when < 0 ? "1" : original.substring(when + 4, begin).strip();
-    store.execute("DROP TRIGGER " + name);
-    store.execute(
-        original.substring(0, when < 0 ? begin : when)
-            + " WHEN ("
-            + condition
-            + ") AND ("
-            + old
-            + ") "
-            + original.substring(begin));
+    schemaObjects.wrapTrigger(name, "java_replacement_authorized(" + document + ")=0");
   }
 
   private void addIdentityColumn(String name, String table) {
-    String original = sql("trigger", name);
+    String original = schemaObjects.sql("trigger", name);
     store.execute("DROP TRIGGER " + name);
     store.execute(original.replace(" ON " + table, ",replacement_id ON " + table));
-  }
-
-  private void refreshInventory() {
-    String guard = sql("trigger", "cleanup_schema_objects_no_update");
-    store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    var rows =
-        store.rows(
-            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name");
-    for (var row : rows) {
-      String name = AuthorityRows.text(row, "name");
-      String hash = ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
-      if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name) == 0) {
-        store.execute(
-            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-            name,
-            row.get("type"),
-            hash);
-      } else {
-        store.execute(
-            "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-            row.get("type"),
-            hash,
-            name);
-      }
-    }
-    store.execute(guard);
   }
 }

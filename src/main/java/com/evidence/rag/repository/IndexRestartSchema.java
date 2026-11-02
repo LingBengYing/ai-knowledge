@@ -1,10 +1,5 @@
 package com.evidence.rag.repository;
 
-import com.evidence.rag.model.domain.ModelValues;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-import java.util.regex.Pattern;
-
 /**
  * v37 lets a never-published document start a fresh initial index task after its latest task is
  * exhausted (three attempts or a changed index configuration). History stays immutable: the new
@@ -17,9 +12,11 @@ final class IndexRestartSchema {
   private static final String INITIAL_OR_RESTART_JOB =
       "(j.rebuild_sequence=0 OR j.restart_of IS NOT NULL) AND j.base_publication_id IS NULL";
   private final SqliteAuthorityStore store;
+  private final SchemaObjects schemaObjects;
 
   IndexRestartSchema(SqliteAuthorityStore store) {
     this.store = store;
+    this.schemaObjects = new SchemaObjects(store);
   }
 
   void migrate() {
@@ -28,9 +25,9 @@ final class IndexRestartSchema {
           new ConversationSchema(store).verify();
           String check =
               "CHECK(model_rebuild_id IS NOT NULL OR replacement_id IS NOT NULL OR (rebuild_sequence=0";
-          String jobs = sql("table", "indexing_jobs");
-          String identity = sql("trigger", "indexing_identity");
-          String initial = sql("trigger", "active_corpus_publication_initial");
+          String jobs = schemaObjects.sql("table", "indexing_jobs");
+          String identity = schemaObjects.sql("trigger", "indexing_identity");
+          String initial = schemaObjects.sql("trigger", "active_corpus_publication_initial");
           if (!jobs.contains(check)
               || !identity.contains(",model_rebuild_id ON indexing_jobs")
               || !initial.contains(INITIAL_JOB)) {
@@ -54,7 +51,7 @@ final class IndexRestartSchema {
               identity.replace(
                   ",model_rebuild_id ON indexing_jobs",
                   ",model_rebuild_id,restart_of ON indexing_jobs"));
-          wrap("indexing_rebuild_identity", "NEW.restart_of IS NULL");
+          schemaObjects.wrapTrigger("indexing_rebuild_identity", "NEW.restart_of IS NULL");
           store.execute(
               """
           CREATE TRIGGER indexing_restart_identity BEFORE INSERT ON indexing_jobs
@@ -75,7 +72,7 @@ final class IndexRestartSchema {
           """);
           store.execute("DROP TRIGGER active_corpus_publication_initial");
           store.execute(initial.replace(INITIAL_JOB, INITIAL_OR_RESTART_JOB));
-          refreshInventory();
+          schemaObjects.refreshInventory();
           store.execute("UPDATE format_info SET version=" + VERSION);
           store.execute("PRAGMA user_version=" + VERSION);
           verify();
@@ -145,55 +142,5 @@ final class IndexRestartSchema {
     for (var row : objects) {
       store.execute((String) row.get("sql"));
     }
-  }
-
-  private String sql(String type, String name) {
-    return (String)
-        store
-            .rows("SELECT sql FROM sqlite_master WHERE type=? AND name=?", type, name)
-            .getFirst()
-            .get("sql");
-  }
-
-  private void wrap(String name, String condition) {
-    String original = sql("trigger", name);
-    int begin = original.toUpperCase(Locale.ROOT).indexOf("BEGIN");
-    var matcher = Pattern.compile("(?i)\\bWHEN\\b").matcher(original.substring(0, begin));
-    int when = matcher.find() ? matcher.start() : -1;
-    String old = when < 0 ? "1" : original.substring(when + 4, begin).strip();
-    store.execute("DROP TRIGGER " + name);
-    store.execute(
-        original.substring(0, when < 0 ? begin : when)
-            + " WHEN ("
-            + condition
-            + ") AND ("
-            + old
-            + ") "
-            + original.substring(begin));
-  }
-
-  private void refreshInventory() {
-    String guard = sql("trigger", "cleanup_schema_objects_no_update");
-    store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    for (var row :
-        store.rows(
-            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-      String name = AuthorityRows.text(row, "name");
-      String hash = ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
-      if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name) == 0) {
-        store.execute(
-            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-            name,
-            row.get("type"),
-            hash);
-      } else {
-        store.execute(
-            "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-            row.get("type"),
-            hash,
-            name);
-      }
-    }
-    store.execute(guard);
   }
 }
