@@ -160,26 +160,12 @@ public final class SoundRepository {
     }
     List<String> ids = selection.documentIds();
     if (selection.all()) {
-      ids =
-          store
-              .rows(
-                  """
-          SELECT d.id FROM documents d
-          WHERE d.workspace_id=?
-            AND d.document_type='audio'
-            AND (EXISTS(SELECT 1 FROM sound_originals s WHERE s.document_id=d.id)
-              OR EXISTS(SELECT 1 FROM corpus_documents c WHERE c.document_id=d.id))
-            AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
-          ORDER BY d.id
-          """,
-                  actor.workspaceId())
-              .stream()
-              .map(row -> text(row, "id"))
-              .toList();
+      ids = ManagedMediaSources.SOUND.documentIds(store, actor.workspaceId());
     }
     var publications = new ArrayList<SoundPublication>();
     for (String id : ids) {
-      var metadata = metadata(actor, id).orElseThrow(ModelValues::notFound);
+      var metadata =
+          ManagedMediaSources.SOUND.metadata(store, actor, id).orElseThrow(ModelValues::notFound);
       var value = publication(id, target, profile).orElseThrow(SoundRepository::indexRequired);
       if (!matches(value, metadata) || !actor.workspaceId().equals(value.workspaceId())) {
         throw indexRequired();
@@ -432,17 +418,7 @@ public final class SoundRepository {
 
   private void requireEmptyScopeCurrent(SoundScope scope) {
     if (scope.selection().all()
-        && store.count(
-                """
-        SELECT count(*) FROM documents d
-        WHERE d.workspace_id=?
-          AND d.document_type='audio'
-          AND (EXISTS(SELECT 1 FROM sound_originals s WHERE s.document_id=d.id)
-            OR EXISTS(SELECT 1 FROM corpus_documents c WHERE c.document_id=d.id))
-          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
-        """,
-                scope.actor().workspaceId())
-            != 0) {
+        && ManagedMediaSources.SOUND.anyDocument(store, scope.actor().workspaceId())) {
       throw changed();
     }
   }
@@ -544,40 +520,6 @@ public final class SoundRepository {
     }
   }
 
-  private Optional<SourceMetadata> metadata(Actor actor, String id) {
-    return store
-        .rows(
-            """
-        SELECT d.id,d.workspace_id,d.active_revision_id,d.source_sha256,d.filename,d.mime_type,d.size_bytes
-        FROM documents d
-        LEFT JOIN sound_originals s ON s.document_id=d.id
-        LEFT JOIN corpus_documents c ON c.document_id=d.id
-        WHERE d.id=? AND d.workspace_id=?
-          AND d.document_type='audio'
-          AND ((s.source_revision_id=d.active_revision_id AND s.source_sha256=d.source_sha256
-              AND s.filename=d.filename AND s.media_type=d.mime_type AND s.size_bytes=d.size_bytes AND length(s.original_blob)=d.size_bytes)
-            OR (c.initial_revision_id=d.active_revision_id AND length(c.original_blob)=d.size_bytes
-              AND EXISTS(SELECT 1 FROM corpus_revisions r WHERE r.id=c.initial_revision_id
-                AND r.document_id=d.id AND r.source_sha256=d.source_sha256)))
-          AND d.size_bytes BETWEEN 1 AND 20971520
-          AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
-        """,
-            id,
-            actor.workspaceId())
-        .stream()
-        .findFirst()
-        .map(
-            row ->
-                new SourceMetadata(
-                    text(row, "id"),
-                    text(row, "workspace_id"),
-                    text(row, "active_revision_id"),
-                    text(row, "source_sha256"),
-                    text(row, "filename"),
-                    text(row, "mime_type"),
-                    number(row, "size_bytes")));
-  }
-
   private static boolean matches(SoundPublication value, DocumentOriginal original) {
     return value.documentId().equals(original.documentId())
         && value.sourceRevisionId().equals(original.revisionId())
@@ -587,7 +529,7 @@ public final class SoundRepository {
         && value.sizeBytes() == original.sizeBytes();
   }
 
-  private static boolean matches(SoundPublication value, SourceMetadata metadata) {
+  private static boolean matches(SoundPublication value, ManagedMediaSources.Metadata metadata) {
     return value.documentId().equals(metadata.id())
         && value.workspaceId().equals(metadata.workspace())
         && value.sourceRevisionId().equals(metadata.revision())
@@ -595,20 +537,6 @@ public final class SoundRepository {
         && value.filename().equals(metadata.filename())
         && value.mediaType().equals(metadata.mime())
         && value.sizeBytes() == metadata.bytes();
-  }
-
-  private record SourceMetadata(
-      String id,
-      String workspace,
-      String revision,
-      String sha,
-      String filename,
-      String mime,
-      long bytes) {
-    @Override
-    public String toString() {
-      return "SourceMetadata[redacted]";
-    }
   }
 
   private static ApplicationException indexRequired() {
