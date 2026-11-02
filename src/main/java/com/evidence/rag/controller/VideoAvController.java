@@ -37,7 +37,7 @@ public final class VideoAvController {
       value = "/v1/documents/{documentId}/video-av-index",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public VideoAvIndexResult get(HttpServletRequest request, @PathVariable String documentId) {
-    noBody(request);
+    RequestGuards.noQueryOrBody(request);
     return VideoAvResponseMapper.index(
         library.get(AuthenticatedActor.require(request), documentId),
         library.profileFingerprint(),
@@ -48,7 +48,7 @@ public final class VideoAvController {
       value = "/v1/documents/{documentId}/video-av-index",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public VideoAvIndexResult build(HttpServletRequest request, @PathVariable String documentId) {
-    noBody(request);
+    RequestGuards.noQueryOrBody(request);
     return VideoAvResponseMapper.index(
         library.build(AuthenticatedActor.require(request), documentId),
         library.profileFingerprint(),
@@ -88,18 +88,10 @@ public final class VideoAvController {
   }
 
   private static int sourceRequest(HttpServletRequest request, String ordinal) {
-    noBody(request);
+    RequestGuards.noQueryOrBody(request);
     if (ordinal == null || !ordinal.matches("(?:[1-9]|[12][0-9]|3[0-2])")) {
       throw ModelValues.invalid();
     }
     return Integer.parseInt(ordinal);
-  }
-
-  private static void noBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
   }
 }

@@ -14,8 +14,8 @@ import com.evidence.rag.service.VideoAvAnswerService;
 import com.evidence.rag.service.VideoAvCompilationService;
 import com.evidence.rag.service.VideoAvLibraryService;
 import com.evidence.rag.web.BoundedMediaQueryServlet;
+import com.evidence.rag.web.OriginalMediaUploadServlet;
 import com.evidence.rag.web.ProblemHandler;
-import com.evidence.rag.web.VideoAvUploadServlet;
 import com.evidence.rag.web.converter.VideoAvQueryRequestMapper;
 import com.evidence.rag.worker.parser.ProcessVideoAvDecoder;
 import java.net.URI;
@@ -219,11 +219,11 @@ public class VideoAvConfiguration {
   }
 
   @Bean
-  ServletRegistrationBean<VideoAvUploadServlet> videoAvUploadServlet(
+  ServletRegistrationBean<OriginalMediaUploadServlet> videoAvUploadServlet(
       VideoAvLibraryService library, JsonMapper json, ProblemHandler errors) {
     var registration =
         new ServletRegistrationBean<>(
-            new VideoAvUploadServlet(library, json, errors), "/v1/video-av-documents");
+            OriginalMediaUploadServlet.videoAv(library, json, errors), "/v1/video-av-documents");
     registration.setName("videoAvUploadServlet");
     registration.setAsyncSupported(true);
     return registration;
@@ -292,11 +292,7 @@ public class VideoAvConfiguration {
   }
 
   private static void requireLocal(Environment environment) {
-    String address = environment.getProperty("server.address");
-    String mode = environment.getProperty("rag.environment", "development");
-    if (!RuntimeGuard.isLiteralLoopback(address)
-        || !(mode.equals("development") || mode.equals("test"))
-        || !environment.getProperty("rag.ingestion.enabled", Boolean.class, false)) {
+    if (!RuntimeGuard.isLocalDevelopment(environment, "ingestion")) {
       throw invalid();
     }
   }

@@ -4,10 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -129,15 +126,8 @@ public final class OpenAiCompatibleAudioModels implements AudioModels {
   }
 
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
-    try {
-      var digest = MessageDigest.getInstance("SHA-256");
-      for (String value : List.of(endpoint.baseUrl().toString(), endpoint.model(), PROTOCOL)) {
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
-        digest.update((byte) 0);
-      }
-      return "java-audio-models-v1-" + HexFormat.of().formatHex(digest.digest());
-    } catch (NoSuchAlgorithmException unavailable) {
-      throw new TextModels.Failure("model_invalid_configuration");
-    }
+    return ModelRevisions.fingerprint(
+        "java-audio-models-v1-",
+        List.of(endpoint.baseUrl().toString(), endpoint.model(), PROTOCOL));
   }
 }

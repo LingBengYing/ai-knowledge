@@ -13,10 +13,7 @@ public final class ImageOcrConfiguration {
     if (!environment.getProperty("rag.image-ocr.enabled", Boolean.class, false)) {
       return null;
     }
-    String address = environment.getProperty("server.address");
-    String mode = environment.getProperty("rag.environment", "development");
-    if (!RuntimeGuard.isLiteralLoopback(address)
-        || !("development".equals(mode) || "test".equals(mode))) {
+    if (!RuntimeGuard.isLocalDevelopment(environment)) {
       throw new IllegalArgumentException("Image OCR requires a local development or test runtime");
     }
     String executable = environment.getProperty("rag.image-ocr.executable", "");

@@ -179,16 +179,9 @@ public class QueryAttachmentConfiguration {
   }
 
   private static void requireLocal(Environment environment) {
-    String address = environment.getProperty("server.address");
-    String mode = environment.getProperty("rag.environment", "development");
-    if (!RuntimeGuard.isLiteralLoopback(address)
-        || !("development".equals(mode) || "test".equals(mode))) {
+    if (!RuntimeGuard.isLocalDevelopment(
+        environment, "answers", "visual", "audio", "video", "image-ocr")) {
       throw invalidConfiguration();
-    }
-    for (String dependency : new String[] {"answers", "visual", "audio", "video", "image-ocr"}) {
-      if (!environment.getProperty("rag." + dependency + ".enabled", Boolean.class, false)) {
-        throw invalidConfiguration();
-      }
     }
   }
 

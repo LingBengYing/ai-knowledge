@@ -1,5 +1,8 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Endpoint;
 import com.evidence.rag.client.model.TextModels.Failure;
 import java.io.ByteArrayOutputStream;
@@ -388,14 +391,6 @@ final class ModelHttpTransport implements AutoCloseable {
     } catch (RuntimeException invalid) {
       throw invalidResponse();
     }
-  }
-
-  private static Failure invalidInput() {
-    return new Failure("model_invalid_input");
-  }
-
-  private static Failure invalidResponse() {
-    return new Failure("model_invalid_response");
   }
 
   /**

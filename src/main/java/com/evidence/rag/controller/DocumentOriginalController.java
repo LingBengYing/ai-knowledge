@@ -1,6 +1,5 @@
 package com.evidence.rag.controller;
 
-import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.vo.DocumentOriginalResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.ManagementService;
@@ -25,7 +24,7 @@ public final class DocumentOriginalController {
   @GetMapping("/v1/documents/{documentId}/original")
   public DocumentOriginalResponse original(
       HttpServletRequest request, @PathVariable String documentId) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     return ManagementResponseMapper.original(
         management.documentOriginal(AuthenticatedActor.require(request), documentId));
   }
@@ -35,7 +34,7 @@ public final class DocumentOriginalController {
       HttpServletRequest request,
       @PathVariable String documentId,
       @PathVariable String revisionId) {
-    noQueryOrBody(request);
+    RequestGuards.noQueryOrBody(request);
     var original =
         management.documentContent(AuthenticatedActor.require(request), documentId, revisionId);
     byte[] bytes = original.content();
@@ -45,13 +44,5 @@ public final class DocumentOriginalController {
         .header("X-Content-Type-Options", "nosniff")
         .contentLength(bytes.length)
         .body(bytes);
-  }
-
-  private static void noQueryOrBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
   }
 }

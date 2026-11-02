@@ -1,18 +1,19 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.model.domain.SynopsisDraft;
 import com.evidence.rag.model.domain.SynopsisEvidence;
 import com.evidence.rag.model.domain.SynopsisInput;
 import com.evidence.rag.tool.parser.ImageInput;
 import com.evidence.rag.tool.parser.TextParser;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -275,7 +276,8 @@ public final class OpenAiCompatibleSynopsisModels implements SynopsisModels, Aut
     return new Materials(ids, rows, images);
   }
 
-  private static List<String> evidenceIds(JsonNode node, Set<String> permitted) {
+  /** Distinct permitted evidence ids, at most eight. */
+  static List<String> evidenceIds(JsonNode node, Set<String> permitted) {
     if (!node.isArray() || node.size() > 8) {
       throw invalidResponse();
     }
@@ -303,40 +305,11 @@ public final class OpenAiCompatibleSynopsisModels implements SynopsisModels, Aut
                         || (Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'));
   }
 
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
-  }
-
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
-    try {
-      var digest = MessageDigest.getInstance("SHA-256");
-      for (String value :
-          List.of(
-              endpoint.baseUrl().toString(), endpoint.model(), DRAFT_PROMPT, VERIFICATION_PROMPT)) {
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
-        digest.update((byte) 0);
-      }
-      return "java-synopsis-models-v1-" + HexFormat.of().formatHex(digest.digest());
-    } catch (NoSuchAlgorithmException unavailable) {
-      throw new TextModels.Failure("model_invalid_configuration");
-    }
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
+    return ModelRevisions.fingerprint(
+        "java-synopsis-models-v1-",
+        List.of(
+            endpoint.baseUrl().toString(), endpoint.model(), DRAFT_PROMPT, VERIFICATION_PROMPT));
   }
 
   private record Materials(

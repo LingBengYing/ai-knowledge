@@ -37,11 +37,7 @@ public class VideoConfiguration {
     OpenAiCompatibleVisionModels vision = null;
     ProcessImageParser ocr = null;
     try {
-      String address = environment.getProperty("server.address");
-      String mode = environment.getProperty("rag.environment", "development");
-      if (!RuntimeGuard.isLiteralLoopback(address)
-          || !("development".equals(mode) || "test".equals(mode))
-          || !environment.getProperty("rag.ingestion.enabled", Boolean.class, false)) {
+      if (!RuntimeGuard.isLocalDevelopment(environment, "ingestion")) {
         throw new IllegalArgumentException();
       }
       boolean subtitles =

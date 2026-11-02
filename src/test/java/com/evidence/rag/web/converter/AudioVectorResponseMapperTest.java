@@ -40,7 +40,7 @@ class AudioVectorResponseMapperTest {
 
   @Test
   void missingReceiptUsesExactlyTenSafeIdentityFieldsAndNullReceiptValues() {
-    var response = AudioVectorResponseMapper.response(new AudioVectorState(base, target, null));
+    var response = VectorProfileResponseMapper.audio(new AudioVectorState(base, target, null));
     var node = json.valueToTree(response);
     assertEquals(
         Set.of(
@@ -97,7 +97,7 @@ class AudioVectorResponseMapperTest {
             "2026-10-03T00:00:00Z");
     var node =
         json.valueToTree(
-            AudioVectorResponseMapper.response(new AudioVectorState(base, target, receipt)));
+            VectorProfileResponseMapper.audio(new AudioVectorState(base, target, receipt)));
     assertEquals("available", node.path("status").asString());
     assertEquals(receipt.vectorGenerationId(), node.path("vector_generation_id").asString());
     assertEquals(receipt.manifestSha256(), node.path("manifest_sha256").asString());

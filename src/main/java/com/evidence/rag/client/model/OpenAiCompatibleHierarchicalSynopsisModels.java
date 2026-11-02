@@ -1,5 +1,10 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.model.domain.SynopsisBatch;
 import com.evidence.rag.model.domain.SynopsisBatchReview;
 import com.evidence.rag.model.domain.SynopsisDraft;
@@ -7,13 +12,9 @@ import com.evidence.rag.model.domain.SynopsisEvidence;
 import com.evidence.rag.model.domain.SynopsisReductionInput;
 import com.evidence.rag.tool.parser.ImageInput;
 import com.evidence.rag.tool.parser.TextParser;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -245,7 +246,9 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
     if (!result.path("supported").isBoolean()) {
       throw invalidResponse();
     }
-    var contributing = evidenceIds(result.path("contributing_evidence_ids"), materials.ids());
+    var contributing =
+        OpenAiCompatibleSynopsisModels.evidenceIds(
+            result.path("contributing_evidence_ids"), materials.ids());
     boolean supported = result.path("supported").booleanValue();
     if (supported
         ? !new HashSet<>(contributing).equals(materials.ids())
@@ -342,7 +345,7 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
       if (!validText(text)) {
         throw invalidResponse();
       }
-      var ids = evidenceIds(row.path("evidence_ids"), permitted);
+      var ids = OpenAiCompatibleSynopsisModels.evidenceIds(row.path("evidence_ids"), permitted);
       if (ids.isEmpty()) {
         throw invalidResponse();
       }
@@ -413,22 +416,6 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
     return new Materials(ids, rows, images);
   }
 
-  private static List<String> evidenceIds(JsonNode node, Set<String> permitted) {
-    if (!node.isArray() || node.size() > 8) {
-      throw invalidResponse();
-    }
-    var values = new ArrayList<String>();
-    var seen = new HashSet<String>();
-    for (var value : node) {
-      String id = string(value);
-      if (!permitted.contains(id) || !seen.add(id)) {
-        throw invalidResponse();
-      }
-      values.add(id);
-    }
-    return List.copyOf(values);
-  }
-
   private static boolean validText(String value) {
     return !value.isBlank()
         && value.codePointCount(0, value.length()) <= 1024
@@ -440,45 +427,16 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
                         || (Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'));
   }
 
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
-  }
-
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
-    try {
-      var digest = MessageDigest.getInstance("SHA-256");
-      for (String value :
-          List.of(
-              endpoint.baseUrl().toString(),
-              endpoint.model(),
-              LEAF_PROMPT,
-              REDUCTION_PROMPT,
-              REVIEW_PROMPT,
-              VERIFICATION_PROMPT)) {
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
-        digest.update((byte) 0);
-      }
-      return "java-hierarchical-synopsis-v1-" + HexFormat.of().formatHex(digest.digest());
-    } catch (NoSuchAlgorithmException unavailable) {
-      throw new TextModels.Failure("model_invalid_configuration");
-    }
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
+    return ModelRevisions.fingerprint(
+        "java-hierarchical-synopsis-v1-",
+        List.of(
+            endpoint.baseUrl().toString(),
+            endpoint.model(),
+            LEAF_PROMPT,
+            REDUCTION_PROMPT,
+            REVIEW_PROMPT,
+            VERIFICATION_PROMPT));
   }
 
   private record Materials(

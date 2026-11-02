@@ -2,8 +2,8 @@ package com.evidence.rag.model.vo;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** Safe current-profile metadata, with no audio content or provider endpoint. */
-public record AudioVectorResponse(
+/** Safe current audio or image vector profile metadata, with no content or provider endpoint. */
+public record VectorProfileResponse(
     String status,
     @JsonProperty("document_id") String documentId,
     @JsonProperty("publication_id") String publicationId,
@@ -16,6 +16,6 @@ public record AudioVectorResponse(
     @JsonProperty("manifest_sha256") String manifestSha256) {
   @Override
   public String toString() {
-    return "AudioVectorResponse[redacted]";
+    return "VectorProfileResponse[redacted]";
   }
 }

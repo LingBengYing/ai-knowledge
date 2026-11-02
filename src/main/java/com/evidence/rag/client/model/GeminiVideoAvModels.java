@@ -1,5 +1,15 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.GeminiProtocol.allowed;
+import static com.evidence.rag.client.model.GeminiProtocol.checkQuestion;
+import static com.evidence.rag.client.model.GeminiProtocol.exact;
+import static com.evidence.rag.client.model.GeminiProtocol.objectSchema;
+import static com.evidence.rag.client.model.GeminiProtocol.validateConfiguration;
+import static com.evidence.rag.client.model.ModelJson.invalidConfiguration;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Endpoint;
 import com.evidence.rag.model.domain.VideoAvEpoch;
 import com.evidence.rag.model.domain.VideoAvFact;
@@ -8,17 +18,13 @@ import com.evidence.rag.model.domain.VideoAvRequirement;
 import com.evidence.rag.model.domain.VideoAvWindow;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import tools.jackson.databind.JsonNode;
@@ -74,7 +80,7 @@ public final class GeminiVideoAvModels implements VideoAvModels, AutoCloseable {
     }
 
     public String revision() {
-      return fingerprint(
+      return ModelRevisions.fingerprint(
           "java-video-av-models-v1:",
           List.of(
               PROTOCOL,
@@ -455,31 +461,6 @@ public final class GeminiVideoAvModels implements VideoAvModels, AutoCloseable {
     return ModelHttpTransport.parseObject(string(text.path("text")));
   }
 
-  private static Map<String, Object> objectSchema(Map<String, Object> properties) {
-    return Map.of(
-        "type",
-        "object",
-        "properties",
-        properties,
-        "required",
-        properties.keySet().stream().sorted().toList(),
-        "additionalProperties",
-        false);
-  }
-
-  static void checkQuestion(String question) {
-    if (question == null
-        || question.isBlank()
-        || question.getBytes(StandardCharsets.UTF_8).length > 4096
-        || question
-            .codePoints()
-            .anyMatch(
-                c ->
-                    (c < 32 && c != '\n' && c != '\t') || c == 127 || c >= 0xD800 && c <= 0xDFFF)) {
-      throw invalidInput();
-    }
-  }
-
   private static boolean validText(String value, int codePoints, int bytes, boolean empty) {
     if (value == null
         || !empty && value.isBlank()
@@ -507,73 +488,5 @@ public final class GeminiVideoAvModels implements VideoAvModels, AutoCloseable {
         throw invalidResponse();
       }
     }
-  }
-
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exact(JsonNode node, Set<String> fields) {
-    allowed(node, fields, fields);
-  }
-
-  private static void allowed(JsonNode node, Set<String> required, Set<String> allowed) {
-    if (!node.isObject()
-        || !node.propertyNames().containsAll(required)
-        || !allowed.containsAll(node.propertyNames())) {
-      throw invalidResponse();
-    }
-  }
-
-  static void validateConfiguration(
-      Endpoint endpoint, String revision, Duration deadline, int maxResponseBytes, boolean local) {
-    if (!fixedRevision(revision)
-        || deadline == null
-        || deadline.compareTo(Duration.ofMillis(10)) < 0
-        || deadline.compareTo(Duration.ofMillis(120000)) > 0
-        || maxResponseBytes < 1024
-        || maxResponseBytes > 4194304) {
-      throw invalidConfiguration();
-    }
-    ModelHttpTransport.validateEndpoint(endpoint, local);
-    String path = endpoint.baseUrl().getRawPath();
-    if (!(path.isEmpty() || path.equals("/"))
-        || !endpoint.model().matches("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")) {
-      throw invalidConfiguration();
-    }
-  }
-
-  static boolean fixedRevision(String revision) {
-    return revision != null
-        && revision.matches("[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,159}")
-        && !Set.of("latest", "default", "unknown").contains(revision.toLowerCase(Locale.ROOT));
-  }
-
-  static String fingerprint(String prefix, List<String> values) {
-    try {
-      var digest = MessageDigest.getInstance("SHA-256");
-      for (String value : values) {
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
-        digest.update((byte) 0);
-      }
-      return prefix + HexFormat.of().formatHex(digest.digest());
-    } catch (NoSuchAlgorithmException impossible) {
-      throw invalidConfiguration();
-    }
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
-  }
-
-  private static TextModels.Failure invalidConfiguration() {
-    return new TextModels.Failure("model_invalid_configuration");
   }
 }

@@ -36,7 +36,7 @@ class ImageVectorResponseMapperTest {
 
   @Test
   void missingReceiptUsesExactlyTenSafeIdentityFieldsAndNullReceiptValues() {
-    var response = ImageVectorResponseMapper.response(new ImageVectorState(base, target, null));
+    var response = VectorProfileResponseMapper.image(new ImageVectorState(base, target, null));
     var node = json.valueToTree(response);
     assertEquals(
         Set.of(
@@ -82,7 +82,7 @@ class ImageVectorResponseMapperTest {
             "2026-10-03T00:00:00Z");
     var node =
         json.valueToTree(
-            ImageVectorResponseMapper.response(new ImageVectorState(base, target, receipt)));
+            VectorProfileResponseMapper.image(new ImageVectorState(base, target, receipt)));
     assertEquals("available", node.path("status").asString());
     assertEquals(receipt.vectorGenerationId(), node.path("vector_generation_id").asString());
     assertEquals(receipt.manifestSha256(), node.path("manifest_sha256").asString());
