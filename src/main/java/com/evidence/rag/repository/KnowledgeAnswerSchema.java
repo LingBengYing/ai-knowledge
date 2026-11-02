@@ -16,7 +16,7 @@ final class KnowledgeAnswerSchema {
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionTwentyEight();
+          new VideoTextEvidenceSchema(store).verify();
           store.execute(
               """
           CREATE TABLE knowledge_answer_traces(

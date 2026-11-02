@@ -164,138 +164,6 @@ final class AuthoritySchema {
     }
   }
 
-  void migrateVersionTwentySeven() {
-    new ModelRebuildSchema(store).migrate();
-  }
-
-  void migrateVersionTwentyEight() {
-    new VideoTextEvidenceSchema(store).migrate();
-  }
-
-  void verifyVersionTwentyEight() {
-    new VideoTextEvidenceSchema(store).verify();
-  }
-
-  void migrateVersionTwentyNine() {
-    new KnowledgeAnswerSchema(store).migrate();
-  }
-
-  void verifyVersionTwentyNine() {
-    new KnowledgeAnswerSchema(store).verify();
-  }
-
-  void migrateVersionThirty() {
-    new SharedWorkspaceSchema(store).migrate();
-  }
-
-  void verifyVersionThirty() {
-    new SharedWorkspaceSchema(store).verify();
-  }
-
-  void migrateVersionThirtyOne() {
-    new WikiWorkspaceSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyOne() {
-    new WikiWorkspaceSchema(store).verify();
-  }
-
-  void migrateVersionThirtyTwo() {
-    new WikiDraftSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyTwo() {
-    new WikiDraftSchema(store).verify();
-  }
-
-  void migrateVersionThirtyThree() {
-    new WikiPageLifecycleSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyThree() {
-    new WikiPageLifecycleSchema(store).verify();
-  }
-
-  void migrateVersionThirtyFour() {
-    new ImportIndexSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyFour() {
-    new ImportIndexSchema(store).verify();
-  }
-
-  void migrateVersionThirtyFive() {
-    new WikiPagePurgeSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyFive() {
-    new WikiPagePurgeSchema(store).verify();
-  }
-
-  void migrateVersionThirtySix() {
-    new ConversationSchema(store).migrate();
-  }
-
-  void verifyVersionThirtySix() {
-    new ConversationSchema(store).verify();
-  }
-
-  void migrateVersionThirtySeven() {
-    new IndexRestartSchema(store).migrate();
-  }
-
-  void verifyVersionThirtySeven() {
-    new IndexRestartSchema(store).verify();
-  }
-
-  void migrateVersionThirtyEight() {
-    new DocumentBatchSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyEight() {
-    new DocumentBatchSchema(store).verify();
-  }
-
-  void migrateVersionThirtyNine() {
-    new BatchRequeueSchema(store).migrate();
-  }
-
-  void verifyVersionThirtyNine() {
-    new BatchRequeueSchema(store).verify();
-  }
-
-  void migrateVersionForty() {
-    new BatchThroughputSchema(store).migrate();
-  }
-
-  void verifyVersionForty() {
-    new BatchThroughputSchema(store).verify();
-  }
-
-  void migrateVersionFortyOne() {
-    new BatchHistorySchema(store).migrate();
-  }
-
-  void verifyVersionFortyOne() {
-    new BatchHistorySchema(store).verify();
-  }
-
-  void migrateVersionFortyTwo() {
-    new BatchStreamSchema(store).migrate();
-  }
-
-  void verifyVersionFortyTwo() {
-    new BatchStreamSchema(store).verify();
-  }
-
-  void migrateVersionFortyThree() {
-    new BatchPlacementSchema(store).migrate();
-  }
-
-  void verifyVersionFortyThree() {
-    new BatchPlacementSchema(store).verify();
-  }
-
   String videoTextPreparationComplete(String revision) {
     return videoPreparationComplete(revision)
             .replace(
@@ -314,18 +182,6 @@ final class AuthoritySchema {
         + " AND NOT EXISTS(SELECT 1 FROM video_frames WHERE revision_id="
         + revision
         + ".id AND (recall_text IS NOT NULL OR recall_sha256 IS NOT NULL OR description_revision IS NOT NULL))";
-  }
-
-  void verifyVersionTwentySeven() {
-    new ModelRebuildSchema(store).verify();
-  }
-
-  void migrateVersionTwentySix() {
-    new DocumentReplacementSchema(store).migrate();
-  }
-
-  void verifyVersionTwentySix() {
-    new DocumentReplacementSchema(store).verify();
   }
 
   /** v25 freezes a complete vector set and records truthful immutable receipt inheritance. */
@@ -3801,10 +3657,6 @@ final class AuthoritySchema {
         BEGIN SELECT RAISE(ABORT,'missing index publication'); END
         """
             .formatted(entryCount, ready));
-  }
-
-  void backupVersionOne(Path directory) throws IOException, SQLException {
-    backupVersion(directory, 1, 2);
   }
 
   void backupVersion(Path directory, int previous, int next) throws IOException, SQLException {

@@ -14,7 +14,7 @@ final class VideoTextEvidenceSchema {
     store.transaction(
         () -> {
           var authority = new AuthoritySchema(store);
-          authority.verifyVersionTwentySeven();
+          new ModelRebuildSchema(store).verify();
           String compilation =
               replaceRequired(
                   schemaObjects.sql("table", "video_compilations"),

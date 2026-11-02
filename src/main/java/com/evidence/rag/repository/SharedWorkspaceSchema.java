@@ -27,7 +27,7 @@ final class SharedWorkspaceSchema {
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionTwentyNine();
+          new KnowledgeAnswerSchema(store).verify();
           for (String table : TRACE_TABLES) {
             String definition =
                 replaceRequired(

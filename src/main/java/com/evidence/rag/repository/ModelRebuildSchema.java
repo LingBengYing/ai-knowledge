@@ -19,7 +19,7 @@ final class ModelRebuildSchema {
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionTwentySix();
+          new DocumentReplacementSchema(store).verify();
           store.execute(
               """
           CREATE TABLE text_runtime_selection(id INTEGER PRIMARY KEY CHECK(id=1),

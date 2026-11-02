@@ -99,151 +99,57 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       Function.create(
           connection,
           "java_wiki_page_purge_authorized",
-          new Function() {
+          new TransactionGrant(2) {
             @Override
-            protected void xFunc() {
-              try {
-                result(
-                    args() == 2
-                            && transactionOwner == Thread.currentThread()
-                            && wikiPurgeWorkspace != null
-                            && wikiPurgeWorkspace.equals(value_text(0))
-                            && wikiPurgePage.equals(value_text(1))
-                        ? 1
-                        : 0);
-              } catch (SQLException failure) {
-                throw unavailable();
-              }
+            boolean granted() throws SQLException {
+              return wikiPurgeWorkspace != null
+                  && wikiPurgeWorkspace.equals(value_text(0))
+                  && wikiPurgePage.equals(value_text(1));
             }
           });
       Function.create(
           connection,
           "java_cleanup_authorized",
-          new Function() {
+          new TransactionGrant(3) {
             @Override
-            protected void xFunc() {
-              try {
-                result(
-                    args() == 3
-                            && transactionOwner == Thread.currentThread()
-                            && purgeDocument != null
-                            && purgeDocument.equals(value_text(0))
-                            && purgeRows.contains(value_text(1) + "\n" + value_text(2))
-                        ? 1
-                        : 0);
-              } catch (SQLException failure) {
-                throw unavailable();
-              }
+            boolean granted() throws SQLException {
+              return purgeDocument != null
+                  && purgeDocument.equals(value_text(0))
+                  && purgeRows.contains(value_text(1) + "\n" + value_text(2));
             }
           });
       Function.create(
           connection,
           "java_replacement_authorized",
-          new Function() {
+          new TransactionGrant(1) {
             @Override
-            protected void xFunc() {
-              try {
-                result(
-                    args() == 1
-                            && transactionOwner == Thread.currentThread()
-                            && replacementDocument != null
-                            && replacementDocument.equals(value_text(0))
-                        ? 1
-                        : 0);
-              } catch (SQLException failure) {
-                throw unavailable();
-              }
+            boolean granted() throws SQLException {
+              return replacementDocument != null && replacementDocument.equals(value_text(0));
             }
           });
       Function.create(
           connection,
           "java_model_rebuild_authorized",
-          new Function() {
+          new TransactionGrant(1) {
             @Override
-            protected void xFunc() {
-              try {
-                result(
-                    args() == 1
-                            && transactionOwner == Thread.currentThread()
-                            && modelRebuildId != null
-                            && modelRebuildDocuments.contains(value_text(0))
-                        ? 1
-                        : 0);
-              } catch (SQLException failure) {
-                throw unavailable();
-              }
+            boolean granted() throws SQLException {
+              return modelRebuildId != null && modelRebuildDocuments.contains(value_text(0));
             }
           });
       Function.create(
           connection,
           "java_model_rebuild_batch_authorized",
-          new Function() {
+          new TransactionGrant(1) {
             @Override
-            protected void xFunc() {
-              try {
-                result(
-                    args() == 1
-                            && transactionOwner == Thread.currentThread()
-                            && modelRebuildId != null
-                            && modelRebuildId.equals(value_text(0))
-                        ? 1
-                        : 0);
-              } catch (SQLException failure) {
-                throw unavailable();
-              }
+            boolean granted() throws SQLException {
+              return modelRebuildId != null && modelRebuildId.equals(value_text(0));
             }
           });
       var schema = new AuthoritySchema(this);
       if (exists) {
         transaction(
             () -> {
-              if (count("PRAGMA user_version") == 43) {
-                schema.verifyVersionFortyThree();
-              } else if (count("PRAGMA user_version") == 42) {
-                schema.verifyVersionFortyTwo();
-              } else if (count("PRAGMA user_version") == 41) {
-                schema.verifyVersionFortyOne();
-              } else if (count("PRAGMA user_version") == 40) {
-                schema.verifyVersionForty();
-              } else if (count("PRAGMA user_version") == 39) {
-                schema.verifyVersionThirtyNine();
-              } else if (count("PRAGMA user_version") == 38) {
-                schema.verifyVersionThirtyEight();
-              } else if (count("PRAGMA user_version") == 37) {
-                schema.verifyVersionThirtySeven();
-              } else if (count("PRAGMA user_version") == 36) {
-                schema.verifyVersionThirtySix();
-              } else if (count("PRAGMA user_version") == 35) {
-                schema.verifyVersionThirtyFive();
-              } else if (count("PRAGMA user_version") == 34) {
-                schema.verifyVersionThirtyFour();
-              } else if (count("PRAGMA user_version") == 33) {
-                schema.verifyVersionThirtyThree();
-              } else if (count("PRAGMA user_version") == 32) {
-                schema.verifyVersionThirtyTwo();
-              } else if (count("PRAGMA user_version") == 31) {
-                schema.verifyVersionThirtyOne();
-              } else if (count("PRAGMA user_version") == 30) {
-                schema.verifyVersionThirty();
-              } else if (count("PRAGMA user_version") == 29) {
-                schema.verifyVersionTwentyNine();
-              } else if (count("PRAGMA user_version") == 28) {
-                schema.verifyVersionTwentyEight();
-              } else if (count("PRAGMA user_version") == 27) {
-                schema.verifyVersionTwentySeven();
-              } else if (count("PRAGMA user_version") == 26) {
-                schema.verifyVersionTwentySix();
-              } else if (count("PRAGMA user_version") == 25) {
-                schema.verifyVersionTwentyFive();
-              } else if (count("PRAGMA user_version") == 24) {
-                schema.verifyVersionTwentyFour();
-              } else if (count("PRAGMA user_version") == 23) {
-                schema.verifyVersionTwentyThree();
-              } else if (count("PRAGMA user_version") == 22) {
-                new DocumentCleanupSchema(this).verify();
-              } else {
-                schema.verifyFormat();
-              }
+              verifyStoredFormat(schema, count("PRAGMA user_version"));
               return null;
             });
       }
@@ -252,126 +158,27 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (!exists) {
         schema.initialize();
       }
-      if (transaction(() -> count("PRAGMA user_version")) == 1) {
-        if (exists) {
-          schema.backupVersionOne(canonicalDirectory);
-        }
-        schema.migrateVersionTwo();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 2) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 2, 3);
-        }
-        schema.migrateVersionThree();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 3) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 3, 4);
-        }
-        schema.migrateVersionFour();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 4) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 4, 5);
-        }
-        schema.migrateVersionFive();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 5) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 5, 6);
-        }
-        schema.migrateVersionSix();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 6) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 6, 7);
-        }
-        schema.migrateVersionSeven();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 7) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 7, 8);
-        }
-        schema.migrateVersionEight();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 8) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 8, 9);
-        }
-        schema.migrateVersionNine();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 9) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 9, 10);
-        }
-        schema.migrateVersionTen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 10) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 10, 11);
-        }
-        schema.migrateVersionEleven();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 11) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 11, 12);
-        }
-        schema.migrateVersionTwelve();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 12) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 12, 13);
-        }
-        schema.migrateVersionThirteen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 13) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 13, 14);
-        }
-        schema.migrateVersionFourteen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 14) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 14, 15);
-        }
-        schema.migrateVersionFifteen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 15) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 15, 16);
-        }
-        schema.migrateVersionSixteen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 16) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 16, 17);
-        }
-        schema.migrateVersionSeventeen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 17) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 17, 18);
-        }
-        schema.migrateVersionEighteen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 18) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 18, 19);
-        }
-        schema.migrateVersionNineteen();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 19) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 19, 20);
-        }
-        schema.migrateVersionTwenty();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 20) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 20, 21);
-        }
-        schema.migrateVersionTwentyOne();
-      }
+      // Each step re-reads the version, snapshots an existing library, then migrates one version.
+      upgrade(schema, exists, 1, false, schema::migrateVersionTwo);
+      upgrade(schema, exists, 2, false, schema::migrateVersionThree);
+      upgrade(schema, exists, 3, false, schema::migrateVersionFour);
+      upgrade(schema, exists, 4, false, schema::migrateVersionFive);
+      upgrade(schema, exists, 5, false, schema::migrateVersionSix);
+      upgrade(schema, exists, 6, false, schema::migrateVersionSeven);
+      upgrade(schema, exists, 7, false, schema::migrateVersionEight);
+      upgrade(schema, exists, 8, false, schema::migrateVersionNine);
+      upgrade(schema, exists, 9, false, schema::migrateVersionTen);
+      upgrade(schema, exists, 10, false, schema::migrateVersionEleven);
+      upgrade(schema, exists, 11, false, schema::migrateVersionTwelve);
+      upgrade(schema, exists, 12, false, schema::migrateVersionThirteen);
+      upgrade(schema, exists, 13, false, schema::migrateVersionFourteen);
+      upgrade(schema, exists, 14, false, schema::migrateVersionFifteen);
+      upgrade(schema, exists, 15, false, schema::migrateVersionSixteen);
+      upgrade(schema, exists, 16, false, schema::migrateVersionSeventeen);
+      upgrade(schema, exists, 17, false, schema::migrateVersionEighteen);
+      upgrade(schema, exists, 18, false, schema::migrateVersionNineteen);
+      upgrade(schema, exists, 19, false, schema::migrateVersionTwenty);
+      upgrade(schema, exists, 20, false, schema::migrateVersionTwentyOne);
       if (transaction(() -> count("PRAGMA user_version")) == 21) {
         boolean backupsKnown;
         try (var files = Files.list(canonicalDirectory)) {
@@ -390,181 +197,32 @@ public final class SqliteAuthorityStore implements AutoCloseable {
         if (exists) {
           schema.backupVersion(canonicalDirectory, 21, 22);
         }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          new DocumentCleanupSchema(this).migrate(backupsKnown);
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
+        withTableRebuildPragmas(() -> new DocumentCleanupSchema(this).migrate(backupsKnown));
       }
-      if (transaction(() -> count("PRAGMA user_version")) == 22) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 22, 23);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionTwentyThree();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 23) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 23, 24);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionTwentyFour();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 24) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 24, 25);
-        }
-        schema.migrateVersionTwentyFive();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 25) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 25, 26);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionTwentySix();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 26) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 26, 27);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionTwentySeven();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 27) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 27, 28);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionTwentyEight();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 28) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 28, 29);
-        }
-        schema.migrateVersionTwentyNine();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 29) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 29, 30);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionThirty();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 30) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 30, 31);
-        }
-        schema.migrateVersionThirtyOne();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 31) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 31, 32);
-        }
-        schema.migrateVersionThirtyTwo();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 32) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 32, 33);
-        }
-        schema.migrateVersionThirtyThree();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 33) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 33, 34);
-        }
-        schema.migrateVersionThirtyFour();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 34) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 34, 35);
-        }
-        schema.migrateVersionThirtyFive();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 35) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 35, 36);
-        }
-        schema.migrateVersionThirtySix();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 36) {
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 36, 37);
-        }
-        rawExecute("PRAGMA foreign_keys=OFF");
-        rawExecute("PRAGMA legacy_alter_table=ON");
-        try {
-          schema.migrateVersionThirtySeven();
-        } finally {
-          rawExecute("PRAGMA legacy_alter_table=OFF");
-          rawExecute("PRAGMA foreign_keys=ON");
-        }
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 37) {
-        if (exists) schema.backupVersion(canonicalDirectory, 37, 38);
-        schema.migrateVersionThirtyEight();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 38) {
-        if (exists) schema.backupVersion(canonicalDirectory, 38, 39);
-        schema.migrateVersionThirtyNine();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 39) {
-        if (exists) schema.backupVersion(canonicalDirectory, 39, 40);
-        schema.migrateVersionForty();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 40) {
-        if (exists) schema.backupVersion(canonicalDirectory, 40, 41);
-        schema.migrateVersionFortyOne();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 41) {
-        if (exists) schema.backupVersion(canonicalDirectory, 41, 42);
-        schema.migrateVersionFortyTwo();
-      }
-      if (transaction(() -> count("PRAGMA user_version")) == 42) {
-        if (exists) schema.backupVersion(canonicalDirectory, 42, 43);
-        schema.migrateVersionFortyThree();
-      }
+      upgrade(schema, exists, 22, true, schema::migrateVersionTwentyThree);
+      upgrade(schema, exists, 23, true, schema::migrateVersionTwentyFour);
+      upgrade(schema, exists, 24, false, schema::migrateVersionTwentyFive);
+      upgrade(schema, exists, 25, true, () -> new DocumentReplacementSchema(this).migrate());
+      upgrade(schema, exists, 26, true, () -> new ModelRebuildSchema(this).migrate());
+      upgrade(schema, exists, 27, true, () -> new VideoTextEvidenceSchema(this).migrate());
+      upgrade(schema, exists, 28, false, () -> new KnowledgeAnswerSchema(this).migrate());
+      upgrade(schema, exists, 29, true, () -> new SharedWorkspaceSchema(this).migrate());
+      upgrade(schema, exists, 30, false, () -> new WikiWorkspaceSchema(this).migrate());
+      upgrade(schema, exists, 31, false, () -> new WikiDraftSchema(this).migrate());
+      upgrade(schema, exists, 32, false, () -> new WikiPageLifecycleSchema(this).migrate());
+      upgrade(schema, exists, 33, false, () -> new ImportIndexSchema(this).migrate());
+      upgrade(schema, exists, 34, false, () -> new WikiPagePurgeSchema(this).migrate());
+      upgrade(schema, exists, 35, false, () -> new ConversationSchema(this).migrate());
+      upgrade(schema, exists, 36, true, () -> new IndexRestartSchema(this).migrate());
+      upgrade(schema, exists, 37, false, () -> new DocumentBatchSchema(this).migrate());
+      upgrade(schema, exists, 38, false, () -> new BatchRequeueSchema(this).migrate());
+      upgrade(schema, exists, 39, false, () -> new BatchThroughputSchema(this).migrate());
+      upgrade(schema, exists, 40, false, () -> new BatchHistorySchema(this).migrate());
+      upgrade(schema, exists, 41, false, () -> new BatchStreamSchema(this).migrate());
+      upgrade(schema, exists, 42, false, () -> new BatchPlacementSchema(this).migrate());
       transaction(
           () -> {
-            schema.verifyVersionFortyThree();
+            new BatchPlacementSchema(this).verify();
             libraryIdentity =
                 (String)
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
@@ -846,7 +504,7 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       force(libraryDirectory);
       transaction(
           () -> {
-            new AuthoritySchema(this).verifyVersionFortyThree();
+            new BatchPlacementSchema(this).verify();
             return null;
           });
     } catch (IOException | SQLException failure) {
@@ -1153,6 +811,66 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     }
   }
 
+  /** Verifies an existing library at its stored version before any upgrade step runs. */
+  private void verifyStoredFormat(AuthoritySchema schema, long version) {
+    switch ((int) version) {
+      case 43 -> new BatchPlacementSchema(this).verify();
+      case 42 -> new BatchStreamSchema(this).verify();
+      case 41 -> new BatchHistorySchema(this).verify();
+      case 40 -> new BatchThroughputSchema(this).verify();
+      case 39 -> new BatchRequeueSchema(this).verify();
+      case 38 -> new DocumentBatchSchema(this).verify();
+      case 37 -> new IndexRestartSchema(this).verify();
+      case 36 -> new ConversationSchema(this).verify();
+      case 35 -> new WikiPagePurgeSchema(this).verify();
+      case 34 -> new ImportIndexSchema(this).verify();
+      case 33 -> new WikiPageLifecycleSchema(this).verify();
+      case 32 -> new WikiDraftSchema(this).verify();
+      case 31 -> new WikiWorkspaceSchema(this).verify();
+      case 30 -> new SharedWorkspaceSchema(this).verify();
+      case 29 -> new KnowledgeAnswerSchema(this).verify();
+      case 28 -> new VideoTextEvidenceSchema(this).verify();
+      case 27 -> new ModelRebuildSchema(this).verify();
+      case 26 -> new DocumentReplacementSchema(this).verify();
+      case 25 -> schema.verifyVersionTwentyFive();
+      case 24 -> schema.verifyVersionTwentyFour();
+      case 23 -> schema.verifyVersionTwentyThree();
+      case 22 -> new DocumentCleanupSchema(this).verify();
+      default -> schema.verifyFormat();
+    }
+  }
+
+  /**
+   * Upgrades one version when the library is at {@code from}: an existing library is snapshotted
+   * first, and steps that rebuild tables run with the table-rebuild pragmas.
+   */
+  private void upgrade(
+      AuthoritySchema schema, boolean exists, int from, boolean rebuildsTables, Runnable migrate)
+      throws IOException, SQLException {
+    if (transaction(() -> count("PRAGMA user_version")) != from) {
+      return;
+    }
+    if (exists) {
+      schema.backupVersion(libraryDirectory, from, from + 1);
+    }
+    if (rebuildsTables) {
+      withTableRebuildPragmas(migrate);
+    } else {
+      migrate.run();
+    }
+  }
+
+  private void withTableRebuildPragmas(Runnable migrate) throws SQLException {
+    rawExecute("PRAGMA foreign_keys=OFF");
+    rawExecute("PRAGMA legacy_alter_table=ON");
+    try {
+      migrate.run();
+    } finally {
+      rawExecute("PRAGMA legacy_alter_table=OFF");
+      rawExecute("PRAGMA foreign_keys=ON");
+    }
+  }
+
   private void rawExecute(String sql, Object... args) throws SQLException {
     try (var statement = prepare(sql, args)) {
       statement.execute();
@@ -1187,6 +905,29 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       }
     } catch (IOException ignored) {
       /* Shutdown best effort. */
+    }
+  }
+
+  /**
+   * SQL predicate that is true only on the thread inside this store's current transaction, with
+   * exactly {@code arity} arguments, and when {@link #granted()} accepts them.
+   */
+  private abstract class TransactionGrant extends Function {
+    private final int arity;
+
+    TransactionGrant(int arity) {
+      this.arity = arity;
+    }
+
+    abstract boolean granted() throws SQLException;
+
+    @Override
+    protected final void xFunc() {
+      try {
+        result(args() == arity && transactionOwner == Thread.currentThread() && granted() ? 1 : 0);
+      } catch (SQLException failure) {
+        throw unavailable();
+      }
     }
   }
 }
