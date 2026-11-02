@@ -91,7 +91,7 @@ class WikiPageLifecycleMigrationTest {
             assertEquals("active", repository.lifecycle(actor, "old-page").state());
             assertEquals(0, repository.lifecycle(actor, "old-page").version());
             repository.changeLifecycle(actor, "old-page", 1, 0, "deleted", 2);
-            assertEquals(0, repository.pageCount(actor, ""));
+            assertEquals(0, repository.pageCount(actor, "", "active"));
             assertEquals(
                 "旧知识页", repository.page(actor, "old-page").orElseThrow().content().title());
             assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
@@ -105,7 +105,7 @@ class WikiPageLifecycleMigrationTest {
             var repository = new WikiWorkspaceRepository(store);
             assertEquals("deleted", repository.lifecycle(actor, "old-page").state());
             repository.changeLifecycle(actor, "old-page", 1, 1, "active", 3);
-            assertEquals(1, repository.pageCount(actor, ""));
+            assertEquals(1, repository.pageCount(actor, "", "active"));
             assertEquals(2, repository.lifecycle(actor, "old-page").version());
             return null;
           });

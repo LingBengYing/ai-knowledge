@@ -379,11 +379,6 @@ public final class DocumentBatchRepository {
 
   private static final String JOIN = BatchThroughputSchema.INPUTS;
 
-  /** One page; the state is the trigger-maintained row, not recomputed per poll. */
-  public List<BatchImportFile> files(String id, int offset, int limit) {
-    return files(id, List.of(), offset, limit);
-  }
-
   /**
    * One page of the files whose maintained state is one of {@code states} (all files when empty),
    * in manifest order. The state filter is a range of the (batch_id,state) index.
@@ -618,10 +613,6 @@ public final class DocumentBatchRepository {
    * by releasing their unused retry allowance returns {@link #HELD} instead of halting: the caller
    * waits for them and asks again. Without it, any shortfall halts the batch.
    */
-  public int reserve(IndexClaim claim, int requests, int retries) {
-    return reserve(claim, requests, retries, false);
-  }
-
   /** The budget is held by running attempts that may still release part of it. */
   public static final int HELD = -2;
 

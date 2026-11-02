@@ -7,7 +7,6 @@ import com.evidence.rag.model.domain.PublicationVersion;
 import com.evidence.rag.model.domain.SynopsisDraft;
 import com.evidence.rag.model.domain.SynopsisEvidence;
 import com.evidence.rag.model.domain.SynopsisFileInput;
-import com.evidence.rag.model.domain.SynopsisInput;
 import com.evidence.rag.model.entity.SynopsisTaskEntity;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -119,11 +118,6 @@ public final class SynopsisRepository {
         now,
         id);
     return true;
-  }
-
-  public boolean markProcessing(String id, String tokenHash, SynopsisInput input, String now) {
-    return markProcessing(
-        id, tokenHash, new SynopsisFileInput(input.publication(), input.evidence()), now);
   }
 
   private void insertInput(

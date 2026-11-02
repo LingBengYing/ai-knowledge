@@ -15,6 +15,7 @@ import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ProjectionAttempt;
 import com.evidence.rag.model.domain.QualifiedProjectionTarget;
+import com.evidence.rag.model.domain.SynopsisFileInput;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.support.PublishedCorpusFixture;
@@ -66,7 +67,10 @@ class DocumentCleanupRepositoryTest {
                 NOW);
             assertTrue(
                 synopses.markProcessing(
-                    "cleanup-synopsis", SynopsisRepositoryTest.CLAIM_HASH, input, NOW));
+                    "cleanup-synopsis",
+                    SynopsisRepositoryTest.CLAIM_HASH,
+                    new SynopsisFileInput(input),
+                    NOW));
             assertTrue(
                 synopses.complete(
                     "cleanup-synopsis",

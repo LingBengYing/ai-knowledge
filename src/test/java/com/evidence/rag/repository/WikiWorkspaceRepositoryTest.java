@@ -41,8 +41,8 @@ class WikiWorkspaceRepositoryTest {
             repository.saveRevision(OWNER, revision, 0);
             repository.review(MEMBER, "proposal", "accepted", 12);
             assertEquals(revision, repository.page(MEMBER, "page").orElseThrow());
-            assertEquals(1, repository.pageCount(MEMBER, "灯"));
-            assertEquals(0, repository.pageCount(OUTSIDER, ""));
+            assertEquals(1, repository.pageCount(MEMBER, "灯", "active"));
+            assertEquals(0, repository.pageCount(OUTSIDER, "", "active"));
             assertTrue(repository.version(OUTSIDER, "page", 1).isEmpty());
             return null;
           });
@@ -148,12 +148,14 @@ class WikiWorkspaceRepositoryTest {
                 OWNER,
                 new WikiPageRevision("page-1", 2, content("新主题", "更新"), "model-v1", "wiki-v1", 5),
                 1);
-            assertEquals(3, repository.pageCount(OWNER, ""));
+            assertEquals(3, repository.pageCount(OWNER, "", "active"));
             assertEquals(
                 List.of("page-3"),
-                repository.pages(OWNER, 1, 1, "").stream().map(WikiPageRevision::pageId).toList());
-            assertEquals(1, repository.pageCount(OWNER, "%_"));
-            assertEquals(0, repository.pageCount(OWNER, "%' OR 1=1 --"));
+                repository.pages(OWNER, 1, 1, "", "active").stream()
+                    .map(WikiPageRevision::pageId)
+                    .toList());
+            assertEquals(1, repository.pageCount(OWNER, "%_", "active"));
+            assertEquals(0, repository.pageCount(OWNER, "%' OR 1=1 --", "active"));
             assertEquals(2, repository.page(OWNER, "page-1").orElseThrow().version());
             assertEquals(1, repository.version(OWNER, "page-1", 1).orElseThrow().version());
             assertEquals(1, repository.proposals(OWNER, 1, 1, "pending").size());

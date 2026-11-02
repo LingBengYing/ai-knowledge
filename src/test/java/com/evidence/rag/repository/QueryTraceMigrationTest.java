@@ -189,6 +189,9 @@ class QueryTraceMigrationTest {
                   List.of(),
                   List.of(),
                   List.of(),
+                  List.of(),
+                  List.of(),
+                  List.of(),
                   "2026-09-20T09:00:00Z");
           return null;
         });

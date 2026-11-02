@@ -257,6 +257,9 @@ class AudioTraceMigrationTest {
                             image.image().id(),
                             image.publication().sourceSha256())),
                     List.of(audioCitation),
+                    List.of(),
+                    List.of(),
+                    List.of(),
                     NOW);
                 assertEquals(
                     3, store.count("SELECT scope_count FROM query_traces WHERE id='mixed-trace'"));
@@ -360,6 +363,9 @@ class AudioTraceMigrationTest {
                               List.of(),
                               List.of(),
                               List.of(invalid),
+                              List.of(),
+                              List.of(),
+                              List.of(),
                               NOW);
                           return null;
                         }));
@@ -377,6 +383,9 @@ class AudioTraceMigrationTest {
                 List.of(),
                 List.of(),
                 List.of(saved),
+                List.of(),
+                List.of(),
+                List.of(),
                 NOW);
             assertEquals(saved, repository.findTraceAudioCitation(OWNER, "valid-trace", 1));
             return null;
