@@ -4,15 +4,11 @@ import com.evidence.rag.model.domain.QuestionFact;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.tool.parser.ImageInput;
 import com.evidence.rag.tool.parser.TextParser;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -347,22 +343,14 @@ public final class OpenAiCompatibleVisionModels
   }
 
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
-    try {
-      var digest = MessageDigest.getInstance("SHA-256");
-      for (String value :
-          List.of(
-              endpoint.baseUrl().toString(),
-              endpoint.model(),
-              DESCRIPTION_PROMPT,
-              DRAFT_PROMPT,
-              VERIFICATION_PROMPT)) {
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
-        digest.update((byte) 0);
-      }
-      return "java-vision-models-v1-" + HexFormat.of().formatHex(digest.digest());
-    } catch (NoSuchAlgorithmException unavailable) {
-      throw new TextModels.Failure("model_invalid_configuration");
-    }
+    return ModelRevisions.fingerprint(
+        "java-vision-models-v1-",
+        List.of(
+            endpoint.baseUrl().toString(),
+            endpoint.model(),
+            DESCRIPTION_PROMPT,
+            DRAFT_PROMPT,
+            VERIFICATION_PROMPT));
   }
 
   private static TextModels.Failure invalidInput() {

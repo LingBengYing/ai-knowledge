@@ -4,14 +4,10 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels.Endpoint;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.tool.parser.ImageInput;
 import com.evidence.rag.tool.parser.TextParser;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -156,23 +152,15 @@ public final class SiliconFlowImageEmbeddingModels implements ImageEmbeddingMode
   }
 
   private static String revisionOf(Configuration configuration) {
-    try {
-      var digest = MessageDigest.getInstance("SHA-256");
-      for (String value :
-          List.of(
-              PROTOCOL,
-              ORIGINAL_POLICY,
-              configuration.endpoint().baseUrl().toString(),
-              configuration.endpoint().model(),
-              configuration.modelRevision(),
-              Integer.toString(configuration.dimensions()))) {
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
-        digest.update((byte) 0);
-      }
-      return "java-image-embedding-v1:" + HexFormat.of().formatHex(digest.digest());
-    } catch (NoSuchAlgorithmException impossible) {
-      throw new TextModels.Failure("model_invalid_configuration");
-    }
+    return ModelRevisions.fingerprint(
+        "java-image-embedding-v1:",
+        List.of(
+            PROTOCOL,
+            ORIGINAL_POLICY,
+            configuration.endpoint().baseUrl().toString(),
+            configuration.endpoint().model(),
+            configuration.modelRevision(),
+            Integer.toString(configuration.dimensions())));
   }
 
   private static TextModels.Failure invalidResponse() {

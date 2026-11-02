@@ -139,16 +139,7 @@ public interface TextModels {
     }
   }
 
-  record SynthesisEvidence(
-      String id, String quote, String context, List<String> requiredEvidenceIds) {
-    public SynthesisEvidence {
-      requiredEvidenceIds = List.copyOf(requiredEvidenceIds);
-    }
-
-    public SynthesisEvidence(String id, String quote, String context) {
-      this(id, quote, context, List.of());
-    }
-
+  record SynthesisEvidence(String id, String quote, String context) {
     @Override
     public String toString() {
       return "SynthesisEvidence[redacted]";
