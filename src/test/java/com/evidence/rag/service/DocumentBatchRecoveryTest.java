@@ -110,7 +110,7 @@ class DocumentBatchRecoveryTest {
       id = batch(batches, 100);
       task = indexed(authority, batches, id);
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
-      assertEquals(0, authority.indexing().reserveBatchRequests(claim, 10, 0));
+      assertEquals(0, authority.indexing().reserveBatchRequests(claim, 10, 0, false));
     }
     try (var authority = new AuthorityTestContext(directory)) {
       var batches = batches(authority);
@@ -121,7 +121,7 @@ class DocumentBatchRecoveryTest {
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(task, claim.jobId());
       assertEquals(2, claim.attempt());
-      assertEquals(0, authority.indexing().reserveBatchRequests(claim, 10, 0));
+      assertEquals(0, authority.indexing().reserveBatchRequests(claim, 10, 0, false));
       assertEquals(20, batches.status(actor, id, 0, 100).reservedRequests());
     }
     try (var authority = new AuthorityTestContext(directory)) {
@@ -141,10 +141,10 @@ class DocumentBatchRecoveryTest {
       String id = batch(batches, 10);
       indexed(authority, batches, id);
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
-      assertEquals(3, authority.indexing().reserveBatchRequests(claim, 4, 3));
+      assertEquals(3, authority.indexing().reserveBatchRequests(claim, 4, 3, false));
       assertEquals(7, batches.status(actor, id, 0, 100).reservedRequests());
       // A second reservation for the same attempt is refused.
-      assertEquals(-1, authority.indexing().reserveBatchRequests(claim, 1, 0));
+      assertEquals(-1, authority.indexing().reserveBatchRequests(claim, 1, 0, false));
       // Four expected requests plus one retry: the other two allowance requests return.
       authority.indexing().recordBatchUsage(claim, 5, 5, true, 4);
       var status = batches.status(actor, id, 0, 100);
@@ -162,7 +162,7 @@ class DocumentBatchRecoveryTest {
       String id = batch(batches, 5);
       indexed(authority, batches, id);
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
-      assertEquals(1, authority.indexing().reserveBatchRequests(claim, 4, 3));
+      assertEquals(1, authority.indexing().reserveBatchRequests(claim, 4, 3, false));
       assertEquals(5, batches.status(actor, id, 0, 100).reservedRequests());
       authority.indexing().recordBatchUsage(claim, 3, 2, false, 4);
       var status = batches.status(actor, id, 0, 100);

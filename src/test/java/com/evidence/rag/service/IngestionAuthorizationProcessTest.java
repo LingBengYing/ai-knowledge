@@ -65,7 +65,7 @@ class IngestionAuthorizationProcessTest {
                 overlappingChildren.set(isAlive(slowPid.get()));
                 return new ProcessTextParser(limit);
               });
-      try (var job = new IngestionJob(processor)) {
+      try (var job = new IngestionJob(processor, null, 1)) {
         long pid = awaitPid(pidFile);
         slowPid.set(pid);
         assertTrue(isAlive(pid));
@@ -122,7 +122,7 @@ class IngestionAuthorizationProcessTest {
       var revoked = upload(service, creator, "queued-revoked.txt");
       setRole(database, revoked.documentId(), observer, "editor");
       setRole(database, revoked.documentId(), creator, null);
-      try (var job = new IngestionJob(countingProcessor(service, parserCalls))) {
+      try (var job = new IngestionJob(countingProcessor(service, parserCalls), null, 1)) {
         await(
             () -> "cancelled".equals(service.ingestionStatus(observer, revoked.taskId()).state()),
             "A queued task whose creator lost access must be cancelled without parsing");

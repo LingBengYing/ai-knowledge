@@ -356,7 +356,7 @@ class KnowledgeAgentServiceTest {
           fixture.agents.start(fixture.context.owner, "资料", archivedRequest, conversation).id();
       assertEquals("answered", fixture.await(archived).result().status());
       String localRequest = UUID.randomUUID().toString();
-      String local = fixture.agents.start(fixture.context.owner, "资料", localRequest).id();
+      String local = fixture.agents.start(fixture.context.owner, "资料", localRequest, null).id();
       assertEquals("answered", fixture.await(local).result().status());
       assertTrue(leaks(fixture.agents.get(fixture.context.owner, local)));
 
@@ -391,7 +391,7 @@ class KnowledgeAgentServiceTest {
         }
       }
       views.add(fixture.agents.start(fixture.context.owner, "资料", archivedRequest, conversation));
-      views.add(fixture.agents.start(fixture.context.owner, "资料", localRequest));
+      views.add(fixture.agents.start(fixture.context.owner, "资料", localRequest, null));
       assertEquals(2, fixture.calls.get(), "Replays never start another model run");
       for (var view : views) {
         assertEquals("completed", view.status());
@@ -421,7 +421,7 @@ class KnowledgeAgentServiceTest {
         AgentRunResult started = null;
         while (started == null) {
           try {
-            started = fixture.agents.start(fixture.context.owner, "资料 " + i, request);
+            started = fixture.agents.start(fixture.context.owner, "资料 " + i, request, null);
           } catch (ApplicationException busy) {
             // The single admission slot is released just after the previous run turns terminal.
             assertEquals("agent_capacity_exceeded", busy.code());
@@ -447,7 +447,8 @@ class KnowledgeAgentServiceTest {
               .start(
                   fixture.context.owner,
                   "资料 " + KnowledgeAgentService.MAX_RETAINED_RUNS,
-                  requests.getLast())
+                  requests.getLast(),
+                  null)
               .id());
     }
   }
@@ -768,7 +769,7 @@ class KnowledgeAgentServiceTest {
                 List.of(new AgentProtocol.Suggestion("补充操作指南", "将当前资料整理成专题页。", List.of(doc))));
           });
       String requestId = UUID.randomUUID().toString();
-      var start = fixture.agents.start(fixture.context.owner, "整理灯塔指南", requestId);
+      var start = fixture.agents.start(fixture.context.owner, "整理灯塔指南", requestId, null);
       var complete = fixture.await(start.id());
       assertEquals("completed", complete.status(), () -> String.valueOf(complete.error()));
       assertEquals("answered", complete.result().status());
@@ -782,13 +783,14 @@ class KnowledgeAgentServiceTest {
       assertEquals(
           List.of("running", "searching", "searching", "reading", "completed"),
           complete.events().stream().map(AgentRunResult.Event::type).toList());
-      assertEquals(complete, fixture.agents.start(fixture.context.owner, "整理灯塔指南", requestId));
+      assertEquals(
+          complete, fixture.agents.start(fixture.context.owner, "整理灯塔指南", requestId, null));
       assertEquals(1, fixture.calls.get(), "Same request id must never consume another model run");
       assertEquals(
           "agent_request_conflict",
           assertThrows(
                   ApplicationException.class,
-                  () -> fixture.agents.start(fixture.context.owner, "换一个问题", requestId))
+                  () -> fixture.agents.start(fixture.context.owner, "换一个问题", requestId, null))
               .code());
       assertEquals(1, fixture.context.scalar("SELECT COUNT(*) FROM knowledge_answer_traces"));
       var searchDetails = complete.events().get(1).details();
@@ -1407,7 +1409,7 @@ class KnowledgeAgentServiceTest {
                     indexing,
                     () -> {});
               });
-      var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration());
+      var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration(), null);
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
         runtime.install(snapshot, lease, () -> {});
       }
@@ -1462,7 +1464,7 @@ class KnowledgeAgentServiceTest {
     }
 
     String start() {
-      return agents.start(context.owner, "请整理资料", UUID.randomUUID().toString()).id();
+      return agents.start(context.owner, "请整理资料", UUID.randomUUID().toString(), null).id();
     }
 
     AgentRunResult await(String id) throws Exception {

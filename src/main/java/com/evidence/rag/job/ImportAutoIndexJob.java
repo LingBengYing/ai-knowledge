@@ -16,10 +16,6 @@ public final class ImportAutoIndexJob implements AutoCloseable {
   private final List<Thread> workers = new ArrayList<>();
   private volatile boolean closed;
 
-  public ImportAutoIndexJob(ImportAutoIndexService service) {
-    this(service, 1);
-  }
-
   public ImportAutoIndexJob(ImportAutoIndexService service, int mediaConcurrency) {
     if (mediaConcurrency < 1 || mediaConcurrency > 4)
       throw new IllegalArgumentException("Invalid media index concurrency");

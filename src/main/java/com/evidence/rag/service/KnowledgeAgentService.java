@@ -137,10 +137,6 @@ public final class KnowledgeAgentService implements AutoCloseable {
             });
   }
 
-  public synchronized AgentRunResult start(Actor actor, String question, String requestId) {
-    return start(actor, question, requestId, null);
-  }
-
   public synchronized AgentRunResult start(
       Actor actor, String question, String requestId, String conversationId) {
     if (actor == null || !uuid(requestId)) throw ModelValues.invalid();

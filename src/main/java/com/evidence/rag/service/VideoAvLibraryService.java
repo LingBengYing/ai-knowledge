@@ -169,10 +169,6 @@ public final class VideoAvLibraryService implements AutoCloseable {
     this.indexer = indexer;
   }
 
-  public VideoAvTargets targets() {
-    return targets;
-  }
-
   public String profileFingerprint() {
     return profile;
   }

@@ -198,7 +198,7 @@ class KnowledgeTopicAnswerServiceTest {
                     indexing,
                     () -> {});
               });
-      var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration());
+      var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration(), null);
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
         runtime.install(snapshot, lease, () -> {});
       }

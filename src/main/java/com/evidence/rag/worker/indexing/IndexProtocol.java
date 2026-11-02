@@ -58,79 +58,10 @@ final class IndexProtocol {
       throughput = throughput == null ? EmbeddingThroughput.SERIAL : throughput;
     }
 
-    Request(
-        OpenAiCompatibleModels.Configuration models,
-        MilvusRestProjection.Settings projection,
-        Duration timeout,
-        String workspaceId,
-        String documentId,
-        String revisionId,
-        IndexTarget target,
-        List<ProjectionItem> items,
-        String projectionGenerationId,
-        IndexWorkerLifetime.Parent parent,
-        TransientRetry retry) {
-      this(
-          models,
-          projection,
-          timeout,
-          workspaceId,
-          documentId,
-          revisionId,
-          target,
-          items,
-          projectionGenerationId,
-          parent,
-          retry,
-          EmbeddingThroughput.SERIAL);
-    }
-
-    Request(
-        OpenAiCompatibleModels.Configuration models,
-        MilvusRestProjection.Settings projection,
-        Duration timeout,
-        String workspaceId,
-        String documentId,
-        String revisionId,
-        IndexTarget target,
-        List<ProjectionItem> items,
-        String projectionGenerationId,
-        IndexWorkerLifetime.Parent parent) {
-      this(
-          models,
-          projection,
-          timeout,
-          workspaceId,
-          documentId,
-          revisionId,
-          target,
-          items,
-          projectionGenerationId,
-          parent,
-          TransientRetry.NONE);
-    }
-
     @Override
     public String toString() {
       return "IndexRequest[redacted]";
     }
-  }
-
-  static Request request(
-      OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
-      Duration timeout,
-      IndexClaim claim) {
-    return request(models, projection, timeout, claim, TransientRetry.NONE);
-  }
-
-  static Request request(
-      OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
-      Duration timeout,
-      IndexClaim claim,
-      TransientRetry retry) {
-    return request(models, projection, timeout, claim, retry, EmbeddingThroughput.SERIAL);
   }
 
   static Request request(

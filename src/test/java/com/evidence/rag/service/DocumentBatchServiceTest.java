@@ -98,13 +98,13 @@ class DocumentBatchServiceTest {
             executor.submit(
                 () -> {
                   start.await();
-                  return authority.indexing().reserveBatchRequests(a, 1);
+                  return authority.indexing().reserveBatchRequests(a, 1, 0, false) >= 0;
                 });
         var second =
             executor.submit(
                 () -> {
                   start.await();
-                  return authority.indexing().reserveBatchRequests(b, 1);
+                  return authority.indexing().reserveBatchRequests(b, 1, 0, false) >= 0;
                 });
         start.countDown();
         boolean aReserved = first.get(5, TimeUnit.SECONDS);
@@ -116,7 +116,7 @@ class DocumentBatchServiceTest {
       assertEquals("embedding_budget_exhausted", batches.status(actor, id, 0, 100).haltedReason());
       assertEquals(1, batches.status(actor, id, 0, 100).reservedRequests());
       assertTrue(batches.status(actor, id, 0, 100).usageUncertain());
-      authority.indexing().recordBatchUsage(admitted, 1, 1, true);
+      authority.indexing().recordBatchUsage(admitted, 1, 1, true, Integer.MAX_VALUE);
       assertEquals(1, batches.status(actor, id, 0, 100).observedRequests());
       assertFalse(batches.status(actor, id, 0, 100).usageUncertain());
     }

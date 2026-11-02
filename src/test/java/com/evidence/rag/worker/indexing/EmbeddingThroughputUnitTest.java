@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.model.domain.EmbeddingThroughput;
+import com.evidence.rag.model.domain.TransientRetry;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -134,7 +135,9 @@ class EmbeddingThroughputUnitTest {
                   server.settings().models(),
                   server.settings().projection(),
                   java.time.Duration.ofSeconds(10),
-                  server.claim(1))
+                  server.claim(1),
+                  TransientRetry.NONE,
+                  EmbeddingThroughput.SERIAL)
               .throughput());
     }
   }

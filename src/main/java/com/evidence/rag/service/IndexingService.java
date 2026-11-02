@@ -258,12 +258,10 @@ public final class IndexingService {
         });
   }
 
-  /** Full saved-source and configured-receipt eligibility; no provider calls. */
-  public boolean canReindexWithVectors(Actor actor, String documentId, IndexTarget target) {
-    return store.transaction(() -> canReindexWithVectorsInTransaction(actor, documentId, target));
-  }
-
-  /** The caller owns the existing authority transaction; safe for management row qualification. */
+  /**
+   * Full saved-source and configured-receipt eligibility; no provider calls. The caller owns the
+   * existing authority transaction; safe for management row qualification.
+   */
   public boolean canReindexWithVectorsInTransaction(
       Actor actor, String documentId, IndexTarget target) {
     if (actor == null || target == null || receiptTargets == null) {
@@ -312,18 +310,10 @@ public final class IndexingService {
     return claim(workspaceId, null);
   }
 
-  public boolean reserveBatchRequests(IndexClaim claim, int requests) {
-    return reserveBatchRequests(claim, requests, 0) >= 0;
-  }
-
-  /** The granted transient-retry allowance for this attempt, or -1 when it may not start. */
-  public int reserveBatchRequests(IndexClaim claim, int requests, int retries) {
-    return reserveBatchRequests(claim, requests, retries, false);
-  }
-
   /**
-   * As above; with {@code mayWait} a shortfall that running attempts of the same batch may still
-   * release returns {@link com.evidence.rag.repository.DocumentBatchRepository#HELD}.
+   * The granted transient-retry allowance for this attempt, or -1 when it may not start; with
+   * {@code mayWait} a shortfall that running attempts of the same batch may still release returns
+   * {@link com.evidence.rag.repository.DocumentBatchRepository#HELD}.
    */
   public int reserveBatchRequests(IndexClaim claim, int requests, int retries, boolean mayWait) {
     return store.transaction(
@@ -332,10 +322,6 @@ public final class IndexingService {
                 ? -1
                 : new com.evidence.rag.repository.DocumentBatchRepository(store)
                     .reserve(claim, requests, retries, mayWait));
-  }
-
-  public void recordBatchUsage(IndexClaim claim, int started, int finished, boolean complete) {
-    recordBatchUsage(claim, started, finished, complete, Integer.MAX_VALUE);
   }
 
   /** {@code expected} requests stay charged; only an unused retry allowance is released. */

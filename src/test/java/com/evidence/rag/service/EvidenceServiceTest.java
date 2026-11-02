@@ -103,7 +103,7 @@ class EvidenceServiceTest {
       assertTrue(scope.publications().isEmpty());
       var receipt =
           fixture.evidence.finish(
-              scope, abstained("empty_scope"), () -> AnswerEligibility.ELIGIBLE);
+              scope, abstained("empty_scope"), () -> AnswerEligibility.ELIGIBLE, null);
       assertEquals("abstained", receipt.outcome());
       assertEquals("empty_scope", receipt.reasonCode());
       assertEquals(1, scalar("SELECT COUNT(*) FROM query_traces"));
@@ -179,7 +179,10 @@ class EvidenceServiceTest {
               .code());
       var receipt =
           fixture.evidence.finish(
-              scope, answered(physicalIds(candidate).getFirst()), () -> AnswerEligibility.ELIGIBLE);
+              scope,
+              answered(physicalIds(candidate).getFirst()),
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       assertEquals("abstained", receipt.outcome());
       assertEquals("scope_changed", receipt.reasonCode());
       assertEquals(2, scalar("SELECT COUNT(*) FROM query_trace_documents"));
@@ -206,7 +209,8 @@ class EvidenceServiceTest {
               .finish(
                   scope,
                   answered(physicalIds(candidate).getFirst()),
-                  () -> AnswerEligibility.ELIGIBLE)
+                  () -> AnswerEligibility.ELIGIBLE,
+                  null)
               .outcome());
     }
   }
@@ -220,7 +224,10 @@ class EvidenceServiceTest {
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       var receipt =
           fixture.evidence.finish(
-              scope, answered(physicalIds(claim).getFirst()), () -> AnswerEligibility.ELIGIBLE);
+              scope,
+              answered(physicalIds(claim).getFirst()),
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       traceId = receipt.traceId();
       assertEquals("answered", receipt.outcome());
       assertNull(receipt.reasonCode());
@@ -261,7 +268,10 @@ class EvidenceServiceTest {
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       var receipt =
           fixture.evidence.finish(
-              scope, answered(physicalIds(claim).getFirst()), () -> AnswerEligibility.ELIGIBLE);
+              scope,
+              answered(physicalIds(claim).getFirst()),
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       withdraw(noncandidate.documentId());
       fails(FailureKind.NOT_FOUND, () -> fixture.evidence.source(owner, receipt.traceId(), 1));
     }
@@ -276,7 +286,10 @@ class EvidenceServiceTest {
           FailureKind.INVALID_INPUT,
           () ->
               fixture.evidence.finish(
-                  scope, answered("seg-" + "f".repeat(64)), () -> AnswerEligibility.ELIGIBLE));
+                  scope,
+                  answered("seg-" + "f".repeat(64)),
+                  () -> AnswerEligibility.ELIGIBLE,
+                  null));
       var invalidLocator =
           new TraceDraft(
               hash("question"),
@@ -297,7 +310,9 @@ class EvidenceServiceTest {
                       List.of(hash("fact")))));
       fails(
           FailureKind.INVALID_INPUT,
-          () -> fixture.evidence.finish(scope, invalidLocator, () -> AnswerEligibility.ELIGIBLE));
+          () ->
+              fixture.evidence.finish(
+                  scope, invalidLocator, () -> AnswerEligibility.ELIGIBLE, null));
       assertEquals(0, scalar("SELECT COUNT(*) FROM query_traces"));
     }
   }
@@ -316,7 +331,8 @@ class EvidenceServiceTest {
                   fixture.evidence.finish(
                       scope,
                       answered(physicalIds(claim).getFirst()),
-                      () -> AnswerEligibility.ELIGIBLE));
+                      () -> AnswerEligibility.ELIGIBLE,
+                      null));
       assertFalse(problem.toString().contains("test-only"));
       assertEquals(0, scalar("SELECT COUNT(*) FROM query_traces"));
       assertEquals(0, scalar("SELECT COUNT(*) FROM query_trace_documents"));
@@ -327,7 +343,10 @@ class EvidenceServiceTest {
           fixture
               .evidence
               .finish(
-                  scope, answered(physicalIds(claim).getFirst()), () -> AnswerEligibility.ELIGIBLE)
+                  scope,
+                  answered(physicalIds(claim).getFirst()),
+                  () -> AnswerEligibility.ELIGIBLE,
+                  null)
               .outcome());
     }
   }
@@ -338,7 +357,7 @@ class EvidenceServiceTest {
       var claim = fixture.publish(owner, TEXT);
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       fixture.evidence.finish(
-          scope, answered(physicalIds(claim).getFirst()), () -> AnswerEligibility.ELIGIBLE);
+          scope, answered(physicalIds(claim).getFirst()), () -> AnswerEligibility.ELIGIBLE, null);
       for (String table :
           List.of("query_traces", "query_trace_documents", "query_trace_evidence")) {
         assertThrows(SQLException.class, () -> sql("DELETE FROM " + table));
@@ -381,7 +400,8 @@ class EvidenceServiceTest {
                                     () ->
                                         allowed.get()
                                             ? AnswerEligibility.ELIGIBLE
-                                            : AnswerEligibility.PROCESSING_TIMEOUT)
+                                            : AnswerEligibility.PROCESSING_TIMEOUT,
+                                    null)
                                 .reasonCode());
                       } catch (Throwable error) {
                         failure.set(error);
@@ -412,7 +432,8 @@ class EvidenceServiceTest {
               () ->
                   checks.incrementAndGet() == 1
                       ? AnswerEligibility.CONFIGURATION_CHANGED
-                      : AnswerEligibility.ELIGIBLE);
+                      : AnswerEligibility.ELIGIBLE,
+              null);
       assertEquals(2, checks.get());
       assertEquals("abstained", receipt.outcome());
       assertEquals("configuration_changed", receipt.reasonCode());
@@ -435,7 +456,8 @@ class EvidenceServiceTest {
               () ->
                   checks.incrementAndGet() == 1
                       ? AnswerEligibility.ELIGIBLE
-                      : AnswerEligibility.CONFIGURATION_CHANGED);
+                      : AnswerEligibility.CONFIGURATION_CHANGED,
+              null);
       assertEquals(2, checks.get());
       assertEquals("abstained", receipt.outcome());
       assertEquals("configuration_changed", receipt.reasonCode());
@@ -458,8 +480,8 @@ class EvidenceServiceTest {
                 fixture.evidence.finish(
                     scope,
                     answered(physicalIds(claim).getFirst()),
-                    () ->
-                        checks.incrementAndGet() == nullCheck ? null : AnswerEligibility.ELIGIBLE));
+                    () -> checks.incrementAndGet() == nullCheck ? null : AnswerEligibility.ELIGIBLE,
+                    null));
         assertEquals(nullCheck, checks.get());
         assertEquals(0, scalar("SELECT COUNT(*) FROM query_traces"));
         assertEquals(0, scalar("SELECT COUNT(*) FROM query_trace_documents"));

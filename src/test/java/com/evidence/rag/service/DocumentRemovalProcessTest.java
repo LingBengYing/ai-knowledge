@@ -137,7 +137,7 @@ class DocumentRemovalProcessTest {
                 overlapping.set(alive(pidFile));
                 return new ProcessTextParser(limit);
               });
-      try (var job = new IngestionJob(processor)) {
+      try (var job = new IngestionJob(processor, null, 1)) {
         await(() -> alive(pidFile), "Actual parser child must start");
         assertEquals(
             "processing", authority.ingestion().ingestionStatus(OWNER, first.taskId()).state());
@@ -219,7 +219,7 @@ class DocumentRemovalProcessTest {
                 return new ProcessTextIndexer(
                     external.settings().models(), external.settings().projection(), limit);
               });
-      try (var job = new IndexingJob(processor)) {
+      try (var job = new IndexingJob(processor, null, 1)) {
         await(() -> alive(pidFile), "Actual indexing child must start");
         assertEquals(
             "processing", authority.indexing().indexingStatus(OWNER, task.taskId()).state());

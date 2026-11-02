@@ -52,7 +52,9 @@ class IndexingTaskProcessorTest {
                       assertFalse(alive(pid), "A retry must not overlap the cancelled child");
                       return new ProcessTextIndexer(
                           external.settings().models(), external.settings().projection(), limit);
-                    }))) {
+                    }),
+                null,
+                1)) {
       String document = parsed(authority, "cancel.txt");
       String task = task(authority, external, document);
       await(() -> alive(pid));
@@ -82,7 +84,9 @@ class IndexingTaskProcessorTest {
                     owner.workspaceId(),
                     external.target(),
                     Duration.ofSeconds(8),
-                    limit -> child(external, limit, "hang", pid)))) {
+                    limit -> child(external, limit, "hang", pid)),
+                null,
+                1)) {
       String document = parsed(authority, "shutdown.txt");
       String task = task(authority, external, document);
       await(() -> alive(pid));
@@ -114,7 +118,9 @@ class IndexingTaskProcessorTest {
                     owner.workspaceId(),
                     external.target(),
                     Duration.ofSeconds(8),
-                    limit -> child(external, limit, "hang", pid)))) {
+                    limit -> child(external, limit, "hang", pid)),
+                null,
+                1)) {
       String document = parsed(authority, "revoked.txt");
       String task = task(authority, external, document);
       await(() -> alive(pid));
@@ -152,7 +158,9 @@ class IndexingTaskProcessorTest {
                       calls.incrementAndGet();
                       return new ProcessTextIndexer(
                           external.settings().models(), external.settings().projection(), limit);
-                    }))) {
+                    }),
+                null,
+                1)) {
       String document = parsed(authority, "configuration.txt");
       var good = external.target();
       var changed =
@@ -183,7 +191,9 @@ class IndexingTaskProcessorTest {
                     external.settings().models(),
                     external.settings().projection(),
                     external.target(),
-                    Duration.ofSeconds(8)))) {
+                    Duration.ofSeconds(8)),
+                null,
+                1)) {
       external.failureMode = "partial-upsert";
       String document = parsed(authority, "partial.txt");
       String task = task(authority, external, document);
@@ -217,7 +227,9 @@ class IndexingTaskProcessorTest {
                     limit ->
                         calls.getAndIncrement() == 0
                             ? child(external, limit, "hang", pid)
-                            : child(external, limit, "success", pid)))) {
+                            : child(external, limit, "success", pid)),
+                null,
+                1)) {
       String document = parsed(authority, "timeout.txt");
       String task = task(authority, external, document);
       String next = task(authority, external, parsed(authority, "next.txt"));
@@ -247,7 +259,9 @@ class IndexingTaskProcessorTest {
                         throw new IllegalStateException("private diagnostic must not be returned");
                       }
                       return child(external, limit, "success", directory.resolve("unused"));
-                    }))) {
+                    }),
+                null,
+                1)) {
       String failed = task(authority, external, parsed(authority, "unexpected.txt"));
       String next = task(authority, external, parsed(authority, "success.txt"));
       await(() -> "failed".equals(authority.indexingStatus(owner, failed).get("state")));

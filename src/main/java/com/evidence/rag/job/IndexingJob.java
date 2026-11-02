@@ -12,22 +12,9 @@ public final class IndexingJob implements AutoCloseable {
 
   private final BoundedTaskJob<Work> tasks;
 
-  public IndexingJob(IndexingTaskProcessor processor) {
-    this(processor, null);
-  }
-
-  public IndexingJob(IndexingTaskProcessor processor, LibraryOperationGate operations) {
-    this(() -> processor, operations, 1);
-  }
-
   public IndexingJob(
       IndexingTaskProcessor processor, LibraryOperationGate operations, int concurrency) {
     this(() -> processor, operations, concurrency);
-  }
-
-  public static IndexingJob managed(
-      Supplier<IndexingTaskProcessor> processors, LibraryOperationGate operations) {
-    return new IndexingJob(processors, operations, 1);
   }
 
   public static IndexingJob managed(

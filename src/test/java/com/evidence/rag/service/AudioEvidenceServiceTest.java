@@ -47,7 +47,8 @@ class AudioEvidenceServiceTest {
                   material.getLast().physicalSegmentId(),
                   material.getLast().transcript().startCodePoint(),
                   material.getLast().transcript().endCodePoint()),
-              () -> AnswerEligibility.ELIGIBLE);
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       var source = context.evidence.audioSource(context.owner, receipt.traceId(), 1);
       assertEquals(TEXTS.getLast(), source.quote());
       assertEquals(2000, source.startMs());
@@ -81,7 +82,8 @@ class AudioEvidenceServiceTest {
                   material.physicalSegmentId(),
                   material.transcript().startCodePoint(),
                   material.transcript().endCodePoint()),
-              () -> AnswerEligibility.ELIGIBLE);
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       context.revoke(uncited);
       assertThrows(
           ApplicationException.class,
@@ -110,7 +112,8 @@ class AudioEvidenceServiceTest {
               () ->
                   checks.getAndIncrement() == 0
                       ? AnswerEligibility.ELIGIBLE
-                      : AnswerEligibility.PROCESSING_TIMEOUT);
+                      : AnswerEligibility.PROCESSING_TIMEOUT,
+              null);
       assertEquals("abstained", receipt.outcome());
       assertEquals("processing_timeout", receipt.reasonCode());
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM audio_trace_evidence"));
@@ -129,7 +132,8 @@ class AudioEvidenceServiceTest {
               context.evidence.finish(
                   scope,
                   trace(audio.physicalIds().getLast(), 0, 2),
-                  () -> AnswerEligibility.ELIGIBLE));
+                  () -> AnswerEligibility.ELIGIBLE,
+                  null));
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM query_traces"));
       assertTrue(context.evidence.hydrateAudio(scope, List.of()).isEmpty());
     }

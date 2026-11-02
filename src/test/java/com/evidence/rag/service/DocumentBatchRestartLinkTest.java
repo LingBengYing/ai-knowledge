@@ -108,7 +108,7 @@ class DocumentBatchRestartLinkTest {
 
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(fresh, claim.jobId());
-      assertTrue(authority.indexing().reserveBatchRequests(claim, 1));
+      assertTrue(authority.indexing().reserveBatchRequests(claim, 1, 0, false) >= 0);
       assertTrue(authority.indexing().completeIndexing(claim, digests(claim), receipt(claim)));
 
       var done = batches.status(actor, id, 0, 100);
@@ -137,7 +137,7 @@ class DocumentBatchRestartLinkTest {
 
       var claimA = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(taskA.taskId(), claimA.jobId());
-      assertFalse(authority.indexing().reserveBatchRequests(claimA, 50));
+      assertFalse(authority.indexing().reserveBatchRequests(claimA, 50, 0, false) >= 0);
       assertTrue(authority.indexing().cancelUnreservedIndexing(claimA));
       assertEquals("halted", batches.status(actor, id, 0, 100).state());
       // The halt cancels B's automatic attempt.
@@ -153,7 +153,7 @@ class DocumentBatchRestartLinkTest {
       var claim = authority.indexing().claimIndexing(actor.workspaceId()).orElseThrow();
       assertEquals(fresh, claim.jobId());
       assertEquals(1, claim.attempt());
-      assertTrue(authority.indexing().reserveBatchRequests(claim, 1));
+      assertTrue(authority.indexing().reserveBatchRequests(claim, 1, 0, false) >= 0);
       assertTrue(authority.indexing().failIndexing(claim, "indexing_failed"));
 
       var failed = batches.status(actor, id, 0, 100);

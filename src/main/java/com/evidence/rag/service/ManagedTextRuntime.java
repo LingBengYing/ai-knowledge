@@ -54,10 +54,6 @@ public final class ManagedTextRuntime implements AutoCloseable {
     return anchoredFactory != null;
   }
 
-  public TextRuntimeSnapshot prepare(long version, TextModelConfiguration configuration) {
-    return prepare(version, configuration, null);
-  }
-
   public TextRuntimeSnapshot prepare(
       long version, TextModelConfiguration configuration, TextIndexAnchor indexAnchor) {
     if (closed || version < 1 || version > 9_007_199_254_740_991L || configuration == null) {

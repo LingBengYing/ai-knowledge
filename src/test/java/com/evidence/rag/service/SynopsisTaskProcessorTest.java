@@ -108,7 +108,7 @@ class SynopsisTaskProcessorTest {
               library, new SynopsisService(models, Duration.ofSeconds(10)), OWNER.workspaceId());
       var publication = new SynopsisCorpusFixture(store, OWNER, TARGET).text("设备维护记录。");
       var task = processor.create(OWNER, publication.documentId());
-      try (var job = new SynopsisJob(processor)) {
+      try (var job = new SynopsisJob(processor, null)) {
         assertTrue(started.await(5, TimeUnit.SECONDS));
         job.close();
         assertEquals("unavailable", library.task(OWNER, task.taskId()).state());

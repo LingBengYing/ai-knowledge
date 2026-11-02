@@ -50,7 +50,7 @@ final class ManagedTextTestFixture implements AutoCloseable {
   }
 
   void activate(long version) {
-    var candidate = runtime.prepare(version, configuration());
+    var candidate = runtime.prepare(version, configuration(), null);
     try (var maintenance =
         context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
       runtime.install(candidate, maintenance, () -> {});

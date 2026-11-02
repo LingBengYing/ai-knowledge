@@ -43,11 +43,8 @@ final class PdfOcrCompiler {
     this(
         (PageOcr)
             image ->
-                ocr.read(image).map(value -> value.text().pages().getFirst().text()).orElse(""));
-  }
-
-  PdfOcrCompiler(PageOcr ocr) {
-    this(ocr, 1);
+                ocr.read(image).map(value -> value.text().pages().getFirst().text()).orElse(""),
+        1);
   }
 
   PdfOcrCompiler(PageOcr ocr, int concurrency) {

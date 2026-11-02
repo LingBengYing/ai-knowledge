@@ -128,7 +128,8 @@ class SourceImageTest {
                           1.0,
                           1.0,
                           List.of(textHash)))),
-              () -> AnswerEligibility.ELIGIBLE);
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
 
       var source = fixture.evidence.source(OWNER, receipt.traceId(), 1);
 
@@ -216,7 +217,8 @@ class SourceImageTest {
                 List.of(
                     new TraceEvidence(
                         1, physicalIds(claim).getFirst(), 0, length, 1.0, 1.0, List.of(textHash)))),
-            () -> AnswerEligibility.ELIGIBLE);
+            () -> AnswerEligibility.ELIGIBLE,
+            null);
     assertEquals("answered", receipt.outcome());
     return receipt.traceId();
   }

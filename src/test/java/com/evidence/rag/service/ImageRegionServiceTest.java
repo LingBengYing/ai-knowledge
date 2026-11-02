@@ -97,7 +97,8 @@ class ImageRegionServiceTest {
                   List.of(
                       new TraceEvidence(
                           1, physicalIds(indexing).getFirst(), 8, 10, 1, 1, List.of(hash)))),
-              () -> AnswerEligibility.ELIGIBLE);
+              () -> AnswerEligibility.ELIGIBLE,
+              null);
       assertEquals("answered", receipt.outcome());
       traceId = receipt.traceId();
     }

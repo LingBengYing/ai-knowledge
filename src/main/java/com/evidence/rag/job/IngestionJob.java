@@ -8,14 +8,6 @@ import com.evidence.rag.service.IngestionTaskProcessor;
 public final class IngestionJob implements AutoCloseable {
   private final BoundedTaskJob<IngestionClaim> tasks;
 
-  public IngestionJob(IngestionTaskProcessor processor) {
-    this(processor, null);
-  }
-
-  public IngestionJob(IngestionTaskProcessor processor, LibraryOperationGate operations) {
-    this(processor, operations, 1);
-  }
-
   public IngestionJob(
       IngestionTaskProcessor processor, LibraryOperationGate operations, int concurrency) {
     tasks =
