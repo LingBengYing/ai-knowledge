@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.FileSynopsis;
+import com.evidence.rag.model.domain.SynopsisFileInput;
 import com.evidence.rag.model.entity.SynopsisTaskEntity;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.IngestionService;
@@ -110,7 +111,7 @@ class VideoSubtitleMigrationTest {
                         repository.markProcessing(
                             "available-history",
                             SynopsisRepositoryTest.CLAIM_HASH,
-                            input,
+                            new SynopsisFileInput(input),
                             SynopsisRepositoryTest.NOW));
                     assertTrue(
                         repository.complete(
@@ -129,7 +130,7 @@ class VideoSubtitleMigrationTest {
                         repository.markProcessing(
                             "processing-history",
                             SynopsisRepositoryTest.CLAIM_HASH,
-                            input,
+                            new SynopsisFileInput(input),
                             SynopsisRepositoryTest.NOW));
                     return repository.findTask("processing-history").orElseThrow();
                   });

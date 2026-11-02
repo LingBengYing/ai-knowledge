@@ -11,6 +11,7 @@ import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.FileSynopsis;
 import com.evidence.rag.model.domain.SynopsisDraft;
 import com.evidence.rag.model.domain.SynopsisEvidence;
+import com.evidence.rag.model.domain.SynopsisFileInput;
 import com.evidence.rag.model.domain.SynopsisInput;
 import com.evidence.rag.support.PublishedCorpusFixture;
 import java.nio.file.Path;
@@ -75,8 +76,12 @@ class SynopsisRepositoryTest {
                         POLICY)
                     .orElseThrow()
                     .id());
-            assertTrue(repository.markProcessing("synopsis-one", CLAIM_HASH, input, NOW));
-            assertFalse(repository.markProcessing("synopsis-one", CLAIM_HASH, input, NOW));
+            assertTrue(
+                repository.markProcessing(
+                    "synopsis-one", CLAIM_HASH, new SynopsisFileInput(input), NOW));
+            assertFalse(
+                repository.markProcessing(
+                    "synopsis-one", CLAIM_HASH, new SynopsisFileInput(input), NOW));
             assertTrue(repository.hasProcessing(OWNER.workspaceId()));
             var task = repository.findTask("synopsis-one").orElseThrow();
             assertEquals(OWNER, task.creator());
@@ -125,7 +130,8 @@ class SynopsisRepositoryTest {
                 () ->
                     repository.insertTask(
                         "duplicate", OWNER, input.publication(), MODEL, POLICY, NOW));
-            assertTrue(repository.markProcessing("first", CLAIM_HASH, input, NOW));
+            assertTrue(
+                repository.markProcessing("first", CLAIM_HASH, new SynopsisFileInput(input), NOW));
             assertEquals(1, repository.recoverProcessing(OWNER.workspaceId(), NOW));
             assertEquals(0, repository.recoverProcessing(OWNER.workspaceId(), NOW));
             var stopped = repository.findTask("first").orElseThrow();

@@ -32,7 +32,8 @@ final class CleanupV21Fixture {
               "cleanup_managed_backups")) {
         assertEquals(0, count(connection, "SELECT COUNT(*) FROM " + table), table);
       }
-      for (String table : CleanupPayloadTables.names()) {
+      for (String table :
+          CleanupPayloadTables.TABLES.stream().map(CleanupPayloadTables.Table::name).toList()) {
         assertEquals(
             0,
             count(connection, "SELECT COUNT(*) FROM " + table + " WHERE payload_purged!=0"),

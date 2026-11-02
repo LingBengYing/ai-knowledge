@@ -277,14 +277,6 @@ public final class DocumentUpdateRepository {
     state(id, "failed", now);
   }
 
-  public void markFailed(String id, String safeCode, String now) {
-    markFailed(id, now);
-  }
-
-  public void markCancelled(String id, String now) {
-    state(id, "cancelled", now);
-  }
-
   void state(String id, String state, String now) {
     store.execute(
         "UPDATE document_replacements SET state=?,updated_at=? WHERE id=? AND state!='published'",

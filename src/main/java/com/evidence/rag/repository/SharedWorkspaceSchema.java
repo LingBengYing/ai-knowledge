@@ -17,19 +17,23 @@ final class SharedWorkspaceSchema {
           "sound_trace_documents",
           "video_av_trace_documents");
   private final SqliteAuthorityStore store;
+  private final SchemaObjects schemaObjects;
 
   SharedWorkspaceSchema(SqliteAuthorityStore store) {
     this.store = store;
+    this.schemaObjects = new SchemaObjects(store);
   }
 
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionTwentyNine();
+          new KnowledgeAnswerSchema(store).verify();
           for (String table : TRACE_TABLES) {
             String definition =
                 replaceRequired(
-                    sql("table", table), "scope_count BETWEEN 0 AND 128", "scope_count>=0");
+                    schemaObjects.sql("table", table),
+                    "scope_count BETWEEN 0 AND 128",
+                    "scope_count>=0");
             if (table.equals("knowledge_answer_traces")) {
               definition =
                   replaceRequired(
@@ -40,11 +44,12 @@ final class SharedWorkspaceSchema {
           for (String table : DOCUMENT_TABLES) {
             rebuild(
                 table,
-                replaceRequired(sql("table", table), "ordinal BETWEEN 0 AND 127", "ordinal>=0"));
+                replaceRequired(
+                    schemaObjects.sql("table", table), "ordinal BETWEEN 0 AND 127", "ordinal>=0"));
           }
           String citations =
               replaceRequired(
-                  sql("table", "knowledge_answer_citations"),
+                  schemaObjects.sql("table", "knowledge_answer_citations"),
                   "ordinal BETWEEN 1 AND 32",
                   "ordinal>=1");
           citations =
@@ -56,7 +61,9 @@ final class SharedWorkspaceSchema {
           for (String name : List.of("sound_traces_complete", "video_av_traces_complete")) {
             String definition =
                 replaceRequired(
-                    sql("trigger", name), "JOIN document_acl a ON a.document_id=d.id", "");
+                    schemaObjects.sql("trigger", name),
+                    "JOIN document_acl a ON a.document_id=d.id",
+                    "");
             definition =
                 replaceRequired(
                     definition,
@@ -136,12 +143,6 @@ final class SharedWorkspaceSchema {
     }
   }
 
-  private String sql(String type, String name) {
-    return AuthorityRows.text(
-        store.rows("SELECT sql FROM sqlite_master WHERE type=? AND name=?", type, name).getFirst(),
-        "sql");
-  }
-
   private static String replaceRequired(String definition, String before, String after) {
     if (!definition.contains(before)) {
       throw new IllegalStateException("Unexpected shared workspace migration input");
@@ -149,21 +150,22 @@ final class SharedWorkspaceSchema {
     return definition.replace(before, after);
   }
 
+  /** Refreshes only names already in the inventory; this version adds no schema objects. */
   private void refreshInventory() {
-    String guard = sql("trigger", "cleanup_schema_objects_no_update");
-    store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    for (var row :
-        store.rows(
-            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-      String name = AuthorityRows.text(row, "name");
-      String hash =
-          ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
-      store.execute(
-          "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-          row.get("type"),
-          hash,
-          name);
-    }
-    store.execute(guard);
+    schemaObjects.withoutInventoryGuard(
+        () -> {
+          for (var row :
+              store.rows(
+                  "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
+            String name = AuthorityRows.text(row, "name");
+            String hash =
+                ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
+            store.execute(
+                "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
+                row.get("type"),
+                hash,
+                name);
+          }
+        });
   }
 }

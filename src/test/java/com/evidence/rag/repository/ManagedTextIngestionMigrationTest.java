@@ -103,7 +103,7 @@ class ManagedTextIngestionMigrationTest {
                 foreignKeys, store.rows("SELECT * FROM pragma_foreign_key_list('ingestion_jobs')"));
             assertEquals(1, store.count("PRAGMA foreign_keys"));
             assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
-            new AuthoritySchema(store).verifyVersionThirtyTwo();
+            new WikiDraftSchema(store).verify();
             return null;
           });
       assertArrayEquals(

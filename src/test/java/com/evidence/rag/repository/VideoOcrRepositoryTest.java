@@ -155,6 +155,7 @@ class VideoOcrRepositoryTest {
                     List.of(),
                     List.of(),
                     List.of(citation),
+                    List.of(),
                     NOW);
                 assertEquals(
                     2, store.count("SELECT scope_count FROM query_traces WHERE id='ocr-trace'"));
@@ -242,6 +243,7 @@ class VideoOcrRepositoryTest {
                           List.of(),
                           List.of(),
                           List.of(citation),
+                          List.of(),
                           NOW);
                       return null;
                     }));

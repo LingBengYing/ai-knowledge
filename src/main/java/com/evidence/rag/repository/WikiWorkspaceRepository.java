@@ -49,10 +49,6 @@ public final class WikiWorkspaceRepository {
         .findFirst();
   }
 
-  public List<WikiPageRevision> pages(Actor actor, int offset, int limit, String query) {
-    return pages(actor, offset, limit, query, "active");
-  }
-
   public List<WikiPageRevision> pages(
       Actor actor, int offset, int limit, String query, String state) {
     pagination(offset, limit);
@@ -69,10 +65,6 @@ public final class WikiWorkspaceRepository {
         .stream()
         .map(WikiWorkspaceRepository::page)
         .toList();
-  }
-
-  public long pageCount(Actor actor, String query) {
-    return pageCount(actor, query, "active");
   }
 
   public long pageCount(Actor actor, String query, String state) {

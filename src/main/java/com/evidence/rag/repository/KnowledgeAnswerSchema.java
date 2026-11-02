@@ -1,22 +1,22 @@
 package com.evidence.rag.repository;
 
-import com.evidence.rag.model.domain.ModelValues;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 
 /** v29 stores mixed text answer locators without weakening the old audiovisual proof tables. */
 final class KnowledgeAnswerSchema {
   private final SqliteAuthorityStore store;
+  private final SchemaObjects schemaObjects;
 
   KnowledgeAnswerSchema(SqliteAuthorityStore store) {
     this.store = store;
+    this.schemaObjects = new SchemaObjects(store);
   }
 
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionTwentyEight();
+          new VideoTextEvidenceSchema(store).verify();
           store.execute(
               """
           CREATE TABLE knowledge_answer_traces(
@@ -118,7 +118,7 @@ final class KnowledgeAnswerSchema {
                       + " WHEN EXISTS(SELECT 1 FROM knowledge_answer_traces WHERE id=NEW.trace_id) BEGIN SELECT RAISE(ABORT,'sealed knowledge answer'); END");
             }
           }
-          refreshInventory();
+          schemaObjects.refreshInventory();
           store.execute("UPDATE format_info SET version=29");
           store.execute("PRAGMA user_version=29");
           verify();
@@ -133,37 +133,5 @@ final class KnowledgeAnswerSchema {
         != 3) {
       throw new IllegalStateException("Unsupported knowledge answer authority format");
     }
-  }
-
-  private void refreshInventory() {
-    String guard =
-        AuthorityRows.text(
-            store
-                .rows(
-                    "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='cleanup_schema_objects_no_update'")
-                .getFirst(),
-            "sql");
-    store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    for (var row :
-        store.rows(
-            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-      String name = AuthorityRows.text(row, "name");
-      String hash =
-          ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
-      if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name) == 0) {
-        store.execute(
-            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-            name,
-            row.get("type"),
-            hash);
-      } else {
-        store.execute(
-            "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-            row.get("type"),
-            hash,
-            name);
-      }
-    }
-    store.execute(guard);
   }
 }

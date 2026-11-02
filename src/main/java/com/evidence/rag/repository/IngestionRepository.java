@@ -137,14 +137,6 @@ public final class IngestionRepository {
     new DocumentUpdateRepository(store).attachIngestionJob(replacementId, jobId, now);
   }
 
-  public boolean replacementCurrent(String jobId) {
-    return new DocumentUpdateRepository(store).replacementCurrent(jobId);
-  }
-
-  public boolean sourceCurrent(TaskEntity task) {
-    return replacementCurrent(task.id());
-  }
-
   /**
    * Queued parsing in fair claim order: tasks outside import batches first, then the batches in
    * round-robin order (see {@link FairQueue}).
@@ -923,10 +915,6 @@ public final class IngestionRepository {
         text,
         segments,
         regions);
-  }
-
-  public List<VideoEvidenceGroup> findVideoGroups(String revisionId) {
-    return findVideoCompilation(revisionId).isEmpty() ? List.of() : videoGroups(revisionId);
   }
 
   private List<VideoEvidenceGroup> videoGroups(String revisionId) {

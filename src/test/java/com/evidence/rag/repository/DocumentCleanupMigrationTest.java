@@ -30,7 +30,10 @@ class DocumentCleanupMigrationTest {
             assertEquals(
                 HistoricalSchemaV25Fixture.CURRENT_VERSION,
                 store.count("SELECT version FROM format_info"));
-            for (String table : CleanupPayloadTables.names()) {
+            for (String table :
+                CleanupPayloadTables.TABLES.stream()
+                    .map(CleanupPayloadTables.Table::name)
+                    .toList()) {
               assertEquals(
                   1,
                   store.count(

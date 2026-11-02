@@ -1,7 +1,5 @@
 package com.evidence.rag.repository;
 
-import com.evidence.rag.model.domain.ModelValues;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /** v35 permits one explicitly selected deleted Wiki page to be purged, with content-free audit. */
@@ -65,36 +63,9 @@ final class WikiPagePurgeSchema {
           }
           // The inventory is immutable during normal operation. Refresh only these migration
           // objects inside this transaction, then restore its exact original guard before commit.
-          String inventoryGuard =
-              AuthorityRows.text(
-                  store
-                      .rows(
-                          "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='cleanup_schema_objects_no_update'")
-                      .getFirst(),
-                  "sql");
-          store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-          for (var row :
-              store.rows(
-                  "SELECT type,name,sql FROM sqlite_master WHERE name LIKE 'wiki_page_purges%' OR name IN ('wiki_page_revisions_no_delete','wiki_proposals_no_delete','wiki_page_lifecycle_no_delete','wiki_page_revisions_purged','wiki_proposals_purged')")) {
-            String name = AuthorityRows.text(row, "name");
-            String hash =
-                ModelValues.sha256(AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8));
-            if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name)
-                == 0) {
-              store.execute(
-                  "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-                  name,
-                  row.get("type"),
-                  hash);
-            } else {
-              store.execute(
-                  "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-                  row.get("type"),
-                  hash,
-                  name);
-            }
-          }
-          store.execute(inventoryGuard);
+          new SchemaObjects(store)
+              .refreshInventory(
+                  "SELECT type,name,sql FROM sqlite_master WHERE name LIKE 'wiki_page_purges%' OR name IN ('wiki_page_revisions_no_delete','wiki_proposals_no_delete','wiki_page_lifecycle_no_delete','wiki_page_revisions_purged','wiki_proposals_purged')");
           store.execute("UPDATE format_info SET version=35");
           store.execute("PRAGMA user_version=35");
           verify();

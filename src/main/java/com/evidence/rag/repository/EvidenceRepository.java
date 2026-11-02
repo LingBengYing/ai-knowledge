@@ -61,53 +61,6 @@ import org.springframework.stereotype.Repository;
 /** SQL boundary for active publication snapshots, source hydration and append-only query traces. */
 @Repository
 public final class EvidenceRepository {
-  public void insertTrace(
-      String traceId,
-      EvidenceScope scope,
-      TraceDraft draft,
-      List<TraceCitationEntity> citations,
-      List<TraceImageCitationEntity> imageCitations,
-      List<TraceAudioCitationEntity> audioCitations,
-      List<TraceVideoCitationEntity> videoCitations,
-      List<TraceVideoOcrCitationEntity> videoOcrCitations,
-      List<TraceVideoSubtitleCitationEntity> videoSubtitleCitations,
-      String createdAt) {
-    insertTraceAll(
-        traceId,
-        scope,
-        draft,
-        citations,
-        imageCitations,
-        audioCitations,
-        videoCitations,
-        videoOcrCitations,
-        videoSubtitleCitations,
-        createdAt);
-  }
-
-  public void insertTrace(
-      String traceId,
-      EvidenceScope scope,
-      TraceDraft draft,
-      List<TraceCitationEntity> citations,
-      List<TraceImageCitationEntity> imageCitations,
-      List<TraceAudioCitationEntity> audioCitations,
-      List<TraceVideoCitationEntity> videoCitations,
-      List<TraceVideoOcrCitationEntity> videoOcrCitations,
-      String createdAt) {
-    insertTraceAll(
-        traceId,
-        scope,
-        draft,
-        citations,
-        imageCitations,
-        audioCitations,
-        videoCitations,
-        videoOcrCitations,
-        List.of(),
-        createdAt);
-  }
-
   public List<PublicationVersion> findVideoSubtitlePublications(EvidenceScope scope) {
     if (scope.publications().isEmpty()) {
       return List.of();
@@ -784,28 +737,6 @@ public final class EvidenceRepository {
         text(row, "policy_revision"));
   }
 
-  public void insertTrace(
-      String traceId,
-      EvidenceScope scope,
-      TraceDraft draft,
-      List<TraceCitationEntity> citations,
-      List<TraceImageCitationEntity> imageCitations,
-      List<TraceAudioCitationEntity> audioCitations,
-      List<TraceVideoCitationEntity> videoCitations,
-      String createdAt) {
-    insertTraceAll(
-        traceId,
-        scope,
-        draft,
-        citations,
-        imageCitations,
-        audioCitations,
-        videoCitations,
-        List.of(),
-        List.of(),
-        createdAt);
-  }
-
   private static Integer nullableInteger(Map<String, Object> row, String column) {
     return row.get(column) == null ? null : integer(row, column);
   }
@@ -1247,27 +1178,6 @@ public final class EvidenceRepository {
   private record PageKey(String revisionId, int pageNumber) {}
 
   public void insertTrace(
-      String traceId,
-      EvidenceScope scope,
-      TraceDraft draft,
-      List<TraceCitationEntity> citations,
-      List<TraceImageCitationEntity> imageCitations,
-      List<TraceAudioCitationEntity> audioCitations,
-      String createdAt) {
-    insertTraceAll(
-        traceId,
-        scope,
-        draft,
-        citations,
-        imageCitations,
-        audioCitations,
-        List.of(),
-        List.of(),
-        List.of(),
-        createdAt);
-  }
-
-  private void insertTraceAll(
       String traceId,
       EvidenceScope scope,
       TraceDraft draft,

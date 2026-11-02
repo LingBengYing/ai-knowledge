@@ -256,7 +256,16 @@ class VideoTraceRepositoryTest {
           .transaction(
               () -> {
                 repository.insertTrace(
-                    "video-trace", snapshot, draft, List.of(), List.of(), List.of(), expected, NOW);
+                    "video-trace",
+                    snapshot,
+                    draft,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    expected,
+                    List.of(),
+                    List.of(),
+                    NOW);
                 return null;
               });
       assertEquals("蓝色圆形。", new VideoSourceEvidence(source, transcript).quote());
@@ -371,6 +380,8 @@ class VideoTraceRepositoryTest {
                         List.of(),
                         List.of(),
                         List.of(citation),
+                        List.of(),
+                        List.of(),
                         NOW);
                     return null;
                   }));
@@ -473,6 +484,8 @@ class VideoTraceRepositoryTest {
                 List.of(),
                 List.of(),
                 List.of(citation),
+                List.of(),
+                List.of(),
                 NOW);
             assertEquals(citation, repository.findTraceVideoCitation(OWNER, "leading-empty", 1));
             assertEquals("预算42万元。", new VideoSourceEvidence(source, locator).quote());

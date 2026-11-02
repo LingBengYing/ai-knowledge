@@ -5,20 +5,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 /** v27 keeps candidate publications invisible until one authority/configuration selection. */
 final class ModelRebuildSchema {
   private final SqliteAuthorityStore store;
+  private final SchemaObjects schemaObjects;
 
   ModelRebuildSchema(SqliteAuthorityStore store) {
     this.store = store;
+    this.schemaObjects = new SchemaObjects(store);
   }
 
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionTwentySix();
+          new DocumentReplacementSchema(store).verify();
           store.execute(
               """
           CREATE TABLE text_runtime_selection(id INTEGER PRIMARY KEY CHECK(id=1),
@@ -72,7 +73,8 @@ final class ModelRebuildSchema {
           store.execute(
               "INSERT INTO text_runtime_selection(id,initialized,updated_at) VALUES(1,0,'1970-01-01T00:00:00Z')");
           String jobs =
-              sql("table", "indexing_jobs")
+              schemaObjects
+                  .sql("table", "indexing_jobs")
                   .replace(
                       "'queued','processing','indexed','failed','cancelled'",
                       "'queued','processing','prepared','indexed','failed','cancelled'")
@@ -83,18 +85,18 @@ final class ModelRebuildSchema {
                       "CHECK(replacement_id IS NOT NULL OR ",
                       "CHECK(model_rebuild_id IS NOT NULL OR replacement_id IS NOT NULL OR ");
           jobs =
-              insertColumn(
+              SchemaObjects.insertColumn(
                   jobs, "model_rebuild_id TEXT REFERENCES model_rebuilds(id) ON DELETE RESTRICT");
           rebuildJobs(jobs);
           store.execute("DROP INDEX indexing_one_pending");
           store.execute(
               "CREATE UNIQUE INDEX indexing_one_pending ON indexing_jobs(document_id) WHERE state IN ('queued','processing','prepared')");
-          String identity = sql("trigger", "indexing_identity");
+          String identity = schemaObjects.sql("trigger", "indexing_identity");
           store.execute("DROP TRIGGER indexing_identity");
           store.execute(
               identity.replace(" ON indexing_jobs", ",model_rebuild_id ON indexing_jobs"));
-          wrap("indexing_rebuild_identity", "NEW.model_rebuild_id IS NULL");
-          wrap("indexing_transition", "OLD.model_rebuild_id IS NULL");
+          schemaObjects.wrapTrigger("indexing_rebuild_identity", "NEW.model_rebuild_id IS NULL");
+          schemaObjects.wrapTrigger("indexing_transition", "OLD.model_rebuild_id IS NULL");
           store.execute(
               """
           CREATE TRIGGER indexing_model_rebuild_identity BEFORE INSERT ON indexing_jobs
@@ -142,7 +144,7 @@ final class ModelRebuildSchema {
           }
           freezeRows();
           mutationGates();
-          refreshInventory();
+          schemaObjects.refreshInventory();
           store.execute("UPDATE format_info SET version=27");
           store.execute("PRAGMA user_version=27");
           verify();
@@ -154,17 +156,20 @@ final class ModelRebuildSchema {
     for (String trigger :
         List.of(
             "active_corpus_publication_complete", "active_corpus_publication_rebuild_complete")) {
-      String original = sql("trigger", trigger);
-      wrap(trigger, "java_model_rebuild_authorized(NEW.document_id)=0");
+      String original = schemaObjects.sql("trigger", trigger);
+      schemaObjects.wrapTrigger(trigger, "java_model_rebuild_authorized(NEW.document_id)=0");
       String candidate =
           original
               .replace(trigger, trigger + "_model_rebuild")
               .replace("j.state='processing'", "j.state='prepared'");
-      store.execute(withCondition(candidate, "java_model_rebuild_authorized(NEW.document_id)=1"));
+      store.execute(
+          SchemaObjects.withCondition(
+              candidate, "java_model_rebuild_authorized(NEW.document_id)=1"));
     }
-    wrap(
+    schemaObjects.wrapTrigger(
         "active_corpus_publications_no_update", "java_model_rebuild_authorized(OLD.document_id)=0");
-    wrap("active_corpus_publication_initial", "java_model_rebuild_authorized(NEW.document_id)=0");
+    schemaObjects.wrapTrigger(
+        "active_corpus_publication_initial", "java_model_rebuild_authorized(NEW.document_id)=0");
     String valid =
         """
         EXISTS(SELECT 1 FROM model_rebuild_items i JOIN model_rebuilds b ON b.id=i.batch_id
@@ -217,8 +222,8 @@ final class ModelRebuildSchema {
             + table
             + " ADD COLUMN model_rebuild_id TEXT REFERENCES model_rebuilds(id) ON DELETE RESTRICT");
     String trigger = table + "_identity";
-    String original = sql("trigger", trigger);
-    wrap(trigger, "NEW.model_rebuild_id IS NULL");
+    String original = schemaObjects.sql("trigger", trigger);
+    schemaObjects.wrapTrigger(trigger, "NEW.model_rebuild_id IS NULL");
     // Preserve all original source/evidence/receipt completeness checks; only the explicit grant
     // substitutes for the two text-target equalities, and itself remains immutable provenance.
     String inherited =
@@ -249,7 +254,7 @@ final class ModelRebuildSchema {
         inherited.replace(
             "AND j.rebuild_sequence>0 AND j.base_vector_set_sha256 IS NOT NULL",
             "AND j.rebuild_sequence>0 AND j.base_vector_set_sha256 IS NOT NULL AND " + allowed);
-    store.execute(withCondition(inherited, "NEW.model_rebuild_id IS NOT NULL"));
+    store.execute(SchemaObjects.withCondition(inherited, "NEW.model_rebuild_id IS NOT NULL"));
   }
 
   private void freezeRows() {
@@ -460,63 +465,5 @@ final class ModelRebuildSchema {
     for (var row : objects) {
       store.execute((String) row.get("sql"));
     }
-  }
-
-  private static String insertColumn(String sql, String column) {
-    int opening = sql.indexOf('(') + 1;
-    return sql.substring(0, opening) + column + "," + sql.substring(opening);
-  }
-
-  private String sql(String type, String name) {
-    return (String)
-        store
-            .rows("SELECT sql FROM sqlite_master WHERE type=? AND name=?", type, name)
-            .getFirst()
-            .get("sql");
-  }
-
-  private static String withCondition(String original, String condition) {
-    int begin = original.toUpperCase(Locale.ROOT).indexOf("BEGIN");
-    var matcher = Pattern.compile("(?i)\\bWHEN\\b").matcher(original.substring(0, begin));
-    int when = matcher.find() ? matcher.start() : -1;
-    String old = when < 0 ? "1" : original.substring(when + 4, begin).strip();
-    return original.substring(0, when < 0 ? begin : when)
-        + " WHEN ("
-        + condition
-        + ") AND ("
-        + old
-        + ") "
-        + original.substring(begin);
-  }
-
-  private void wrap(String name, String condition) {
-    String original = sql("trigger", name);
-    store.execute("DROP TRIGGER " + name);
-    store.execute(withCondition(original, condition));
-  }
-
-  private void refreshInventory() {
-    String guard = sql("trigger", "cleanup_schema_objects_no_update");
-    store.execute("DROP TRIGGER cleanup_schema_objects_no_update");
-    for (var row :
-        store.rows(
-            "SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL ORDER BY type,name")) {
-      String name = AuthorityRows.text(row, "name");
-      String hash = ModelValues.sha256(((String) row.get("sql")).getBytes(StandardCharsets.UTF_8));
-      if (store.count("SELECT COUNT(*) FROM cleanup_schema_objects WHERE name=?", name) == 0) {
-        store.execute(
-            "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-            name,
-            row.get("type"),
-            hash);
-      } else {
-        store.execute(
-            "UPDATE cleanup_schema_objects SET object_type=?,sql_sha256=? WHERE name=?",
-            row.get("type"),
-            hash,
-            name);
-      }
-    }
-    store.execute(guard);
   }
 }

@@ -15,7 +15,7 @@ final class WikiWorkspaceSchema {
   void migrate() {
     store.transaction(
         () -> {
-          new AuthoritySchema(store).verifyVersionThirty();
+          new SharedWorkspaceSchema(store).verify();
           store.execute(
               """
           CREATE TABLE wiki_page_revisions(
