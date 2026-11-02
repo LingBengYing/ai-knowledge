@@ -1,5 +1,10 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.model.domain.QuestionFact;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.tool.parser.ImageInput;
@@ -329,19 +334,6 @@ public final class OpenAiCompatibleVisionModels
     return true;
   }
 
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
-  }
-
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
     return ModelRevisions.fingerprint(
         "java-vision-models-v1-",
@@ -351,13 +343,5 @@ public final class OpenAiCompatibleVisionModels
             DESCRIPTION_PROMPT,
             DRAFT_PROMPT,
             VERIFICATION_PROMPT));
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
   }
 }

@@ -1,5 +1,9 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.invalidConfiguration;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Endpoint;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -142,6 +146,19 @@ final class GeminiProtocol {
     return wav;
   }
 
+  /** A closed JSON schema object whose every property is required. */
+  static Map<String, Object> objectSchema(Map<String, Object> properties) {
+    return Map.of(
+        "type",
+        "object",
+        "properties",
+        properties,
+        "required",
+        properties.keySet().stream().sorted().toList(),
+        "additionalProperties",
+        false);
+  }
+
   static void checkQuestion(String question) {
     if (question == null
         || question.isBlank()
@@ -153,13 +170,6 @@ final class GeminiProtocol {
                     (c < 32 && c != '\n' && c != '\t') || c == 127 || c >= 0xD800 && c <= 0xDFFF)) {
       throw invalidInput();
     }
-  }
-
-  static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
   }
 
   static void exact(JsonNode node, Set<String> fields) {
@@ -196,17 +206,5 @@ final class GeminiProtocol {
     return revision != null
         && revision.matches("[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,159}")
         && !Set.of("latest", "default", "unknown").contains(revision.toLowerCase(Locale.ROOT));
-  }
-
-  static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
-  }
-
-  static TextModels.Failure invalidConfiguration() {
-    return new TextModels.Failure("model_invalid_configuration");
   }
 }

@@ -1,5 +1,10 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.model.domain.SynopsisDraft;
 import com.evidence.rag.model.domain.SynopsisEvidence;
 import com.evidence.rag.model.domain.SynopsisInput;
@@ -271,7 +276,8 @@ public final class OpenAiCompatibleSynopsisModels implements SynopsisModels, Aut
     return new Materials(ids, rows, images);
   }
 
-  private static List<String> evidenceIds(JsonNode node, Set<String> permitted) {
+  /** Distinct permitted evidence ids, at most eight. */
+  static List<String> evidenceIds(JsonNode node, Set<String> permitted) {
     if (!node.isArray() || node.size() > 8) {
       throw invalidResponse();
     }
@@ -299,32 +305,11 @@ public final class OpenAiCompatibleSynopsisModels implements SynopsisModels, Aut
                         || (Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'));
   }
 
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
-  }
-
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
     return ModelRevisions.fingerprint(
         "java-synopsis-models-v1-",
         List.of(
             endpoint.baseUrl().toString(), endpoint.model(), DRAFT_PROMPT, VERIFICATION_PROMPT));
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
   }
 
   private record Materials(

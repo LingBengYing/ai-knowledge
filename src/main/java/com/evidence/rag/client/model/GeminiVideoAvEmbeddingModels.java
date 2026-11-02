@@ -49,7 +49,7 @@ public final class GeminiVideoAvEmbeddingModels implements VideoAvEmbeddingModel
 
   public GeminiVideoAvEmbeddingModels(Configuration configuration) {
     if (configuration == null) {
-      throw GeminiProtocol.invalidConfiguration();
+      throw ModelJson.invalidConfiguration();
     }
     this.configuration = configuration;
     transport =

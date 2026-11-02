@@ -41,7 +41,7 @@ public final class GeminiAudioEmbeddingModels implements AudioEmbeddingModels, A
 
   public GeminiAudioEmbeddingModels(Configuration configuration) {
     if (configuration == null) {
-      throw GeminiProtocol.invalidConfiguration();
+      throw ModelJson.invalidConfiguration();
     }
     this.configuration = configuration;
     transport =

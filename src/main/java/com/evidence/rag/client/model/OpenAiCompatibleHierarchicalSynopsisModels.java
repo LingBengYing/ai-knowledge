@@ -1,5 +1,10 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.model.domain.SynopsisBatch;
 import com.evidence.rag.model.domain.SynopsisBatchReview;
 import com.evidence.rag.model.domain.SynopsisDraft;
@@ -241,7 +246,9 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
     if (!result.path("supported").isBoolean()) {
       throw invalidResponse();
     }
-    var contributing = evidenceIds(result.path("contributing_evidence_ids"), materials.ids());
+    var contributing =
+        OpenAiCompatibleSynopsisModels.evidenceIds(
+            result.path("contributing_evidence_ids"), materials.ids());
     boolean supported = result.path("supported").booleanValue();
     if (supported
         ? !new HashSet<>(contributing).equals(materials.ids())
@@ -338,7 +345,7 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
       if (!validText(text)) {
         throw invalidResponse();
       }
-      var ids = evidenceIds(row.path("evidence_ids"), permitted);
+      var ids = OpenAiCompatibleSynopsisModels.evidenceIds(row.path("evidence_ids"), permitted);
       if (ids.isEmpty()) {
         throw invalidResponse();
       }
@@ -409,22 +416,6 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
     return new Materials(ids, rows, images);
   }
 
-  private static List<String> evidenceIds(JsonNode node, Set<String> permitted) {
-    if (!node.isArray() || node.size() > 8) {
-      throw invalidResponse();
-    }
-    var values = new ArrayList<String>();
-    var seen = new HashSet<String>();
-    for (var value : node) {
-      String id = string(value);
-      if (!permitted.contains(id) || !seen.add(id)) {
-        throw invalidResponse();
-      }
-      values.add(id);
-    }
-    return List.copyOf(values);
-  }
-
   private static boolean validText(String value) {
     return !value.isBlank()
         && value.codePointCount(0, value.length()) <= 1024
@@ -434,19 +425,6 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
                 c ->
                     (c >= 0xD800 && c <= 0xDFFF)
                         || (Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'));
-  }
-
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
   }
 
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
@@ -459,14 +437,6 @@ public final class OpenAiCompatibleHierarchicalSynopsisModels
             REDUCTION_PROMPT,
             REVIEW_PROMPT,
             VERIFICATION_PROMPT));
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
   }
 
   private record Materials(

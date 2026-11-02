@@ -1,5 +1,7 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Endpoint;
 import com.evidence.rag.model.domain.VisualImage;
 import com.evidence.rag.tool.parser.ImageInput;
@@ -161,9 +163,5 @@ public final class SiliconFlowImageEmbeddingModels implements ImageEmbeddingMode
             configuration.endpoint().model(),
             configuration.modelRevision(),
             Integer.toString(configuration.dimensions())));
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
   }
 }

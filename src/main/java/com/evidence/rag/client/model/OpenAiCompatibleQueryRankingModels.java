@@ -1,5 +1,10 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
+
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.QueryRankCandidate;
 import com.evidence.rag.model.domain.VisualImage;
@@ -220,30 +225,9 @@ public final class OpenAiCompatibleQueryRankingModels implements QueryRankingMod
     return List.copyOf(result);
   }
 
-  private static String string(JsonNode node) {
-    if (!node.isString()) {
-      throw invalidResponse();
-    }
-    return node.stringValue();
-  }
-
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
-  }
-
   private static String revisionOf(OpenAiCompatibleModels.Endpoint endpoint) {
     return ModelRevisions.fingerprint(
         "java-query-ranking-models-v1-",
         List.of(endpoint.baseUrl().toString(), endpoint.model(), PROMPT));
-  }
-
-  private static TextModels.Failure invalidInput() {
-    return new TextModels.Failure("model_invalid_input");
-  }
-
-  private static TextModels.Failure invalidResponse() {
-    return new TextModels.Failure("model_invalid_response");
   }
 }

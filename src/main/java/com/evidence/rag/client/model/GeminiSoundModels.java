@@ -3,11 +3,12 @@ package com.evidence.rag.client.model;
 import static com.evidence.rag.client.model.GeminiProtocol.allowed;
 import static com.evidence.rag.client.model.GeminiProtocol.checkQuestion;
 import static com.evidence.rag.client.model.GeminiProtocol.exact;
-import static com.evidence.rag.client.model.GeminiProtocol.invalidConfiguration;
-import static com.evidence.rag.client.model.GeminiProtocol.invalidInput;
-import static com.evidence.rag.client.model.GeminiProtocol.invalidResponse;
-import static com.evidence.rag.client.model.GeminiProtocol.string;
+import static com.evidence.rag.client.model.GeminiProtocol.objectSchema;
 import static com.evidence.rag.client.model.GeminiProtocol.validateConfiguration;
+import static com.evidence.rag.client.model.ModelJson.invalidConfiguration;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+import static com.evidence.rag.client.model.ModelJson.string;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Endpoint;
 import com.evidence.rag.model.domain.AudioWaveform;
@@ -321,18 +322,6 @@ public final class GeminiSoundModels implements SoundModels, AutoCloseable {
       throw invalidResponse();
     }
     return ModelHttpTransport.parseObject(string(text.path("text")));
-  }
-
-  private static Map<String, Object> objectSchema(Map<String, Object> properties) {
-    return Map.of(
-        "type",
-        "object",
-        "properties",
-        properties,
-        "required",
-        properties.keySet().stream().sorted().toList(),
-        "additionalProperties",
-        false);
   }
 
   private static boolean validClaims(List<String> claims, boolean emptyAllowed) {

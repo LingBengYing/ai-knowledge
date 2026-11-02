@@ -1,5 +1,9 @@
 package com.evidence.rag.client.model;
 
+import static com.evidence.rag.client.model.ModelJson.exactFields;
+import static com.evidence.rag.client.model.ModelJson.invalidInput;
+import static com.evidence.rag.client.model.ModelJson.invalidResponse;
+
 import com.evidence.rag.model.domain.QuestionFact;
 import com.evidence.rag.model.dto.AgentMessage;
 import java.net.URI;
@@ -998,12 +1002,6 @@ public final class OpenAiCompatibleModels implements TextModels, FactTextModels,
     return node.stringValue();
   }
 
-  private static void exactFields(JsonNode node, Set<String> fields) {
-    if (!node.isObject() || !new HashSet<>(node.propertyNames()).equals(fields)) {
-      throw invalidResponse();
-    }
-  }
-
   private static String revisionOf(Configuration config) {
     try {
       var digest = MessageDigest.getInstance("SHA-256");
@@ -1020,13 +1018,5 @@ public final class OpenAiCompatibleModels implements TextModels, FactTextModels,
     } catch (NoSuchAlgorithmException unavailable) {
       throw new Failure("model_invalid_configuration");
     }
-  }
-
-  private static Failure invalidInput() {
-    return new Failure("model_invalid_input");
-  }
-
-  private static Failure invalidResponse() {
-    return new Failure("model_invalid_response");
   }
 }
