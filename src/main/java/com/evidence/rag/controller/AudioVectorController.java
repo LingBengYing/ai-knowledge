@@ -2,11 +2,10 @@ package com.evidence.rag.controller;
 
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
-import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.vo.AudioVectorResponse;
+import com.evidence.rag.model.vo.VectorProfileResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.AudioVectorIndexingService;
-import com.evidence.rag.web.converter.AudioVectorResponseMapper;
+import com.evidence.rag.web.converter.VectorProfileResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -39,26 +38,18 @@ public final class AudioVectorController {
   @GetMapping(
       value = "/v1/documents/{documentId}/audio-vector",
       produces = MediaType.APPLICATION_JSON_VALUE)
-  public AudioVectorResponse get(HttpServletRequest request, @PathVariable String documentId) {
-    noQueryOrBody(request);
+  public VectorProfileResponse get(HttpServletRequest request, @PathVariable String documentId) {
+    RequestGuards.noQueryOrBody(request);
     var actor = AuthenticatedActor.require(request);
-    return AudioVectorResponseMapper.response(selected().get(actor, documentId));
+    return VectorProfileResponseMapper.audio(selected().get(actor, documentId));
   }
 
   @PostMapping(
       value = "/v1/documents/{documentId}/audio-vector",
       produces = MediaType.APPLICATION_JSON_VALUE)
-  public AudioVectorResponse build(HttpServletRequest request, @PathVariable String documentId) {
-    noQueryOrBody(request);
+  public VectorProfileResponse build(HttpServletRequest request, @PathVariable String documentId) {
+    RequestGuards.noQueryOrBody(request);
     var actor = AuthenticatedActor.require(request);
-    return AudioVectorResponseMapper.response(selected().build(actor, documentId));
-  }
-
-  private static void noQueryOrBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
+    return VectorProfileResponseMapper.audio(selected().build(actor, documentId));
   }
 }
