@@ -1,21 +1,11 @@
 package com.evidence.rag.web.converter;
 
-import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.VideoAvState;
 import com.evidence.rag.model.dto.VideoAvIndexResult;
-import com.evidence.rag.model.dto.VideoAvUploadResult;
 
 /** Public original and publication metadata; no media bytes or private configuration. */
 public final class VideoAvResponseMapper {
   private VideoAvResponseMapper() {}
-
-  public static VideoAvUploadResult upload(DocumentOriginal original) {
-    return new VideoAvUploadResult(
-        original.documentId(),
-        original.revisionId(),
-        original.sourceSha256(),
-        original.sizeBytes());
-  }
 
   public static VideoAvIndexResult index(
       VideoAvState state, String profileFingerprint, String analysisModelRevision) {

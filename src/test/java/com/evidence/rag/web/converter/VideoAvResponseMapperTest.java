@@ -9,6 +9,7 @@ import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.VideoAvState;
+import com.evidence.rag.model.dto.OriginalUploadResult;
 import com.evidence.rag.model.dto.VideoAvAnswerResult;
 import com.evidence.rag.model.dto.VideoAvAudioResult;
 import com.evidence.rag.model.dto.VideoAvCitationResult;
@@ -42,7 +43,7 @@ class VideoAvResponseMapperTest {
             bytes);
     var visual = new IndexTarget("embedding-v1", "visual-v1", "embedding-v1", 3);
     var audio = new IndexTarget("embedding-v1", "audio-v1", "embedding-v1", 3);
-    var upload = JSON.valueToTree(VideoAvResponseMapper.upload(original));
+    var upload = JSON.valueToTree(OriginalUploadResult.from(original));
     assertEquals(
         Set.of("document_id", "source_revision_id", "source_sha256", "size_bytes"),
         new HashSet<>(upload.propertyNames()));

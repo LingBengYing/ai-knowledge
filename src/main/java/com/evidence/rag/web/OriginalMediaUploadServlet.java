@@ -3,11 +3,13 @@ package com.evidence.rag.web;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.LibraryWorkContext;
+import com.evidence.rag.model.dto.OriginalUploadResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.SoundLibraryService;
-import com.evidence.rag.web.converter.SoundResponseMapper;
+import com.evidence.rag.service.VideoAvLibraryService;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
@@ -26,20 +28,70 @@ import java.util.Collections;
 import java.util.concurrent.Semaphore;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Bounded original-sound upload; UTF8 filename header is decoded once, without form semantics. */
-public final class SoundUploadServlet extends HttpServlet {
+/**
+ * Bounded original sound or video audiovisual upload; the UTF8 filename header is decoded once,
+ * without form semantics.
+ */
+public final class OriginalMediaUploadServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
   private static final int MAX_BYTES = 20 * 1024 * 1024;
-  private final transient SoundLibraryService authority;
+  private final transient Upload upload;
+  private final transient Labels labels;
   private final int deadlineMs = 30000;
   private final JsonMapper json;
   private final transient ProblemHandler errors;
   private final Semaphore uploads = new Semaphore(2);
 
-  public SoundUploadServlet(SoundLibraryService authority, JsonMapper json, ProblemHandler errors) {
-    this.authority = authority;
+  /** Stores one complete original in its media library. */
+  @FunctionalInterface
+  interface Upload {
+    DocumentOriginal store(Actor actor, String filename, String mime, byte[] content);
+  }
+
+  /** User-facing wording and the unavailable code of one media library. */
+  private record Labels(
+      String contentType,
+      String unavailableCode,
+      String unavailable,
+      String filename,
+      String timeout) {}
+
+  private OriginalMediaUploadServlet(
+      Upload upload, Labels labels, JsonMapper json, ProblemHandler errors) {
+    this.upload = upload;
+    this.labels = labels;
     this.json = json;
     this.errors = errors;
+  }
+
+  /** {@code POST /v1/sound-documents}. */
+  public static OriginalMediaUploadServlet sound(
+      SoundLibraryService library, JsonMapper json, ProblemHandler errors) {
+    return new OriginalMediaUploadServlet(
+        (actor, filename, mime, content) -> library.upload(actor, filename, mime, content),
+        new Labels(
+            "声音上传需要application/octet-stream和原始文件内容。",
+            "sound_unavailable",
+            "声音资料暂不可用。",
+            "请提供唯一有效的声音文件名，不接受其他参数。",
+            "声音上传超时，请检查资料列表后再试。"),
+        json,
+        errors);
+  }
+
+  /** {@code POST /v1/video-av-documents}. */
+  public static OriginalMediaUploadServlet videoAv(
+      VideoAvLibraryService library, JsonMapper json, ProblemHandler errors) {
+    return new OriginalMediaUploadServlet(
+        (actor, filename, mime, content) -> library.upload(actor, filename, mime, content),
+        new Labels(
+            "视频音画上传需要application/octet-stream和原始文件内容。",
+            "video_av_unavailable",
+            "视频音画资料暂不可用。",
+            "请提供唯一有效的视频音画文件名，不接受其他参数。",
+            "视频音画上传超时，请检查资料列表后再试。"),
+        json,
+        errors);
   }
 
   @Override
@@ -56,9 +108,7 @@ public final class SoundUploadServlet extends HttpServlet {
       if (contentTypes.size() != 1
           || !"application/octet-stream".equalsIgnoreCase(contentTypes.getFirst())) {
         throw new ApplicationException(
-            FailureKind.UNSUPPORTED_MEDIA,
-            "unsupported_media_type",
-            "声音上传需要application/octet-stream和原始文件内容。");
+            FailureKind.UNSUPPORTED_MEDIA, "unsupported_media_type", labels.contentType());
       }
       var filenames = Collections.list(request.getHeaders("X-Filename"));
       if (request.getQueryString() != null || filenames.size() != 1) {
@@ -162,12 +212,14 @@ public final class SoundUploadServlet extends HttpServlet {
         return;
       }
       try (var lease = operation == null ? null : operation.begin()) {
-        var original = authority.upload(actor, filename, mime, bytes.toByteArray());
-        finish(201, SoundResponseMapper.upload(original));
+        var original = upload.store(actor, filename, mime, bytes.toByteArray());
+        finish(201, OriginalUploadResult.from(original));
       } catch (ApplicationException problem) {
         fail(problem);
       } catch (RuntimeException error) {
-        fail(new ApplicationException(FailureKind.UNAVAILABLE, "sound_unavailable", "声音资料暂不可用。"));
+        fail(
+            new ApplicationException(
+                FailureKind.UNAVAILABLE, labels.unavailableCode(), labels.unavailable()));
       }
     }
 
@@ -251,7 +303,7 @@ public final class SoundUploadServlet extends HttpServlet {
     response.getOutputStream().write(json.writeValueAsBytes(result.getBody()));
   }
 
-  private static String filename(String encoded) {
+  private String filename(String encoded) {
     if (encoded == null || encoded.isEmpty() || encoded.length() > 4096) {
       throw invalid();
     }
@@ -287,9 +339,9 @@ public final class SoundUploadServlet extends HttpServlet {
     }
   }
 
-  private static ApplicationException invalid() {
+  private ApplicationException invalid() {
     return new ApplicationException(
-        FailureKind.INVALID_INPUT, "invalid_request", "请提供唯一有效的声音文件名，不接受其他参数。");
+        FailureKind.INVALID_INPUT, "invalid_request", labels.filename());
   }
 
   private static ApplicationException tooLarge() {
@@ -297,7 +349,7 @@ public final class SoundUploadServlet extends HttpServlet {
         FailureKind.PAYLOAD_TOO_LARGE, "upload_too_large", "文件不得超过20MiB。");
   }
 
-  private static ApplicationException timeout() {
-    return new ApplicationException(FailureKind.TIMEOUT, "upload_timeout", "声音上传超时，请检查资料列表后再试。");
+  private ApplicationException timeout() {
+    return new ApplicationException(FailureKind.TIMEOUT, "upload_timeout", labels.timeout());
   }
 }

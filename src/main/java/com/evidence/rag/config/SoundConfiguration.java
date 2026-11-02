@@ -13,8 +13,8 @@ import com.evidence.rag.service.SoundAnswerService;
 import com.evidence.rag.service.SoundCompilationService;
 import com.evidence.rag.service.SoundLibraryService;
 import com.evidence.rag.web.BoundedMediaQueryServlet;
+import com.evidence.rag.web.OriginalMediaUploadServlet;
 import com.evidence.rag.web.ProblemHandler;
-import com.evidence.rag.web.SoundUploadServlet;
 import com.evidence.rag.web.converter.SoundRequestMapper;
 import com.evidence.rag.worker.parser.ProcessAudioDecoder;
 import java.net.URI;
@@ -205,11 +205,11 @@ public class SoundConfiguration {
   }
 
   @Bean
-  ServletRegistrationBean<SoundUploadServlet> soundUploadServlet(
+  ServletRegistrationBean<OriginalMediaUploadServlet> soundUploadServlet(
       SoundLibraryService library, JsonMapper json, ProblemHandler errors) {
     var registration =
         new ServletRegistrationBean<>(
-            new SoundUploadServlet(library, json, errors), "/v1/sound-documents");
+            OriginalMediaUploadServlet.sound(library, json, errors), "/v1/sound-documents");
     registration.setName("soundUploadServlet");
     registration.setAsyncSupported(true);
     return registration;

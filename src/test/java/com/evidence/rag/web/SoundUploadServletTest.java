@@ -192,7 +192,8 @@ class SoundUploadServletTest {
   private static MockHttpServletResponse upload(
       SoundLibraryService library, MockHttpServletRequest request) throws IOException {
     var response = new MockHttpServletResponse();
-    new SoundUploadServlet(library, JSON, new ProblemHandler()).service(request, response);
+    OriginalMediaUploadServlet.sound(library, JSON, new ProblemHandler())
+        .service(request, response);
     return response;
   }
 

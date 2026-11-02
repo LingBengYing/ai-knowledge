@@ -1,21 +1,11 @@
 package com.evidence.rag.web.converter;
 
-import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.SoundState;
 import com.evidence.rag.model.dto.SoundIndexResult;
-import com.evidence.rag.model.dto.SoundUploadResult;
 
-/** Exact safe upload and publication metadata, independent of speech tasks. */
+/** Exact safe publication metadata, independent of speech tasks. */
 public final class SoundResponseMapper {
   private SoundResponseMapper() {}
-
-  public static SoundUploadResult upload(DocumentOriginal original) {
-    return new SoundUploadResult(
-        original.documentId(),
-        original.revisionId(),
-        original.sourceSha256(),
-        original.sizeBytes());
-  }
 
   public static SoundIndexResult index(SoundState state, String soundModelRevision) {
     var source = state.original();

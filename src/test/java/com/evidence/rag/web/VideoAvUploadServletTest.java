@@ -209,7 +209,8 @@ class VideoAvUploadServletTest {
   private static MockHttpServletResponse upload(
       VideoAvLibraryService library, MockHttpServletRequest request) throws IOException {
     var response = new MockHttpServletResponse();
-    new VideoAvUploadServlet(library, JSON, new ProblemHandler()).service(request, response);
+    OriginalMediaUploadServlet.videoAv(library, JSON, new ProblemHandler())
+        .service(request, response);
     return response;
   }
 
