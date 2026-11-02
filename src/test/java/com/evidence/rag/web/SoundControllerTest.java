@@ -5,16 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.evidence.rag.controller.SoundController;
 import com.evidence.rag.exception.ApplicationException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 class SoundControllerTest {
-  private final SoundController controller = new SoundController(null, null);
+  private final SoundController controller = new SoundController(null);
 
   @Test
-  void metadataAndSourcesRejectAnyQueryBodyOrTransferBeforeUseCase() {
+  void indexReadsAndBuildsRejectAnyQueryBodyOrTransferBeforeUseCase() {
     var query = new MockHttpServletRequest();
     query.setQueryString("");
     var body = new MockHttpServletRequest();
@@ -28,19 +27,11 @@ class SoundControllerTest {
       assertEquals(
           "invalid_request",
           assertThrows(ApplicationException.class, () -> controller.build(request, "doc")).code());
-      assertEquals(
-          "invalid_request",
-          assertThrows(ApplicationException.class, () -> controller.source(request, "trace", 1))
-              .code());
-      assertEquals(
-          "invalid_request",
-          assertThrows(ApplicationException.class, () -> controller.content(request, "trace", 1))
-              .code());
     }
   }
 
   @Test
-  void allReadsAndActionsRequireTheCurrentAuthenticatedActor() {
+  void indexReadsAndBuildsRequireTheCurrentAuthenticatedActor() {
     var request = new MockHttpServletRequest();
     assertEquals(
         "unauthenticated",
@@ -48,50 +39,5 @@ class SoundControllerTest {
     assertEquals(
         "unauthenticated",
         assertThrows(ApplicationException.class, () -> controller.build(request, "doc")).code());
-    assertEquals(
-        "unauthenticated",
-        assertThrows(ApplicationException.class, () -> controller.source(request, "trace", 1))
-            .code());
-    assertEquals(
-        "unauthenticated",
-        assertThrows(ApplicationException.class, () -> controller.content(request, "trace", 1))
-            .code());
-    assertEquals(
-        "unauthenticated",
-        assertThrows(
-                ApplicationException.class,
-                () ->
-                    controller.answer(
-                        withBody(
-                            request, "{\"question\":\"声音？\"}".getBytes(StandardCharsets.UTF_8))))
-            .code());
-  }
-
-  @Test
-  void sourceOrdinalsAndAnswerQueryAreStrict() {
-    var request = new MockHttpServletRequest();
-    for (int ordinal : new int[] {0, 33}) {
-      assertEquals(
-          "invalid_request",
-          assertThrows(
-                  ApplicationException.class, () -> controller.source(request, "trace", ordinal))
-              .code());
-      assertEquals(
-          "invalid_request",
-          assertThrows(
-                  ApplicationException.class, () -> controller.content(request, "trace", ordinal))
-              .code());
-    }
-    request.setQueryString("mode=SOUND");
-    assertEquals(
-        "invalid_request",
-        assertThrows(
-                ApplicationException.class, () -> controller.answer(withBody(request, new byte[0])))
-            .code());
-  }
-
-  private static MockHttpServletRequest withBody(MockHttpServletRequest request, byte[] body) {
-    request.setContent(body);
-    return request;
   }
 }

@@ -14,6 +14,8 @@
 
 0028新增独立声音知识库：`POST /v1/sound-documents`只保存原声音；认证精确GET/POST `/v1/documents/{id}/sound-index`读取或显式建立全部PCM窗口，`POST /v1/sound-answers`与`POST /v1/sound-query-answers`分别接受文字或参考声音问题，typed声音来源和原文件走`/v1/sound-sources/{answer_id}/{ordinal}`及`/content`。完整范围缺索引前置409、零provider；声音事实由实际库内窗口独立证明。五项实际装配能力、配置、字段和边界见[SOUND_LIBRARY](SOUND_LIBRARY.md)。默认关闭，原音频转录接口保持。
 
+2026-11-02删除：`POST /v1/sound-answers`、`POST /v1/sound-query-answers`、`GET /v1/sound-sources/{answer_id}/{ordinal}`（及`/content`）、`POST /v1/video-av-answers`、`POST /v1/video-av-query-answers`、`GET /v1/video-av-sources/{answer_id}/{ordinal}`（及`/content`）不再路由，请求返回404；`video_av_query_attachments`能力删除。网页已先移除这些代理。声音与原视频音画的上传（`/v1/sound-documents`、`/v1/video-av-documents`）及索引（`/v1/documents/{id}/sound-index`、`/v1/documents/{id}/video-av-index`）保留。`sound_answers/sound_sources/sound_query_attachments`与`video_av_answers/video_av_sources`能力名暂作网页兼容标记继续声明（网页仍据此判断是否显示声音/音画索引入口），背后无接口。数据库schema不变，trace表不再写入。
+
 0027新增认证精确GET/POST `/v1/documents/{id}/audio-vector`（均无query/body）：reader读取当前十字段状态，当前editor显式构建全部可引用speech spans，完整当前receipt幂等不重复调用。能力`audio_vector_retrieval`仅实际完整装配时开放。完整字段、profile、独立预算及状态码见[AUDIO_VECTOR_RETRIEVAL](AUDIO_VECTOR_RETRIEVAL.md)；AUDIO携参考音频沿既有附件问答，完整范围缺receipt明确`audio_vector_required`，原转录证明及来源合同保持。
 
 0025曾新增认证的精确POST `/v1/voice-questions`（单音频→ASR文字供用户确认）及`voice_questions`能力；该端点、能力和`RAG_VOICE_QUESTIONS_*`配置已于2026-10-10移除，请求该路径不再路由。历史合同见[0025 spec](changes/0025-voice-questions/spec.md)。

@@ -10,18 +10,13 @@ import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.RuntimeService;
-import com.evidence.rag.service.SoundAnswerService;
 import com.evidence.rag.service.SoundLibraryService;
-import com.evidence.rag.service.VideoAvAnswerService;
 import com.evidence.rag.service.VideoAvLibraryService;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.service.VisualAnswerService;
-import com.evidence.rag.web.BoundedMediaQueryServlet;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -39,11 +34,7 @@ public class RuntimeConfiguration {
       ObjectProvider<ImageVectorIndexingService> imageVectors,
       ObjectProvider<AudioVectorIndexingService> audioVectors,
       ObjectProvider<SoundLibraryService> soundLibrary,
-      ObjectProvider<SoundAnswerService> soundAnswers,
       ObjectProvider<VideoAvLibraryService> videoAvLibrary,
-      ObjectProvider<VideoAvAnswerService> videoAvAnswers,
-      @Qualifier("videoAvQueryServlet")
-          ObjectProvider<ServletRegistrationBean<BoundedMediaQueryServlet>> videoAvQueries,
       ObjectProvider<DocumentCleanupService> cleanup,
       ObjectProvider<DocumentCleanupJob> cleanupJob,
       ObjectProvider<LibraryOperationGate> operations,
@@ -63,9 +54,8 @@ public class RuntimeConfiguration {
             environment,
             imageVectors.getIfAvailable() != null,
             audioVectors.getIfAvailable() != null,
-            soundLibrary.getIfAvailable() != null && soundAnswers.getIfAvailable() != null,
-            videoAvLibrary.getIfAvailable() != null && videoAvAnswers.getIfAvailable() != null,
-            videoAvQueries.getIfAvailable() != null,
+            soundLibrary.getIfAvailable() != null,
+            videoAvLibrary.getIfAvailable() != null,
             cleanup.getIfAvailable() != null
                 && cleanupJob.getIfAvailable() != null
                 && operations.getIfAvailable() != null);
@@ -320,34 +310,6 @@ public class RuntimeConfiguration {
       boolean audioVectorAvailable,
       boolean soundAvailable,
       boolean videoAvAvailable,
-      boolean videoAvQueryAvailable) {
-    return create(
-        p,
-        ingestion,
-        indexing,
-        answers,
-        removal,
-        environment,
-        imageVectorAvailable,
-        audioVectorAvailable,
-        soundAvailable,
-        videoAvAvailable,
-        videoAvQueryAvailable,
-        false);
-  }
-
-  private RuntimeService create(
-      RagProperties p,
-      IngestionSettings ingestion,
-      IndexingSettings indexing,
-      AnswersSettings answers,
-      DocumentRemovalSettings removal,
-      Environment environment,
-      boolean imageVectorAvailable,
-      boolean audioVectorAvailable,
-      boolean soundAvailable,
-      boolean videoAvAvailable,
-      boolean videoAvQueryAvailable,
       boolean cleanupAvailable) {
     return new RuntimeService(
         p.authMode(),
@@ -369,9 +331,6 @@ public class RuntimeConfiguration {
             && environment.getProperty("rag.audio-embedding.enabled", Boolean.class, false),
         soundAvailable && environment.getProperty("rag.sound.enabled", Boolean.class, false),
         videoAvAvailable && environment.getProperty("rag.video-av.enabled", Boolean.class, false),
-        videoAvAvailable
-            && videoAvQueryAvailable
-            && environment.getProperty("rag.video-av.enabled", Boolean.class, false),
         cleanupAvailable
             && removal.enabled()
             && environment.getProperty("rag.document-cleanup.enabled", Boolean.class, false));

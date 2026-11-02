@@ -1,26 +1,16 @@
 package com.evidence.rag.web.converter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.QueryAttachment;
-import com.evidence.rag.model.domain.QueryAttachmentManifest;
 import com.evidence.rag.model.domain.SoundProfile;
 import com.evidence.rag.model.domain.SoundPublication;
 import com.evidence.rag.model.domain.SoundSpan;
 import com.evidence.rag.model.domain.SoundState;
-import com.evidence.rag.model.dto.SoundAnswerResult;
-import com.evidence.rag.model.dto.SoundAttachmentAnswerResult;
-import com.evidence.rag.model.dto.SoundQueryManifestResult;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -115,76 +105,5 @@ class SoundResponseMapperTest {
     assertEquals(manifest, result.manifestSha256());
     assertEquals(1, result.spanCount());
     assertEquals(12, JSON.readTree(JSON.writeValueAsString(result)).size());
-  }
-
-  @Test
-  void soundManifestHasNineHashOnlyFieldsAndCannotMasqueradeAsSpeechPreparation() {
-    var raw =
-        new QueryAttachmentManifest(
-            0,
-            "a".repeat(64),
-            QueryAttachment.Kind.AUDIO,
-            "sound-compiler-v1",
-            "b".repeat(64),
-            0,
-            0,
-            List.of(),
-            false);
-    var value = SoundQueryManifestResult.from(raw);
-    var body = JSON.readTree(JSON.writeValueAsString(value));
-    assertEquals(
-        Set.of(
-            "ordinal",
-            "source_sha256",
-            "media_kind",
-            "compiler_revision",
-            "content_sha256",
-            "text_code_points",
-            "visual_count",
-            "selected_image_sha256",
-            "visual_sampled"),
-        new HashSet<>(body.propertyNames()));
-    assertEquals("audio", body.path("media_kind").asString());
-    assertEquals(0, body.path("text_code_points").intValue());
-    assertFalse(body.path("visual_sampled").booleanValue());
-    var speech =
-        new QueryAttachmentManifest(
-            0,
-            "a".repeat(64),
-            QueryAttachment.Kind.AUDIO,
-            "speech-v1",
-            "b".repeat(64),
-            12,
-            0,
-            List.of(),
-            false);
-    assertThrows(ApplicationException.class, () -> SoundQueryManifestResult.from(speech));
-  }
-
-  @Test
-  void answerAndAttachmentEnvelopesKeepTheirExactIndependentContracts() {
-    var plain =
-        new SoundAnswerResult(
-            "trace", "abstained", "", "no_evidence", List.of(), "java-sound-answer-v1");
-    var attached =
-        new SoundAttachmentAnswerResult(
-            "trace",
-            "abstained",
-            "",
-            "no_evidence",
-            List.of(),
-            "java-sound-answer-v1",
-            "SOUND",
-            List.of());
-    var plainJson = JSON.readTree(JSON.writeValueAsString(plain));
-    var attachedJson = JSON.readTree(JSON.writeValueAsString(attached));
-    assertEquals(
-        Set.of("answer_id", "status", "answer", "reason_code", "citations", "policy_revision"),
-        new HashSet<>(plainJson.propertyNames()));
-    assertEquals(8, attachedJson.size());
-    assertEquals("SOUND", attachedJson.path("mode").asString());
-    assertTrue(attachedJson.path("attachment_manifest").isEmpty());
-    assertFalse(attachedJson.has("result"));
-    assertFalse(attachedJson.has("query_attachments"));
   }
 }

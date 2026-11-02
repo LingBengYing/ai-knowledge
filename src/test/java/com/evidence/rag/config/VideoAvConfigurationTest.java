@@ -17,7 +17,6 @@ import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.RuntimeService;
-import com.evidence.rag.service.VideoAvAnswerService;
 import com.evidence.rag.service.VideoAvCompilationService;
 import com.evidence.rag.service.VideoAvLibraryService;
 import com.evidence.rag.web.ProblemHandler;
@@ -72,14 +71,11 @@ class VideoAvConfigurationTest {
       context.register(VideoAvConfiguration.class, RuntimeConfiguration.class);
       context.refresh();
       assertNotNull(context.getBean(VideoAvLibraryService.class));
-      assertNotNull(context.getBean(VideoAvAnswerService.class));
+      assertTrue(context.getBeansOfType(VideoAvEmbeddingModels.class).isEmpty());
+      assertTrue(context.getBeansOfType(VideoAvModels.class).isEmpty());
       assertTrue(context.getBeansOfType(VideoDecoder.class).isEmpty());
       assertTrue(context.getBeansOfType(TextModels.class).isEmpty());
       var settings = context.getBean(VideoAvSettings.class);
-      assertEquals(
-          settings.embedding().revision(),
-          context.getBean(VideoAvEmbeddingModels.class).revision());
-      assertEquals(settings.models().revision(), context.getBean(VideoAvModels.class).revision());
       assertFalse(
           settings.visualProjection().collection().equals(settings.audioProjection().collection()));
       var caps = context.getBean(RuntimeService.class).capabilities().capabilities();
@@ -88,7 +84,7 @@ class VideoAvConfigurationTest {
               List.of(
                   "video_av_upload", "video_av_index", "video_av_answers", "video_av_sources")));
       assertFalse(caps.contains("sound_answers"));
-      assertTrue(caps.contains("video_av_query_attachments"));
+      assertFalse(caps.contains("video_av_query_attachments"));
     }
   }
 

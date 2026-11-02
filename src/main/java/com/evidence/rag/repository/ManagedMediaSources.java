@@ -43,10 +43,6 @@ final class ManagedMediaSources {
         .toList();
   }
 
-  boolean anyDocument(SqliteAuthorityStore store, String workspaceId) {
-    return store.count("SELECT count(*) " + scope, workspaceId) != 0;
-  }
-
   /** The active source facts of one document, only when its stored original is intact. */
   Optional<Metadata> metadata(SqliteAuthorityStore store, Actor actor, String id) {
     return store

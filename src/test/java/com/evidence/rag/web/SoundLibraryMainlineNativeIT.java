@@ -60,20 +60,16 @@ class SoundLibraryMainlineNativeIT {
   private static final String OTHER_FACT = "该片段包含持续的高音。";
   private static final String RECALL = "合成声音片段，仅用于召回。";
   private static final String COLLECTION = "java_sound_native_fixture";
-  private static final String POLICY = "java-sound-answer-v1";
   @TempDir Path directory;
 
   @Test
-  void pureSoundPublishesAllPcmProvesWholeQuestionsAndReopensOriginalSourcesWithoutModels()
-      throws Exception {
+  void pureSoundPublishesAllPcmAndReopensSavedIndexWithoutModels() throws Exception {
     assertEquals("true", System.getenv("RAG_SOUND_IT_ENABLED"));
-    byte[] oldPcm = pcm(880, 0, 440), newPcm = pcm(880, 0, 880), quietPcm = pcm(0, 0, 0);
+    byte[] oldPcm = pcm(880, 0, 440), newPcm = pcm(880, 0, 880);
     byte[] oldAudio = AudioPcm.wav(oldPcm, 0, oldPcm.length);
     byte[] newAudio = AudioPcm.wav(newPcm, 0, newPcm.length);
-    byte[] quietAudio = AudioPcm.wav(quietPcm, 0, quietPcm.length);
     Path data = directory.resolve("data");
-    String sourceUrl, contentUrl, oldDocument;
-    JsonNode citation;
+    String oldDocument;
     try (var remote = new Providers();
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
       try (var app = application(remote, data)) {
@@ -110,17 +106,18 @@ class SoundLibraryMainlineNativeIT {
         assertTrue(missing.path("publication_id").isNull());
         assertTrue(remote.requests.isEmpty(), "Metadata GET does not decode or use providers");
         json(http, base, "owner", "GET", indexPath(privateDocument), null, null, 404);
-        var privateQuery = Map.of("question", QUESTION, "document_ids", List.of(privateDocument));
-        json(
-            http,
-            base,
-            "owner",
-            "POST",
-            "/v1/sound-answers",
-            JSON.writeValueAsBytes(privateQuery),
-            "application/json",
-            404);
-        assertTrue(remote.requests.isEmpty(), "Unauthorized scope is rejected before providers");
+        for (String removed : List.of("/v1/sound-answers", "/v1/sound-query-answers")) {
+          json(
+              http,
+              base,
+              "owner",
+              "POST",
+              removed,
+              JSON.writeValueAsBytes(Map.of("question", QUESTION)),
+              "application/json",
+              404);
+        }
+        assertTrue(remote.requests.isEmpty(), "Removed answer routes never reach providers");
 
         var oldIndex = json(http, base, "owner", "POST", indexPath(oldDocument), null, null, 200);
         assertEquals("available", oldIndex.path("status").asString());
@@ -129,22 +126,6 @@ class SoundLibraryMainlineNativeIT {
         remote.assertHealthy();
         assertEquals(3, remote.describeWavs.size());
         assertEquals(3, remote.audioWavs.size());
-        int beforeMissing = remote.requests.size();
-        var unavailable =
-            json(
-                http,
-                base,
-                "owner",
-                "POST",
-                "/v1/sound-query-answers",
-                attached(QUESTION, List.of(oldDocument, newDocument), quietAudio),
-                "application/json",
-                409);
-        assertEquals("sound_index_required", unavailable.path("error_code").asString());
-        assertEquals(
-            beforeMissing,
-            remote.requests.size(),
-            "One missing selected publication blocks all provider dispatch");
         var newIndex = json(http, base, "owner", "POST", indexPath(newDocument), null, null, 200);
         assertEquals("available", newIndex.path("status").asString());
         assertEquals(3, newIndex.path("span_count").asInt());
@@ -192,149 +173,6 @@ class SoundLibraryMainlineNativeIT {
         assertTrue(published.path("latest_job").isNull());
         assertTrue(published.path("latest_index_job").isNull());
 
-        var textAnswer =
-            json(
-                http,
-                base,
-                "owner",
-                "POST",
-                "/v1/sound-answers",
-                JSON.writeValueAsBytes(Map.of("question", QUESTION)),
-                "application/json",
-                200);
-        assertEquals(6, textAnswer.size());
-        assertAnswered(textAnswer, oldDocument);
-        assertEquals(1, remote.textQuestions.size());
-        assertEquals(1, remote.drafts.size());
-        assertEquals(1, remote.verifications.size());
-        assertArrayEquals(expectedBuild.get(2), remote.drafts.getFirst().wav());
-        assertArrayEquals(expectedBuild.get(2), remote.verifications.getFirst().wav());
-        assertEquals(QUESTION, remote.textQuestions.getFirst());
-        assertEquals(QUESTION, remote.drafts.getFirst().input().path("question").asString());
-        assertEquals(
-            FACT,
-            remote.verifications.getFirst().input().path("claims").get(0).path("claim").asString());
-
-        var attachedAnswer =
-            json(
-                http,
-                base,
-                "owner",
-                "POST",
-                "/v1/sound-query-answers",
-                attached(QUESTION, null, quietAudio),
-                "application/json",
-                200);
-        assertEquals(8, attachedAnswer.size());
-        assertEquals("SOUND", attachedAnswer.path("mode").asString());
-        assertAnswered(attachedAnswer, oldDocument);
-        assertEquals(1, attachedAnswer.path("attachment_manifest").size());
-        var manifest = attachedAnswer.path("attachment_manifest").get(0);
-        assertEquals(9, manifest.size());
-        assertEquals(0, manifest.path("ordinal").asInt());
-        assertEquals(ModelValues.sha256(quietAudio), manifest.path("source_sha256").asString());
-        assertEquals("audio", manifest.path("media_kind").asString());
-        assertEquals(0, manifest.path("text_code_points").asInt());
-        assertEquals(0, manifest.path("visual_count").asInt());
-        assertTrue(manifest.path("selected_image_sha256").isEmpty());
-        assertFalse(manifest.path("visual_sampled").asBoolean());
-        assertTrue(manifest.path("content_sha256").asString().matches("[0-9a-f]{64}"));
-        assertEquals(
-            9, remote.audioWavs.size(), "All three fully silent query windows are embedded");
-        for (int i = 6; i < 9; i++) {
-          assertArrayEquals(
-              AudioPcm.wav(quietPcm, (i - 6) * 32000, (i - 5) * 32000), remote.audioWavs.get(i));
-        }
-        assertEquals(
-            6,
-            remote.describeWavs.size(),
-            "Query preparation never describes or transcribes query audio");
-        assertEquals(4, remote.drafts.size());
-        assertEquals(2, remote.verifications.size());
-        citation = attachedAnswer.path("citations").get(0);
-        assertEquals(23, citation.size());
-        assertEquals("sound_span", citation.path("kind").asString());
-        assertEquals(uploaded.path("source_revision_id"), citation.path("revision_id"));
-        assertEquals(ModelValues.sha256(oldAudio), citation.path("source_sha256").asString());
-        assertEquals(oldIndex.path("publication_id"), citation.path("publication_id"));
-        assertEquals(oldIndex.path("profile_fingerprint"), citation.path("profile_fingerprint"));
-        assertEquals("old-sound.wav", citation.path("filename").asString());
-        assertEquals("audio/wav", citation.path("media_type").asString());
-        assertEquals(32000, citation.path("start_sample").asLong());
-        assertEquals(48000, citation.path("end_sample").asLong());
-        assertEquals(16000, citation.path("sample_rate").asInt());
-        assertEquals(2000, citation.path("start_ms").asLong());
-        assertEquals(3000, citation.path("end_ms").asLong());
-        assertEquals(
-            ModelValues.sha256(Arrays.copyOfRange(oldPcm, 64000, 96000)),
-            citation.path("pcm_sha256").asString());
-        assertEquals("server_window", citation.path("time_precision").asString());
-        assertEquals(FACT, citation.path("facts").get(0).asString());
-        assertEquals(
-            ModelValues.sha256(JSON.writeValueAsBytes(List.of(FACT))),
-            citation.path("facts_sha256").asString());
-        assertEquals(oldIndex.path("model_revision"), citation.path("analysis_model_revision"));
-        assertEquals(POLICY, citation.path("policy_revision").asString());
-        assertFalse(citation.has("quote") || citation.has("text_origin"));
-        sourceUrl = citation.path("source_url").asString();
-        contentUrl = citation.path("content_url").asString();
-        assertTrue(sourceUrl.startsWith("/v1/sound-sources/"));
-        assertEquals(sourceUrl + "/content", contentUrl);
-        int beforeSources = remote.requests.size();
-        assertEquals(
-            citation,
-            json(http, base, "owner", "GET", sourceUrl, null, null, 200).path("citation"));
-        assertOriginal(http, base, contentUrl, oldAudio);
-        json(http, base, "other-owner", "GET", sourceUrl, null, null, 404);
-        assertEquals(beforeSources, remote.requests.size(), "Sources never invoke models");
-
-        var half =
-            json(
-                http,
-                base,
-                "owner",
-                "POST",
-                "/v1/sound-answers",
-                JSON.writeValueAsBytes(Map.of("question", HALF_QUESTION)),
-                "application/json",
-                200);
-        assertAbstained(half, "incomplete_evidence");
-        assertEquals(8, remote.drafts.size());
-        assertEquals(
-            2,
-            remote.verifications.size(),
-            "Partial windows cannot be assembled into a complete answer");
-        var conflict =
-            json(
-                http,
-                base,
-                "owner",
-                "POST",
-                "/v1/sound-answers",
-                JSON.writeValueAsBytes(Map.of("question", CONFLICT_QUESTION)),
-                "application/json",
-                200);
-        assertAbstained(conflict, "conflicting_evidence");
-        assertEquals(12, remote.drafts.size());
-        assertEquals(
-            6,
-            remote.verifications.size(),
-            "Every complete candidate receives independent verification before conflict rejection");
-        assertEquals(
-            List.of(QUESTION, QUESTION, HALF_QUESTION, CONFLICT_QUESTION), remote.textQuestions);
-        var searches =
-            remote.requests.stream()
-                .filter(call -> call.path().endsWith("entities/search"))
-                .toList();
-        assertEquals(7, searches.size());
-        for (var search : searches) {
-          assertEquals("dense", search.body().path("annsField").asString());
-          String filter = search.body().path("filter").asString();
-          assertTrue(filter.contains(oldDocument) && filter.contains(newDocument));
-          assertTrue(filter.contains(oldIndex.path("generation_id").asString()));
-          assertTrue(filter.contains(newIndex.path("generation_id").asString()));
-          assertFalse(filter.contains(privateDocument));
-        }
         remote.assertHealthy();
         assertTrue(
             remote.requests.stream()
@@ -347,37 +185,15 @@ class SoundLibraryMainlineNativeIT {
       try (var app = application(remote, data)) {
         String base = base(app);
         assertEquals(
-            citation,
-            json(http, base, "owner", "GET", sourceUrl, null, null, 200).path("citation"));
-        assertOriginal(http, base, contentUrl, oldAudio);
-        assertEquals(
             "available",
             json(http, base, "owner", "GET", indexPath(oldDocument), null, null, 200)
                 .path("status")
                 .asString());
         assertEquals(
-            beforeRestart,
-            remote.requests.size(),
-            "Restart and saved source/index reads are model-free");
+            beforeRestart, remote.requests.size(), "Restart and saved index reads are model-free");
         remote.assertHealthy();
       }
     }
-  }
-
-  private static void assertAnswered(JsonNode answer, String document) {
-    assertEquals("answered", answer.path("status").asString(), answer.toString());
-    assertEquals(FACT, answer.path("answer").asString());
-    assertTrue(answer.path("reason_code").isNull());
-    assertEquals(POLICY, answer.path("policy_revision").asString());
-    assertEquals(1, answer.path("citations").size());
-    assertEquals(document, answer.path("citations").get(0).path("document_id").asString());
-  }
-
-  private static void assertAbstained(JsonNode answer, String reason) {
-    assertEquals("abstained", answer.path("status").asString(), answer.toString());
-    assertEquals(reason, answer.path("reason_code").asString());
-    assertTrue(answer.path("citations").isEmpty());
-    assertFalse(answer.path("answer_id").asString().isBlank());
   }
 
   private ConfigurableApplicationContext application(Providers remote, Path data) {
@@ -467,27 +283,6 @@ class SoundLibraryMainlineNativeIT {
     return "/v1/documents/" + document + "/sound-index";
   }
 
-  private static byte[] attached(String question, List<String> documents, byte[] audio)
-      throws Exception {
-    var fields = new LinkedHashMap<String, Object>();
-    fields.put("question", question);
-    fields.put("mode", "SOUND");
-    if (documents != null) {
-      fields.put("document_ids", documents);
-    }
-    fields.put(
-        "attachments",
-        List.of(
-            Map.of(
-                "filename",
-                "quiet-query.wav",
-                "media_type",
-                "audio/wav",
-                "content_base64",
-                Base64.getEncoder().encodeToString(audio))));
-    return JSON.writeValueAsBytes(fields);
-  }
-
   private static JsonNode upload(
       HttpClient http, String base, String actor, String filename, byte[] audio) throws Exception {
     var response =
@@ -511,24 +306,6 @@ class SoundLibraryMainlineNativeIT {
       }
     }
     throw new AssertionError("A genuine sound document must be visible in management");
-  }
-
-  private static void assertOriginal(
-      HttpClient http, String base, String contentUrl, byte[] original) throws Exception {
-    var response = request(http, base, "owner", "GET", contentUrl, null, null);
-    assertEquals(200, response.statusCode());
-    assertArrayEquals(original, response.body());
-    assertEquals(ModelValues.sha256(original), ModelValues.sha256(response.body()));
-    assertEquals("audio/wav", response.headers().firstValue("Content-Type").orElseThrow());
-    var ranged =
-        http.send(
-            builder(base, "owner", contentUrl).header("Range", "bytes=64044-64075").GET().build(),
-            HttpResponse.BodyHandlers.ofByteArray());
-    assertEquals(206, ranged.statusCode());
-    assertEquals(
-        "bytes 64044-64075/" + original.length,
-        ranged.headers().firstValue("Content-Range").orElseThrow());
-    assertArrayEquals(Arrays.copyOfRange(original, 64044, 64076), ranged.body());
   }
 
   private static JsonNode json(

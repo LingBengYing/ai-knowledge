@@ -9,9 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.RagApplication;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.VideoAvCompilation;
-import com.evidence.rag.model.domain.VideoAvFact;
-import com.evidence.rag.model.domain.VideoAvProofIdentity;
-import com.evidence.rag.model.domain.VideoAvRequirement;
 import com.evidence.rag.tool.parser.AudioPcm;
 import com.evidence.rag.worker.parser.ProcessVideoAvDecoder;
 import com.sun.net.httpserver.HttpExchange;
@@ -31,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -70,9 +66,6 @@ class VideoAvLibraryMainlineNativeIT {
   private static final String JOINT_QUESTION = "画面与声音是否在同一窗口内共现？\n不能拼接别的窗口。";
   private static final String INDEPENDENT_QUESTION = "分别说明画面和声音属性，不推断二者因果关系。";
   private static final String RELATION_QUESTION = "声音是否由画面中的对象发出？必须有直接关系证据。";
-  private static final String VISUAL_FACT = "窗口中有彩色合成测试画面。";
-  private static final String AUDIO_FACT = "窗口中有完整合成声音信号。";
-  private static final String JOINT_FACT = "同一窗口内有彩色合成画面与声音信号。";
   private static final Set<String> QUESTIONS =
       Set.of(
           VISUAL_QUESTION, AUDIO_QUESTION, JOINT_QUESTION, INDEPENDENT_QUESTION, RELATION_QUESTION);
@@ -85,8 +78,7 @@ class VideoAvLibraryMainlineNativeIT {
   private int operation;
 
   @Test
-  void completeVideoAndPcmReachBothSpacesAndIndependentProofWithExactEpochAndRestartSources()
-      throws Exception {
+  void completeVideoAndPcmReachBothSpacesWithExactEpochAndRestartIndex() throws Exception {
     assertEquals("true", System.getenv("RAG_VIDEO_AV_IT_ENABLED"));
     ffmpeg = nativePath("RAG_VIDEO_DECODER_IT_FFMPEG");
     ffprobe = nativePath("RAG_VIDEO_DECODER_IT_FFPROBE");
@@ -151,10 +143,8 @@ class VideoAvLibraryMainlineNativeIT {
     var rationalSource = fixture(fixtures, "rational-epoch");
     var mainCompilation = compiled.get(main.name());
     Path data = directory.resolve("database");
-    JsonNode savedCitation;
-    String sourceUrl;
-    String contentUrl;
-    JsonNode queryCitation;
+    JsonNode indexed;
+    String document;
     try (var remote = new Providers(compiled.values().stream().toList());
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
       try (var app = application(remote, data)) {
@@ -175,7 +165,7 @@ class VideoAvLibraryMainlineNativeIT {
                 || names.contains("video_answers"));
         int nativeBeforeUpload = nativeCount();
         var uploaded = upload(http, base, "owner", "原始音画.mov", main.bytes());
-        String document = uploaded.path("document_id").asString();
+        document = uploaded.path("document_id").asString();
         var silentUpload = upload(http, base, "owner", "silent.mp4", silent.bytes());
         String silentDocument = silentUpload.path("document_id").asString();
         var rationalUpload = upload(http, base, "owner", "rational.mov", rationalSource.bytes());
@@ -195,73 +185,27 @@ class VideoAvLibraryMainlineNativeIT {
         assertTrue(missing.path("publication_id").isNull());
         assertEquals(nativeBeforeUpload, nativeCount());
         json(http, base, "owner", "GET", indexPath(privateDocument), null, null, 404);
-        query(http, base, "owner", "VISUAL", VISUAL_QUESTION, List.of(privateDocument), 404);
-        attachedQuery(
-            http,
-            base,
-            "owner",
-            "VISUAL",
-            VISUAL_QUESTION,
-            List.of(privateDocument),
-            List.of(main),
-            404);
+        for (String removed : List.of("/v1/video-av-answers", "/v1/video-av-query-answers")) {
+          json(
+              http,
+              base,
+              "owner",
+              "POST",
+              removed,
+              JSON.writeValueAsBytes(Map.of("question", VISUAL_QUESTION)),
+              "application/json",
+              404);
+        }
         assertTrue(remote.requests.isEmpty());
         assertEquals(nativeBeforeUpload, nativeCount());
 
-        var indexed = build(http, base, document, mainCompilation, remote);
-        int beforeMissing = remote.requests.size();
-        int nativeBeforeMissing = nativeCount();
-        var fullMissing = query(http, base, "owner", "JOINT", JOINT_QUESTION, null, 409);
-        assertEquals("video_av_index_required", fullMissing.path("error_code").asString());
-        var selectedMissing =
-            query(
-                http,
-                base,
-                "owner",
-                "JOINT",
-                JOINT_QUESTION,
-                List.of(document, silentDocument),
-                409);
-        assertEquals("video_av_index_required", selectedMissing.path("error_code").asString());
-        var attachedMissing =
-            attachedQuery(
-                http,
-                base,
-                "owner",
-                "JOINT",
-                JOINT_QUESTION,
-                List.of(document, silentDocument),
-                List.of(main),
-                409);
-        assertEquals("video_av_index_required", attachedMissing.path("error_code").asString());
-        var attachedEmpty =
-            attachedQuery(
-                http,
-                base,
-                "owner",
-                "VISUAL",
-                VISUAL_QUESTION,
-                List.of(),
-                List.of(main, silent),
-                200);
-        assertEquals("empty_scope", attachedEmpty.path("result").path("reason_code").asString());
-        assertQueryManifests(attachedEmpty, List.of(main, silent), compiled, "VISUAL", false);
-        assertQueryTraceStored(data, attachedEmpty, VISUAL_QUESTION, indexed);
-        var empty = query(http, base, "owner", "JOINT", JOINT_QUESTION, List.of(), 200);
-        assertEquals("abstained", empty.path("status").asString());
-        assertEquals("empty_scope", empty.path("reason_code").asString());
-        assertTrue(empty.path("citations").isEmpty());
-        assertEquals(beforeMissing, remote.requests.size());
-        assertEquals(
-            nativeBeforeMissing,
-            nativeCount(),
-            "Missing full scope and explicit empty selection do not decode");
+        indexed = build(http, base, document, mainCompilation, remote);
         var silentIndex = build(http, base, silentDocument, compiled.get(silent.name()), remote);
         assertEquals(0, silentIndex.path("audio_window_count").asInt());
         assertTrue(silentIndex.path("video_window_count").asInt() > 0);
         build(http, base, rationalDocument, rational, remote);
         assertTrue(
-            remote.drafts.isEmpty() && remote.verifications.isEmpty(),
+            remote.requests.stream().noneMatch(call -> call.path().equals("/v1beta/interactions")),
             "Indexing calls only the two media embeddings; no describe or ASR protocol exists");
         int idempotent = remote.requests.size();
         int idempotentNative = nativeCount();
@@ -272,236 +216,22 @@ class VideoAvLibraryMainlineNativeIT {
         assertEquals(idempotent, remote.requests.size());
         assertEquals(idempotentNative, nativeCount());
 
-        remote.expectedScope = Set.of(document);
-        int queryMediaStart = remote.media.size();
-        remote.textMiss = true;
-        var queryAnswer =
-            attachedQuery(
-                http,
-                base,
-                "owner",
-                "JOINT",
-                INDEPENDENT_QUESTION,
-                List.of(document),
-                List.of(main, rationalSource, fixture(fixtures, "audio-tail")),
-                200);
-        assertEquals(
-            Set.of("mode", "result", "query_attachments"),
-            new HashSet<>(queryAnswer.propertyNames()));
-        assertEquals("JOINT", queryAnswer.path("mode").asString());
-        assertTrue(names.contains("video_av_query_attachments"));
-        assertFalse(names.contains("query_attachments"));
-        assertAnswered(queryAnswer.path("result"), document, "JOINT");
-        assertQueryManifests(
-            queryAnswer,
-            List.of(main, rationalSource, fixture(fixtures, "audio-tail")),
-            compiled,
-            "JOINT",
-            true);
-        assertQueryTraceStored(data, queryAnswer, INDEPENDENT_QUESTION, indexed);
-        var expectedQueryMedia = new ArrayList<String>();
-        for (var reference : List.of(main, rationalSource, fixture(fixtures, "audio-tail"))) {
-          for (var window : compiled.get(reference.name()).windows()) {
-            if (window.video() != null) {
-              expectedQueryMedia.add("video/mp4:" + window.video().sha256());
-            }
-            if (window.audio() != null) {
-              expectedQueryMedia.add("audio/wav:" + ModelValues.sha256(window.audio().wav()));
-            }
-          }
-        }
-        assertEquals(
-            expectedQueryMedia,
-            remote.media.subList(queryMediaStart, remote.media.size()).stream()
-                .map(media -> media.mime() + ":" + ModelValues.sha256(media.bytes()))
-                .toList(),
-            "All three references and every actual tail window are embedded once, in request order");
-        queryCitation = queryAnswer.path("result").path("citations").get(0);
-        remote.textMiss = false;
-
-        remote.expectedScope = Set.of(document);
-        for (String mode : List.of("AUDIO", "JOINT")) {
-          int beforeMissingModality = remote.requests.size();
-          var missingModality =
-              attachedQuery(
-                  http,
-                  base,
-                  "owner",
-                  mode,
-                  mode.equals("AUDIO") ? AUDIO_QUESTION : JOINT_QUESTION,
-                  List.of(document),
-                  List.of(main, silent),
-                  200);
-          assertEquals(
-              "query_modality_missing",
-              missingModality.path("result").path("reason_code").asString());
-          assertQueryManifests(missingModality, List.of(main, silent), compiled, mode, false);
-          assertQueryTraceStored(
-              data,
-              missingModality,
-              mode.equals("AUDIO") ? AUDIO_QUESTION : JOINT_QUESTION,
-              indexed);
-          assertEquals(
-              beforeMissingModality,
-              remote.requests.size(),
-              "One missing query audio track rejects the whole batch before any provider");
-        }
-        for (String mode : List.of("VISUAL", "AUDIO")) {
-          var references = mode.equals("VISUAL") ? List.of(silent) : List.of(rationalSource);
-          var answerWithReference =
-              attachedQuery(
-                  http,
-                  base,
-                  "owner",
-                  mode,
-                  mode.equals("VISUAL") ? VISUAL_QUESTION : AUDIO_QUESTION,
-                  List.of(document),
-                  references,
-                  200);
-          assertAnswered(answerWithReference.path("result"), document, mode);
-          assertQueryManifests(answerWithReference, references, compiled, mode, true);
-        }
-
-        remote.expectedScope = Set.of(document);
-        for (var modeAndQuestion :
-            List.of(
-                new String[] {"VISUAL", VISUAL_QUESTION},
-                new String[] {"AUDIO", AUDIO_QUESTION},
-                new String[] {"JOINT", JOINT_QUESTION})) {
-          int draftStart = remote.drafts.size();
-          int verifyStart = remote.verifications.size();
-          var answer =
-              query(
-                  http,
-                  base,
-                  "owner",
-                  modeAndQuestion[0],
-                  modeAndQuestion[1],
-                  List.of(document),
-                  200);
-          assertAnswered(answer, document, modeAndQuestion[0]);
-          assertTrue(
-              remote.drafts.size() > draftStart && remote.verifications.size() > verifyStart);
-          assertStages(remote, draftStart, verifyStart, modeAndQuestion[0], modeAndQuestion[1]);
-          assertCitation(
-              answer.path("citations").get(0),
-              uploaded,
-              indexed,
-              mainCompilation,
-              modeAndQuestion[1]);
-        }
-        var independent =
-            query(http, base, "owner", "JOINT", INDEPENDENT_QUESTION, List.of(document), 200);
-        assertAnswered(independent, document, "JOINT");
-        var independentFacts = independent.path("citations").get(0).path("facts");
-        assertEquals(2, independentFacts.size());
-        assertEquals("VISUAL", independentFacts.get(0).path("requirement").asString());
-        assertEquals("AUDIO", independentFacts.get(1).path("requirement").asString());
-        int beforeRelationVerify = remote.verifications.size();
-        var relationship =
-            query(http, base, "owner", "JOINT", RELATION_QUESTION, List.of(document), 200);
-        assertEquals("abstained", relationship.path("status").asString());
-        assertEquals("incomplete_evidence", relationship.path("reason_code").asString());
-        assertTrue(relationship.path("citations").isEmpty());
-        assertTrue(
-            remote.verifications.size() > beforeRelationVerify,
-            "Two true independent observations cannot become a relational answer after incomplete verification");
-
-        remote.expectedScope = Set.of(silentDocument);
-        var visualOnly =
-            query(http, base, "owner", "VISUAL", VISUAL_QUESTION, List.of(silentDocument), 200);
-        assertAnswered(visualOnly, silentDocument, "VISUAL");
-        assertTrue(visualOnly.path("citations").get(0).path("window").path("audio").isNull());
-        int beforeNoAudio = remote.requests.size();
-        var noAudio =
-            query(http, base, "owner", "AUDIO", AUDIO_QUESTION, List.of(silentDocument), 200);
-        assertEquals("abstained", noAudio.path("status").asString());
-        assertEquals(
-            beforeNoAudio,
-            remote.requests.size(),
-            "No fake waveform is created for an absent audio route");
-        remote.expectedScope = Set.of(rationalDocument);
-        var rationalAnswer =
-            query(http, base, "owner", "JOINT", JOINT_QUESTION, List.of(rationalDocument), 200);
-        assertAnswered(rationalAnswer, rationalDocument, "JOINT");
-        assertEquals(
-            "240000",
-            rationalAnswer
-                .path("citations")
-                .get(0)
-                .path("epoch")
-                .path("ticks_per_second")
-                .asString());
-        assertEquals(
-            "30000",
-            rationalAnswer.path("citations").get(0).path("epoch").path("time_base_den").asString());
-
-        savedCitation = independent.path("citations").get(0);
-        sourceUrl = savedCitation.path("source_url").asString();
-        contentUrl = savedCitation.path("content_url").asString();
-        int beforeSource = remote.requests.size();
-        int nativeBeforeSource = nativeCount();
-        assertEquals(
-            savedCitation,
-            json(http, base, "owner", "GET", sourceUrl, null, null, 200).path("citation"));
-        assertOriginal(http, base, contentUrl, main.bytes(), "video/quicktime");
-        assertEquals(
-            queryCitation,
-            json(
-                    http,
-                    base,
-                    "owner",
-                    "GET",
-                    queryCitation.path("source_url").asString(),
-                    null,
-                    null,
-                    200)
-                .path("citation"));
-        assertOriginal(
-            http,
-            base,
-            queryCitation.path("content_url").asString(),
-            main.bytes(),
-            "video/quicktime");
-        json(http, base, "other-owner", "GET", sourceUrl, null, null, 404);
-        assertEquals(beforeSource, remote.requests.size());
-        assertEquals(nativeBeforeSource, nativeCount());
         remote.assertHealthy();
       }
       int providerBeforeRestart = remote.requests.size();
       int nativeBeforeRestart = nativeCount();
       try (var restarted = application(remote, data)) {
         assertEquals(
-            savedCitation,
-            json(http, base(restarted), "owner", "GET", sourceUrl, null, null, 200)
-                .path("citation"));
-        assertOriginal(http, base(restarted), contentUrl, main.bytes(), "video/quicktime");
-        assertEquals(
-            queryCitation,
-            json(
-                    http,
-                    base(restarted),
-                    "owner",
-                    "GET",
-                    queryCitation.path("source_url").asString(),
-                    null,
-                    null,
-                    200)
-                .path("citation"));
-        assertOriginal(
-            http,
-            base(restarted),
-            queryCitation.path("content_url").asString(),
-            main.bytes(),
-            "video/quicktime");
+            indexed,
+            json(http, base(restarted), "owner", "GET", indexPath(document), null, null, 200));
         assertEquals(
             providerBeforeRestart,
             remote.requests.size(),
-            "Restarted immutable source reads make zero provider calls");
+            "Restarted saved index reads make zero provider calls");
         assertEquals(
             nativeBeforeRestart,
             nativeCount(),
-            "Restarted immutable source reads invoke neither FFmpeg nor FFprobe");
+            "Restarted saved index reads invoke neither FFmpeg nor FFprobe");
         remote.assertHealthy();
       }
     }
@@ -928,8 +658,6 @@ class VideoAvLibraryMainlineNativeIT {
       HttpClient http, String base, String document, VideoAvCompilation expected, Providers remote)
       throws Exception {
     int before = remote.media.size();
-    int beforeDrafts = remote.drafts.size();
-    int beforeVerifications = remote.verifications.size();
     var result = json(http, base, "owner", "POST", indexPath(document), null, null, 200);
     remote.assertHealthy();
     assertEquals("available", result.path("status").asString());
@@ -943,8 +671,6 @@ class VideoAvLibraryMainlineNativeIT {
         result.path("audio_window_count").asLong());
     assertEquals(result.path("publication_id"), result.path("generation_id"));
     assertTrue(result.path("manifest_sha256").asString().matches("[a-f0-9]{64}"));
-    assertEquals(beforeDrafts, remote.drafts.size());
-    assertEquals(beforeVerifications, remote.verifications.size());
     var expectedMedia = new ArrayList<String>();
     for (var window : expected.windows()) {
       if (window.video() != null) {
@@ -989,313 +715,6 @@ class VideoAvLibraryMainlineNativeIT {
     return result;
   }
 
-  private static void assertStages(
-      Providers remote, int draftStart, int verifyStart, String mode, String question) {
-    var drafts = remote.drafts.subList(draftStart, remote.drafts.size());
-    var verifications = remote.verifications.subList(verifyStart, remote.verifications.size());
-    assertEquals(drafts.size(), verifications.size());
-    for (int i = 0; i < drafts.size(); i++) {
-      var draft = drafts.get(i);
-      var verify = verifications.get(i);
-      assertEquals(question, draft.input().path("question").asString());
-      assertEquals(question, verify.input().path("question").asString());
-      assertEquals(mode, draft.input().path("mode").asString());
-      assertEquals(draft.input().path("epoch"), verify.input().path("epoch"));
-      assertEquals(draft.input().path("window"), verify.input().path("window"));
-      assertArrayEquals(draft.video(), verify.video());
-      assertArrayEquals(draft.wav(), verify.wav());
-      assertEquals(mode.equals("AUDIO"), draft.video() == null);
-      assertEquals(mode.equals("VISUAL"), draft.wav() == null);
-      assertFalse(draft.input().has("claims"));
-      assertTrue(verify.input().path("claims").isArray());
-    }
-  }
-
-  private static void assertAnswered(JsonNode answer, String document, String mode) {
-    assertEquals(7, answer.size());
-    assertEquals("answered", answer.path("status").asString(), answer.toString());
-    assertEquals(mode, answer.path("mode").asString());
-    assertEquals(1, answer.path("citations").size());
-    assertEquals(document, answer.path("citations").get(0).path("document_id").asString());
-    assertTrue(answer.path("reason_code").isNull());
-    assertEquals("java-video-av-answer-v1", answer.path("policy_revision").asString());
-  }
-
-  private static void assertCitation(
-      JsonNode citation,
-      JsonNode upload,
-      JsonNode index,
-      VideoAvCompilation compilation,
-      String question) {
-    assertEquals(20, citation.size());
-    assertEquals("video_av_window", citation.path("kind").asString());
-    assertEquals(upload.path("document_id"), citation.path("document_id"));
-    assertEquals(upload.path("source_revision_id"), citation.path("revision_id"));
-    assertEquals(upload.path("source_sha256"), citation.path("source_sha256"));
-    assertEquals(index.path("publication_id"), citation.path("publication_id"));
-    assertEquals(index.path("profile_fingerprint"), citation.path("profile_fingerprint"));
-    assertEquals(index.path("model_revision"), citation.path("analysis_model_revision"));
-    assertEquals("server_window", citation.path("time_precision").asString());
-    var epoch = citation.path("epoch");
-    assertEquals(4, epoch.size());
-    assertEquals(Long.toString(compilation.epoch().sourceFirstPts()), epoch.path("pts").asString());
-    assertEquals(
-        Long.toString(compilation.epoch().sourceTimeBaseNumerator()),
-        epoch.path("time_base_num").asString());
-    assertEquals(
-        Long.toString(compilation.epoch().sourceTimeBaseDenominator()),
-        epoch.path("time_base_den").asString());
-    assertEquals(
-        Long.toString(compilation.epoch().ticksPerSecond()),
-        epoch.path("ticks_per_second").asString());
-    var window = citation.path("window");
-    assertEquals(8, window.size());
-    var expected = compilation.windows().get(window.path("ordinal").asInt());
-    assertEquals(Long.toString(expected.startTick()), window.path("start_tick").asString());
-    assertEquals(Long.toString(expected.endTick()), window.path("end_tick").asString());
-    assertEquals(
-        compilation.epoch().startMs(expected.startTick()), window.path("start_ms").asLong());
-    assertEquals(compilation.epoch().endMs(expected.endTick()), window.path("end_ms").asLong());
-    if (expected.video() == null) {
-      assertTrue(window.path("video").isNull());
-    } else {
-      assertEquals(5, window.path("video").size());
-      assertEquals(expected.video().sha256(), window.path("video").path("clip_sha256").asString());
-      assertEquals(
-          expected.video().framesManifestSha256(),
-          window.path("video").path("frames_manifest_sha256").asString());
-      assertEquals(expected.video().frameCount(), window.path("video").path("frame_count").asInt());
-    }
-    if (expected.audio() == null) {
-      assertTrue(window.path("audio").isNull());
-    } else {
-      assertEquals(5, window.path("audio").size());
-      assertEquals(
-          expected.audio().pcmSha256(), window.path("audio").path("pcm_sha256").asString());
-      assertEquals(
-          ModelValues.sha256(expected.audio().wav()),
-          window.path("audio").path("wav_sha256").asString());
-      assertEquals(
-          Long.toString(expected.audio().startSample()),
-          window.path("audio").path("start_sample").asString());
-      assertEquals(
-          Long.toString(expected.audio().endSample()),
-          window.path("audio").path("end_sample").asString());
-    }
-    var facts = new ArrayList<VideoAvFact>();
-    for (var item : citation.path("facts")) {
-      assertEquals(5, item.size());
-      var requirement = VideoAvRequirement.valueOf(item.path("requirement").asString());
-      assertEquals(
-          VideoAvProofIdentity.stableFactId(
-              ModelValues.sha256(question.getBytes(StandardCharsets.UTF_8)),
-              facts.size(),
-              item.path("text").asString(),
-              requirement),
-          item.path("id").asString());
-      facts.add(
-          new VideoAvFact(
-              item.path("id").asString(),
-              item.path("text").asString(),
-              requirement,
-              item.path("visual_contribution").asBoolean(),
-              item.path("audio_contribution").asBoolean()));
-    }
-    assertEquals(VideoAvProofIdentity.factsSha256(facts), citation.path("facts_sha256").asString());
-  }
-
-  private static JsonNode query(
-      HttpClient http,
-      String base,
-      String actor,
-      String mode,
-      String question,
-      List<String> documents,
-      int expected)
-      throws Exception {
-    var body = new LinkedHashMap<String, Object>();
-    body.put("question", question);
-    body.put("mode", mode);
-    if (documents != null) {
-      body.put("document_ids", documents);
-    }
-    return json(
-        http,
-        base,
-        actor,
-        "POST",
-        "/v1/video-av-answers",
-        JSON.writeValueAsBytes(body),
-        "application/json",
-        expected);
-  }
-
-  private static JsonNode attachedQuery(
-      HttpClient http,
-      String base,
-      String actor,
-      String mode,
-      String question,
-      List<String> documents,
-      List<Fixture> references,
-      int expected)
-      throws Exception {
-    var body = new LinkedHashMap<String, Object>();
-    body.put("question", question);
-    body.put("mode", mode);
-    if (documents != null) {
-      body.put("document_ids", documents);
-    }
-    body.put(
-        "attachments",
-        references.stream()
-            .map(
-                reference ->
-                    Map.of(
-                        "filename", reference.path().getFileName().toString(),
-                        "media_type", reference.mime(),
-                        "content_base64", Base64.getEncoder().encodeToString(reference.bytes())))
-            .toList());
-    return json(
-        http,
-        base,
-        actor,
-        "POST",
-        "/v1/video-av-query-answers",
-        JSON.writeValueAsBytes(body),
-        "application/json",
-        expected);
-  }
-
-  private static void assertQueryManifests(
-      JsonNode answer,
-      List<Fixture> references,
-      Map<String, VideoAvCompilation> compiled,
-      String mode,
-      boolean prepared) {
-    assertEquals(mode, answer.path("mode").asString());
-    assertEquals(mode, answer.path("result").path("mode").asString());
-    assertEquals(references.size(), answer.path("query_attachments").size());
-    for (int ordinal = 0; ordinal < references.size(); ordinal++) {
-      var receipt = answer.path("query_attachments").get(ordinal);
-      var reference = references.get(ordinal);
-      assertEquals(
-          Set.of(
-              "ordinal",
-              "source_sha256",
-              "media_kind",
-              "compiler_revision",
-              "content_sha256",
-              "window_count",
-              "visual_window_count",
-              "audio_window_count",
-              "audio_present",
-              "used_mode",
-              "status"),
-          new HashSet<>(receipt.propertyNames()));
-      assertEquals(ordinal, receipt.path("ordinal").asInt());
-      assertEquals(ModelValues.sha256(reference.bytes()), receipt.path("source_sha256").asString());
-      assertEquals("video", receipt.path("media_kind").asString());
-      assertEquals(mode, receipt.path("used_mode").asString());
-      assertTrue(
-          receipt.path("compiler_revision").asString().startsWith("java-video-av-compilation-v1:"));
-      assertEquals(prepared ? "prepared" : "not_prepared", receipt.path("status").asString());
-      if (prepared) {
-        var compilation = compiled.get(reference.name());
-        assertTrue(receipt.path("content_sha256").asString().matches("[a-f0-9]{64}"));
-        assertEquals(compilation.windows().size(), receipt.path("window_count").asInt());
-        assertEquals(
-            compilation.windows().stream().filter(window -> window.video() != null).count(),
-            receipt.path("visual_window_count").asInt());
-        assertEquals(
-            compilation.windows().stream().filter(window -> window.audio() != null).count(),
-            receipt.path("audio_window_count").asInt());
-        assertEquals(compilation.hasAudio(), receipt.path("audio_present").asBoolean());
-      } else {
-        for (String key :
-            List.of(
-                "content_sha256",
-                "window_count",
-                "visual_window_count",
-                "audio_window_count",
-                "audio_present")) {
-          assertTrue(
-              receipt.path(key).isNull(), "Not-prepared inputs must not invent media metadata");
-        }
-      }
-    }
-  }
-
-  private static void assertQueryTraceStored(
-      Path data, JsonNode answer, String question, JsonNode indexed) throws Exception {
-    String trace = answer.path("result").path("answer_id").asString();
-    try (var connection =
-            DriverManager.getConnection("jdbc:sqlite:" + data.resolve("java-library.db"));
-        var header =
-            connection.prepareStatement(
-                "SELECT * FROM video_av_query_preparations WHERE trace_id=?");
-        var children =
-            connection.prepareStatement(
-                "SELECT * FROM video_av_query_attachments WHERE trace_id=? ORDER BY ordinal")) {
-      header.setString(1, trace);
-      try (var row = header.executeQuery()) {
-        assertTrue(row.next(), "HTTP query must persist its preparation beside the terminal trace");
-        assertEquals(answer.path("query_attachments").size(), row.getInt("attachment_count"));
-        assertEquals(answer.path("mode").asString(), row.getString("mode"));
-        assertEquals(
-            ModelValues.sha256(question.getBytes(StandardCharsets.UTF_8)),
-            row.getString("question_sha256"));
-        assertEquals("java-video-av-query-preparation-v1", row.getString("preparation_revision"));
-        assertEquals(
-            indexed.path("embedding_model_revision").asString(),
-            row.getString("embedding_revision"));
-        assertEquals(
-            indexed.path("profile_fingerprint").asString(), row.getString("profile_fingerprint"));
-        assertTrue(row.getString("manifest_sha256").matches("[a-f0-9]{64}"));
-        assertEquals(
-            8,
-            row.getMetaData().getColumnCount(),
-            "Preparation records cannot contain a question or media payload");
-        assertFalse(row.next());
-      }
-      children.setString(1, trace);
-      try (var rows = children.executeQuery()) {
-        int count = 0;
-        while (rows.next()) {
-          var expected = answer.path("query_attachments").get(count++);
-          assertEquals(12, rows.getMetaData().getColumnCount());
-          assertEquals(expected.path("ordinal").asInt(), rows.getInt("ordinal"));
-          for (String key :
-              List.of("source_sha256", "compiler_revision", "media_kind", "used_mode", "status")) {
-            assertEquals(expected.path(key).asString(), rows.getString(key));
-          }
-          assertEquals(
-              expected.path("content_sha256").isNull()
-                  ? null
-                  : expected.path("content_sha256").asString(),
-              rows.getString("content_sha256"));
-          for (String key : List.of("window_count", "visual_window_count", "audio_window_count")) {
-            if (expected.path(key).isNull()) {
-              assertEquals(null, rows.getObject(key));
-            } else {
-              assertEquals(expected.path(key).asInt(), rows.getInt(key));
-            }
-          }
-          if (expected.path("audio_present").isNull()) {
-            assertEquals(null, rows.getObject("audio_present"));
-          } else {
-            assertEquals(
-                expected.path("audio_present").asBoolean(), rows.getBoolean("audio_present"));
-          }
-        }
-        assertEquals(
-            answer.path("query_attachments").size(),
-            count,
-            "Prepared and not-prepared terminal traces keep every requested input identity");
-      }
-    }
-  }
-
   private static JsonNode upload(
       HttpClient http, String base, String actor, String filename, byte[] source) throws Exception {
     var request =
@@ -1309,24 +728,6 @@ class VideoAvLibraryMainlineNativeIT {
     var response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
     assertEquals(201, response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
     return JSON.readTree(response.body());
-  }
-
-  private static void assertOriginal(
-      HttpClient http, String base, String contentUrl, byte[] original, String mime)
-      throws Exception {
-    var response = request(http, base, "owner", "GET", contentUrl, null, null);
-    assertEquals(200, response.statusCode());
-    assertArrayEquals(original, response.body());
-    assertEquals(mime, response.headers().firstValue("Content-Type").orElseThrow());
-    assertTrue(response.headers().firstValue("Cache-Control").orElseThrow().contains("no-store"));
-    var range =
-        http.send(
-            builder(base, "owner", contentUrl).header("Range", "bytes=7-31").GET().build(),
-            HttpResponse.BodyHandlers.ofByteArray());
-    assertEquals(206, range.statusCode());
-    assertEquals(
-        "bytes 7-31/" + original.length, range.headers().firstValue("Content-Range").orElseThrow());
-    assertArrayEquals(Arrays.copyOfRange(original, 7, 32), range.body());
   }
 
   private static JsonNode json(
@@ -1387,20 +788,14 @@ class VideoAvLibraryMainlineNativeIT {
     private final Map<String, Map<String, JsonNode>> rows = new ConcurrentHashMap<>();
     private final List<Call> requests = new CopyOnWriteArrayList<>();
     private final List<Media> media = new CopyOnWriteArrayList<>();
-    private final List<String> textQuestions = new CopyOnWriteArrayList<>();
-    private final List<Assessment> drafts = new CopyOnWriteArrayList<>();
-    private final List<Assessment> verifications = new CopyOnWriteArrayList<>();
     private final List<Throwable> failures = new CopyOnWriteArrayList<>();
     private final Map<String, byte[]> expectedMedia = new HashMap<>();
     private final List<VideoAvCompilation> expectedCompilations;
     private volatile Set<String> expectedScope = Set.of();
-    private volatile boolean textMiss;
 
     private record Call(String path, JsonNode body) {}
 
     private record Media(String mime, byte[] bytes) {}
-
-    private record Assessment(JsonNode input, byte[] video, byte[] wav) {}
 
     Providers(List<VideoAvCompilation> expectedCompilations) throws IOException {
       this.expectedCompilations = List.copyOf(expectedCompilations);
@@ -1443,14 +838,10 @@ class VideoAvLibraryMainlineNativeIT {
             googleHeaders(exchange);
             assertTrue(serialized.length <= 14 * 1024 * 1024);
             response = embed(body);
-          } else if (path.equals("/v1beta/interactions")) {
-            googleHeaders(exchange);
-            assertTrue(serialized.length <= 14 * 1024 * 1024);
-            response = interaction(body);
           } else {
             assertTrue(
                 path.startsWith("/v2/vectordb/"),
-                "No ASR, describe, chat or unknown route is permitted: " + path);
+                "No ASR, describe, interaction, chat or unknown route is permitted: " + path);
             assertEquals(
                 "Bearer synthetic-fixture-credential",
                 exchange.getRequestHeaders().getFirst("Authorization"));
@@ -1488,7 +879,6 @@ class VideoAvLibraryMainlineNativeIT {
         assertTrue(
             QUESTIONS.contains(part.path("text").asString()),
             "The exact whole question, including its final condition, must be embedded without a prefix");
-        textQuestions.add(part.path("text").asString());
       } else {
         assertEquals(Set.of("inlineData"), new HashSet<>(part.propertyNames()));
         var raw = part.path("inlineData");
@@ -1498,11 +888,7 @@ class VideoAvLibraryMainlineNativeIT {
         assertMedia(mime, bytes);
         media.add(new Media(mime, bytes));
       }
-      return Map.of(
-          "embedding",
-          Map.of("values", textMiss && part.has("text") ? List.of(0.0, 1.0) : List.of(1.0, 0.0)),
-          "usageMetadata",
-          Map.of());
+      return Map.of("embedding", Map.of("values", List.of(1.0, 0.0)), "usageMetadata", Map.of());
     }
 
     private void assertMedia(String mime, byte[] actual) {
@@ -1517,220 +903,6 @@ class VideoAvLibraryMainlineNativeIT {
       } else {
         assertEquals("video/mp4", mime);
       }
-    }
-
-    private Object interaction(JsonNode body) throws Exception {
-      assertEquals(
-          Set.of(
-              "model",
-              "store",
-              "stream",
-              "background",
-              "system_instruction",
-              "input",
-              "generation_config",
-              "response_format"),
-          new HashSet<>(body.propertyNames()));
-      assertEquals("fixture-video-av", body.path("model").asString());
-      assertFalse(body.path("store").asBoolean());
-      assertFalse(body.path("stream").asBoolean());
-      assertFalse(body.path("background").asBoolean());
-      var parts = body.path("input");
-      assertTrue(parts.isArray() && parts.size() >= 2 && parts.size() <= 3);
-      var last = parts.get(parts.size() - 1);
-      assertEquals(Set.of("type", "text"), new HashSet<>(last.propertyNames()));
-      assertEquals("text", last.path("type").asString());
-      var input = JSON.readTree(last.path("text").asString());
-      String question = input.path("question").asString();
-      String mode = input.path("mode").asString();
-      assertTrue(QUESTIONS.contains(question));
-      assertTrue(Set.of("VISUAL", "AUDIO", "JOINT").contains(mode));
-      var allowed = new HashSet<>(Set.of("question", "mode", "epoch", "window"));
-      if (!mode.equals("AUDIO")) {
-        allowed.add("video");
-      }
-      if (!mode.equals("VISUAL")) {
-        allowed.add("audio");
-      }
-      if (input.has("claims")) {
-        allowed.add("claims");
-      }
-      assertEquals(allowed, new HashSet<>(input.propertyNames()));
-      byte[] video = null;
-      byte[] wav = null;
-      for (int i = 0; i < parts.size() - 1; i++) {
-        var part = parts.get(i);
-        if (part.path("type").asString().equals("video")) {
-          assertEquals(
-              Set.of("type", "mime_type", "data", "processing"),
-              new HashSet<>(part.propertyNames()));
-          assertEquals(
-              JSON.valueToTree(Map.of("type", "static", "fps", 1)), part.path("processing"));
-          assertEquals("video/mp4", part.path("mime_type").asString());
-          assertEquals(null, video);
-          video = Base64.getDecoder().decode(part.path("data").asString());
-          assertMedia("video/mp4", video);
-        } else {
-          assertEquals(Set.of("type", "mime_type", "data"), new HashSet<>(part.propertyNames()));
-          assertEquals("audio", part.path("type").asString());
-          assertEquals("audio/wav", part.path("mime_type").asString());
-          assertEquals(null, wav);
-          wav = Base64.getDecoder().decode(part.path("data").asString());
-          assertMedia("audio/wav", wav);
-        }
-      }
-      assertEquals(mode.equals("AUDIO"), video == null);
-      assertEquals(mode.equals("VISUAL"), wav == null);
-      assertPreparedWindow(input, video, wav);
-      assertEquals(
-          JSON.valueToTree(
-              Map.of(
-                  "max_output_tokens", 8192, "thinking_summaries", "none", "tool_choice", "none")),
-          body.path("generation_config"));
-      var format = body.path("response_format");
-      assertEquals(Set.of("type", "mime_type", "schema"), new HashSet<>(format.propertyNames()));
-      assertEquals("text", format.path("type").asString());
-      assertEquals("application/json", format.path("mime_type").asString());
-      assertEquals("object", format.path("schema").path("type").asString());
-      assertFalse(format.path("schema").path("additionalProperties").asBoolean());
-      boolean verify = input.has("claims");
-      Object result;
-      if (verify) {
-        assertTrue(
-            body.path("system_instruction")
-                .asString()
-                .contains("Relationship questions require JOINT relational facts"));
-        var expected = claims(mode, question);
-        assertEquals(expected.size(), input.path("claims").size());
-        var support = new ArrayList<Object>();
-        for (int i = 0; i < expected.size(); i++) {
-          var claim = input.path("claims").get(i);
-          assertEquals(Set.of("id", "text", "requirement"), new HashSet<>(claim.propertyNames()));
-          assertEquals(expected.get(i).get("text"), claim.path("text").asString());
-          String requirement = expected.get(i).get("requirement");
-          assertEquals(requirement, claim.path("requirement").asString());
-          String id =
-              VideoAvProofIdentity.stableFactId(
-                  ModelValues.sha256(question.getBytes(StandardCharsets.UTF_8)),
-                  i,
-                  claim.path("text").asString(),
-                  VideoAvRequirement.valueOf(requirement));
-          assertEquals(id, claim.path("id").asString());
-          support.add(
-              Map.of(
-                  "id",
-                  id,
-                  "supported",
-                  true,
-                  "visual_contribution",
-                  !requirement.equals("AUDIO"),
-                  "audio_contribution",
-                  !requirement.equals("VISUAL")));
-        }
-        verifications.add(new Assessment(input, video, wav));
-        result = Map.of("complete", !question.equals(RELATION_QUESTION), "support", support);
-      } else {
-        assertTrue(body.path("system_instruction").asString().contains("Do not assign fact IDs"));
-        drafts.add(new Assessment(input, video, wav));
-        result = Map.of("complete", true, "claims", claims(mode, question));
-      }
-      return Map.of(
-          "id",
-          "synthetic-av-interaction",
-          "model",
-          "fixture-video-av",
-          "status",
-          "completed",
-          "steps",
-          List.of(
-              Map.of("type", "processing_call", "id", "media"),
-              Map.of("type", "processing_result", "call_id", "media"),
-              Map.of(
-                  "type",
-                  "model_output",
-                  "content",
-                  List.of(Map.of("type", "text", "text", JSON.writeValueAsString(result))))));
-    }
-
-    private void assertPreparedWindow(JsonNode input, byte[] video, byte[] wav) {
-      var epoch = input.path("epoch");
-      var time = input.path("window");
-      assertEquals(
-          Set.of("pts", "time_base_num", "time_base_den", "ticks_per_second"),
-          new HashSet<>(epoch.propertyNames()));
-      assertEquals(Set.of("start_tick", "end_tick"), new HashSet<>(time.propertyNames()));
-      for (var compilation : expectedCompilations) {
-        var actualEpoch = compilation.epoch();
-        if (!Long.toString(actualEpoch.sourceFirstPts()).equals(epoch.path("pts").asString())
-            || !Long.toString(actualEpoch.sourceTimeBaseNumerator())
-                .equals(epoch.path("time_base_num").asString())
-            || !Long.toString(actualEpoch.sourceTimeBaseDenominator())
-                .equals(epoch.path("time_base_den").asString())
-            || !Long.toString(actualEpoch.ticksPerSecond())
-                .equals(epoch.path("ticks_per_second").asString())) {
-          continue;
-        }
-        for (var window : compilation.windows()) {
-          if (!Long.toString(window.startTick()).equals(time.path("start_tick").asString())
-              || !Long.toString(window.endTick()).equals(time.path("end_tick").asString())
-              || video != null
-                  && (window.video() == null || !Arrays.equals(video, window.video().content()))
-              || wav != null
-                  && (window.audio() == null || !Arrays.equals(wav, window.audio().wav()))) {
-            continue;
-          }
-          if (video != null) {
-            var metadata = input.path("video");
-            assertEquals(
-                Set.of("first_local_tick", "end_local_tick", "clip_sha256"),
-                new HashSet<>(metadata.propertyNames()));
-            assertEquals(window.video().sha256(), metadata.path("clip_sha256").asString());
-            assertEquals(
-                Long.toString(window.video().firstLocalTick()),
-                metadata.path("first_local_tick").asString());
-            assertEquals(
-                Long.toString(window.video().endLocalTick()),
-                metadata.path("end_local_tick").asString());
-          }
-          if (wav != null) {
-            var metadata = input.path("audio");
-            var audio = window.audio();
-            assertEquals(
-                Set.of(
-                    "start_sample", "end_sample", "sample_rate", "first_local_tick", "pcm_sha256"),
-                new HashSet<>(metadata.propertyNames()));
-            assertEquals(
-                Long.toString(audio.startSample()), metadata.path("start_sample").asString());
-            assertEquals(Long.toString(audio.endSample()), metadata.path("end_sample").asString());
-            assertEquals(16000, metadata.path("sample_rate").asInt());
-            assertEquals(audio.pcmSha256(), metadata.path("pcm_sha256").asString());
-            assertEquals(
-                BigInteger.valueOf(audio.startSample())
-                    .multiply(BigInteger.valueOf(actualEpoch.ticksPerSecond() / 16000))
-                    .subtract(BigInteger.valueOf(window.startTick()))
-                    .toString(),
-                metadata.path("first_local_tick").asString());
-          }
-          return;
-        }
-      }
-      throw new AssertionError(
-          "The model request must bind a complete real window and its exact original epoch");
-    }
-
-    private static List<Map<String, String>> claims(String mode, String question) {
-      if (mode.equals("VISUAL")) {
-        return List.of(Map.of("text", VISUAL_FACT, "requirement", "VISUAL"));
-      }
-      if (mode.equals("AUDIO")) {
-        return List.of(Map.of("text", AUDIO_FACT, "requirement", "AUDIO"));
-      }
-      if (question.equals(INDEPENDENT_QUESTION) || question.equals(RELATION_QUESTION)) {
-        return List.of(
-            Map.of("text", VISUAL_FACT, "requirement", "VISUAL"),
-            Map.of("text", AUDIO_FACT, "requirement", "AUDIO"));
-      }
-      return List.of(Map.of("text", JOINT_FACT, "requirement", "JOINT"));
     }
 
     private Object milvus(String path, JsonNode body) {

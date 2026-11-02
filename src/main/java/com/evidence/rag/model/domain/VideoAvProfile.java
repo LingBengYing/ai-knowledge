@@ -202,16 +202,6 @@ public final class VideoAvProfile {
     }
   }
 
-  public static boolean compiledMatches(
-      VideoAvPublication publication, VideoAvCompilation compilation) {
-    return publication.sourceSha256().equals(compilation.sourceSha256())
-        && publication.decoderRevision().equals(compilation.decoderRevision())
-        && publication.epoch().equals(compilation.epoch())
-        && publication.durationTick() == compilation.durationTick()
-        && publication.hasAudio() == compilation.hasAudio()
-        && publication.windowManifestSha256().equals(windowManifestSha256(compilation));
-  }
-
   public static String publicationManifestSha256(VideoAvPublication p) {
     var values =
         new ArrayList<>(

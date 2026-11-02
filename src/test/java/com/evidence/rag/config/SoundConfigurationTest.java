@@ -20,7 +20,6 @@ import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.RuntimeService;
-import com.evidence.rag.service.SoundAnswerService;
 import com.evidence.rag.service.SoundCompilationService;
 import com.evidence.rag.service.SoundLibraryService;
 import com.evidence.rag.web.ProblemHandler;
@@ -77,13 +76,11 @@ class SoundConfigurationTest {
       context.register(SoundConfiguration.class, RuntimeConfiguration.class);
       context.refresh();
       assertNotNull(context.getBean(SoundLibraryService.class));
-      assertNotNull(context.getBean(SoundAnswerService.class));
+      assertTrue(context.getBeansOfType(SoundEmbeddingModels.class).isEmpty());
+      assertTrue(context.getBeansOfType(SoundModels.class).isEmpty());
       assertTrue(context.getBeansOfType(AudioDecoder.class).isEmpty());
       assertTrue(context.getBeansOfType(TextModels.class).isEmpty());
-      var settings = context.getBean(SoundSettings.class);
-      assertEquals(
-          settings.embedding().revision(), context.getBean(SoundEmbeddingModels.class).revision());
-      assertEquals(settings.models().revision(), context.getBean(SoundModels.class).revision());
+      assertNotNull(context.getBean(SoundSettings.class));
       var capabilities = context.getBean(RuntimeService.class).capabilities().capabilities();
       assertTrue(
           capabilities.containsAll(
