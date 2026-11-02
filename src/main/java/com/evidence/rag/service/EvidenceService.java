@@ -70,6 +70,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -78,58 +79,24 @@ import org.springframework.stereotype.Service;
 @Service
 public final class EvidenceService {
   public List<PublicationVersion> videoPublications(EvidenceScope scope) {
-    requireScope(scope);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          var publications = evidence.findVideoPublications(scope);
-          if (!scope.publications().containsAll(publications)) {
-            throw ModelValues.invalid();
-          }
-          return publications;
-        });
+    return scopedPublications(scope, evidence::findVideoPublications);
   }
 
   public List<PublishedVideoCandidate> hydrateVideo(EvidenceScope scope, List<String> physicalIds) {
     requireScope(scope);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          return classifiedVideo(scope, ids).video();
-        });
+    return whileCurrent(scope, () -> classifiedVideo(scope, ids).video());
   }
 
   public List<PublicationVersion> videoOcrPublications(EvidenceScope scope) {
-    requireScope(scope);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          var publications = evidence.findVideoOcrPublications(scope);
-          if (!scope.publications().containsAll(publications)) {
-            throw ModelValues.invalid();
-          }
-          return publications;
-        });
+    return scopedPublications(scope, evidence::findVideoOcrPublications);
   }
 
   public List<PublishedVideoOcrEvidence> hydrateVideoOcr(
       EvidenceScope scope, List<String> physicalIds) {
     requireScope(scope);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          return classifiedVideo(scope, ids).ocr();
-        });
+    return whileCurrent(scope, () -> classifiedVideo(scope, ids).ocr());
   }
 
   /** Classify every authorized physical hit before filtering; unknown hits never disappear. */
@@ -177,31 +144,14 @@ public final class EvidenceService {
       List<PublishedVideoSubtitleEvidence> subtitles) {}
 
   public List<PublicationVersion> videoSubtitlePublications(EvidenceScope scope) {
-    requireScope(scope);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          var publications = evidence.findVideoSubtitlePublications(scope);
-          if (!scope.publications().containsAll(publications)) {
-            throw ModelValues.invalid();
-          }
-          return publications;
-        });
+    return scopedPublications(scope, evidence::findVideoSubtitlePublications);
   }
 
   public List<PublishedVideoSubtitleEvidence> hydrateVideoSubtitle(
       EvidenceScope scope, List<String> physicalIds) {
     requireScope(scope);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          return classifiedVideo(scope, ids).subtitles();
-        });
+    return whileCurrent(scope, () -> classifiedVideo(scope, ids).subtitles());
   }
 
   private VideoSubtitleSourceEvidence subtitleMaterial(EvidenceScope scope, TraceEvidence trace) {
@@ -275,13 +225,7 @@ public final class EvidenceService {
     if (trace == null) {
       throw ModelValues.invalid();
     }
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          return ocrMaterial(scope, trace);
-        });
+    return whileCurrent(scope, () -> ocrMaterial(scope, trace));
   }
 
   private VideoOcrSourceEvidence ocrMaterial(EvidenceScope scope, TraceEvidence trace) {
@@ -354,11 +298,9 @@ public final class EvidenceService {
   public List<PublishedVideoGroup> videoGroups(EvidenceScope scope, List<String> physicalIds) {
     requireScope(scope);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
+    return whileCurrent(
+        scope,
         () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
           var groups = evidence.findPublishedVideoGroups(scope, ids);
           var seen = new HashSet<String>();
           for (var group : groups) {
@@ -380,13 +322,7 @@ public final class EvidenceService {
     requireScope(scope);
     ModelValues.identifier(publicationId, 128);
     ModelValues.identifier(groupId, 128);
-    return store.transaction(
-        () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
-          return videoMaterial(scope, publicationId, groupId);
-        });
+    return whileCurrent(scope, () -> videoMaterial(scope, publicationId, groupId));
   }
 
   public VideoSourceEvidence videoSource(Actor actor, String traceId, int citationOrdinal) {
@@ -550,23 +486,15 @@ public final class EvidenceService {
   public List<PublishedEvidence> hydrate(EvidenceScope snapshot, List<String> physicalIds) {
     requireScope(snapshot);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
-        () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
-          return hydrated(snapshot, ids);
-        });
+    return whileCurrent(snapshot, () -> hydrated(snapshot, ids));
   }
 
   /** The complete scope is retained while each product-help category gets its own search. */
   public List<PublicationVersion> productHelpPublications(EvidenceScope scope, boolean video) {
     requireScope(scope);
-    return store.transaction(
+    return whileCurrent(
+        scope,
         () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
           var publications =
               video
                   ? evidence.findVideoTextPublications(scope)
@@ -832,61 +760,22 @@ public final class EvidenceService {
   }
 
   public List<PublicationVersion> textPublications(EvidenceScope snapshot) {
-    requireScope(snapshot);
-    return store.transaction(
-        () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
-          var texts = evidence.findTextPublications(snapshot);
-          if (!snapshot.publications().containsAll(texts)) {
-            throw ModelValues.invalid();
-          }
-          return texts;
-        });
+    return scopedPublications(snapshot, evidence::findTextPublications);
   }
 
   public List<PublicationVersion> imagePublications(EvidenceScope snapshot) {
-    requireScope(snapshot);
-    return store.transaction(
-        () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
-          var images = evidence.findImagePublications(snapshot);
-          if (!snapshot.publications().containsAll(images)) {
-            throw ModelValues.invalid();
-          }
-          return images;
-        });
+    return scopedPublications(snapshot, evidence::findImagePublications);
   }
 
   public List<PublicationVersion> audioPublications(EvidenceScope snapshot) {
-    requireScope(snapshot);
-    return store.transaction(
-        () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
-          var audio = evidence.findAudioPublications(snapshot);
-          if (!snapshot.publications().containsAll(audio)) {
-            throw ModelValues.invalid();
-          }
-          return audio;
-        });
+    return scopedPublications(snapshot, evidence::findAudioPublications);
   }
 
   public List<PublishedAudioEvidence> hydrateAudio(
       EvidenceScope snapshot, List<String> physicalIds) {
     requireScope(snapshot);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
-        () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
-          return hydratedAudio(snapshot, ids);
-        });
+    return whileCurrent(snapshot, () -> hydratedAudio(snapshot, ids));
   }
 
   public AudioSourceEvidence audioSource(Actor actor, String traceId, int citationOrdinal) {
@@ -947,11 +836,9 @@ public final class EvidenceService {
       throw ModelValues.invalid();
     }
     ModelValues.identifier(decoderRevision, 200);
-    return store.transaction(
+    return whileCurrent(
+        scope,
         () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
           var bindings = verifiedAudioVectors(scope, audioTarget, decoderRevision);
           return new AudioVectorScope(
               scope,
@@ -1100,11 +987,9 @@ public final class EvidenceService {
     if (imageTarget == null) {
       throw ModelValues.invalid();
     }
-    return store.transaction(
+    return whileCurrent(
+        scope,
         () -> {
-          if (!current(scope)) {
-            throw changed();
-          }
           var bindings = verifiedImageVectors(scope, imageTarget);
           return new ImageVectorScope(
               scope,
@@ -1209,23 +1094,15 @@ public final class EvidenceService {
       EvidenceScope snapshot, List<String> physicalIds) {
     requireScope(snapshot);
     var ids = candidateIds(physicalIds);
-    return store.transaction(
-        () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
-          return hydratedImages(snapshot, ids);
-        });
+    return whileCurrent(snapshot, () -> hydratedImages(snapshot, ids));
   }
 
   public VisualSourceEvidence image(EvidenceScope snapshot, String physicalId) {
     requireScope(snapshot);
     ModelValues.identifier(physicalId, 128);
-    return store.transaction(
+    return whileCurrent(
+        snapshot,
         () -> {
-          if (!current(snapshot)) {
-            throw changed();
-          }
           var image = hydratedImages(snapshot, List.of(physicalId)).getFirst();
           return imageSource(snapshot.actor(), image);
         });
@@ -1570,6 +1447,31 @@ public final class EvidenceService {
     }
   }
 
+  private List<PublicationVersion> scopedPublications(
+      EvidenceScope scope, Function<EvidenceScope, List<PublicationVersion>> find) {
+    requireScope(scope);
+    return whileCurrent(
+        scope,
+        () -> {
+          var publications = find.apply(scope);
+          if (!scope.publications().containsAll(publications)) {
+            throw ModelValues.invalid();
+          }
+          return publications;
+        });
+  }
+
+  /** One authority transaction that first proves the scope is still current and readable. */
+  private <T> T whileCurrent(EvidenceScope scope, Supplier<T> read) {
+    return store.transaction(
+        () -> {
+          if (!current(scope)) {
+            throw changed();
+          }
+          return read.get();
+        });
+  }
+
   private boolean current(EvidenceScope scope) {
     var selected =
         DocumentSelection.selected(
@@ -1591,33 +1493,21 @@ public final class EvidenceService {
       throw new ApplicationException(
           FailureKind.CAPACITY_EXCEEDED, "evidence_capacity_exceeded", "引用资料页超过处理上限，请缩小资料范围。");
     }
-    var items = evidence.findPublishedEvidence(scope, ids);
-    if (items.size() != ids.size()) {
-      throw ModelValues.invalid();
-    }
-    var byId = new HashMap<String, PublishedEvidence>();
-    for (var item : items) {
-      if (!scope.publications().contains(item.publication())
-          || byId.put(item.physicalSegmentId(), item) != null) {
-        throw ModelValues.invalid();
-      }
-    }
-    return ids.stream().map(byId::get).toList();
+    return inRequestedOrder(
+        scope,
+        ids,
+        evidence.findPublishedEvidence(scope, ids),
+        PublishedEvidence::publication,
+        PublishedEvidence::physicalSegmentId);
   }
 
   private List<PublishedImageEvidence> hydratedImages(EvidenceScope scope, List<String> ids) {
-    var items = evidence.findPublishedImageEvidence(scope, ids);
-    if (items.size() != ids.size()) {
-      throw ModelValues.invalid();
-    }
-    var byId = new HashMap<String, PublishedImageEvidence>();
-    for (var item : items) {
-      if (!scope.publications().contains(item.publication())
-          || byId.put(item.physicalSegmentId(), item) != null) {
-        throw ModelValues.invalid();
-      }
-    }
-    return ids.stream().map(byId::get).toList();
+    return inRequestedOrder(
+        scope,
+        ids,
+        evidence.findPublishedImageEvidence(scope, ids),
+        PublishedImageEvidence::publication,
+        PublishedImageEvidence::physicalSegmentId);
   }
 
   private List<PublishedAudioEvidence> hydratedAudio(EvidenceScope scope, List<String> ids) {
@@ -1625,14 +1515,28 @@ public final class EvidenceService {
       throw new ApplicationException(
           FailureKind.CAPACITY_EXCEEDED, "evidence_capacity_exceeded", "引用音频转录超过处理上限，请缩小资料范围。");
     }
-    var items = evidence.findPublishedAudioEvidence(scope, ids);
+    return inRequestedOrder(
+        scope,
+        ids,
+        evidence.findPublishedAudioEvidence(scope, ids),
+        PublishedAudioEvidence::publication,
+        PublishedAudioEvidence::physicalSegmentId);
+  }
+
+  /** Exactly one in-scope item per requested id, in request order. */
+  private static <T> List<T> inRequestedOrder(
+      EvidenceScope scope,
+      List<String> ids,
+      List<T> items,
+      Function<T, PublicationVersion> publication,
+      Function<T, String> physicalId) {
     if (items.size() != ids.size()) {
       throw ModelValues.invalid();
     }
-    var byId = new HashMap<String, PublishedAudioEvidence>();
+    var byId = new HashMap<String, T>();
     for (var item : items) {
-      if (!scope.publications().contains(item.publication())
-          || byId.put(item.physicalSegmentId(), item) != null) {
+      if (!scope.publications().contains(publication.apply(item))
+          || byId.put(physicalId.apply(item), item) != null) {
         throw ModelValues.invalid();
       }
     }
