@@ -82,6 +82,3 @@ class RemotePagePipeline:
             raise OcrError("pipeline_failed") from None
         finally:
             await client.aclose()
-
-    def close(self):
-        pass

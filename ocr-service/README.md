@@ -24,7 +24,6 @@ Private environment variables:
 | `OCR_MODEL` | Must be `PaddlePaddle/PaddleOCR-VL-1.5`; default is this exact value. |
 | `OCR_PROFILE` | Must be `paddleocr-vl-1.5-pipeline-v1`; default is this exact value. |
 | `OCR_CONCURRENCY` | Default `4`, range `1..8`: pages recognized at once. The Java PDF worker sends up to 4 pages of one document in parallel. |
-| `OMP_NUM_THREADS`, `MKL_NUM_THREADS` | Default `1`; deployment should also bound CPU and memory. |
 
 The process creates its socket with mode `0600`, sets umask `0077`, opens no TCP listener, and refuses an existing socket path rather than unlinking a potentially live listener. Supervision should use a private runtime directory, the same service UID as the Java socket client, and a finite stop timeout. A stale socket after forced termination must be verified and removed by the supervisor before restarting. No privileged account is required.
 
@@ -89,4 +88,4 @@ Real `httpx` wire regression with `MockTransport` (no network/model):
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s wire_tests -v
 ```
 
-The contract suite covers framing, limits, fields, no extra URLs/paths, permissions, single active work, deadline/disconnect, fixed safe errors and accounting. The wire suite checks cap removal, SDK timeout override, complete response validation, connection-failure accounting and cancellation. Neither suite measures provider OCR quality, production capacity or Java integration. Those require separately recorded real-provider evidence before a release is called verified.
+The contract suite covers framing, limits, fields, no extra URLs/paths, permissions, single active work, deadline/disconnect, fixed safe errors and accounting. The wire suite checks cap removal, caller timeout override, complete response validation, connection-failure accounting and cancellation. Neither suite measures provider OCR quality, production capacity or Java integration. Those require separately recorded real-provider evidence before a release is called verified.

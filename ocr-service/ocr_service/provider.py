@@ -1,4 +1,4 @@
-"""Explicit OpenAI HTTP seam; no global patching or SDK/site-package changes."""
+"""Explicit OpenAI-compatible HTTP seam; no global patching or site-package changes."""
 
 import json
 import time
@@ -9,7 +9,7 @@ MODEL = "PaddlePaddle/PaddleOCR-VL-1.5"
 
 
 def prepare_request_body(body):
-    """The SDK hardcodes token caps; remove them only at this owned wire seam."""
+    """Never send token caps; strip them only at this owned wire seam."""
     try:
         value = json.loads(body)
         if not isinstance(value, dict) or value.get("model") != MODEL:
@@ -47,11 +47,10 @@ def validate_completion(status, body):
         raise OcrError("invalid_model_response") from None
 
 
-def create_http_client(context_getter, base_url, httpx_module=None, transport=None):
-    """Inject this AsyncClient OBJECT through the SDK's supported client_kwargs."""
-    if httpx_module is None:
-        import httpx as httpx_module
-    httpx = httpx_module
+def create_http_client(context_getter, base_url, transport=None):
+    """The only HTTP client the pipeline uses; every send is checked against the fixed endpoint."""
+    import httpx  # Deferred: the stdlib-only contract suite imports this module without httpx.
+
     endpoint = base_url.rstrip("/") + "/chat/completions"
 
     class GuardedAsyncClient(httpx.AsyncClient):
@@ -75,7 +74,7 @@ def create_http_client(context_getter, base_url, httpx_module=None, transport=No
             extensions["timeout"] = {key: remaining for key in ("connect", "read", "write", "pool")}
             outgoing = httpx.Request(request.method, request.url, headers=headers,
                                      content=content, extensions=extensions)
-            # Never allow redirects to another host or the SDK's unbounded read.
+            # Never allow redirects to another host or an unbounded response read.
             kwargs.update(stream=True, follow_redirects=False)
 
             async def exchange():
@@ -97,7 +96,7 @@ def create_http_client(context_getter, base_url, httpx_module=None, transport=No
                             raise OcrError("response_too_large")
                         body.extend(chunk)
                     validate_completion(response.status_code, bytes(body))
-                    # Fully consumed and validated response; OpenAI may now decode it.
+                    # Fully consumed and validated response; the caller may now decode it.
                     clean_headers = [(key, value) for key, value in response.headers.multi_items()
                                      if key.lower() not in ("content-length", "content-encoding",
                                                             "transfer-encoding")]
