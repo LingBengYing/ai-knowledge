@@ -157,17 +157,9 @@ public class AudioEmbeddingConfiguration {
   }
 
   private static void requireLocal(Environment environment) {
-    String bind = environment.getProperty("server.address");
-    String mode = environment.getProperty("rag.environment", "development");
-    if (!RuntimeGuard.isLiteralLoopback(bind)
-        || !("development".equals(mode) || "test".equals(mode))) {
+    if (!RuntimeGuard.isLocalDevelopment(
+        environment, "audio", "ingestion", "indexing", "answers", "query-attachments")) {
       throw invalid();
-    }
-    for (String dependency :
-        new String[] {"audio", "ingestion", "indexing", "answers", "query-attachments"}) {
-      if (!environment.getProperty("rag." + dependency + ".enabled", Boolean.class, false)) {
-        throw invalid();
-      }
     }
   }
 

@@ -43,10 +43,7 @@ public class SynopsisConfiguration {
   private static OpenAiCompatibleSynopsisModels.Configuration modelConfiguration(
       Environment environment) {
     try {
-      String address = environment.getProperty("server.address");
-      String mode = environment.getProperty("rag.environment", "development");
-      if (!RuntimeGuard.isLiteralLoopback(address)
-          || !("development".equals(mode) || "test".equals(mode))) {
+      if (!RuntimeGuard.isLocalDevelopment(environment)) {
         throw new IllegalArgumentException();
       }
       return new OpenAiCompatibleSynopsisModels.Configuration(

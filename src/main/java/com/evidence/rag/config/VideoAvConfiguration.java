@@ -292,11 +292,7 @@ public class VideoAvConfiguration {
   }
 
   private static void requireLocal(Environment environment) {
-    String address = environment.getProperty("server.address");
-    String mode = environment.getProperty("rag.environment", "development");
-    if (!RuntimeGuard.isLiteralLoopback(address)
-        || !(mode.equals("development") || mode.equals("test"))
-        || !environment.getProperty("rag.ingestion.enabled", Boolean.class, false)) {
+    if (!RuntimeGuard.isLocalDevelopment(environment, "ingestion")) {
       throw invalid();
     }
   }

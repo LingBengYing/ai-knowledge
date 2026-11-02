@@ -27,11 +27,7 @@ public class VisualConfiguration {
   @Bean(destroyMethod = "close")
   OpenAiCompatibleVisionModels visionModels(Environment environment) {
     try {
-      String address = environment.getProperty("server.address");
-      String mode = environment.getProperty("rag.environment", "development");
-      if (!RuntimeGuard.isLiteralLoopback(address)
-          || !("development".equals(mode) || "test".equals(mode))
-          || !environment.getProperty("rag.answers.enabled", Boolean.class, false)) {
+      if (!RuntimeGuard.isLocalDevelopment(environment, "answers")) {
         throw new IllegalArgumentException();
       }
       var endpoint =

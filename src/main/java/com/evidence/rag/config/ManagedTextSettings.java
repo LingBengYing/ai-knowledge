@@ -34,10 +34,7 @@ final class ManagedTextSettings {
   ManagedTextSettings(ConfigurableEnvironment environment) {
     this.environment = environment;
     try {
-      String bind = environment.getProperty("server.address");
-      String mode = environment.getProperty("rag.environment", "development");
-      if (!RuntimeGuard.isLiteralLoopback(bind)
-          || !("development".equals(mode) || "test".equals(mode))) {
+      if (!RuntimeGuard.isLocalDevelopment(environment)) {
         throw invalid();
       }
       var allowed =
