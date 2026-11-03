@@ -222,6 +222,54 @@ public final class ManagementRepository {
     return new Filter(predicate.toString(), args);
   }
 
+  /**
+   * Read-only facts of a legacy sound or video audiovisual original (libraries removed 2026-11-03;
+   * their rows remain until the document is removed): the stored source revision, its latest
+   * matching publication, if any, and that publication's span/window count.
+   */
+  public Optional<LegacyMediaEvidence> legacyMediaEvidence(String documentId) {
+    for (var library :
+        List.of(
+            new String[] {"sound_originals", "sound_publications", "created_at", "sound_spans"},
+            new String[] {
+              "video_av_originals", "video_av_publications", "created_at_ms", "video_av_windows"
+            })) {
+      var rows =
+          store.rows(
+              """
+          SELECT s.source_revision_id,
+            (SELECT p.id FROM %2$s p WHERE p.document_id=s.document_id
+               AND p.source_revision_id=s.source_revision_id AND p.source_sha256=s.source_sha256
+               ORDER BY p.%3$s DESC,p.id DESC LIMIT 1) AS publication_id
+          FROM %1$s s JOIN documents d ON d.id=s.document_id
+          WHERE s.document_id=? AND s.source_revision_id=d.active_revision_id
+            AND s.source_sha256=d.source_sha256
+            AND NOT EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=d.id)
+          """
+                  .formatted(library[0], library[1], library[2]),
+              documentId);
+      if (!rows.isEmpty()) {
+        var row = rows.getFirst();
+        String publication = AuthorityRows.text(row, "publication_id");
+        int count =
+            publication == null
+                ? 0
+                : Math.toIntExact(
+                    store.count(
+                        "SELECT COUNT(*) FROM " + library[3] + " WHERE publication_id=?",
+                        publication));
+        return Optional.of(
+            new LegacyMediaEvidence(
+                AuthorityRows.text(row, "source_revision_id"), publication, count));
+      }
+    }
+    return Optional.empty();
+  }
+
+  /** See {@link #legacyMediaEvidence(String)}. */
+  public record LegacyMediaEvidence(
+      String sourceRevisionId, String publicationId, int segmentCount) {}
+
   public Optional<DocumentEvidenceEntity> evidence(String id) {
     return store
         .rows(

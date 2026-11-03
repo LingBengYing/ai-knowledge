@@ -8,9 +8,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
- * One corpus dispatcher plus bounded media builders; closing the browser never owns this
- * continuation. Corpus dispatch only enqueues durable indexing tasks, so it is never held up by a
- * synchronous sound or video_av build running on a media worker.
+ * One corpus dispatcher plus bounded non-corpus workers; closing the browser never owns this
+ * continuation. Corpus dispatch only enqueues durable indexing tasks. The non-corpus workers only
+ * settle legacy sound/video_av requests (those libraries were removed 2026-11-03).
  */
 public final class ImportAutoIndexJob implements AutoCloseable {
   private final List<Thread> workers = new ArrayList<>();
@@ -45,13 +45,7 @@ public final class ImportAutoIndexJob implements AutoCloseable {
         continue;
       }
       try {
-        if (outcome == ImportAutoIndexService.Dispatch.BUSY) {
-          // Releasing the request was itself a queue change: back off without listening to it.
-          Thread.sleep(idle);
-          idle = TaskWakeup.nextIdle(idle, false);
-        } else {
-          idle = TaskWakeup.nextIdle(idle, wakeup.await(seen, idle));
-        }
+        idle = TaskWakeup.nextIdle(idle, wakeup.await(seen, idle));
       } catch (InterruptedException interrupted) {
         if (closed) return;
         Thread.interrupted();

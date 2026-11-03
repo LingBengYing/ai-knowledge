@@ -5,24 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.VideoAvTestFixture;
-import com.evidence.rag.model.domain.Actor;
-import com.evidence.rag.model.domain.DocumentOriginal;
-import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.SoundProfile;
-import com.evidence.rag.model.domain.SoundPublication;
-import com.evidence.rag.model.domain.SoundSpan;
-import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.support.AuthorityTestContext;
-import com.evidence.rag.tool.parser.AudioPcm;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -254,73 +243,6 @@ class SharedWorkspaceMigrationTest {
   }
 
   @Test
-  void soundTraceAcceptsSecondMemberWithoutAclButStillRejectsWrongWorkspaceOrDeletedSource() {
-    try (var store = new SqliteAuthorityStore(directory)) {
-      var publication = registerSound(store);
-      sealSound(store, "shared", "org", publication.id());
-      assertThrows(
-          RuntimeException.class, () -> sealSound(store, "wrong", "other", publication.id()));
-      store.transaction(
-          () -> {
-            store.execute(
-                "INSERT INTO document_tombstones VALUES(?,?,?,?)",
-                publication.documentId(),
-                "org",
-                "member-2",
-                NOW);
-            return null;
-          });
-      assertThrows(
-          RuntimeException.class, () -> sealSound(store, "deleted", "org", publication.id()));
-    }
-  }
-
-  @Test
-  void videoTraceAcceptsSecondMemberWithoutAclAndStillRejectsMissingScope() {
-    try (var store = new SqliteAuthorityStore(directory)) {
-      var claim = VideoAvTestFixture.claim(false);
-      var original = claim.original();
-      var publication = VideoAvTestFixture.publication(claim);
-      store.transaction(
-          () -> {
-            registerDocument(store, original);
-            new VideoAvRepository(store).insertOriginal(original, NOW);
-            new VideoAvRepository(store).insertPublication(publication);
-            store.execute(
-                "INSERT INTO video_av_trace_documents VALUES(?,?,?)",
-                "shared",
-                0,
-                publication.id());
-            insertVideoTrace(store, "shared", "org", 1, publication.analysisModelRevision());
-            return null;
-          });
-      assertThrows(
-          RuntimeException.class,
-          () ->
-              store.transaction(
-                  () -> {
-                    insertVideoTrace(
-                        store, "omitted", "org", 0, publication.analysisModelRevision());
-                    return null;
-                  }));
-      assertThrows(
-          RuntimeException.class,
-          () ->
-              store.transaction(
-                  () -> {
-                    store.execute(
-                        "INSERT INTO video_av_trace_documents VALUES(?,?,?)",
-                        "wrong",
-                        0,
-                        publication.id());
-                    insertVideoTrace(
-                        store, "wrong", "other", 1, publication.analysisModelRevision());
-                    return null;
-                  }));
-    }
-  }
-
-  @Test
   void alteredSealingGuardIsRejectedWithoutRewritingHistoryOrVersion() throws Exception {
     try (var store = new SqliteAuthorityStore(directory)) {
       assertEquals(
@@ -412,120 +334,5 @@ class SharedWorkspaceMigrationTest {
       assertTrue(result.next());
       return result.getLong(1);
     }
-  }
-
-  private static void registerDocument(SqliteAuthorityStore store, DocumentOriginal original) {
-    new ManagementRepository(store)
-        .insertDocument(
-            new Actor("org", "owner"),
-            new SyntheticDocument(
-                original.documentId(),
-                original.filename(),
-                original.documentType(),
-                original.mediaType(),
-                original.revisionId(),
-                original.sourceSha256(),
-                original.sizeBytes()),
-            NOW);
-  }
-
-  private static SoundPublication registerSound(SqliteAuthorityStore store) {
-    byte[] bytes = AudioPcm.wav(new byte[2], 0, 2);
-    var original =
-        new DocumentOriginal(
-            "sound-doc",
-            "sound-rev",
-            "tone.wav",
-            "audio",
-            "audio/wav",
-            ModelValues.sha256(bytes),
-            bytes.length,
-            bytes);
-    String generation = UUID.randomUUID().toString();
-    var target = new IndexTarget("embedding-v1", SHA, "embedding-v1", 2);
-    String id = SoundProfile.spanId(original.revisionId(), 0);
-    var spans =
-        List.of(
-            new SoundSpan(
-                id,
-                0,
-                0,
-                1,
-                "b".repeat(64),
-                "",
-                SoundProfile.physicalSegmentId(generation, id),
-                "c".repeat(64)));
-    var publication =
-        new SoundPublication(
-            "sound-pub",
-            "org",
-            original.documentId(),
-            original.revisionId(),
-            original.sourceSha256(),
-            original.filename(),
-            original.mediaType(),
-            original.sizeBytes(),
-            generation,
-            target,
-            "sound-v1",
-            "decoder-v1",
-            1,
-            1,
-            spans,
-            SoundProfile.manifestSha256("org", original.documentId(), generation, spans),
-            SoundProfile.fingerprint(target, "sound-v1", "decoder-v1", 1),
-            NOW);
-    store.transaction(
-        () -> {
-          registerDocument(store, original);
-          new SoundRepository(store).insertOriginal(original, NOW);
-          new SoundRepository(store).insertPublication(publication);
-          return null;
-        });
-    return publication;
-  }
-
-  private static void sealSound(
-      SqliteAuthorityStore store, String id, String workspace, String publication) {
-    store.transaction(
-        () -> {
-          store.execute("INSERT INTO sound_trace_documents VALUES(?,?,?)", id, 0, publication);
-          store.execute(
-              "INSERT INTO sound_traces VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-              id,
-              workspace,
-              "member-2",
-              1,
-              1,
-              0,
-              SHA,
-              null,
-              "abstained",
-              "no_evidence",
-              "sound-v1",
-              "java-sound-answer-v1",
-              NOW);
-          return null;
-        });
-  }
-
-  private static void insertVideoTrace(
-      SqliteAuthorityStore store, String id, String workspace, int scopeCount, String revision) {
-    store.execute(
-        "INSERT INTO video_av_traces VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        id,
-        workspace,
-        "member-2",
-        1,
-        scopeCount,
-        0,
-        "VISUAL",
-        SHA,
-        null,
-        "abstained",
-        "no_evidence",
-        revision,
-        "java-video-av-answer-v1",
-        NOW);
   }
 }

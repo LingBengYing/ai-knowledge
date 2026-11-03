@@ -77,7 +77,7 @@ class ImportAutoIndexServiceTest {
               deadline -> {
                 throw new AssertionError("queueing does not call models");
               });
-      var automatic = new ImportAutoIndexService(authority.store(), () -> processor, null, null);
+      var automatic = new ImportAutoIndexService(authority.store(), () -> processor);
       assertTrue(automatic.processNext());
       var claim = authority.indexing().claimIndexing("org").orElseThrow();
       assertEquals(documentId, claim.documentId());
@@ -90,15 +90,14 @@ class ImportAutoIndexServiceTest {
   void missingRuntimeFailsVisiblyAndIsNotRetriedAfterConfigurationOrRestart() {
     try (var authority = new AuthorityTestContext(directory)) {
       parsed(authority);
-      var automatic = new ImportAutoIndexService(authority.store(), () -> null, null, null);
+      var automatic = new ImportAutoIndexService(authority.store(), () -> null);
       assertTrue(automatic.processNext());
       assertEquals("failed", progress(authority).get("state"));
       assertEquals("indexing_unavailable", progress(authority).get("error_code"));
       assertFalse(automatic.processNext());
     }
     try (var reopened = new AuthorityTestContext(directory)) {
-      var automatic =
-          new ImportAutoIndexService(reopened.store(), () -> processor(reopened), null, null);
+      var automatic = new ImportAutoIndexService(reopened.store(), () -> processor(reopened));
       assertFalse(automatic.processNext());
       assertTrue(reopened.indexing().claimIndexing("org").isEmpty());
       assertEquals("failed", progress(reopened).get("state"));
@@ -113,8 +112,7 @@ class ImportAutoIndexServiceTest {
       assertNull(document(authority).get("auto_index"));
     }
     try (var reopened = new AuthorityTestContext(directory)) {
-      var automatic =
-          new ImportAutoIndexService(reopened.store(), () -> processor(reopened), null, null);
+      var automatic = new ImportAutoIndexService(reopened.store(), () -> processor(reopened));
       assertFalse(automatic.processNext());
       assertTrue(reopened.indexing().claimIndexing("org").isEmpty());
     }
@@ -131,8 +129,7 @@ class ImportAutoIndexServiceTest {
       taskId = processor(authority).create(owner, documentId).taskId();
     }
     try (var reopened = new AuthorityTestContext(directory)) {
-      var automatic =
-          new ImportAutoIndexService(reopened.store(), () -> processor(reopened), null, null);
+      var automatic = new ImportAutoIndexService(reopened.store(), () -> processor(reopened));
       assertFalse(automatic.processNext());
       assertEquals(taskId, progress(reopened).get("task_id"));
       assertEquals("submitted", progress(reopened).get("state"));
@@ -155,8 +152,6 @@ class ImportAutoIndexServiceTest {
               new DocumentPermissionPolicy(),
               authority.ingestion(),
               () -> processor(authority),
-              null,
-              null,
               true);
       var uploaded =
           replacement.upload(
@@ -175,8 +170,7 @@ class ImportAutoIndexServiceTest {
                   new ParsedText(
                       List.of(new TextPage(1, "Replacement text")),
                       List.of(new TextSegment(0, 1, 0, 16, "Replacement text")))));
-      var automatic =
-          new ImportAutoIndexService(authority.store(), () -> processor(authority), null, null);
+      var automatic = new ImportAutoIndexService(authority.store(), () -> processor(authority));
       assertTrue(automatic.processNext());
       var claim = authority.indexing().claimIndexing("org").orElseThrow();
       assertEquals(uploaded.candidateRevisionId(), claim.revisionId());
@@ -201,8 +195,6 @@ class ImportAutoIndexServiceTest {
               new DocumentPermissionPolicy(),
               authority.ingestion(),
               () -> processor(authority),
-              null,
-              null,
               true);
       var ingestion = new com.evidence.rag.repository.IngestionRepository(authority.store());
       java.util.function.LongSupplier stored =
@@ -242,8 +234,7 @@ class ImportAutoIndexServiceTest {
           () -> processor(authority).createImported(owner, id, "different-revision"));
       assertTrue(authority.indexing().claimIndexing("org").isEmpty());
       assertTrue(
-          new ImportAutoIndexService(authority.store(), () -> processor(authority), null, null)
-              .processNext());
+          new ImportAutoIndexService(authority.store(), () -> processor(authority)).processNext());
       assertEquals(id, authority.indexing().claimIndexing("org").orElseThrow().documentId());
     }
   }
@@ -257,8 +248,7 @@ class ImportAutoIndexServiceTest {
           .transaction(() -> new ImportIndexRepository(authority.store()).claim().orElseThrow());
     }
     try (var authority = new AuthorityTestContext(directory)) {
-      var automatic =
-          new ImportAutoIndexService(authority.store(), () -> processor(authority), null, null);
+      var automatic = new ImportAutoIndexService(authority.store(), () -> processor(authority));
       assertTrue(automatic.processNext());
       assertFalse(automatic.processNext());
       assertNotNull(authority.indexing().claimIndexing("org").orElseThrow());

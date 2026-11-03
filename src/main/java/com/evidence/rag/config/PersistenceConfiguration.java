@@ -7,10 +7,8 @@ import com.evidence.rag.repository.ImageVectorRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
-import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.SynopsisRepository;
-import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.AudioCompilationService;
 import com.evidence.rag.service.IndexingService;
@@ -70,16 +68,6 @@ public class PersistenceConfiguration {
   @Bean
   AudioVectorRepository audioVectorRepository(SqliteAuthorityStore store) {
     return new AudioVectorRepository(store);
-  }
-
-  @Bean
-  VideoAvRepository videoAvRepository(SqliteAuthorityStore store) {
-    return new VideoAvRepository(store);
-  }
-
-  @Bean
-  SoundRepository soundRepository(SqliteAuthorityStore store) {
-    return new SoundRepository(store);
   }
 
   @Bean

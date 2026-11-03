@@ -299,11 +299,6 @@ public final class DocumentUpdateRepository {
               store.rows("SELECT * FROM documents WHERE id=?", value.documentId()).getFirst();
           var corpus =
               store.rows("SELECT * FROM corpus_documents WHERE document_id=?", value.documentId());
-          var sound =
-              store.rows("SELECT * FROM sound_originals WHERE document_id=?", value.documentId());
-          var video =
-              store.rows(
-                  "SELECT * FROM video_av_originals WHERE document_id=?", value.documentId());
           DocumentOriginal candidate =
               original(value.documentId(), value.candidateRevisionId())
                   .orElseThrow(ModelValues::invalid);
@@ -312,7 +307,7 @@ public final class DocumentUpdateRepository {
             return persist.get();
           } finally {
             if (!"published".equals(find(id).orElseThrow(ModelValues::invalid).state())) {
-              restore(metadata, corpus, sound, video);
+              restore(metadata, corpus);
             }
           }
         });
@@ -328,20 +323,11 @@ public final class DocumentUpdateRepository {
             != 1) {
       throw ModelValues.invalid();
     }
-    String table =
-        switch (value.pipeline()) {
-          case "corpus" -> "index_publications";
-          case "sound" -> "sound_publications";
-          case "video_av" -> "video_av_publications";
-          default -> throw ModelValues.invalid();
-        };
-    String revision = "corpus".equals(value.pipeline()) ? "revision_id" : "source_revision_id";
+    if (!"corpus".equals(value.pipeline())) {
+      throw ModelValues.invalid();
+    }
     if (store.count(
-            "SELECT COUNT(*) FROM "
-                + table
-                + " WHERE id=? AND document_id=? AND "
-                + revision
-                + "=? AND source_sha256=(SELECT source_sha256 FROM document_original_revisions WHERE revision_id=?)",
+            "SELECT COUNT(*) FROM index_publications WHERE id=? AND document_id=? AND revision_id=? AND source_sha256=(SELECT source_sha256 FROM document_original_revisions WHERE revision_id=?)",
             publicationId,
             value.documentId(),
             value.candidateRevisionId(),
@@ -349,13 +335,12 @@ public final class DocumentUpdateRepository {
         != 1) {
       throw ModelValues.invalid();
     }
-    if ("corpus".equals(value.pipeline())
-        && store.count(
-                "SELECT COUNT(*) FROM active_corpus_publications WHERE document_id=? AND publication_id=? AND revision_id=?",
-                value.documentId(),
-                publicationId,
-                value.candidateRevisionId())
-            != 1) {
+    if (store.count(
+            "SELECT COUNT(*) FROM active_corpus_publications WHERE document_id=? AND publication_id=? AND revision_id=?",
+            value.documentId(),
+            publicationId,
+            value.candidateRevisionId())
+        != 1) {
       throw ModelValues.invalid();
     }
     store.execute(
@@ -390,27 +375,10 @@ public final class DocumentUpdateRepository {
           value.revisionId(),
           parsedRevision,
           value.documentId());
-    } else {
-      String table = "sound".equals(pipeline) ? "sound_originals" : "video_av_originals";
-      store.execute(
-          "UPDATE "
-              + table
-              + " SET source_revision_id=?,source_sha256=?,filename=?,media_type=?,size_bytes=?,original_blob=? WHERE document_id=?",
-          value.revisionId(),
-          value.sourceSha256(),
-          value.filename(),
-          value.mediaType(),
-          value.sizeBytes(),
-          value.content(),
-          value.documentId());
     }
   }
 
-  private void restore(
-      Map<String, Object> d,
-      java.util.List<Map<String, Object>> corpus,
-      java.util.List<Map<String, Object>> sound,
-      java.util.List<Map<String, Object>> video) {
+  private void restore(Map<String, Object> d, java.util.List<Map<String, Object>> corpus) {
     store.execute(
         "UPDATE documents SET filename=?,document_type=?,mime_type=?,active_revision_id=?,source_sha256=?,size_bytes=?,updated_at=? WHERE id=?",
         d.get("filename"),
@@ -429,23 +397,6 @@ public final class DocumentUpdateRepository {
           c.get("initial_revision_id"),
           c.get("parsed_revision_id"),
           d.get("id"));
-    }
-    for (String table : java.util.List.of("sound_originals", "video_av_originals")) {
-      var rows = "sound_originals".equals(table) ? sound : video;
-      if (!rows.isEmpty()) {
-        var row = rows.getFirst();
-        store.execute(
-            "UPDATE "
-                + table
-                + " SET source_revision_id=?,source_sha256=?,filename=?,media_type=?,size_bytes=?,original_blob=? WHERE document_id=?",
-            row.get("source_revision_id"),
-            row.get("source_sha256"),
-            row.get("filename"),
-            row.get("media_type"),
-            row.get("size_bytes"),
-            row.get("original_blob"),
-            d.get("id"));
-      }
     }
   }
 

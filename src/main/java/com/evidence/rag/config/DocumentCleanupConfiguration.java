@@ -49,8 +49,6 @@ public class DocumentCleanupConfiguration {
       ObjectProvider<TextAdapterSettings> text,
       ObjectProvider<ImageEmbeddingSettings> images,
       ObjectProvider<AudioEmbeddingSettings> audio,
-      ObjectProvider<SoundSettings> sound,
-      ObjectProvider<VideoAvSettings> video,
       ObjectProvider<ManagedTextSettings> managed,
       ObjectProvider<ManagedTextRuntime> managedRuntime,
       SqliteAuthorityStore store,
@@ -59,12 +57,8 @@ public class DocumentCleanupConfiguration {
     text.ifAvailable(settings -> targets.add(settings.projection()));
     images.ifAvailable(settings -> targets.add(settings.projection()));
     audio.ifAvailable(settings -> targets.add(settings.projection()));
-    sound.ifAvailable(settings -> targets.add(settings.projection()));
-    video.ifAvailable(
-        settings -> {
-          targets.add(settings.visualProjection());
-          targets.add(settings.audioProjection());
-        });
+    // Legacy sound/video_av projections have no configured target any more; their cleanup
+    // reports cleanup_target_unknown (blocked) while local rows are still purged.
     var runtime = managedRuntime.getIfAvailable();
     return new MilvusProjectionCleanup(
         targets,

@@ -66,7 +66,7 @@ class BatchPipelineConcurrencyTest {
       try (var parserJob = new IngestionJob(parsing, authority.store().operationGate(), 2);
           var autoJob =
               new ImportAutoIndexJob(
-                  new ImportAutoIndexService(authority.store(), () -> indexing, null, null), 1);
+                  new ImportAutoIndexService(authority.store(), () -> indexing), 1);
           var indexJob = new IndexingJob(indexing, authority.store().operationGate(), 2)) {
         try {
           await(

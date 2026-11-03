@@ -172,10 +172,7 @@ class ManagedTextWiringBoundaryTest {
     assertFalse(configured.capabilities().contains("visual_answers"));
     assertFalse(configured.capabilities().contains("video_answers"));
     assertFalse(configured.capabilities().contains("query_attachments"));
-    assertTrue(
-        configured
-            .capabilities()
-            .containsAll(List.of("sound_answers", "video_av_answers", "file_synopsis")));
+    assertTrue(configured.capabilities().contains("file_synopsis"));
     assertEquals("org-main", configured.workspaceId());
     assertEquals("java", configured.edition());
     var json = JsonMapper.builder().build().valueToTree(configured);
@@ -221,15 +218,7 @@ class ManagedTextWiringBoundaryTest {
       assertTrue(drifted.unavailable().contains(unavailable));
     }
     assertTrue(
-        drifted
-            .capabilities()
-            .containsAll(
-                List.of(
-                    "sound_answers",
-                    "video_av_answers",
-                    "file_synopsis",
-                    "answers",
-                    "retrieval_test")));
+        drifted.capabilities().containsAll(List.of("file_synopsis", "answers", "retrieval_test")));
     assertTrue(
         new HashSet<>(drifted.capabilities()).stream().noneMatch(drifted.unavailable()::contains));
   }
@@ -328,8 +317,6 @@ class ManagedTextWiringBoundaryTest {
             "query_attachments",
             "image_vector_retrieval",
             "audio_vector_retrieval",
-            "sound_answers",
-            "video_av_answers",
             "file_synopsis"),
         List.of("production_readiness"));
   }

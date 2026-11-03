@@ -94,6 +94,8 @@ Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操�
 
 新增[原图向量检索](docs/IMAGE_VECTOR_RETRIEVAL.md)：已索引图片显式建立独立原图向量，原图模式携参考图片时按完整授权范围召回，再核验库内原图事实并打开原来源。默认关闭，不自动补建旧资料；本机实现与验证见[0026](docs/changes/0026-image-vector-retrieval/verification.md)。本增量未部署。当前已部署20261003-voice-tags，含扫描PDF、查询附件、摘要建议标签和语音提问；部署结果与只读入口报告已核对，完整页面由用户验收，真实ASR仍未通过。下方日期和发布状态均为对应历史快照。
 
+**已移除（2026-11-03）**：独立声音知识库（0028）与原视频音画知识库（0029）整体删除——上传 `POST /v1/sound-documents`、`POST /v1/video-av-documents`，索引 `/v1/documents/{id}/sound-index`、`/v1/documents/{id}/video-av-index`，对应编译/索引子进程/模型客户端、`rag.sound.*`/`rag.video-av.*` 配置及 `sound_*`/`video_av_*` 能力名均已移除。音频（ASR/原声向量）、0014视频、图片向量、查询附件和文档不受影响。schema不变（v43），旧声音/原视频音画资料仍可列出、查看、下载原件与撤下清理，但不能再更新原件或建立索引。见[声音知识库](docs/SOUND_LIBRARY.md)与[原视频音画](docs/VIDEO_AUDIOVISUAL.md)。
+
 **已移除（2026-11-02）**：声音与原视频音画的问答/来源接口 `POST /v1/sound-answers`、`POST /v1/sound-query-answers`、`/v1/sound-sources/*`、`POST /v1/video-av-answers`、`POST /v1/video-av-query-answers`、`/v1/video-av-sources/*` 及 `video_av_query_attachments` 能力已从后端删除（网页早先已移除代理）；声音/原视频音画的上传与索引保留，trace表结构保留不迁移。见[声音知识库](docs/SOUND_LIBRARY.md)与[原视频音画](docs/VIDEO_AUDIOVISUAL.md)。
 
 **已移除（2026-10-10）**：语音提问 `POST /v1/voice-questions`、`voice_questions` 能力及 `RAG_VOICE_QUESTIONS_*` 配置已从后端删除，唯一前端调用随旧页面一并移除；共享音频/ASR、声音库、视频及查询附件不受影响。历史合同见[0025](docs/changes/0025-voice-questions/spec.md)。以下为原历史记录：新增语音提问：上传音频→完整转录→编辑核对→确认填入问题→按原资料范围问答并打开库内来源。默认关闭，复用现有ASR，转录输入不入库、不成为引用。后端0025与前端0014配套，验证见[0025](docs/changes/0025-voice-questions/verification.md)。本机实现尚待发布；当前部署20261003-scanned-pdf已含查询附件、文件摘要和PDF来源，生成/问答全链由用户验收。下方日期和发布状态保留为对应历史快照。
@@ -179,7 +181,7 @@ Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操�
 | 独立视频字幕轨、完整索引、文字问答与时间来源 | 0016本机后端已接 | [配置与接口](docs/VIDEO_SUBTITLES.md)，默认关闭；完整同轨上下文，字幕不是ASR或画面OCR |
 | 短/长文件摘要、完整材料与持久原始来源 | 0015/0016本机后端已接 | [文件摘要](docs/FILE_SYNOPSIS.md)，包含字幕第八类原始材料；摘要不替代事实证据 |
 | 多模态查询附件 | 已实现；整体实际质量待验 | PNG/WAV/MP4辅助召回，最终只用库内证据；附件不入库、不作事实来源；原视频参考提问已于2026-11-02删除 |
-| 原图/原声向量、独立声音与原视频音画 | 已实现；真实语义质量待验 | 独立可选能力、显式构建及原始材料召回；向量不能替代逐事实证明；声音/原视频音画问答与来源接口已于2026-11-02删除，仅保留上传与索引 |
+| 原图/原声向量 | 已实现；真实语义质量待验 | 独立可选能力、显式构建及原始材料召回；向量不能替代逐事实证明；独立声音与原视频音画知识库已于2026-11-03整体删除（旧资料只读保留） |
 | 摘要建议标签 | 已实现 | 摘要建议标签由保存材料生成且用户勾选，不额外调用模型；语音输入（0025）已于2026-10-10移除 |
 | 受控清理、保存材料重建、同资料原件更新与模型重建 | 已实现；本轮只读确认批量入口 | 保留ID与整理信息，旧发布成功后才切换；未在本轮提交重建或更新 |
 | 部署、生产验收与真实性能对比 | 有开发部署记录；生产未验收 | 当前readiness gate不解除，完整质量/备份迁移回滚/负载仍待验，不声称 Java 已比 Python 更快 |

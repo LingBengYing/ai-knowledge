@@ -51,4 +51,38 @@ class RuntimeControllerTest {
       }
     }
   }
+
+  @Test
+  void removedSoundAndVideoAvLibrariesAreNeverAdvertised() {
+    // Every feature flag on: the 2026-11-03 removal leaves no sound_* or video_av_* name behind.
+    var config =
+        new RuntimeController(
+                new RuntimeService(
+                    "development_headers",
+                    "org-main",
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true))
+            .configuration();
+    assertTrue(config.capabilities().contains("audio_upload"));
+    assertTrue(config.capabilities().contains("video_upload"));
+    for (var names : List.of(config.capabilities(), config.unavailable())) {
+      for (Object name : names) {
+        assertFalse(
+            name.toString().startsWith("sound_") || name.toString().startsWith("video_av_"),
+            name.toString());
+      }
+    }
+  }
 }
