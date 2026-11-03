@@ -65,6 +65,19 @@ public final class WikiLocalIntegrationServer {
 
   static ConfigurableApplicationContext start(
       Path directory, AnswerProtocolServer models, IndexingTestServer projection, int port) {
+    return start(directory, models, projection, port, true);
+  }
+
+  /**
+   * Tests that drive {@code POST /v1/documents/{id}/index} themselves turn automatic import
+   * indexing off; otherwise its dispatcher races the explicit request into a 409.
+   */
+  static ConfigurableApplicationContext start(
+      Path directory,
+      AnswerProtocolServer models,
+      IndexingTestServer projection,
+      int port,
+      boolean automaticImportIndexing) {
     var environment = new StandardEnvironment();
     environment
         .getPropertySources()
@@ -88,6 +101,7 @@ public final class WikiLocalIntegrationServer {
         "--rag.data-directory=" + directory,
         "--rag.ingestion.enabled=true",
         "--rag.indexing.enabled=true",
+        "--rag.import-auto-index.enabled=" + automaticImportIndexing,
         "--rag.answers.enabled=true",
         "--rag.model-configuration.enabled=true",
         "--rag.model-configuration.administrators=owner",

@@ -34,7 +34,7 @@ class WikiModelRebuildHttpTest {
     try (var models = new AnswerProtocolServer();
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint(), true);
         var http = HttpClient.newHttpClient();
-        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0, false)) {
       String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
       WikiLocalIntegrationServer.activate(http, base);
       var upload =
@@ -77,7 +77,7 @@ class WikiModelRebuildHttpTest {
       long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
       JsonNode state;
       do {
-        state = request(http, base, "GET", "/v1/model-configuration/rebuild", null, null, 200);
+        state = rebuildProgress(http, base);
         if (!List.of("queued", "running", "applying")
             .contains(state.path("job").path("state").asString())) break;
         Thread.sleep(40);
@@ -122,7 +122,7 @@ class WikiModelRebuildHttpTest {
     try (var models = new AnswerProtocolServer();
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint(), true);
         var http = HttpClient.newHttpClient();
-        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0, false)) {
       assertEquals(directory.toString(), app.getEnvironment().getProperty("rag.data-directory"));
       String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
       WikiLocalIntegrationServer.activate(http, base);
@@ -166,7 +166,7 @@ class WikiModelRebuildHttpTest {
       long until = System.nanoTime() + Duration.ofSeconds(20).toNanos();
       JsonNode state;
       do {
-        state = request(http, base, "GET", "/v1/model-configuration/rebuild", null, null, 200);
+        state = rebuildProgress(http, base);
         if (!List.of("queued", "running", "applying")
             .contains(state.path("job").path("state").asString())) break;
         Thread.sleep(40);
@@ -228,7 +228,7 @@ class WikiModelRebuildHttpTest {
     try (var models = new AnswerProtocolServer();
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint(), true);
         var http = HttpClient.newHttpClient();
-        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+        var app = WikiLocalIntegrationServer.start(directory, models, projection, 0, false)) {
       String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
       WikiLocalIntegrationServer.activate(http, base);
       for (byte[] body :
@@ -247,6 +247,32 @@ class WikiModelRebuildHttpTest {
         assertEquals("invalid_model_configuration", problem.path("error_code").asString());
       }
     }
+  }
+
+  /**
+   * Polls rebuild progress. Publishing the rebuilt generation holds the library maintenance lease
+   * briefly; meanwhile every ordinary {@code /v1/} body, including this read, answers the
+   * documented 503 {@code migration_incomplete} with Retry-After, which is reported as "applying".
+   */
+  private static JsonNode rebuildProgress(HttpClient http, String base) throws Exception {
+    var response =
+        http.send(
+            HttpRequest.newBuilder(URI.create(base + "/v1/model-configuration/rebuild"))
+                .timeout(Duration.ofSeconds(30))
+                .header("Origin", base)
+                .header("X-Workspace-Id", "org-main")
+                .header("X-Principal-Id", "owner")
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    var body = JSON.readTree(response.body());
+    if (response.statusCode() == 503
+        && "migration_incomplete".equals(body.path("error_code").asString())
+        && response.headers().firstValue("Retry-After").isPresent()) {
+      return JSON.readTree("{\"job\":{\"state\":\"applying\"}}");
+    }
+    assertEquals(200, response.statusCode(), response.body());
+    return body;
   }
 
   private static JsonNode request(

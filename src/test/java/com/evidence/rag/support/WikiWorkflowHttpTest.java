@@ -35,7 +35,7 @@ class WikiWorkflowHttpTest {
       String draftId;
       String sourcePath;
       String answerSourcePath;
-      try (var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+      try (var app = WikiLocalIntegrationServer.start(directory, models, projection, 0, false)) {
         assertEquals(directory.toString(), app.getEnvironment().getProperty("rag.data-directory"));
         String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
         WikiLocalIntegrationServer.activate(http, base);
@@ -128,7 +128,7 @@ class WikiWorkflowHttpTest {
         assertEquals(1, draft.path("version").asInt());
       }
       int providerCount = models.requests.size();
-      try (var app = WikiLocalIntegrationServer.start(directory, models, projection, 0)) {
+      try (var app = WikiLocalIntegrationServer.start(directory, models, projection, 0, false)) {
         String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
         assertEquals(
             pageId,
