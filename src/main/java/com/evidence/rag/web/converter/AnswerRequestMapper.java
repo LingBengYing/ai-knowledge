@@ -4,6 +4,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.dto.AnswerCommand;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +32,31 @@ public final class AnswerRequestMapper {
       }
     }
     return new AnswerCommand(question, DocumentSelection.allDocuments());
+  }
+
+  /**
+   * Video proof modes keep their documented explicit scope (docs/API.md video answers): omitted is
+   * the visible library, {@code []} an explicit empty scope, otherwise up to 128 unique ids. Only
+   * the default shared-workspace answer ignores {@code document_ids}.
+   */
+  public static AnswerCommand selectedCommand(Map<String, Object> body) {
+    var command = command(body);
+    if (!body.containsKey("document_ids")) {
+      return command;
+    }
+    var supplied = (List<?>) body.get("document_ids");
+    if (supplied.size() > 128) {
+      throw invalid();
+    }
+    var ids = new ArrayList<String>();
+    for (Object value : supplied) {
+      ids.add((String) value);
+    }
+    try {
+      return new AnswerCommand(command.question(), DocumentSelection.selected(ids));
+    } catch (ApplicationException duplicate) {
+      throw invalid();
+    }
   }
 
   private static ApplicationException invalid() {

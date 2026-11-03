@@ -28,7 +28,7 @@ public final class VideoAnswerRequestMapper {
     var answer = new HashMap<>(body);
     answer.remove("mode");
     return new VideoAnswerCommand(
-        AnswerRequestMapper.command(answer),
+        AnswerRequestMapper.selectedCommand(answer),
         mode,
         "ocr".equals(supplied),
         "subtitle".equals(supplied));
