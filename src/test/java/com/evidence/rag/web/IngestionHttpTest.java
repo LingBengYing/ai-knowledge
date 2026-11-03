@@ -197,7 +197,7 @@ class IngestionHttpTest {
             Map.of("Content-Type", "application/octet-stream"));
     assertEquals(422, result.statusCode());
     assertEquals("unsupported_document", body(result).path("error_code").asString());
-    assertEquals("仅支持符合文件格式的 PDF、TXT 和 Markdown。", body(result).path("detail").asString());
+    assertEquals("仅支持已启用且符合文件格式和大小限制的文档资料。", body(result).path("detail").asString());
   }
 
   private Socket partialUpload(String principal) throws Exception {

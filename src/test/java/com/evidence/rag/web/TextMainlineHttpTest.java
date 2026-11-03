@@ -90,6 +90,7 @@ class TextMainlineHttpTest {
             "--rag.data-directory=" + directory,
             "--rag.ingestion.enabled=true",
             "--rag.indexing.enabled=true",
+            "--rag.import-auto-index.enabled=false",
             "--rag.answers.enabled=true",
             "--rag.document-removal.enabled=false",
             "--rag.ingestion.parse-timeout-ms=15000",

@@ -82,6 +82,7 @@ class IndexingHttpTest {
             "--rag.data-directory=" + directory,
             "--rag.ingestion.enabled=false",
             "--rag.indexing.enabled=true",
+            "--rag.import-auto-index.enabled=false",
             "--rag.indexing.timeout-ms=15000");
     assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");

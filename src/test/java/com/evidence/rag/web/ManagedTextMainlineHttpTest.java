@@ -500,6 +500,7 @@ class ManagedTextMainlineHttpTest {
         "--rag.data-directory=" + directory,
         "--rag.ingestion.enabled=true",
         "--rag.indexing.enabled=true",
+        "--rag.import-auto-index.enabled=false",
         "--rag.answers.enabled=true",
         "--rag.model-configuration.enabled=true",
         "--rag.model-configuration.administrators=owner",

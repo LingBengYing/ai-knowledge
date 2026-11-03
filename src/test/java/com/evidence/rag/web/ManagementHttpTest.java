@@ -182,7 +182,7 @@ class ManagementHttpTest {
         422, request("GET", "/v1/management/documents?page_size=101", "owner", null).statusCode());
     var constraints =
         context.getBean(JsonMapper.class).tokenStreamFactory().streamReadConstraints();
-    assertEquals(262144, constraints.getMaxDocumentLength());
+    assertEquals(1048576, constraints.getMaxDocumentLength());
     assertEquals(20, constraints.getMaxNestingDepth());
     assertEquals(20000, constraints.getMaxTokenCount());
   }
