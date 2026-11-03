@@ -67,10 +67,14 @@ class ProcessPdfOcrTest {
     try {
       awaitFile(directory.resolve("ocr.pid"));
       try (var other = new ProcessTextParser(Duration.ofSeconds(10))) {
+        // Separate instances share a bounded multi-slot admission (dde0f62); the hanging
+        // instance itself still admits only one child.
+        assertEquals(
+            "A", other.parse("x.txt", "text/plain", new byte[] {65}).pages().getFirst().text());
         var busy =
             assertThrows(
                 TextParser.Failure.class,
-                () -> other.parse("x.txt", "text/plain", new byte[] {65}));
+                () -> parser.parse("x.txt", "text/plain", new byte[] {65}));
         assertEquals("parser_busy", busy.code());
         parser.close();
         assertEquals("parser_closed:false", running.get(6, TimeUnit.SECONDS));
