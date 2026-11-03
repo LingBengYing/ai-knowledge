@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-11-03 负责人优先级调整：权限相关开发（角色/权限模型、授权范围扩展、权限审计与权限类加固等）调整为**最低优先级**，不抢占其他任何主线；现有授权与工作区隔离保持不变、不回退，只是不再主动投入新的权限开发。修测试或重构时遇到纯权限类问题，记录即可，排在最后处理。
+
 2026-11-02 删除声音/原视频音画问答与来源接口（分支chore/remove-media-answer-routes，未发布）：网页已不调用，且请求映射已被d7b7c16放宽失效。`/v1/sound-answers`、`/v1/sound-query-answers`、`/v1/sound-sources/*`、`/v1/video-av-answers`、`/v1/video-av-query-answers`、`/v1/video-av-sources/*`及`video_av_query_attachments`能力删除，连同SoundAnswerService/VideoAvAnswerService、请求映射器、MediaAnswerRequests、答案/来源DTO与仓储trace读写。上传/索引/编译/撤下清理保留；schema不变，trace与query附件表保留但不再读写。`sound_answers/sound_sources/sound_query_attachments`、`video_av_answers/video_av_sources`暂作网页兼容能力名，网页改为只检查上传/索引后删除。客户端GeminiSoundModels draft/verify、GeminiVideoAvModels等因其文本参与已存profile指纹暂留，见docs/API.md。
 
 2026-10-25 0094-r2/Web0062已发布并完成真实建设验收：Java源码e94a6e1、Web源码17fc742，schema42→43真实副本/实际UID/兼容回退和停机备份通过。两份新合成资料批次→自动索引→模型编译/浏览器采纳v1→替换来源自动索引→精确章节修订/采纳v2通过；首轮重复未变章节提案已dismissed并保留失败记录，修复后原章节ID/顺序及稳定章节完整保持。统一6次HTTP（SF嵌入3/DS生成3含旧失败），0重试；当前两份generation Strong、109旧表172178旧行/21文件/11backup保持、受控重启零模型回读、公网45项通过，四服务active/NRestarts0。Milvus0093、Agent/OCR、免登录及配置不变，图片/OCR/问答WIP未部署，不恢复旧批次/旧failed。先读0094/Web0062 deployment-verification/provider-run/handoff及0094 production-summary.json；后续文档提交不改运行制品。v1旧原件替换后下载受现有API限制，旧全仓/readiness503、全库/规模/多模态质量仍开放。禁止旧库覆盖新业务。
