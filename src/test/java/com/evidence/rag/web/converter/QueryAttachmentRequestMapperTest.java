@@ -209,7 +209,7 @@ class QueryAttachmentRequestMapperTest {
   }
 
   @Test
-  void explicitEmptyDocumentSelectionStaysEmptyAndMalformedSelectionNeverBecomesAll() {
+  void deprecatedDocumentSelectionUsesTheSharedWorkspaceButMalformedSelectionFails() {
     var selected =
         QueryAttachmentRequestMapper.command(
             JSON.writeValueAsBytes(
@@ -222,14 +222,15 @@ class QueryAttachmentRequestMapperTest {
                     List.of(),
                     "document_ids",
                     List.of())));
-    assertEquals(false, selected.answer().selection().all());
+    // Shared workspace (0053, QueryAttachmentHttpTest): document_ids is validated but ignored.
+    assertTrue(selected.answer().selection().all());
     assertTrue(selected.answer().selection().documentIds().isEmpty());
     var all =
         QueryAttachmentRequestMapper.command(
             JSON.writeValueAsBytes(
                 Map.of("question", "q", "mode", "text", "attachments", List.of())));
     assertTrue(all.answer().selection().all());
-    for (String scope : List.of("null", "1", "{}", "[1]", "[\"doc\",\"doc\"]")) {
+    for (String scope : List.of("null", "1", "{}", "[1]", "[\"../doc\"]")) {
       String body =
           "{\"question\":\"q\",\"mode\":\"text\",\"attachments\":[],\"document_ids\":"
               + scope

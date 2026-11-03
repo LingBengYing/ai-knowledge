@@ -53,9 +53,13 @@ class ConversationServiceTest {
       try (var connection =
               DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
           var query = connection.createStatement();
-          var result = query.executeQuery("PRAGMA user_version")) {
+          var result =
+              query.executeQuery(
+                  "SELECT (SELECT user_version FROM pragma_user_version), version FROM format_info")) {
+        // Conversations arrived in v36; the library stays consistent at the current format.
         assertTrue(result.next());
-        assertEquals(36, result.getInt(1));
+        assertTrue(result.getInt(1) >= 36);
+        assertEquals(result.getInt(2), result.getInt(1));
       }
     }
   }

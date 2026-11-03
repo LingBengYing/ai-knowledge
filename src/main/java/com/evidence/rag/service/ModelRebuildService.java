@@ -1,10 +1,13 @@
 package com.evidence.rag.service;
 
 import com.evidence.rag.client.vector.MilvusRestProjection;
+import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
+import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.ModelConfigurationState;
+import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import com.evidence.rag.model.dto.ModelRebuildResult;
@@ -244,8 +247,7 @@ public final class ModelRebuildService implements AutoCloseable {
               throw conflict("projection_configuration_required");
             }
             var migrationClaim = claim.orElseThrow();
-            var manifest =
-                store.transaction(() -> tasks.migrationManifest(migrationClaim, source.identity()));
+            var manifest = migrationManifest(migrationClaim, source.identity());
             candidate.indexing().processReusingVectors(migrationClaim, source, manifest);
           } else {
             candidate.indexing().process(claim.orElseThrow());
@@ -423,5 +425,30 @@ public final class ModelRebuildService implements AutoCloseable {
   public synchronized void close() {
     closed = true;
     discardCandidate();
+  }
+
+  /** Exact active original receipt set for a same-source analyzer migration, not a SQL rewrite. */
+  private RetrievalProjection.RevisionManifest migrationManifest(
+      IndexClaim claim, String sourceProjection) {
+    var receipts = store.transaction(() -> tasks.migrationReceipts(claim, sourceProjection));
+    var publication = receipts.publication();
+    var expected =
+        claim.items().stream()
+            .map(
+                item ->
+                    RetrievalProjection.physicalSegmentId(
+                        publication.projectionGenerationId(), item.evidenceId()))
+            .collect(java.util.stream.Collectors.toSet());
+    var manifest =
+        new RetrievalProjection.RevisionManifest(
+            claim.workspaceId(),
+            claim.documentId(),
+            publication.projectionGenerationId(),
+            receipts.digests());
+    if (!expected.equals(receipts.digests().keySet())
+        || !manifest.sha256().equals(publication.manifestSha256())) {
+      throw ModelValues.invalid();
+    }
+    return manifest;
   }
 }

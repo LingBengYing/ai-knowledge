@@ -95,6 +95,7 @@ class IndexingJwtHttpTest {
             "--rag.data-directory=" + directory,
             "--rag.ingestion.enabled=false",
             "--rag.indexing.enabled=true",
+            "--rag.import-auto-index.enabled=false",
             "--rag.indexing.timeout-ms=15000");
     assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
     assertTrue(signingSecret.equals(context.getBean(RagProperties.class).jwtSecret()));

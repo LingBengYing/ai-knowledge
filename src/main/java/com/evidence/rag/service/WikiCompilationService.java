@@ -91,20 +91,19 @@ public final class WikiCompilationService {
                             target.previous().id(),
                             target.previous().heading(),
                             target.previous().body(),
-                            List.copyOf(target.originals().keySet()),
+                            target.evidenceIds(),
                             target.documents().stream()
                                 .map(
                                     document ->
-                                        target.originals().entrySet().stream()
+                                        target.evidenceIds().stream()
                                             .filter(
-                                                entry ->
-                                                    entry
-                                                        .getValue()
+                                                id ->
+                                                    originals
+                                                        .get(id)
                                                         .source()
                                                         .publication()
                                                         .documentId()
                                                         .equals(document))
-                                            .map(Map.Entry::getKey)
                                             .toList())
                                 .toList()))
                 .toList());
@@ -123,7 +122,7 @@ public final class WikiCompilationService {
       var ids = section.evidenceIds();
       if (ids.isEmpty()
           || new HashSet<>(ids).size() != ids.size()
-          || ids.stream().anyMatch(id -> !target.originals().containsKey(id))
+          || ids.stream().anyMatch(id -> !target.evidenceIds().contains(id))
           || !ids.stream()
               .map(id -> originals.get(id).source().publication().documentId())
               .collect(Collectors.toSet())
@@ -182,7 +181,8 @@ public final class WikiCompilationService {
           .equals(documents)) {
         throw ModelValues.invalid();
       }
-      targets.put(previous.id(), new RevisionTarget(previous, allowed, documents));
+      targets.put(
+          previous.id(), new RevisionTarget(previous, List.copyOf(allowed.keySet()), documents));
     }
     return targets;
   }
@@ -243,6 +243,7 @@ public final class WikiCompilationService {
     }
   }
 
+  /** Evidence ids keep the original order; their originals stay in the caller's map. */
   private record RevisionTarget(
-      WikiContent.Section previous, Map<String, Original> originals, Set<String> documents) {}
+      WikiContent.Section previous, List<String> evidenceIds, Set<String> documents) {}
 }

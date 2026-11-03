@@ -93,6 +93,15 @@ final class HistoricalSchemaV25Fixture {
                 count(
                     connection,
                     "SELECT COUNT(*) FROM text_runtime_selection WHERE id=1 AND initialized=0 AND active_version IS NULL AND configuration_sha256 IS NULL AND anchor_sha256 IS NULL AND batch_id IS NULL AND updated_at='1970-01-01T00:00:00Z'"));
+          } else if (name.equals("import_index_requests")) {
+            // Uploads enqueue an automatic-index intent by default (v34+); v34 never backfills
+            // intents for older originals, so only never-dispatched intents may be dropped.
+            assertEquals(
+                0,
+                count(
+                    connection,
+                    "SELECT COUNT(*) FROM import_index_requests WHERE state!='pending' OR task_id IS NOT NULL OR error_code IS NOT NULL OR replacement_id IS NOT NULL"),
+                "Cannot discard newer authority: " + name);
           } else {
             assertEquals(
                 0,

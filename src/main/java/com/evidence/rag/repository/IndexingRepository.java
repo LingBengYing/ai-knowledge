@@ -1,6 +1,5 @@
 package com.evidence.rag.repository;
 
-import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioEvidence;
@@ -286,9 +285,11 @@ public final class IndexingRepository {
                     AuthorityRows.text(row, "created_at")));
   }
 
-  /** Exact active original receipt set for a same-source analyzer migration, not a SQL rewrite. */
-  public RetrievalProjection.RevisionManifest migrationManifest(
-      IndexClaim claim, String sourceProjection) {
+  /**
+   * Active original publication and its exact receipt digests for a same-source analyzer migration,
+   * not a SQL rewrite. The caller binds them into the projection manifest.
+   */
+  public MigrationReceipts migrationReceipts(IndexClaim claim, String sourceProjection) {
     var publication = activePublication(claim.documentId()).orElseThrow(ModelValues::invalid);
     if (!basePublicationId(claim.jobId()).orElse("").equals(publication.id())
         || !publication.revisionId().equals(claim.revisionId())
@@ -322,22 +323,12 @@ public final class IndexingRepository {
         }
       }
     }
-    var expected =
-        claim.items().stream()
-            .map(
-                item ->
-                    RetrievalProjection.physicalSegmentId(
-                        publication.projectionGenerationId(), item.evidenceId()))
-            .collect(java.util.stream.Collectors.toSet());
-    var manifest =
-        new RetrievalProjection.RevisionManifest(
-            claim.workspaceId(), claim.documentId(), publication.projectionGenerationId(), digests);
-    if (!expected.equals(digests.keySet())
-        || !manifest.sha256().equals(publication.manifestSha256())) {
-      throw ModelValues.invalid();
-    }
-    return manifest;
+    return new MigrationReceipts(publication, java.util.Collections.unmodifiableSortedMap(digests));
   }
+
+  /** Active publication and its physical segment receipt digests, keyed by segment id. */
+  public record MigrationReceipts(
+      IndexPublicationEntity publication, java.util.SortedMap<String, String> digests) {}
 
   /** Authority-only eligibility. Actor permission, capability and runtime target are separate. */
   public boolean canReindex(String documentId) {

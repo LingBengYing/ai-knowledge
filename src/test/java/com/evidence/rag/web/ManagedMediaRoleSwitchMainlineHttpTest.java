@@ -705,6 +705,8 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
             "model-configuration")) {
       defaults.put("rag." + flag + ".enabled", true);
     }
+    // The test indexes explicitly; the automatic import dispatcher would race it into a 409.
+    defaults.put("rag.import-auto-index.enabled", false);
     defaults.put("rag.model-configuration.administrators", "owner");
     defaults.put("rag.model-configuration.provider-base-url", text.endpoint().toASCIIString());
     defaults.put("rag.model-configuration.allow-loopback-http", true);

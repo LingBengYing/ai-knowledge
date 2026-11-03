@@ -380,6 +380,9 @@ class ReindexVectorContinuationMainlineHttpTest {
             "audio-embedding")) {
       values.put("rag." + module + ".enabled", true);
     }
+    // seed() claims and processes its own explicit index task; an automatic import dispatcher
+    // would race it for the same revision and turn the explicit request into a 409.
+    values.put("rag.import-auto-index.enabled", false);
     for (String prefix :
         List.of(
             "rag.visual",

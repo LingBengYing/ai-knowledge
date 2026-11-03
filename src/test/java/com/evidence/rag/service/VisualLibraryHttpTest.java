@@ -98,6 +98,7 @@ class VisualLibraryHttpTest {
               "--rag.data-directory=" + data,
               "--rag.ingestion.enabled=true",
               "--rag.indexing.enabled=true",
+              "--rag.import-auto-index.enabled=false",
               "--rag.answers.enabled=true",
               "--rag.document-removal.enabled=true",
               "--rag.image-ocr.enabled=false",
