@@ -118,16 +118,6 @@ final class ModelHttpTransport implements AutoCloseable {
         null);
   }
 
-  JsonNode postGoogleSound(Endpoint endpoint, Map<String, Object> payload) {
-    return post(
-        endpoint,
-        "v1beta/interactions",
-        () -> JSON.writeValueAsBytes(payload),
-        "application/json",
-        true,
-        null);
-  }
-
   private JsonNode post(
       Endpoint endpoint,
       String path,

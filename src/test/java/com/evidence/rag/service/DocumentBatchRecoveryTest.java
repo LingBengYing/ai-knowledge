@@ -44,7 +44,7 @@ class DocumentBatchRecoveryTest {
             .ingestion()
             .completeIngestion(claim, new TextParser().parse("source.txt", "text/plain", a)));
     var task = authority.indexing().createIndexing(actor, file.documentId(), target);
-    var dispatcher = new ImportAutoIndexService(authority.store(), () -> null, null, null);
+    var dispatcher = new ImportAutoIndexService(authority.store(), () -> null);
     while (dispatcher.processNext()) {
       // Adopt the created task.
     }
@@ -199,7 +199,7 @@ class DocumentBatchRecoveryTest {
                 .completeIngestion(parse, new TextParser().parse("s.txt", "text/plain", source)));
         tasks.add(authority.indexing().createIndexing(actor, file.documentId(), target).taskId());
       }
-      var dispatcher = new ImportAutoIndexService(authority.store(), () -> null, null, null);
+      var dispatcher = new ImportAutoIndexService(authority.store(), () -> null);
       while (dispatcher.processNext()) {
         // Adopt both tasks.
       }

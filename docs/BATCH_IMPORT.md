@@ -97,7 +97,7 @@
 | RAG_BATCH_PARSE_CONCURRENCY | 4 | 1–4（解析消费者数） |
 | RAG_BATCH_INDEX_CONCURRENCY | 4 | 1–4（文本索引消费者数，即同时索引的文档数） |
 | RAG_BATCH_UPLOAD_CONCURRENCY | 4 | 1–8（报告给网页的上传路数；网页与Node入口采用4路） |
-| RAG_BATCH_MEDIA_INDEX_CONCURRENCY | 2 | 1–4（声音/音视频自动索引派发线程，与文本派发分开） |
+| RAG_BATCH_MEDIA_INDEX_CONCURRENCY | 2 | 1–4（非文本自动索引派发线程，与文本派发分开；声音/音视频库2026-11-03删除后只把遗留的声音/音视频请求标记为失败） |
 | RAG_BATCH_EMBEDDING_CONCURRENCY | 4 | 1–8（单个文档同时在途的嵌入请求） |
 | RAG_BATCH_EMBEDDING_REQUESTS_PER_MINUTE | 1000 | 0–100000（全进程共享嵌入请求速率，0=不限） |
 | RAG_BATCH_EMBEDDING_TOKENS_PER_MINUTE | 400000 | 0–100000000（全进程共享估算输入token速率，0=不限） |
@@ -136,7 +136,7 @@
   文件被篡改（属主、权限、链接、大小）时按`indexing_lifetime_failed`失败，不放开限速。
 - **解析并行与媒体**：图片OCR与音频/视频原生解码各有一个独立的公平许可（解析器本身仍各只允许一个子进程），
   图片不再等待音视频；OCR视频按“媒体→OCR”固定顺序取两个许可，不会死锁。
-  声音/音视频自动索引由独立派发线程执行，不再占用唯一的文本派发线程；媒体库繁忙（`*_index_busy`）时把请求放回待派发并退避。
+  声音/音视频自动索引由独立派发线程执行，不再占用唯一的文本派发线程。（2026-11-03声音/音视频库删除后，这些线程只把遗留请求标记为`indexing_unavailable`失败，繁忙退避一并删除。）
 - **公平领取**：解析与索引领取都先取不属于任何批次的交互式任务（最早优先），再按批次轮转：每个活动批次取最早的几个候选，
   从上次被服务批次之后的批次开始交错。轮转游标在内存中，重启后从头开始，不影响正确性。
 - **唤醒与空闲退避**：SQLite提交若改动了`ingestion_jobs`/`indexing_jobs`/`import_index_requests`，提交后发进程内信号；

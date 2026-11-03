@@ -15,9 +15,7 @@ import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.tool.parser.AudioInput;
 import com.evidence.rag.tool.parser.TextParser;
-import com.evidence.rag.tool.parser.VideoInput;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
@@ -38,8 +36,6 @@ public final class DocumentReplacementService {
   private final DocumentPermissionPolicy permissions;
   private final IngestionService ingestion;
   private final Supplier<IndexingTaskProcessor> indexing;
-  private final SoundLibraryService sounds;
-  private final VideoAvLibraryService videos;
   private final boolean corpusIngestionEnabled;
 
   public DocumentReplacementService(
@@ -49,8 +45,6 @@ public final class DocumentReplacementService {
       DocumentPermissionPolicy permissions,
       IngestionService ingestion,
       Supplier<IndexingTaskProcessor> indexing,
-      SoundLibraryService sounds,
-      VideoAvLibraryService videos,
       boolean corpusIngestionEnabled) {
     this.store = Objects.requireNonNull(store);
     this.updates = Objects.requireNonNull(updates);
@@ -58,8 +52,6 @@ public final class DocumentReplacementService {
     this.permissions = Objects.requireNonNull(permissions);
     this.ingestion = Objects.requireNonNull(ingestion);
     this.indexing = Objects.requireNonNull(indexing);
-    this.sounds = sounds;
-    this.videos = videos;
     this.corpusIngestionEnabled = corpusIngestionEnabled;
     store.transaction(
         () -> {
@@ -209,19 +201,8 @@ public final class DocumentReplacementService {
             processor.retry(actor, candidate.indexJobId());
           }
         }
-        case "sound" -> {
-          if (sounds == null) {
-            throw unavailable();
-          }
-          sounds.buildReplacement(actor, documentId, candidate.id());
-        }
-        case "video_av" -> {
-          if (videos == null) {
-            throw unavailable();
-          }
-          videos.buildReplacement(actor, documentId, candidate.id());
-        }
-        default -> throw conflict();
+        // Legacy sound/video_av replacements can no longer be built (libraries removed).
+        default -> throw unavailable();
       }
       boolean textReady = textReady();
       return store.transaction(() -> result(actor, documentId, textReady));
@@ -350,29 +331,17 @@ public final class DocumentReplacementService {
     }
   }
 
+  /** Only the corpus pipeline can still be replaced; legacy sound/video_av documents cannot. */
   private boolean enabled(String pipeline) {
-    return switch (pipeline) {
-      case "corpus" -> corpusIngestionEnabled;
-      case "sound" -> sounds != null && sounds.configurationCurrent();
-      case "video_av" -> videos != null && videos.configurationCurrent();
-      default -> false;
-    };
+    return "corpus".equals(pipeline) && corpusIngestionEnabled;
   }
 
   private String canonicalMime(String pipeline, String filename, String contentType) {
     try {
-      return switch (pipeline) {
-        case "corpus" -> ingestion.prepareUpload(filename, contentType);
-        case "sound" -> {
-          AudioInput.validateMetadata(filename, contentType);
-          yield AudioInput.canonicalMime(filename);
-        }
-        case "video_av" -> {
-          VideoInput.validateMetadata(filename, contentType);
-          yield VideoInput.canonicalMime(filename);
-        }
-        default -> throw conflict();
-      };
+      if (!"corpus".equals(pipeline)) {
+        throw conflict();
+      }
+      return ingestion.prepareUpload(filename, contentType);
     } catch (TextParser.Failure unsupported) {
       throw new ApplicationException(
           FailureKind.UNSUPPORTED_MEDIA, "unsupported_document", "文件格式不受当前资料通道支持。");
@@ -381,12 +350,10 @@ public final class DocumentReplacementService {
 
   private void validateEnvelope(String pipeline, String filename, String mime, byte[] content) {
     try {
-      switch (pipeline) {
-        case "corpus" -> ingestion.validateUploadEnvelope(filename, mime, content);
-        case "sound" -> AudioInput.validateEnvelope(filename, mime, content);
-        case "video_av" -> VideoInput.validateEnvelope(filename, mime, content);
-        default -> throw conflict();
+      if (!"corpus".equals(pipeline)) {
+        throw conflict();
       }
+      ingestion.validateUploadEnvelope(filename, mime, content);
     } catch (TextParser.Failure unsupported) {
       throw new ApplicationException(
           FailureKind.UNSUPPORTED_MEDIA, "unsupported_document", "文件内容不符合当前资料格式。");

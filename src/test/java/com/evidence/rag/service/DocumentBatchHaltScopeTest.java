@@ -50,7 +50,7 @@ class DocumentBatchHaltScopeTest {
 
   /** The real auto-index dispatcher adopts an existing job for the parsed revision. */
   private static void dispatchImports(AuthorityTestContext authority) {
-    var dispatcher = new ImportAutoIndexService(authority.store(), () -> null, null, null);
+    var dispatcher = new ImportAutoIndexService(authority.store(), () -> null);
     while (dispatcher.processNext()) {
       // Drain every pending import request.
     }

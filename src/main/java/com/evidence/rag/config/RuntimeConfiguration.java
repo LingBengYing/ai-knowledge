@@ -10,8 +10,6 @@ import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.RuntimeService;
-import com.evidence.rag.service.SoundLibraryService;
-import com.evidence.rag.service.VideoAvLibraryService;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.service.VisualAnswerService;
 import java.util.ArrayList;
@@ -33,8 +31,6 @@ public class RuntimeConfiguration {
       Environment environment,
       ObjectProvider<ImageVectorIndexingService> imageVectors,
       ObjectProvider<AudioVectorIndexingService> audioVectors,
-      ObjectProvider<SoundLibraryService> soundLibrary,
-      ObjectProvider<VideoAvLibraryService> videoAvLibrary,
       ObjectProvider<DocumentCleanupService> cleanup,
       ObjectProvider<DocumentCleanupJob> cleanupJob,
       ObjectProvider<LibraryOperationGate> operations,
@@ -54,8 +50,6 @@ public class RuntimeConfiguration {
             environment,
             imageVectors.getIfAvailable() != null,
             audioVectors.getIfAvailable() != null,
-            soundLibrary.getIfAvailable() != null,
-            videoAvLibrary.getIfAvailable() != null,
             cleanup.getIfAvailable() != null
                 && cleanupJob.getIfAvailable() != null
                 && operations.getIfAvailable() != null);
@@ -116,9 +110,7 @@ public class RuntimeConfiguration {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
     enabled.add("wiki_maintenance");
-    if (enabled.contains("ingestions")
-        || enabled.contains("sound_upload")
-        || enabled.contains("video_av_upload")) {
+    if (enabled.contains("ingestions")) {
       enabled.add("document_replacements");
     } else {
       unavailable.add("document_replacements");
@@ -260,56 +252,6 @@ public class RuntimeConfiguration {
       Environment environment,
       boolean imageVectorAvailable,
       boolean audioVectorAvailable,
-      boolean soundAvailable) {
-    return create(
-        p,
-        ingestion,
-        indexing,
-        answers,
-        removal,
-        environment,
-        imageVectorAvailable,
-        audioVectorAvailable,
-        soundAvailable,
-        false);
-  }
-
-  private RuntimeService create(
-      RagProperties p,
-      IngestionSettings ingestion,
-      IndexingSettings indexing,
-      AnswersSettings answers,
-      DocumentRemovalSettings removal,
-      Environment environment,
-      boolean imageVectorAvailable,
-      boolean audioVectorAvailable,
-      boolean soundAvailable,
-      boolean videoAvAvailable) {
-    return create(
-        p,
-        ingestion,
-        indexing,
-        answers,
-        removal,
-        environment,
-        imageVectorAvailable,
-        audioVectorAvailable,
-        soundAvailable,
-        videoAvAvailable,
-        false);
-  }
-
-  private RuntimeService create(
-      RagProperties p,
-      IngestionSettings ingestion,
-      IndexingSettings indexing,
-      AnswersSettings answers,
-      DocumentRemovalSettings removal,
-      Environment environment,
-      boolean imageVectorAvailable,
-      boolean audioVectorAvailable,
-      boolean soundAvailable,
-      boolean videoAvAvailable,
       boolean cleanupAvailable) {
     return new RuntimeService(
         p.authMode(),
@@ -329,8 +271,6 @@ public class RuntimeConfiguration {
             && environment.getProperty("rag.image-embedding.enabled", Boolean.class, false),
         audioVectorAvailable
             && environment.getProperty("rag.audio-embedding.enabled", Boolean.class, false),
-        soundAvailable && environment.getProperty("rag.sound.enabled", Boolean.class, false),
-        videoAvAvailable && environment.getProperty("rag.video-av.enabled", Boolean.class, false),
         cleanupAvailable
             && removal.enabled()
             && environment.getProperty("rag.document-cleanup.enabled", Boolean.class, false));

@@ -253,84 +253,6 @@ public final class RuntimeService {
       boolean pdfOcr,
       boolean imageVectorRetrieval,
       boolean audioVectorRetrieval,
-      boolean sound) {
-    this(
-        authMode,
-        workspaceId,
-        ingestion,
-        indexing,
-        answers,
-        documentRemoval,
-        imageOcr,
-        visual,
-        audio,
-        video,
-        synopsis,
-        queryAttachments,
-        pdfOcr,
-        imageVectorRetrieval,
-        audioVectorRetrieval,
-        sound,
-        false);
-  }
-
-  public RuntimeService(
-      String authMode,
-      String workspaceId,
-      boolean ingestion,
-      boolean indexing,
-      boolean answers,
-      boolean documentRemoval,
-      boolean imageOcr,
-      boolean visual,
-      boolean audio,
-      boolean video,
-      boolean synopsis,
-      boolean queryAttachments,
-      boolean pdfOcr,
-      boolean imageVectorRetrieval,
-      boolean audioVectorRetrieval,
-      boolean sound,
-      boolean videoAv) {
-    this(
-        authMode,
-        workspaceId,
-        ingestion,
-        indexing,
-        answers,
-        documentRemoval,
-        imageOcr,
-        visual,
-        audio,
-        video,
-        synopsis,
-        queryAttachments,
-        pdfOcr,
-        imageVectorRetrieval,
-        audioVectorRetrieval,
-        sound,
-        videoAv,
-        false);
-  }
-
-  public RuntimeService(
-      String authMode,
-      String workspaceId,
-      boolean ingestion,
-      boolean indexing,
-      boolean answers,
-      boolean documentRemoval,
-      boolean imageOcr,
-      boolean visual,
-      boolean audio,
-      boolean video,
-      boolean synopsis,
-      boolean queryAttachments,
-      boolean pdfOcr,
-      boolean imageVectorRetrieval,
-      boolean audioVectorRetrieval,
-      boolean sound,
-      boolean videoAv,
       boolean documentCleanup) {
     var enabled =
         new ArrayList<>(
@@ -408,21 +330,6 @@ public final class RuntimeService {
     }
     if (audioVectorRetrieval && ingestion && indexing && enabled.contains("query_attachments")) {
       enabled.add("audio_vector_retrieval");
-    }
-    if (sound && ingestion) {
-      // Answer/source/query names are web-compat markers only: the routes were removed 2026-11-02.
-      enabled.addAll(
-          List.of(
-              "sound_upload",
-              "sound_index",
-              "sound_answers",
-              "sound_sources",
-              "sound_query_attachments"));
-    }
-    if (videoAv && ingestion) {
-      // Answer/source names are web-compat markers only: the routes were removed 2026-11-02.
-      enabled.addAll(
-          List.of("video_av_upload", "video_av_index", "video_av_answers", "video_av_sources"));
     }
     capabilities =
         new RuntimeCapabilities(

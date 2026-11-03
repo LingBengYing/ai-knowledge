@@ -40,11 +40,9 @@ public final class ModelRebuildMutationFilter extends OncePerRequestFilter {
     }
     // document-actions mixes organization and reindex; its Service checks only reindex.
     return !(path.equals("/v1/documents")
-        || path.equals("/v1/sound-documents")
-        || path.equals("/v1/video-av-documents")
         || path.equals("/v1/management/document-cleanups")
         || path.matches(
-            "/v1/documents/[^/]+/(index|reindex|replacement|replacement/index|cleanup|image-vector|audio-vector|sound-index|video-av-index)")
+            "/v1/documents/[^/]+/(index|reindex|replacement|replacement/index|cleanup|image-vector|audio-vector)")
         || path.matches("/v1/(ingestions|indexings)/[^/]+/retry"));
   }
 

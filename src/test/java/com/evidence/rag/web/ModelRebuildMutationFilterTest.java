@@ -36,8 +36,6 @@ class ModelRebuildMutationFilterTest {
       for (String path :
           List.of(
               "/v1/documents",
-              "/v1/sound-documents",
-              "/v1/video-av-documents",
               "/v1/management/document-cleanups",
               "/v1/documents/doc/index",
               "/v1/documents/doc/reindex",
@@ -46,8 +44,6 @@ class ModelRebuildMutationFilterTest {
               "/v1/documents/doc/cleanup",
               "/v1/documents/doc/image-vector",
               "/v1/documents/doc/audio-vector",
-              "/v1/documents/doc/sound-index",
-              "/v1/documents/doc/video-av-index",
               "/v1/ingestions/task/retry",
               "/v1/indexings/task/retry")) {
         var response = filter(fixture.filter, "POST", path, false);

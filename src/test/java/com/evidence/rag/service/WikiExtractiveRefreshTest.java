@@ -201,8 +201,6 @@ class WikiExtractiveRefreshTest {
             new DocumentPermissionPolicy(),
             fixture.authority.ingestion(),
             () -> null,
-            null,
-            null,
             true);
     service.setAutomaticIndexingEnabled(false);
     var uploaded =

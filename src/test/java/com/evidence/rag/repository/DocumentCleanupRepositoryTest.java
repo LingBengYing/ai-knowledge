@@ -430,8 +430,8 @@ class DocumentCleanupRepositoryTest {
                   NOW);
               management.insertGrant(value.documentId(), OWNER.principalId(), "owner");
             }
-            new SoundRepository(store).insertOriginal(sound, NOW);
-            new VideoAvRepository(store).insertOriginal(video, NOW);
+            LegacyMediaRows.soundOriginal(store, sound, NOW);
+            LegacyMediaRows.videoAvOriginal(store, video, NOW);
             assertEquals(
                 legacy.length + 128 + 256,
                 new IngestionRepository(store).storedBytes(OWNER.workspaceId()));

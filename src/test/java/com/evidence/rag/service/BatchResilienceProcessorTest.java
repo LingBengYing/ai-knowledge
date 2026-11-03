@@ -97,7 +97,7 @@ class BatchResilienceProcessorTest {
               .completeIngestion(
                   parse, new TextParser().parse("source.txt", "text/plain", source)));
       var task = authority.indexing().createIndexing(actor, file.documentId(), external.target());
-      var dispatcher = new ImportAutoIndexService(authority.store(), () -> null, null, null);
+      var dispatcher = new ImportAutoIndexService(authority.store(), () -> null);
       while (dispatcher.processNext()) {
         // Adopt the created task.
       }

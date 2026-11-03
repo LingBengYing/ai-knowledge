@@ -5,8 +5,6 @@ import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.service.ImportAutoIndexService;
 import com.evidence.rag.service.IndexingTaskProcessor;
 import com.evidence.rag.service.ManagedTextRuntime;
-import com.evidence.rag.service.SoundLibraryService;
-import com.evidence.rag.service.VideoAvLibraryService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -25,8 +23,6 @@ public class ImportAutoIndexConfiguration {
       SqliteAuthorityStore store,
       ObjectProvider<ManagedTextRuntime> managed,
       ObjectProvider<IndexingTaskProcessor> legacy,
-      ObjectProvider<SoundLibraryService> sounds,
-      ObjectProvider<VideoAvLibraryService> videos,
       Environment environment) {
     return new ImportAutoIndexService(
         store,
@@ -38,9 +34,7 @@ public class ImportAutoIndexConfiguration {
           return runtime == null
               ? legacy.getIfAvailable()
               : runtime.currentVersion() == null ? null : runtime.capture().indexing();
-        },
-        sounds.getIfAvailable(),
-        videos.getIfAvailable());
+        });
   }
 
   @Bean(destroyMethod = "close")

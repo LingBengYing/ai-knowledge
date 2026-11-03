@@ -6,11 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentOriginal;
-import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.SoundProfile;
-import com.evidence.rag.model.domain.SoundPublication;
-import com.evidence.rag.model.domain.SoundSpan;
 import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.tool.parser.AudioPcm;
 import java.nio.file.Files;
@@ -19,7 +15,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -173,12 +168,11 @@ class SoundMigrationTest {
   void publicationSealsWholeSampleCoverageAndRejectsLaterChildOrMutation() {
     try (var store = new SqliteAuthorityStore(directory)) {
       var original = register(store);
-      var publication = publication(original);
-      store.transaction(
-          () -> {
-            new SoundRepository(store).insertPublication(publication);
-            return null;
-          });
+      String publication =
+          store.transaction(
+              () ->
+                  LegacyMediaRows.soundPublication(
+                      store, "org", original, "", Instant.now().toString()));
       assertThrows(
           RuntimeException.class,
           () ->
@@ -200,18 +194,17 @@ class SoundMigrationTest {
           () ->
               store.transaction(
                   () -> {
-                    var span = publication.spans().getFirst();
                     store.execute(
                         "INSERT INTO sound_spans(publication_id,id,ordinal,start_sample,end_sample,pcm_sha256,recall_text,physical_segment_id,entry_sha256) VALUES(?,?,?,?,?,?,?,?,?)",
-                        publication.id(),
-                        SoundProfile.spanId(original.revisionId(), 1),
+                        publication,
+                        "sound-" + "e".repeat(64),
                         1,
-                        1,
-                        2,
-                        span.pcmSha256(),
+                        16000,
+                        16001,
+                        "b".repeat(64),
                         "",
-                        SoundProfile.physicalSegmentId(publication.generationId(), "other"),
-                        span.entrySha256());
+                        "seg-" + "f".repeat(64),
+                        "c".repeat(64));
                     return null;
                   }));
       store.transaction(
@@ -298,46 +291,10 @@ class SoundMigrationTest {
                   original.sizeBytes()),
               Instant.now().toString());
           management.insertGrant("doc", "owner", "owner");
-          new SoundRepository(store).insertOriginal(original, Instant.now().toString());
+          LegacyMediaRows.soundOriginal(store, original, Instant.now().toString());
           return null;
         });
     return original;
-  }
-
-  private static SoundPublication publication(DocumentOriginal original) {
-    String generation = UUID.randomUUID().toString();
-    var target = new IndexTarget("embedding-v1", "a".repeat(64), "embedding-v1", 2);
-    String id = SoundProfile.spanId(original.revisionId(), 0);
-    var span =
-        new SoundSpan(
-            id,
-            0,
-            0,
-            1,
-            "b".repeat(64),
-            "",
-            SoundProfile.physicalSegmentId(generation, id),
-            "c".repeat(64));
-    var spans = List.of(span);
-    return new SoundPublication(
-        "pub",
-        "org",
-        "doc",
-        "rev",
-        original.sourceSha256(),
-        "tone.wav",
-        "audio/wav",
-        original.sizeBytes(),
-        generation,
-        target,
-        "sound-v1",
-        "decoder-v1",
-        1,
-        1,
-        spans,
-        SoundProfile.manifestSha256("org", "doc", generation, spans),
-        SoundProfile.fingerprint(target, "sound-v1", "decoder-v1", 1),
-        Instant.now().toString());
   }
 
   /**

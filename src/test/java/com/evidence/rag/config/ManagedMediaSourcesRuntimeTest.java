@@ -53,8 +53,6 @@ class ManagedMediaSourcesRuntimeTest {
                     "audio_index",
                     "audio_answers",
                     "audio_sources",
-                    "sound_sources",
-                    "video_av_sources",
                     "synopsis_sources")));
   }
 
@@ -103,8 +101,6 @@ class ManagedMediaSourcesRuntimeTest {
             "audio_index",
             "audio_answers",
             "audio_sources",
-            "sound_sources",
-            "video_av_sources",
             "synopsis_sources");
     var enabled = new ArrayList<>(sources);
     if (videoRoutes) {

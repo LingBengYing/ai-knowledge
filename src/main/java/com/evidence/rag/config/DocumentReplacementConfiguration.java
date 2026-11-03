@@ -8,8 +8,6 @@ import com.evidence.rag.service.DocumentReplacementService;
 import com.evidence.rag.service.IndexingTaskProcessor;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.ManagedTextRuntime;
-import com.evidence.rag.service.SoundLibraryService;
-import com.evidence.rag.service.VideoAvLibraryService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,8 +35,6 @@ public class DocumentReplacementConfiguration {
       IngestionSettings settings,
       ObjectProvider<ManagedTextRuntime> managed,
       ObjectProvider<IndexingTaskProcessor> indexing,
-      ObjectProvider<SoundLibraryService> sound,
-      ObjectProvider<VideoAvLibraryService> videoAv,
       Environment environment) {
     var service =
         new DocumentReplacementService(
@@ -51,8 +47,6 @@ public class DocumentReplacementConfiguration {
               var runtime = managed.getIfAvailable();
               return runtime == null ? indexing.getIfAvailable() : runtime.capture().indexing();
             },
-            sound.getIfAvailable(),
-            videoAv.getIfAvailable(),
             settings.enabled());
     service.setAutomaticIndexingEnabled(
         environment.getProperty("rag.import-auto-index.enabled", Boolean.class, true));

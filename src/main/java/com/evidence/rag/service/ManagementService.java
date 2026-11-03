@@ -31,9 +31,7 @@ import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.ModelRebuildRepository;
-import com.evidence.rag.repository.SoundRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
-import com.evidence.rag.repository.VideoAvRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -498,19 +496,18 @@ public final class ManagementService {
   private DocumentResult documentResult(Actor actor, DocumentEntity document) {
     permissions.require(document.currentRole(), false);
     var evidence = management.evidence(document.id()).orElse(null);
-    var sound =
-        evidence == null
-            ? new SoundRepository(store).managedEvidence(document.id()).orElse(null)
-            : null;
-    if (sound != null) {
-      boolean published = sound.publicationId() != null;
+    // Legacy sound/video audiovisual originals: read-only, kept until the document is removed.
+    var legacy =
+        evidence == null ? management.legacyMediaEvidence(document.id()).orElse(null) : null;
+    if (legacy != null) {
+      boolean published = legacy.publicationId() != null;
       return new DocumentResult(
           document.id(),
           document.filename(),
           published ? "parsed" : "ready",
-          published ? sound.sourceRevisionId() : null,
-          sound.sourceRevisionId(),
-          sound.spanCount(),
+          published ? legacy.sourceRevisionId() : null,
+          legacy.sourceRevisionId(),
+          legacy.segmentCount(),
           document.updatedAt(),
           document.mimeType(),
           document.sizeBytes(),
@@ -523,40 +520,7 @@ public final class ManagementService {
           permissions.canEdit(document.currentRole()),
           published ? "indexed" : "not_indexed",
           null,
-          sound.publicationId(),
-          false,
-          null,
-          false,
-          document.documentType(),
-          false,
-          automaticIndexProgress(document.id()));
-    }
-    var videoAv =
-        evidence == null
-            ? new VideoAvRepository(store).managedEvidence(document.id()).orElse(null)
-            : null;
-    if (videoAv != null) {
-      boolean published = videoAv.publicationId() != null;
-      return new DocumentResult(
-          document.id(),
-          document.filename(),
-          published ? "parsed" : "ready",
-          published ? videoAv.sourceRevisionId() : null,
-          videoAv.sourceRevisionId(),
-          videoAv.windowCount(),
-          document.updatedAt(),
-          document.mimeType(),
-          document.sizeBytes(),
-          document.sourceSha256(),
-          document.displayName(),
-          document.folderId(),
-          document.folderName(),
-          management.documentTags(document.id()),
-          document.currentRole(),
-          permissions.canEdit(document.currentRole()),
-          published ? "indexed" : "not_indexed",
-          null,
-          videoAv.publicationId(),
+          legacy.publicationId(),
           false,
           null,
           false,
