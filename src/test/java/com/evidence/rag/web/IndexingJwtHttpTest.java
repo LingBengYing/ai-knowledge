@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.ManagementService;
@@ -97,8 +97,8 @@ class IndexingJwtHttpTest {
             "--rag.indexing.enabled=true",
             "--rag.import-auto-index.enabled=false",
             "--rag.indexing.timeout-ms=15000");
-    assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
-    assertTrue(signingSecret.equals(context.getBean(RagProperties.class).jwtSecret()));
+    assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
+    assertTrue(signingSecret.equals(context.getBean(RagSettings.class).jwtSecret()));
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
   }
 

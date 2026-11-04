@@ -19,7 +19,7 @@ public class ConversationConfiguration {
   ConversationService conversationService(
       SqliteAuthorityStore store,
       ConversationRepository repository,
-      RagProperties properties,
+      RagSettings properties,
       Environment environment) {
     return new ConversationService(
         store,

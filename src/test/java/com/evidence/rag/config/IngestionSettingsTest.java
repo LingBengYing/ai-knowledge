@@ -35,7 +35,7 @@ class IngestionSettingsTest {
   @Test
   void optInCannotExposeNonSandboxedParserOnPublicBinding() {
     var properties =
-        new RagProperties(
+        new RagSettings(
             "test",
             "org-main",
             "development_headers",

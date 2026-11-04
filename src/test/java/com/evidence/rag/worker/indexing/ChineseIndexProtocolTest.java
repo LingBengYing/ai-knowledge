@@ -18,7 +18,7 @@ class ChineseIndexProtocolTest {
       throws Exception {
     try (var server = new IndexingTestServer()) {
       var old =
-          IndexProtocol.request(
+          TextIndexProtocol.request(
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(10),
@@ -26,11 +26,11 @@ class ChineseIndexProtocolTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var legacyBytes = new ByteArrayOutputStream();
-      IndexProtocol.writeRequest(legacyBytes, old);
+      TextIndexProtocol.writeRequest(legacyBytes, old);
       assertEquals(3, ByteBuffer.wrap(legacyBytes.toByteArray()).getInt(4));
       assertEquals(
           "standard",
-          IndexProtocol.readRequest(new ByteArrayInputStream(legacyBytes.toByteArray()))
+          TextIndexProtocol.readRequest(new ByteArrayInputStream(legacyBytes.toByteArray()))
               .projection()
               .analyzer());
       var p = old.projection();
@@ -54,7 +54,7 @@ class ChineseIndexProtocolTest {
               old.target().modelRevision(),
               old.target().dimensions());
       var request =
-          new IndexProtocol.Request(
+          new TextIndexProtocol.Request(
               old.models(),
               projection,
               old.timeout(),
@@ -68,9 +68,9 @@ class ChineseIndexProtocolTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var bytes = new ByteArrayOutputStream();
-      IndexProtocol.writeRequest(bytes, request);
+      TextIndexProtocol.writeRequest(bytes, request);
       assertEquals(4, ByteBuffer.wrap(bytes.toByteArray()).getInt(4));
-      var actual = IndexProtocol.readRequest(new ByteArrayInputStream(bytes.toByteArray()));
+      var actual = TextIndexProtocol.readRequest(new ByteArrayInputStream(bytes.toByteArray()));
       assertEquals("chinese", actual.projection().analyzer());
       assertEquals(request, actual);
     }

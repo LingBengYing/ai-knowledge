@@ -118,7 +118,7 @@ class EmbeddingThroughputUnitTest {
   void theThroughputCrossesTheChildProtocolIntact() throws Exception {
     try (var server = new IndexingTestServer()) {
       var request =
-          IndexProtocol.request(
+          TextIndexProtocol.request(
               server.settings().models(),
               server.settings().projection(),
               java.time.Duration.ofSeconds(10),
@@ -126,12 +126,13 @@ class EmbeddingThroughputUnitTest {
               com.evidence.rag.model.domain.TransientRetry.NONE,
               new EmbeddingThroughput(4, 1000, 400000));
       var bytes = new java.io.ByteArrayOutputStream();
-      IndexProtocol.writeRequest(bytes, request);
-      var actual = IndexProtocol.readRequest(new java.io.ByteArrayInputStream(bytes.toByteArray()));
+      TextIndexProtocol.writeRequest(bytes, request);
+      var actual =
+          TextIndexProtocol.readRequest(new java.io.ByteArrayInputStream(bytes.toByteArray()));
       assertEquals(new EmbeddingThroughput(4, 1000, 400000), actual.throughput());
       assertEquals(
           EmbeddingThroughput.SERIAL,
-          IndexProtocol.request(
+          TextIndexProtocol.request(
                   server.settings().models(),
                   server.settings().projection(),
                   java.time.Duration.ofSeconds(10),

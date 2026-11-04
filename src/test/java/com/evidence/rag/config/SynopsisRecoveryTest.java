@@ -37,7 +37,7 @@ class SynopsisRecoveryTest {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var store = fixture.authority.store();
       var properties =
-          new RagProperties(
+          new RagSettings(
               "test",
               actor.workspaceId(),
               "development_headers",

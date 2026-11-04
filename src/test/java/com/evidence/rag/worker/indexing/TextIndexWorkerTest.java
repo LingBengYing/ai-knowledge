@@ -25,7 +25,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-class IndexWorkerTest {
+class TextIndexWorkerTest {
   @Test
   void realChildEmbedsEverySegmentInSmallBatchesThenVerifiesWholeRevision() throws Exception {
     try (var server = new IndexingTestServer();
@@ -186,7 +186,7 @@ class IndexWorkerTest {
   void binaryWorkerInterfaceValidatesTheEntireRequestAndDoesNotMutateJvmOutput() throws Exception {
     try (var server = new IndexingTestServer()) {
       var request =
-          IndexProtocol.request(
+          TextIndexProtocol.request(
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(15),
@@ -194,19 +194,19 @@ class IndexWorkerTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var input = new ByteArrayOutputStream();
-      IndexProtocol.writeRequest(input, request);
+      TextIndexProtocol.writeRequest(input, request);
       var output = new ByteArrayOutputStream();
       var stdout = System.out;
-      IndexWorker.run(new ByteArrayInputStream(input.toByteArray()), output);
+      TextIndexWorker.run(new ByteArrayInputStream(input.toByteArray()), output);
       assertSame(stdout, System.out);
       assertEquals(
-          2, IndexProtocol.decode(output.toByteArray(), request).verified().segmentCount());
+          2, TextIndexProtocol.decode(output.toByteArray(), request).verified().segmentCount());
       byte[] original = input.toByteArray();
       var invalid = new ArrayList<byte[]>();
       invalid.add(new byte[0]);
       invalid.add(Arrays.copyOf(original, original.length - 1));
       invalid.add(Arrays.copyOf(original, original.length + 1));
-      invalid.add(new byte[IndexProtocol.MAX_REQUEST + 1]);
+      invalid.add(new byte[TextIndexProtocol.MAX_REQUEST + 1]);
       for (int offset : List.of(0, 4, 16)) {
         byte[] bytes = original.clone();
         ByteBuffer.wrap(bytes).putInt(offset, -1);
@@ -217,10 +217,10 @@ class IndexWorkerTest {
       invalid.add(utf8);
       for (byte[] bytes : invalid) {
         output.reset();
-        IndexWorker.run(new ByteArrayInputStream(bytes), output);
-        assertArrayEquals(IndexProtocol.failure(1), output.toByteArray());
+        TextIndexWorker.run(new ByteArrayInputStream(bytes), output);
+        assertArrayEquals(TextIndexProtocol.failure(1), output.toByteArray());
       }
-      IndexWorker.run(
+      TextIndexWorker.run(
           new ByteArrayInputStream(new byte[0]),
           new OutputStream() {
             @Override
@@ -235,7 +235,7 @@ class IndexWorkerTest {
   void workerRejectsInsufficientResponseBudgetBeforeAnyModelCalls() throws Exception {
     try (var server = new IndexingTestServer(2, 1024)) {
       var request =
-          IndexProtocol.request(
+          TextIndexProtocol.request(
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(15),
@@ -243,10 +243,10 @@ class IndexWorkerTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var input = new ByteArrayOutputStream();
-      IndexProtocol.writeRequest(input, request);
+      TextIndexProtocol.writeRequest(input, request);
       var output = new ByteArrayOutputStream();
-      IndexWorker.run(new ByteArrayInputStream(input.toByteArray()), output);
-      assertArrayEquals(IndexProtocol.failure(1), output.toByteArray());
+      TextIndexWorker.run(new ByteArrayInputStream(input.toByteArray()), output);
+      assertArrayEquals(TextIndexProtocol.failure(1), output.toByteArray());
       assertTrue(server.requests.isEmpty());
     }
   }

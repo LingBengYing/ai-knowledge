@@ -9,7 +9,7 @@ import com.evidence.rag.RagApplication;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.config.AnswersSettings;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.config.TextAdapterSettings;
 import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.job.IngestionJob;
@@ -568,7 +568,7 @@ class AnswersHttpTest {
                 "--rag.indexing.enabled=false",
                 "--rag.document-removal.enabled=true",
                 "--rag.answers.enabled=true");
-        assertEquals(dataDirectory, context.getBean(RagProperties.class).dataDirectory());
+        assertEquals(dataDirectory, context.getBean(RagSettings.class).dataDirectory());
         assertTrue(
             remote.requests.isEmpty(), "Startup cannot make external model or projection requests");
         base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");

@@ -28,7 +28,7 @@ import org.springframework.core.env.Environment;
 @ConditionalOnProperty(prefix = "rag.image-embedding", name = "enabled", havingValue = "true")
 public class ImageEmbeddingConfiguration {
   @Bean
-  ImageEmbeddingSettings imageEmbeddingSettings(Environment environment, RagProperties properties) {
+  ImageEmbeddingSettings imageEmbeddingSettings(Environment environment, RagSettings properties) {
     try {
       requireLocal(environment);
       String prefix = "rag.image-embedding.";
@@ -86,7 +86,7 @@ public class ImageEmbeddingConfiguration {
 
   // Preserve the existing explicit legacy construction without making it a Spring dependency.
   ImageEmbeddingSettings imageEmbeddingSettings(
-      Environment environment, RagProperties properties, TextAdapterSettings text) {
+      Environment environment, RagSettings properties, TextAdapterSettings text) {
     if (text == null) {
       throw invalid();
     }

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.controller.RuntimeController;
 import com.evidence.rag.service.RuntimeService;
 import java.nio.file.Path;
@@ -15,7 +15,7 @@ class RuntimeControllerTest {
   @Test
   void eachCapabilityIsExplicitAndNeverEnablesAnswersOrProduction() {
     var properties =
-        new RagProperties(
+        new RagSettings(
             "test",
             "org-main",
             "development_headers",

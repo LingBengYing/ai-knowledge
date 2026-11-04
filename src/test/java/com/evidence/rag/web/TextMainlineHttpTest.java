@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.config.TextAdapterSettings;
 import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.job.IngestionJob;
@@ -96,7 +96,7 @@ class TextMainlineHttpTest {
             "--rag.ingestion.parse-timeout-ms=15000",
             "--rag.indexing.timeout-ms=15000",
             "--rag.answers.timeout-ms=15000");
-    assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
+    assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
     assertEquals(1, context.getBeansOfType(SqliteAuthorityStore.class).size());
     assertEquals(1, context.getBeansOfType(TextAdapterSettings.class).size());
     assertEquals(1, context.getBeansOfType(IngestionJob.class).size());

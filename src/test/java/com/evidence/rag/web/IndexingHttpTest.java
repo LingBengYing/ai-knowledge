@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.service.ManagementService;
@@ -84,7 +84,7 @@ class IndexingHttpTest {
             "--rag.indexing.enabled=true",
             "--rag.import-auto-index.enabled=false",
             "--rag.indexing.timeout-ms=15000");
-    assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
+    assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
   }
 

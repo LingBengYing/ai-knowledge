@@ -62,7 +62,7 @@ public class IndexingConfiguration {
   @Conditional(LegacyTextCondition.class)
   IndexingTaskProcessor indexingTaskProcessor(
       IndexingService authority,
-      RagProperties properties,
+      RagSettings properties,
       TextAdapterSettings settings,
       IndexingSettings limits,
       IndexTarget target,

@@ -26,7 +26,7 @@ public class IngestionConfiguration {
   @Bean(name = "ingestionTaskProcessor")
   IngestionTaskProcessor configuredIngestionTaskProcessor(
       IngestionService authority,
-      RagProperties properties,
+      RagSettings properties,
       IngestionSettings settings,
       Environment environment,
       ObjectProvider<VisionModels> vision,

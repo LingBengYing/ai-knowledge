@@ -20,7 +20,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
-class TextAdaptersConfigurationTest {
+class TextAdapterConfigurationTest {
   @Test
   void independentFlagsLoadExactlyOneSettingsBeanWithoutAnyStartupNetwork() throws Exception {
     var requests = new AtomicInteger();
@@ -115,9 +115,9 @@ class TextAdaptersConfigurationTest {
     var context = new AnnotationConfigApplicationContext();
     context.setEnvironment(environment);
     context.registerBean(
-        RagProperties.class,
+        RagSettings.class,
         () ->
-            new RagProperties(
+            new RagSettings(
                 "test",
                 "org-main",
                 "jwt",
@@ -125,7 +125,7 @@ class TextAdaptersConfigurationTest {
                 "issuer",
                 "audience",
                 Path.of("unused-config-data")));
-    context.register(TextAdaptersConfiguration.class);
+    context.register(TextAdapterConfiguration.class);
     return context;
   }
 

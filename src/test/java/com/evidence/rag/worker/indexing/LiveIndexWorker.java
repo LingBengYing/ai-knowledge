@@ -27,7 +27,7 @@ public final class LiveIndexWorker {
     System.setProperty("https.proxyHost", args[0]);
     System.setProperty("https.proxyPort", args[1]);
     // main, not run: retain the production parent watchdog, lifetime and collection lease.
-    IndexWorker.main(new String[0]);
+    TextIndexWorker.main(new String[0]);
   }
 
   public static void validateProxy(String host, String port) {

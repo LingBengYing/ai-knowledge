@@ -12,7 +12,7 @@ import com.evidence.rag.client.model.OpenAiCompatibleQueryRankingModels;
 import com.evidence.rag.client.model.OpenAiCompatibleVisionModels;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.config.TextAdapterSettings;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
@@ -104,7 +104,7 @@ class QueryAttachmentLibraryNativeIT {
       String source;
       JsonNode citation;
       try (var app = application(text, nativeMedia).run(arguments(data))) {
-        assertEquals(data, app.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, app.getBean(RagSettings.class).dataDirectory());
         assertTrue(text.requests.isEmpty());
         assertTrue(media.requests.isEmpty());
         String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
@@ -243,7 +243,7 @@ class QueryAttachmentLibraryNativeIT {
       int mediaCount = media.requests.size();
       int textCount = text.requests.size();
       try (var app = application(text, nativeMedia).run(arguments(data))) {
-        assertEquals(data, app.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, app.getBean(RagSettings.class).dataDirectory());
         String base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
         var sourceResponse = request(http, base, "GET", source, null);
         assertEquals(200, sourceResponse.statusCode(), sourceResponse.body());

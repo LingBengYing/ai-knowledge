@@ -64,7 +64,7 @@ class JwtHttpTest {
             "--rag.jwt-audience=" + AUDIENCE,
             "--rag.data-directory=" + directory);
     assertEquals(
-        directory, context.getBean(com.evidence.rag.config.RagProperties.class).dataDirectory());
+        directory, context.getBean(com.evidence.rag.config.RagSettings.class).dataDirectory());
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
     context
         .getBean(ManagementService.class)

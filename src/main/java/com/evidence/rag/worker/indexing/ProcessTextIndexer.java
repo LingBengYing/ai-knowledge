@@ -89,7 +89,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
       String fixtureMainClass,
       List<String> fixtureArgs,
       CleanupObserver cleanupObserver) {
-    IndexProtocol.validateSettings(models, projection, timeout);
+    TextIndexProtocol.validateSettings(models, projection, timeout);
     this.models = models;
     this.projection = projection;
     this.timeout = timeout;
@@ -112,7 +112,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   /** As above, with this attempt's in-flight embedding bound and the shared rate limits. */
   public IndexingOutcome index(
       IndexClaim claim, TransientRetry retry, Duration deadline, EmbeddingThroughput throughput) {
-    IndexProtocol.validateSettings(models, projection, deadline);
+    TextIndexProtocol.validateSettings(models, projection, deadline);
     return executeIndex(claim, retry, deadline, throughput);
   }
 
@@ -129,7 +129,8 @@ public final class ProcessTextIndexer implements AutoCloseable {
       if (Thread.currentThread().isInterrupted()) {
         throw new Failure("worker_interrupted");
       }
-      var request = IndexProtocol.request(models, projection, timeout, claim, retry, throughput);
+      var request =
+          TextIndexProtocol.request(models, projection, timeout, claim, retry, throughput);
       if (!CAPACITY.tryAcquire()) {
         throw new Failure("indexing_busy");
       }
@@ -221,7 +222,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   }
 
   private final class Job {
-    final IndexProtocol.Request request;
+    final TextIndexProtocol.Request request;
     final String taskId;
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
@@ -237,7 +238,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
     final Path managedRoot = OwnedTemporaryResources.currentRoot();
     Path directory;
 
-    Job(IndexProtocol.Request request, String taskId) {
+    Job(TextIndexProtocol.Request request, String taskId) {
       this.request = request;
       this.taskId = taskId;
     }
@@ -300,7 +301,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
                 .start(
                     () ->
                         modelUsage =
-                            IndexWorkerModelHttpLog.drain(
+                            TextIndexModelHttpLog.drain(
                                 process.getErrorStream(), taskId, request.documentId()));
         checkCancelled();
         var inputBody =
@@ -308,7 +309,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
                 (Callable<Void>)
                     () -> {
                       try (var output = process.getOutputStream()) {
-                        IndexProtocol.writeRequest(output, request);
+                        TextIndexProtocol.writeRequest(output, request);
                       }
                       return null;
                     });
@@ -325,8 +326,8 @@ public final class ProcessTextIndexer implements AutoCloseable {
           int count;
           while ((count = input.read(buffer)) != -1) {
             checkCancelled();
-            if (count > IndexProtocol.MAX_OUTPUT - response.size()) {
-              throw IndexProtocol.invalid();
+            if (count > TextIndexProtocol.MAX_OUTPUT - response.size()) {
+              throw TextIndexProtocol.invalid();
             }
             response.write(buffer, 0, count);
           }
@@ -337,9 +338,9 @@ public final class ProcessTextIndexer implements AutoCloseable {
         }
         checkCancelled();
         try {
-          return IndexProtocol.decode(response.toByteArray(), request);
+          return TextIndexProtocol.decode(response.toByteArray(), request);
         } catch (IOException ignored) {
-          throw IndexProtocol.invalid();
+          throw TextIndexProtocol.invalid();
         }
       } catch (Failure safe) {
         checkCancelled();
@@ -501,7 +502,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
                 .toList());
     if (fixtureMainClass != null) {
       if (!fixtureMainClass.matches("[A-Za-z_$][A-Za-z0-9_$.]*")) {
-        throw IndexProtocol.invalid();
+        throw TextIndexProtocol.invalid();
       }
       var command = new ArrayList<>(List.of("-cp", absolute, fixtureMainClass));
       command.addAll(List.copyOf(fixtureArgs));
@@ -519,7 +520,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
         throw new Failure("indexing_failed");
       }
     }
-    return List.of("-cp", absolute, IndexWorker.class.getName());
+    return List.of("-cp", absolute, TextIndexWorker.class.getName());
   }
 
   public static final class Failure extends RuntimeException {

@@ -30,14 +30,14 @@ import java.util.TreeMap;
 /**
  * Internal, versioned, bounded protocol. No authority token, database path, or inherited settings.
  */
-final class IndexProtocol {
+final class TextIndexProtocol {
   static final int MAGIC = 0x52414749;
   static final int VERSION = 3;
   static final int MAX_REQUEST = 8 * 1024 * 1024;
   static final int MAX_OUTPUT = 1024 * 1024;
   static final int MAX_SEGMENTS = 4096;
 
-  private IndexProtocol() {}
+  private TextIndexProtocol() {}
 
   record Request(
       OpenAiCompatibleModels.Configuration models,

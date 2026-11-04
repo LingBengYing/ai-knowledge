@@ -30,7 +30,7 @@ public class WikiConfiguration {
       SqliteAuthorityStore store,
       WikiMaintenanceRepository repository,
       WikiWorkspaceRepository wiki,
-      RagProperties properties) {
+      RagSettings properties) {
     return new WikiMaintenanceService(
         store, repository, wiki, new SynopsisMaterialRepository(store), properties.workspaceId());
   }
@@ -42,7 +42,7 @@ public class WikiConfiguration {
 
   @Bean
   WikiCatalogService wikiCatalogService(
-      SqliteAuthorityStore store, WikiCatalogRepository repository, RagProperties properties) {
+      SqliteAuthorityStore store, WikiCatalogRepository repository, RagSettings properties) {
     return new WikiCatalogService(
         store, repository, new EvidenceRepository(store), properties.workspaceId());
   }
@@ -54,7 +54,7 @@ public class WikiConfiguration {
 
   @Bean
   WikiDraftService wikiDraftService(
-      SqliteAuthorityStore store, WikiDraftRepository repository, RagProperties properties) {
+      SqliteAuthorityStore store, WikiDraftRepository repository, RagSettings properties) {
     return new WikiDraftService(store, repository, properties.workspaceId());
   }
 
@@ -74,7 +74,7 @@ public class WikiConfiguration {
       WikiWorkspaceRepository repository,
       WikiCompilationService compiler,
       ObjectProvider<ManagedTextRuntime> runtime,
-      RagProperties properties) {
+      RagSettings properties) {
     return new WikiWorkspaceService(
         store,
         repository,

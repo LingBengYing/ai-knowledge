@@ -23,7 +23,7 @@ import org.springframework.core.env.Environment;
 public class RuntimeConfiguration {
   @Bean("runtimeService")
   RuntimeService configuredCleanupRuntimeService(
-      RagProperties p,
+      RagSettings p,
       IngestionSettings ingestion,
       IndexingSettings indexing,
       AnswersSettings answers,
@@ -214,7 +214,7 @@ public class RuntimeConfiguration {
   }
 
   RuntimeService configuredRuntimeService(
-      RagProperties p,
+      RagSettings p,
       IngestionSettings ingestion,
       IndexingSettings indexing,
       AnswersSettings answers,
@@ -235,7 +235,7 @@ public class RuntimeConfiguration {
   }
 
   RuntimeService runtimeService(
-      RagProperties p,
+      RagSettings p,
       IngestionSettings ingestion,
       IndexingSettings indexing,
       AnswersSettings answers,
@@ -245,7 +245,7 @@ public class RuntimeConfiguration {
   }
 
   private RuntimeService create(
-      RagProperties p,
+      RagSettings p,
       IngestionSettings ingestion,
       IndexingSettings indexing,
       AnswersSettings answers,

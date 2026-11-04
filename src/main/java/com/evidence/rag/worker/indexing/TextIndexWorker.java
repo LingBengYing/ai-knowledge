@@ -23,13 +23,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Exactly one indexing request per child JVM. */
-public final class IndexWorker {
-  private IndexWorker() {}
+public final class TextIndexWorker {
+  private TextIndexWorker() {}
 
   public static void main(String[] args) {
     var protocol = System.out;
     System.setOut(new PrintStream(OutputStream.nullOutputStream()));
-    try (var audit = IndexWorkerModelHttpLog.child()) {
+    try (var audit = TextIndexModelHttpLog.child()) {
       run(System.in, protocol, true);
     }
   }
@@ -42,7 +42,7 @@ public final class IndexWorker {
   private static void run(InputStream input, OutputStream output, boolean isolated) {
     byte[] response;
     try {
-      var request = IndexProtocol.readRequest(input);
+      var request = TextIndexProtocol.readRequest(input);
       try (var lifetime =
           IndexWorkerLifetime.acquireDocument(
               request.projection(),
@@ -51,7 +51,7 @@ public final class IndexWorker {
               isolated,
               request.documentId(),
               request.projectionGenerationId())) {
-        response = IndexProtocol.encode(index(request, lifetime));
+        response = TextIndexProtocol.encode(index(request, lifetime));
         output.write(response);
         output.flush();
         return;
@@ -59,7 +59,7 @@ public final class IndexWorker {
     } catch (IOException | RuntimeException failure) {
       try {
         response =
-            IndexProtocol.failure(
+            TextIndexProtocol.failure(
                 failure instanceof ProcessTextIndexer.Failure safe
                         && safe.code().equals("indexing_timeout")
                     ? 2
@@ -77,7 +77,7 @@ public final class IndexWorker {
   }
 
   private static IndexingOutcome index(
-      IndexProtocol.Request request, IndexWorkerLifetime lifetime) {
+      TextIndexProtocol.Request request, IndexWorkerLifetime lifetime) {
     var configuration = request.models();
     var projectionSettings = request.projection();
     var texts = request.items().stream().map(segment -> segment.recallText()).toList();

@@ -263,7 +263,7 @@ class ManagedTextRoleSwitchConfigurationTest {
     final ModelConfigurationRepository repository;
     final MockEnvironment environment;
     final ManagedTextSettings settings;
-    final RagProperties properties;
+    final RagSettings properties;
     final ModelConfigurationConfiguration configuration = new ModelConfigurationConfiguration();
     final EvidenceService evidence;
 
@@ -287,7 +287,7 @@ class ManagedTextRoleSwitchConfigurationTest {
               .withProperty("RAG_MILVUS_COLLECTION", "java_index_process_fixture");
       settings = new ManagedTextSettings(environment);
       properties =
-          new RagProperties(
+          new RagSettings(
               "test",
               "org-main",
               "development_headers",

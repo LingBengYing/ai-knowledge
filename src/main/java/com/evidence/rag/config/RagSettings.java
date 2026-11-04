@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("rag")
-public record RagProperties(
+public record RagSettings(
     String environment,
     String workspaceId,
     String authMode,
@@ -13,7 +13,7 @@ public record RagProperties(
     String jwtIssuer,
     String jwtAudience,
     Path dataDirectory) {
-  public RagProperties {
+  public RagSettings {
     if (!"development".equals(environment) && !"test".equals(environment)) {
       throw new IllegalArgumentException("Java production migration gates are incomplete");
     }
@@ -43,6 +43,6 @@ public record RagProperties(
 
   @Override
   public String toString() {
-    return "RagProperties[configuration=redacted]";
+    return "RagSettings[configuration=redacted]";
   }
 }

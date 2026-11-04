@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import com.evidence.rag.RagApplication;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.support.DocumentFormatFixtures;
@@ -105,7 +105,7 @@ class DocumentFormatsHttpTest {
             "--rag.indexing.enabled=false",
             "--rag.answers.enabled=false",
             "--rag.knowledge-agent.enabled=false");
-    assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
+    assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
     assertTrue(context.getBeansOfType(TextModels.class).isEmpty());
     assertTrue(context.getBeansOfType(RetrievalProjection.class).isEmpty());
     assertTrue(context.getBeansOfType(IndexingJob.class).isEmpty());

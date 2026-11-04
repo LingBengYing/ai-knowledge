@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-class IndexWorkerModelHttpLogTest {
+class TextIndexModelHttpLogTest {
   @Test
   void actualChildForwardsEveryModelAttemptWithoutProtocolOrSecretLeakage() throws Exception {
     try (var events = new Events();

@@ -81,9 +81,9 @@ class DocumentRemovalConfigurationTest {
     context.setEnvironment(environment);
     context.register(DocumentRemovalConfiguration.class);
     context.registerBean(
-        RagProperties.class,
+        RagSettings.class,
         () ->
-            new RagProperties(
+            new RagSettings(
                 "test",
                 "org-main",
                 "jwt",

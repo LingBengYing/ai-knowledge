@@ -27,7 +27,7 @@ class IndexWorkerLifetimeTest {
       var forged = new IndexWorkerLifetime.Parent(current.pid(), current.started().minusSeconds(1));
       assertFalse(forged.alive());
       var original =
-          IndexProtocol.request(
+          TextIndexProtocol.request(
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(5),
@@ -35,7 +35,7 @@ class IndexWorkerLifetimeTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var request =
-          new IndexProtocol.Request(
+          new TextIndexProtocol.Request(
               original.models(),
               original.projection(),
               original.timeout(),
@@ -49,10 +49,10 @@ class IndexWorkerLifetimeTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var input = new ByteArrayOutputStream();
-      IndexProtocol.writeRequest(input, request);
+      TextIndexProtocol.writeRequest(input, request);
       var output = new ByteArrayOutputStream();
-      IndexWorker.run(new ByteArrayInputStream(input.toByteArray()), output);
-      assertArrayEquals(IndexProtocol.failure(1), output.toByteArray());
+      TextIndexWorker.run(new ByteArrayInputStream(input.toByteArray()), output);
+      assertArrayEquals(TextIndexProtocol.failure(1), output.toByteArray());
       assertTrue(server.requests.isEmpty());
       assertTrue(
           ProcessHandle.current().isAlive(), "The ordinary run Interface never halts its host JVM");
@@ -151,9 +151,9 @@ class IndexWorkerLifetimeTest {
     Process probe = builder.start();
     try {
       try (var input = probe.getOutputStream()) {
-        IndexProtocol.writeRequest(
+        TextIndexProtocol.writeRequest(
             input,
-            IndexProtocol.request(
+            TextIndexProtocol.request(
                 server.settings().models(),
                 server.settings().projection(),
                 Duration.ofMillis(350),
@@ -213,7 +213,7 @@ class IndexWorkerLifetimeTest {
 
   public static final class LeaseProbe {
     public static void main(String[] args) throws Exception {
-      var request = IndexProtocol.readRequest(System.in);
+      var request = TextIndexProtocol.readRequest(System.in);
       String result;
       try (var acquired =
           IndexWorkerLifetime.acquire(

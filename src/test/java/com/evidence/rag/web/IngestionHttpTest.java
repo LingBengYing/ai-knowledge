@@ -50,7 +50,7 @@ class IngestionHttpTest {
             "--rag.ingestion.enabled=true",
             "--rag.ingestion.upload-timeout-ms=1000");
     assertEquals(
-        directory, context.getBean(com.evidence.rag.config.RagProperties.class).dataDirectory());
+        directory, context.getBean(com.evidence.rag.config.RagSettings.class).dataDirectory());
     base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
   }
 
