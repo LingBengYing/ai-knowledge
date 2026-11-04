@@ -7,7 +7,7 @@ import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchAppendCommand;
 import com.evidence.rag.model.dto.DocumentBatchAppendResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
-import com.evidence.rag.model.dto.DocumentBatchList;
+import com.evidence.rag.model.dto.DocumentBatchListResult;
 import com.evidence.rag.model.dto.DocumentBatchResult;
 import com.evidence.rag.model.dto.DocumentBatchResumeCommand;
 import com.evidence.rag.model.dto.DocumentBatchSourcesResult;
@@ -51,7 +51,7 @@ public final class DocumentBatchController {
 
   /** The workspace's import batches, newest first. */
   @GetMapping("/v1/document-batches")
-  public DocumentBatchList list(HttpServletRequest request) {
+  public DocumentBatchListResult list(HttpServletRequest request) {
     onlyParameters(request, Set.of("offset", "limit"));
     return service.list(
         AuthenticatedActor.require(request),

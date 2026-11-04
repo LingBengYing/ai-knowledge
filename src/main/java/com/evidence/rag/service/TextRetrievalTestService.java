@@ -11,7 +11,7 @@ import com.evidence.rag.model.domain.PublishedEvidence;
 import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.RetrievalSettingsResult;
 import com.evidence.rag.model.dto.RetrievalTestCommand;
-import com.evidence.rag.model.dto.RetrievalTestMatch;
+import com.evidence.rag.model.dto.RetrievalTestMatchResult;
 import com.evidence.rag.model.dto.RetrievalTestResult;
 import com.evidence.rag.tool.retrieval.RetrievalSelection;
 import java.time.Duration;
@@ -287,13 +287,13 @@ public final class TextRetrievalTestService implements AutoCloseable {
             retrievalSettings,
             TextModels.Ranked::score,
             rank -> currentSources.get(rank.index()).segment().text());
-    var matches = new ArrayList<RetrievalTestMatch>();
+    var matches = new ArrayList<RetrievalTestMatchResult>();
     for (var rank : selected) {
       var source = currentSources.get(rank.index());
       var publication = source.publication();
       var segment = source.segment();
       matches.add(
-          new RetrievalTestMatch(
+          new RetrievalTestMatchResult(
               matches.size() + 1,
               publication.documentId(),
               publication.sourceRevisionId(),

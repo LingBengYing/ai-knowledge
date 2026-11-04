@@ -4,7 +4,7 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.TransientRetry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -76,7 +76,8 @@ public final class IndexWorker {
     }
   }
 
-  private static IndexingResult index(IndexProtocol.Request request, IndexWorkerLifetime lifetime) {
+  private static IndexingOutcome index(
+      IndexProtocol.Request request, IndexWorkerLifetime lifetime) {
     var configuration = request.models();
     var projectionSettings = request.projection();
     var texts = request.items().stream().map(segment -> segment.recallText()).toList();
@@ -147,7 +148,7 @@ public final class IndexWorker {
       lifetime.check();
       var verified = projection.verify(manifest);
       lifetime.check();
-      return new IndexingResult(digests, verified);
+      return new IndexingOutcome(digests, verified);
     }
   }
 

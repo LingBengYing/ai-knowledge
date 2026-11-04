@@ -9,7 +9,7 @@ import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.TransientRetry;
 import java.io.File;
 import java.nio.file.Path;
@@ -107,7 +107,7 @@ class IndexWorkerParentDeathTest {
         parent.destroyForcibly();
         assertTrue(parent.waitFor(3, TimeUnit.SECONDS));
         server.failureMode = "";
-        IndexingResult publication;
+        IndexingOutcome publication;
         try (var retry =
             new ProcessTextIndexer(
                 server.settings().models(),

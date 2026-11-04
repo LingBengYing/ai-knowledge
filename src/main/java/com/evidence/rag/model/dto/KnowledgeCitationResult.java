@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.Locale;
 
 /** Flat discriminated source shape; absent page/time locators stay explicitly null. */
-public record KnowledgeCitation(
+public record KnowledgeCitationResult(
     @JsonProperty("citation_id") int citationId,
     @JsonProperty("evidence_kind") String evidenceKind,
     @JsonProperty("document_id") String documentId,
@@ -27,11 +27,11 @@ public record KnowledgeCitation(
     String origin,
     @JsonProperty("content_url") String contentUrl,
     @JsonProperty("source_url") String sourceUrl) {
-  public static KnowledgeCitation from(String answerId, KnowledgeReference reference) {
+  public static KnowledgeCitationResult from(String answerId, KnowledgeReference reference) {
     var source = reference.evidence().source();
     var publication = source.publication();
     boolean document = source.kind() == ProductHelpEvidence.Kind.DOCUMENT_TEXT;
-    return new KnowledgeCitation(
+    return new KnowledgeCitationResult(
         reference.citationId(),
         source.kind().name().toLowerCase(Locale.ROOT),
         publication.documentId(),
@@ -59,6 +59,6 @@ public record KnowledgeCitation(
 
   @Override
   public String toString() {
-    return "KnowledgeCitation[redacted]";
+    return "KnowledgeCitationResult[redacted]";
   }
 }

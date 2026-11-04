@@ -11,7 +11,7 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import java.nio.ByteBuffer;
@@ -250,20 +250,20 @@ class ProcessTextIndexerTest {
       cases.add(badUtf8);
       cases.add(
           IndexProtocol.encode(
-              new IndexingResult(
+              new IndexingOutcome(
                   good.entryDigests(),
                   new VerifiedRevision("0".repeat(64), good.verified().manifestSha256(), 2))));
       cases.add(
           IndexProtocol.encode(
-              new IndexingResult(
+              new IndexingOutcome(
                   good.entryDigests(),
                   new VerifiedRevision(good.verified().projectionIdentity(), "0".repeat(64), 2))));
       var missing = new TreeMap<>(good.entryDigests());
       missing.remove(missing.firstKey());
-      cases.add(IndexProtocol.encode(new IndexingResult(missing, good.verified())));
+      cases.add(IndexProtocol.encode(new IndexingOutcome(missing, good.verified())));
       var badHash = new TreeMap<>(good.entryDigests());
       badHash.put(badHash.firstKey(), "z".repeat(64));
-      cases.add(IndexProtocol.encode(new IndexingResult(badHash, good.verified())));
+      cases.add(IndexProtocol.encode(new IndexingOutcome(badHash, good.verified())));
       Path response = temporary.resolve("response.bin");
       for (byte[] invalid : cases) {
         Files.write(response, invalid);
@@ -331,7 +331,7 @@ class ProcessTextIndexerTest {
     return result;
   }
 
-  private static IndexingResult receipt(IndexProtocol.Request request) {
+  private static IndexingOutcome receipt(IndexProtocol.Request request) {
     var digests = new TreeMap<String, String>();
     var vector = new ArrayList<Double>();
     for (int i = 0; i < request.target().dimensions(); i++) {
@@ -355,7 +355,7 @@ class ProcessTextIndexerTest {
     var manifest =
         new RetrievalProjection.RevisionManifest(
             request.workspaceId(), request.documentId(), request.projectionGenerationId(), digests);
-    return new IndexingResult(
+    return new IndexingOutcome(
         digests,
         new VerifiedRevision(
             request.target().projectionIdentity(), manifest.sha256(), digests.size()));

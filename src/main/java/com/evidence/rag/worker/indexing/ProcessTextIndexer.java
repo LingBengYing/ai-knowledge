@@ -4,7 +4,7 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.worker.OwnedTemporaryResources;
@@ -97,7 +97,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
     this.cleanupObserver = Objects.requireNonNull(cleanupObserver);
   }
 
-  public IndexingResult index(IndexClaim claim) {
+  public IndexingOutcome index(IndexClaim claim) {
     return executeIndex(claim, TransientRetry.NONE, timeout, EmbeddingThroughput.SERIAL);
   }
 
@@ -105,18 +105,18 @@ public final class ProcessTextIndexer implements AutoCloseable {
    * One attempt with this call's own deadline (at most the protocol's 600 seconds) and the
    * embedding retry allowance the batch budget reserved for it.
    */
-  public IndexingResult index(IndexClaim claim, TransientRetry retry, Duration deadline) {
+  public IndexingOutcome index(IndexClaim claim, TransientRetry retry, Duration deadline) {
     return index(claim, retry, deadline, EmbeddingThroughput.SERIAL);
   }
 
   /** As above, with this attempt's in-flight embedding bound and the shared rate limits. */
-  public IndexingResult index(
+  public IndexingOutcome index(
       IndexClaim claim, TransientRetry retry, Duration deadline, EmbeddingThroughput throughput) {
     IndexProtocol.validateSettings(models, projection, deadline);
     return executeIndex(claim, retry, deadline, throughput);
   }
 
-  private IndexingResult executeIndex(
+  private IndexingOutcome executeIndex(
       IndexClaim claim, TransientRetry retry, Duration timeout, EmbeddingThroughput throughput) {
     long timeoutNanos = timeout.toNanos();
     long started = System.nanoTime();
@@ -225,9 +225,9 @@ public final class ProcessTextIndexer implements AutoCloseable {
     final String taskId;
     final AtomicReference<String> cancelled = new AtomicReference<>();
     final CountDownLatch finished = new CountDownLatch(1);
-    final LibraryOperationGate.ReservedCall<IndexingResult> body =
-        LibraryOperationGate.protectCurrent((Callable<IndexingResult>) this::execute);
-    final FutureTask<IndexingResult> result = new FutureTask<>(body);
+    final LibraryOperationGate.ReservedCall<IndexingOutcome> body =
+        LibraryOperationGate.protectCurrent((Callable<IndexingOutcome>) this::execute);
+    final FutureTask<IndexingOutcome> result = new FutureTask<>(body);
     volatile Thread thread;
     volatile Process process;
     volatile boolean cleaned;
@@ -267,7 +267,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
       }
     }
 
-    IndexingResult execute() {
+    IndexingOutcome execute() {
       try {
         checkCancelled();
         directory = OwnedTemporaryResources.createDirectory("rag-index-", managedRoot);

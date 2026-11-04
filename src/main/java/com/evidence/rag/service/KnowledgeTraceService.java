@@ -8,7 +8,7 @@ import com.evidence.rag.model.domain.KnowledgeEvidence;
 import com.evidence.rag.model.domain.KnowledgeReference;
 import com.evidence.rag.model.domain.KnowledgeTraceDraft;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.dto.KnowledgeCitation;
+import com.evidence.rag.model.dto.KnowledgeCitationResult;
 import com.evidence.rag.model.dto.KnowledgeSourceResult;
 import com.evidence.rag.model.dto.TraceReceipt;
 import com.evidence.rag.repository.KnowledgeAnswerRepository;
@@ -89,7 +89,7 @@ public final class KnowledgeTraceService {
           if (!KnowledgeCitationLocator.from(reference).equals(locator)) {
             throw ModelValues.notFound();
           }
-          return new KnowledgeSourceResult(id, KnowledgeCitation.from(id, reference));
+          return new KnowledgeSourceResult(id, KnowledgeCitationResult.from(id, reference));
         });
   }
 

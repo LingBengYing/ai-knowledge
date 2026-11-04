@@ -20,7 +20,7 @@ import com.evidence.rag.model.dto.AgentRunStreamSnapshot;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.ConversationContext;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
-import com.evidence.rag.model.dto.KnowledgeCitation;
+import com.evidence.rag.model.dto.KnowledgeCitationResult;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -675,7 +675,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
               receipt.reasonCode(),
               answered
                   ? references.values().stream()
-                      .map(ref -> KnowledgeCitation.from(receipt.traceId(), ref))
+                      .map(ref -> KnowledgeCitationResult.from(receipt.traceId(), ref))
                       .toList()
                   : List.of());
       // A changed scope/configuration also invalidates maintenance suggestions.

@@ -118,7 +118,7 @@ class RetrievalTestTypesTest {
     assertThrows(
         ApplicationException.class,
         () ->
-            new RetrievalTestMatch(
+            new RetrievalTestMatchResult(
                 1,
                 valid.documentId(),
                 valid.revisionId(),
@@ -135,7 +135,7 @@ class RetrievalTestTypesTest {
     assertThrows(
         ApplicationException.class,
         () ->
-            new RetrievalTestMatch(
+            new RetrievalTestMatchResult(
                 1,
                 valid.documentId(),
                 valid.revisionId(),
@@ -152,8 +152,8 @@ class RetrievalTestTypesTest {
     assertThrows(ApplicationException.class, () -> match(1, "原文", Double.NaN));
   }
 
-  private static RetrievalTestMatch match(int rank, String text, Double rerank) {
-    return new RetrievalTestMatch(
+  private static RetrievalTestMatchResult match(int rank, String text, Double rerank) {
+    return new RetrievalTestMatchResult(
         rank,
         "document-1",
         "revision-1",

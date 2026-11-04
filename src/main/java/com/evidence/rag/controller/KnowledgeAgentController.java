@@ -3,7 +3,7 @@ package com.evidence.rag.controller;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.dto.AgentConfiguration;
+import com.evidence.rag.model.dto.AgentConfigurationResult;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.KnowledgeAgentService;
@@ -33,13 +33,13 @@ public final class KnowledgeAgentController {
   }
 
   @GetMapping(value = "/v1/knowledge-agent/config", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<AgentConfiguration> configuration(HttpServletRequest request) {
+  public ResponseEntity<AgentConfigurationResult> configuration(HttpServletRequest request) {
     read(request);
     AuthenticatedActor.require(request);
     return ResponseEntity.ok()
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .body(
-            new AgentConfiguration(
+            new AgentConfigurationResult(
                 services.getIfAvailable() != null,
                 "knowledge-native-agent",
                 KnowledgeAgentService.MAX_STEPS));

@@ -6,7 +6,7 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.ProjectionItem;
 import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VerifiedRevision;
@@ -310,7 +310,7 @@ final class IndexProtocol {
     return request;
   }
 
-  static byte[] encode(IndexingResult result) throws IOException {
+  static byte[] encode(IndexingOutcome result) throws IOException {
     var bytes = new ByteArrayOutputStream();
     var writer = boundedWriter(bytes, MAX_OUTPUT);
     writer.writeInt(MAGIC);
@@ -336,7 +336,7 @@ final class IndexProtocol {
     return bytes.toByteArray();
   }
 
-  static IndexingResult decode(byte[] response, Request request) throws IOException {
+  static IndexingOutcome decode(byte[] response, Request request) throws IOException {
     if (response.length > MAX_OUTPUT) {
       throw invalid();
     }
@@ -381,7 +381,7 @@ final class IndexProtocol {
         || !manifestHash.equals(manifest.sha256())) {
       throw invalid();
     }
-    return new IndexingResult(
+    return new IndexingOutcome(
         digests, new VerifiedRevision(projectionIdentity, manifestHash, count));
   }
 

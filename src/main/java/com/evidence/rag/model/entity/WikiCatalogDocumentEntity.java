@@ -1,7 +1,7 @@
 package com.evidence.rag.model.entity;
 
 /** Read-only source directory row, not model context or an answer citation. */
-public record WikiCatalogDocument(
+public record WikiCatalogDocumentEntity(
     String documentId,
     String filename,
     String displayName,

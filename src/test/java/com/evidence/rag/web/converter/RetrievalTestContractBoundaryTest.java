@@ -10,7 +10,7 @@ import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.RetrievalTestCommand;
-import com.evidence.rag.model.dto.RetrievalTestMatch;
+import com.evidence.rag.model.dto.RetrievalTestMatchResult;
 import com.evidence.rag.model.dto.RetrievalTestResult;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -211,7 +211,7 @@ class RetrievalTestContractBoundaryTest {
     assertEquals(-10.0, hit.path("rerank_score").doubleValue());
     assertEquals("rrf", wire.path("score_kind").asText());
     assertEquals("RetrievalTestResult[redacted]", result.toString());
-    assertEquals("RetrievalTestMatch[redacted]", match.toString());
+    assertEquals("RetrievalTestMatchResult[redacted]", match.toString());
     assertNull(match(2, 1, 0, 2, "原文", SOURCE_SHA, sha("原文"), 0, null).rerankScore());
   }
 
@@ -294,7 +294,7 @@ class RetrievalTestContractBoundaryTest {
 
   @Test
   void theWholeOrderedMatchListRejectsDuplicateLocatorsAndOverfullResults() {
-    var matches = new ArrayList<RetrievalTestMatch>();
+    var matches = new ArrayList<RetrievalTestMatchResult>();
     for (int rank = 1; rank <= 20; rank++) {
       matches.add(validMatch(rank, rank));
     }
@@ -322,11 +322,11 @@ class RetrievalTestContractBoundaryTest {
         (Executable) () -> match(rank, page, start, end, text, sourceSha, textSha, 0.01, null));
   }
 
-  private static RetrievalTestMatch validMatch(int rank, int page) {
+  private static RetrievalTestMatchResult validMatch(int rank, int page) {
     return match(rank, page, 0, 2, "原文", SOURCE_SHA, sha("原文"), 0.01, null);
   }
 
-  private static RetrievalTestMatch match(
+  private static RetrievalTestMatchResult match(
       int rank,
       int page,
       int start,
@@ -336,7 +336,7 @@ class RetrievalTestContractBoundaryTest {
       String textSha,
       double retrievalScore,
       Double rerankScore) {
-    return new RetrievalTestMatch(
+    return new RetrievalTestMatchResult(
         rank,
         "synthetic-document",
         "synthetic-revision",
@@ -353,7 +353,7 @@ class RetrievalTestContractBoundaryTest {
   }
 
   private static RetrievalTestResult result(
-      String status, String reason, int scopeCount, List<RetrievalTestMatch> matches) {
+      String status, String reason, int scopeCount, List<RetrievalTestMatchResult> matches) {
     return new RetrievalTestResult(TEST_ID, 1, status, reason, scopeCount, "rrf", matches);
   }
 

@@ -81,7 +81,7 @@ class IndexWorkerTest {
                           || request.path().contains("completions")
                           || request.path().contains("search")));
       assertThrows(UnsupportedOperationException.class, () -> result.entryDigests().clear());
-      assertEquals("IndexingResult[redacted]", result.toString());
+      assertEquals("IndexingOutcome[redacted]", result.toString());
     }
   }
 

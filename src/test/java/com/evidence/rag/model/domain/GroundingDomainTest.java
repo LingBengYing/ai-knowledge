@@ -89,13 +89,13 @@ class GroundingDomainTest {
   @Test
   void supportedAndRefusedResultsCannotContradictTheirReasonOrEvidence() {
     var quote = validQuote();
-    invalid(() -> new GroundingResult(true, "supported", List.of()));
-    invalid(() -> new GroundingResult(true, "invalid_quote", List.of(quote)));
-    invalid(() -> new GroundingResult(false, "supported", List.of()));
-    invalid(() -> new GroundingResult(false, "invalid_quote", List.of(quote)));
-    invalid(() -> new GroundingResult(true, "supported", null));
-    invalid(() -> new GroundingResult(true, "supported", Collections.singletonList(null)));
-    assertEquals(List.of(quote), new GroundingResult(true, "supported", List.of(quote)).quotes());
+    invalid(() -> new GroundingOutcome(true, "supported", List.of()));
+    invalid(() -> new GroundingOutcome(true, "invalid_quote", List.of(quote)));
+    invalid(() -> new GroundingOutcome(false, "supported", List.of()));
+    invalid(() -> new GroundingOutcome(false, "invalid_quote", List.of(quote)));
+    invalid(() -> new GroundingOutcome(true, "supported", null));
+    invalid(() -> new GroundingOutcome(true, "supported", Collections.singletonList(null)));
+    assertEquals(List.of(quote), new GroundingOutcome(true, "supported", List.of(quote)).quotes());
   }
 
   @Test
@@ -107,12 +107,12 @@ class GroundingDomainTest {
             "conflicting_evidence",
             "unsafe_evidence",
             "invalid_quote")) {
-      var result = new GroundingResult(false, reason, List.of());
+      var result = new GroundingOutcome(false, reason, List.of());
       assertFalse(result.supported());
       assertEquals(reason, result.reason());
     }
     for (String unsafe : Arrays.asList(null, "", "unknown_reason", "synthetic-private-source")) {
-      invalid(() -> new GroundingResult(false, unsafe, List.of()));
+      invalid(() -> new GroundingOutcome(false, unsafe, List.of()));
     }
   }
 
@@ -124,7 +124,7 @@ class GroundingDomainTest {
     assertEquals(List.of(HASH), quote.factHashes());
     assertThrows(UnsupportedOperationException.class, () -> quote.factHashes().add(HASH));
     var quotes = new ArrayList<>(List.of(quote));
-    var result = new GroundingResult(true, "supported", quotes);
+    var result = new GroundingOutcome(true, "supported", quotes);
     quotes.clear();
     assertEquals(List.of(quote), result.quotes());
     assertThrows(UnsupportedOperationException.class, () -> result.quotes().clear());

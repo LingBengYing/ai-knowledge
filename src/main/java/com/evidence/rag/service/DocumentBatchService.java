@@ -10,7 +10,7 @@ import com.evidence.rag.model.dto.DocumentBatchActionResult;
 import com.evidence.rag.model.dto.DocumentBatchAppendCommand;
 import com.evidence.rag.model.dto.DocumentBatchAppendResult;
 import com.evidence.rag.model.dto.DocumentBatchCommand;
-import com.evidence.rag.model.dto.DocumentBatchList;
+import com.evidence.rag.model.dto.DocumentBatchListResult;
 import com.evidence.rag.model.dto.DocumentBatchResult;
 import com.evidence.rag.model.dto.DocumentBatchSourcesResult;
 import com.evidence.rag.model.dto.TaskResult;
@@ -569,7 +569,7 @@ public final class DocumentBatchService {
    * The workspace's batches, newest first. Batches belong to the workspace, as for every other
    * batch operation: any member who can open a batch by its id sees it listed.
    */
-  public DocumentBatchList list(Actor actor, int offset, int limit) {
+  public DocumentBatchListResult list(Actor actor, int offset, int limit) {
     if (actor == null || offset < 0 || limit < 1 || limit > 100) throw ModelValues.invalid();
     return store.transaction(
         () -> {
@@ -578,7 +578,7 @@ public final class DocumentBatchService {
           var ids = rows.stream().map(row -> (String) row.get("id")).toList();
           var counts = batches.counts(ids);
           var streams = batches.streams(ids);
-          return new DocumentBatchList(
+          return new DocumentBatchListResult(
               offset,
               limit,
               total,
@@ -590,7 +590,7 @@ public final class DocumentBatchService {
                         String halted = (String) row.get("halted_reason");
                         var stream = streams.get(id);
                         boolean open = stream != null && stream.get("sealed_at") == null;
-                        return new DocumentBatchList.Item(
+                        return new DocumentBatchListResult.Item(
                             id,
                             state(batchCounts, halted, open),
                             batchCounts.values().stream().mapToInt(Long::intValue).sum(),

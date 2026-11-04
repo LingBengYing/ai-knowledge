@@ -6,7 +6,7 @@ import com.evidence.rag.model.dto.DocumentPageResult;
 import com.evidence.rag.model.dto.DocumentResult;
 import com.evidence.rag.model.dto.FolderListResult;
 import com.evidence.rag.model.dto.FolderResult;
-import com.evidence.rag.model.vo.DocumentActionReceipt;
+import com.evidence.rag.model.vo.DocumentActionReceiptResponse;
 import com.evidence.rag.model.vo.DocumentActionResponse;
 import com.evidence.rag.model.vo.DocumentActionsResponse;
 import com.evidence.rag.model.vo.DocumentOriginalResponse;
@@ -92,7 +92,9 @@ public final class ManagementResponseMapper {
                     new DocumentActionResponse(
                         item.documentId(),
                         item.ok(),
-                        item.ok() ? new DocumentActionReceipt(item.documentId(), status) : null,
+                        item.ok()
+                            ? new DocumentActionReceiptResponse(item.documentId(), status)
+                            : null,
                         item.errorCode(),
                         item.detail()))
             .toList());

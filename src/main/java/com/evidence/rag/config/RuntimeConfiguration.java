@@ -2,7 +2,7 @@ package com.evidence.rag.config;
 
 import com.evidence.rag.job.DocumentCleanupJob;
 import com.evidence.rag.model.domain.LibraryOperationGate;
-import com.evidence.rag.model.dto.RuntimeCapabilities;
+import com.evidence.rag.model.dto.RuntimeCapabilitiesResult;
 import com.evidence.rag.service.AudioVectorIndexingService;
 import com.evidence.rag.service.DocumentCleanupService;
 import com.evidence.rag.service.ImageVectorIndexingService;
@@ -87,8 +87,8 @@ public class RuntimeConfiguration {
                 attachmentsPresent));
   }
 
-  private static RuntimeCapabilities textEvidenceCapabilities(
-      RuntimeCapabilities base, boolean textEvidenceOnly) {
+  private static RuntimeCapabilitiesResult textEvidenceCapabilities(
+      RuntimeCapabilitiesResult base, boolean textEvidenceOnly) {
     if (!textEvidenceOnly) {
       return base;
     }
@@ -102,11 +102,12 @@ public class RuntimeConfiguration {
             "query_attachments",
             "image_vector_retrieval",
             "audio_vector_retrieval"));
-    return new RuntimeCapabilities(
+    return new RuntimeCapabilitiesResult(
         base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
   }
 
-  static RuntimeCapabilities reindexCapabilities(RuntimeCapabilities base, boolean autoIndex) {
+  static RuntimeCapabilitiesResult reindexCapabilities(
+      RuntimeCapabilitiesResult base, boolean autoIndex) {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
     enabled.add("wiki_maintenance");
@@ -136,12 +137,12 @@ public class RuntimeConfiguration {
       unavailable.add("text_reindex_with_vectors");
       unavailable.add("batch_text_reindex");
     }
-    return new RuntimeCapabilities(
+    return new RuntimeCapabilitiesResult(
         base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
   }
 
-  static RuntimeCapabilities managedCapabilities(
-      RuntimeCapabilities base,
+  static RuntimeCapabilitiesResult managedCapabilities(
+      RuntimeCapabilitiesResult base,
       boolean textReady,
       boolean legacyCompatible,
       boolean visualPresent,
@@ -196,7 +197,7 @@ public class RuntimeConfiguration {
           unavailable,
           List.of("query_attachments", "image_vector_retrieval", "audio_vector_retrieval"));
     }
-    return new RuntimeCapabilities(
+    return new RuntimeCapabilitiesResult(
         base.authMode(),
         base.workspaceId(),
         textReady ? base.migrationStage() : "text_configuration_required",
