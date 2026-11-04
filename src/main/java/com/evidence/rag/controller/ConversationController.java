@@ -4,6 +4,7 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.dto.ConversationResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.ConversationService;
+import com.evidence.rag.web.RequestGuards;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Set;
@@ -47,7 +48,7 @@ public final class ConversationController {
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ConversationResult> create(
       HttpServletRequest request, @RequestBody Map<String, Object> body) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     if (!Set.of("title").containsAll(body.keySet())
         || (body.containsKey("title") && !(body.get("title") instanceof String))) {
       throw ModelValues.invalid();
@@ -80,7 +81,7 @@ public final class ConversationController {
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ConversationResult> rename(
       HttpServletRequest request, @PathVariable String id, @RequestBody Map<String, Object> body) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     if (!body.keySet().equals(Set.of("title")) || !(body.get("title") instanceof String title)) {
       throw ModelValues.invalid();
     }
@@ -89,7 +90,7 @@ public final class ConversationController {
 
   @DeleteMapping("/v1/knowledge-conversations/{id}")
   public ResponseEntity<Void> delete(HttpServletRequest request, @PathVariable String id) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     bodyless(request);
     conversations.delete(AuthenticatedActor.require(request), id);
     return ResponseEntity.noContent()
@@ -99,12 +100,6 @@ public final class ConversationController {
 
   private static void bodyless(HttpServletRequest request) {
     if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
-  }
-
-  private static void noQuery(HttpServletRequest request) {
-    if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
   }

@@ -6,6 +6,7 @@ import com.evidence.rag.model.dto.ModelConfigurationTestResult;
 import com.evidence.rag.model.vo.ModelConfigurationProblemResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.ModelConfigurationService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.ModelConfigurationRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -30,7 +31,7 @@ public final class ModelConfigurationController {
 
   @GetMapping(value = "/v1/model-configuration", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelConfigurationResult> get(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelConfigurationController::invalid);
     if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
       throw invalid();
     }
@@ -42,7 +43,7 @@ public final class ModelConfigurationController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelConfigurationResult> save(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelConfigurationController::invalid);
     return success(
         service.save(
             AuthenticatedActor.require(request),
@@ -54,7 +55,7 @@ public final class ModelConfigurationController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelConfigurationTestResult> test(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelConfigurationController::invalid);
     var actor = AuthenticatedActor.require(request);
     var command = ModelConfigurationRequestMapper.test(body(request));
     return success(service.test(actor, command.version(), command.role()));
@@ -65,7 +66,7 @@ public final class ModelConfigurationController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelConfigurationResult> activate(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelConfigurationController::invalid);
     return success(
         service.activate(
             AuthenticatedActor.require(request),
@@ -74,6 +75,12 @@ public final class ModelConfigurationController {
 
   @ExceptionHandler(ModelConfigurationInputException.class)
   public ResponseEntity<ModelConfigurationProblemResponse> invalid(
+      ModelConfigurationInputException failure, HttpServletRequest request) {
+    return problem(failure, request);
+  }
+
+  /** The 422 problem shared with {@link ModelRebuildController}. */
+  static ResponseEntity<ModelConfigurationProblemResponse> problem(
       ModelConfigurationInputException failure, HttpServletRequest request) {
     return ResponseEntity.unprocessableEntity()
         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
@@ -93,12 +100,6 @@ public final class ModelConfigurationController {
     try {
       return request.getInputStream().readNBytes(ModelConfigurationRequestMapper.MAX_BYTES + 1);
     } catch (IOException failure) {
-      throw invalid();
-    }
-  }
-
-  private static void noQuery(HttpServletRequest request) {
-    if (request.getQueryString() != null) {
       throw invalid();
     }
   }

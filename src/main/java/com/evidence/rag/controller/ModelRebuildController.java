@@ -5,6 +5,7 @@ import com.evidence.rag.model.dto.ModelRebuildResult;
 import com.evidence.rag.model.vo.ModelConfigurationProblemResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.ModelRebuildService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.ModelConfigurationRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -31,7 +32,7 @@ public final class ModelRebuildController {
       value = "/v1/model-configuration/rebuild",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelRebuildResult> get(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelRebuildController::invalid);
     if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
       throw invalid();
     }
@@ -45,7 +46,7 @@ public final class ModelRebuildController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelRebuildResult> start(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelRebuildController::invalid);
     byte[] body;
     try {
       body = request.getInputStream().readNBytes(ModelConfigurationRequestMapper.MAX_BYTES + 1);
@@ -62,24 +63,7 @@ public final class ModelRebuildController {
   @ExceptionHandler(ModelConfigurationInputException.class)
   public ResponseEntity<ModelConfigurationProblemResponse> invalidInput(
       ModelConfigurationInputException failure, HttpServletRequest request) {
-    return ResponseEntity.unprocessableEntity()
-        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .body(
-            new ModelConfigurationProblemResponse(
-                "https://evidence.local/problems/invalid-model-configuration",
-                "请求无效",
-                422,
-                failure.getMessage(),
-                request.getRequestURI(),
-                "invalid_model_configuration",
-                failure.field()));
-  }
-
-  private static void noQuery(HttpServletRequest request) {
-    if (request.getQueryString() != null) {
-      throw invalid();
-    }
+    return ModelConfigurationController.problem(failure, request);
   }
 
   private static ModelConfigurationInputException invalid() {

@@ -6,6 +6,7 @@ import com.evidence.rag.model.dto.WikiSourceChangesResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.WikiMaintenanceService;
 import com.evidence.rag.service.WikiWorkspaceService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.WikiRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -30,7 +31,7 @@ public final class WikiMaintenanceController {
 
   @GetMapping("/v1/wiki/maintenance")
   public ResponseEntity<WikiMaintenanceResult> list(HttpServletRequest request) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit", "kind"));
     return ok(
         maintenance.list(
@@ -43,7 +44,7 @@ public final class WikiMaintenanceController {
   @GetMapping("/v1/wiki/pages/{id}/source-changes")
   public ResponseEntity<WikiSourceChangesResult> sources(
       HttpServletRequest request, @PathVariable String id) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of());
     return ok(maintenance.sourceChanges(AuthenticatedActor.require(request), id));
   }
@@ -64,12 +65,6 @@ public final class WikiMaintenanceController {
           .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
           .body(wiki.refreshProposal(AuthenticatedActor.require(request), id, command));
     } catch (IOException failure) {
-      throw WikiRequestMapper.invalid();
-    }
-  }
-
-  private static void noBody(HttpServletRequest request) {
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
       throw WikiRequestMapper.invalid();
     }
   }

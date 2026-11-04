@@ -6,6 +6,7 @@ import com.evidence.rag.model.dto.DocumentCleanupPageResult;
 import com.evidence.rag.model.dto.DocumentCleanupResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.DocumentCleanupService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.DocumentCleanupRequestMapper;
 import com.evidence.rag.web.converter.DocumentCleanupResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,7 +61,8 @@ public final class DocumentCleanupController {
     if (request.getQueryString() != null) {
       throw ModelValues.invalid();
     }
-    byte[] body = BoundedBody.read(request, DocumentCleanupRequestMapper.MAX_REQUEST_BYTES);
+    byte[] body =
+        RequestGuards.boundedBody(request, DocumentCleanupRequestMapper.MAX_REQUEST_BYTES);
     return ResponseEntity.accepted()
         .body(
             DocumentCleanupResponseMapper.batch(

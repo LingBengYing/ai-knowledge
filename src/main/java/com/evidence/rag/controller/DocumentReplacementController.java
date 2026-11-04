@@ -8,6 +8,7 @@ import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.DocumentReplacementService;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.web.ProblemHandler;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.UploadServlet;
 import com.evidence.rag.web.converter.DocumentReplacementRequestMapper;
 import com.evidence.rag.web.converter.DocumentReplacementResponseMapper;

@@ -14,6 +14,7 @@ import com.evidence.rag.model.dto.DocumentBatchSourcesResult;
 import com.evidence.rag.model.vo.TaskResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.DocumentBatchService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.TaskResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -43,7 +44,7 @@ public final class DocumentBatchController {
   @PostMapping(value = "/v1/document-batches", consumes = "application/json")
   public ResponseEntity<DocumentBatchResult> create(
       HttpServletRequest request, @RequestBody DocumentBatchCommand command) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     return ResponseEntity.accepted()
         .body(service.create(AuthenticatedActor.require(request), command));
   }
@@ -96,7 +97,7 @@ public final class DocumentBatchController {
   public ResponseEntity<TaskResponse> upload(
       HttpServletRequest request, @PathVariable String id, @PathVariable int ordinal)
       throws IOException {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     var actor = AuthenticatedActor.require(request);
     if (request.getContentLengthLong() > service.maximumUploadBytes()) throw ModelValues.invalid();
     if (!uploads.tryAcquire())
@@ -119,14 +120,14 @@ public final class DocumentBatchController {
       HttpServletRequest request,
       @PathVariable String id,
       @RequestBody DocumentBatchAppendCommand command) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     return service.append(AuthenticatedActor.require(request), id, command);
   }
 
   /** Closes an open batch's manifest with the entries registered so far. */
   @PostMapping("/v1/document-batches/{id}/seal")
   public DocumentBatchActionResult seal(HttpServletRequest request, @PathVariable String id) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     return service.seal(AuthenticatedActor.require(request), id);
   }
 
@@ -134,14 +135,14 @@ public final class DocumentBatchController {
   @PostMapping("/v1/document-batches/{id}/retry-failed")
   public DocumentBatchActionResult retryFailed(
       HttpServletRequest request, @PathVariable String id) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     return service.retryFailed(AuthenticatedActor.require(request), id);
   }
 
   /** Cancels queued work and refuses further uploads; running tasks finish. */
   @PostMapping("/v1/document-batches/{id}/cancel")
   public DocumentBatchActionResult cancel(HttpServletRequest request, @PathVariable String id) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     return service.cancel(AuthenticatedActor.require(request), id);
   }
 
@@ -151,7 +152,7 @@ public final class DocumentBatchController {
       HttpServletRequest request,
       @PathVariable String id,
       @RequestBody(required = false) DocumentBatchResumeCommand command) {
-    noQuery(request);
+    RequestGuards.noQuery(request, ModelValues::invalid);
     return service.resume(
         AuthenticatedActor.require(request),
         id,
@@ -165,9 +166,5 @@ public final class DocumentBatchController {
     } catch (NumberFormatException invalid) {
       throw ModelValues.invalid();
     }
-  }
-
-  private static void noQuery(HttpServletRequest request) {
-    if (request.getQueryString() != null) throw ModelValues.invalid();
   }
 }

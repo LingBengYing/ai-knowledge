@@ -5,6 +5,7 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.vo.VectorProfileResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.AudioVectorIndexingService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.VectorProfileResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
