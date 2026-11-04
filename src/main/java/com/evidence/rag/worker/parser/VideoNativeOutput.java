@@ -92,10 +92,6 @@ final class VideoNativeOutput {
     }
   }
 
-  static Streams streams(byte[] raw, String mime) {
-    return streams(raw, mime, false);
-  }
-
   static Streams streams(byte[] raw, String mime, boolean subtitlesEnabled) {
     try {
       JsonNode root = tree(raw);

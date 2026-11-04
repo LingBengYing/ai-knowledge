@@ -83,10 +83,6 @@ public final class ManagementResponseMapper {
     return new TagListResponse(r);
   }
 
-  public static DocumentActionsResponse actions(List<DocumentActionResult> r) {
-    return actions(r, null);
-  }
-
   public static DocumentActionsResponse actions(List<DocumentActionResult> r, String action) {
     String status = "reindex".equals(action) ? "queued" : "updated";
     return new DocumentActionsResponse(

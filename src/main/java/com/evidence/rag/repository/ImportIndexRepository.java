@@ -92,14 +92,6 @@ public final class ImportIndexRepository {
             AuthorityRows.text(r, "parse_state")));
   }
 
-  /** A dispatch that could not start (its library was at capacity) waits for its turn again. */
-  public void release(String revisionId) {
-    store.execute(
-        "UPDATE import_index_requests SET state='pending',updated_at=? WHERE revision_id=? AND state='dispatching'",
-        Instant.now().toString(),
-        revisionId);
-  }
-
   public String existingTask(Actor actor, String documentId, String revisionId) {
     var rows =
         store.rows(

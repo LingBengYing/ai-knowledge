@@ -17,7 +17,6 @@ class RetrievalSettingsTest {
         RetrievalSettings.defaults());
     assertTrue(RetrievalSettings.defaults().rerank());
     assertEquals("rrf", RetrievalSettings.defaults().retrievalScoreKind());
-    assertEquals("rerank_score", RetrievalSettings.defaults().thresholdScoreKind());
     for (String method : new String[] {"vector", "full_text", "hybrid"}) {
       String expected =
           switch (method) {
@@ -27,10 +26,6 @@ class RetrievalSettingsTest {
           };
       var weighted = new RetrievalSettings(1, method, "weighted", 0, 1, true, -2.5);
       assertEquals(expected, weighted.retrievalScoreKind());
-      assertEquals(expected, weighted.thresholdScoreKind());
-      assertEquals(
-          "rerank_score",
-          new RetrievalSettings(1, method, "rerank", 1, 20, true, 2.5).thresholdScoreKind());
     }
   }
 

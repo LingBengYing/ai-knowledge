@@ -47,7 +47,10 @@ class BatchResilienceDomainTest {
     assertEquals(Duration.ofSeconds(600), deadline.forRequests(97));
     assertEquals(Duration.ofSeconds(600), deadline.forRequests(Integer.MAX_VALUE / 1000));
     assertEquals(Duration.ofSeconds(120), deadline.forRequests(-4));
-    assertEquals(Duration.ofSeconds(9), IndexDeadline.fixed(Duration.ofSeconds(9)).forRequests(50));
+    assertEquals(
+        Duration.ofSeconds(9),
+        new IndexDeadline(Duration.ofSeconds(9), Duration.ZERO, Duration.ofSeconds(9))
+            .forRequests(50));
     assertThrows(
         IllegalArgumentException.class,
         () ->

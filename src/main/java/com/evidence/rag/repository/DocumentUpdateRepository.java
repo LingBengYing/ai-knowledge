@@ -269,10 +269,6 @@ public final class DocumentUpdateRepository {
     state(id, "parsed", now);
   }
 
-  public void markIndexing(String id, String now) {
-    state(id, "indexing", now);
-  }
-
   public void markFailed(String id, String now) {
     state(id, "failed", now);
   }
