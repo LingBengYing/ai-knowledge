@@ -32,7 +32,7 @@ public final class IndexingTaskProcessor {
 
   private final Duration timeout;
   private final Function<Duration, ProcessTextIndexer> workers;
-  private MilvusRestProjection.Settings cleanupProjection;
+  private MilvusRestProjection.Configuration cleanupProjection;
   private final ReindexVectorVerifier receiptVerifier;
   private volatile TransientRetry retry = TransientRetry.NONE;
   private volatile IndexDeadline deadlines;
@@ -60,7 +60,7 @@ public final class IndexingTaskProcessor {
       IndexingService authority,
       String workspace,
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       IndexTarget target,
       Duration timeout) {
     this(
@@ -77,7 +77,7 @@ public final class IndexingTaskProcessor {
       IndexingService authority,
       String workspace,
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       IndexTarget target,
       Duration timeout,
       ReindexVectorVerifier receiptVerifier) {

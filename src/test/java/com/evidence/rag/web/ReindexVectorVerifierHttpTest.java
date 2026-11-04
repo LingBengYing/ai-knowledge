@@ -94,7 +94,7 @@ class ReindexVectorVerifierHttpTest {
       try (var model = new GeminiAudioEmbeddingModels(rotated)) {
         var p = settings.projection();
         var projection =
-            new MilvusRestProjection.Settings(
+            new MilvusRestProjection.Configuration(
                 p.endpoint(),
                 p.token(),
                 p.database(),

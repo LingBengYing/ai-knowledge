@@ -119,7 +119,7 @@ class AudioEmbeddingSettingsTest {
     private final HttpServer server;
     private final URI endpoint;
     private final GeminiAudioEmbeddingModels.Configuration models;
-    private final MilvusRestProjection.Settings projection;
+    private final MilvusRestProjection.Configuration projection;
     private final IndexTarget target;
 
     Fixture() throws IOException {
@@ -152,8 +152,9 @@ class AudioEmbeddingSettingsTest {
           true);
     }
 
-    MilvusRestProjection.Settings projection(String identity, String collection, int dimensions) {
-      return new MilvusRestProjection.Settings(
+    MilvusRestProjection.Configuration projection(
+        String identity, String collection, int dimensions) {
+      return new MilvusRestProjection.Configuration(
           endpoint,
           "private-synthetic-key",
           "default",
@@ -168,14 +169,14 @@ class AudioEmbeddingSettingsTest {
 
     AudioEmbeddingSettings settings(
         GeminiAudioEmbeddingModels.Configuration currentModels,
-        MilvusRestProjection.Settings currentProjection,
+        MilvusRestProjection.Configuration currentProjection,
         IndexTarget currentTarget) {
       return settings(currentModels, currentProjection, currentTarget, Duration.ofSeconds(30), 2);
     }
 
     AudioEmbeddingSettings settings(
         GeminiAudioEmbeddingModels.Configuration currentModels,
-        MilvusRestProjection.Settings currentProjection,
+        MilvusRestProjection.Configuration currentProjection,
         IndexTarget currentTarget,
         Duration budget,
         int concurrency) {

@@ -35,7 +35,7 @@ class ChineseIndexProtocolTest {
               .analyzer());
       var p = old.projection();
       var projection =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               p.endpoint(),
               p.token(),
               p.database(),

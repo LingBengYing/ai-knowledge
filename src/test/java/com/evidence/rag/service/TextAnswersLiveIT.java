@@ -12,7 +12,6 @@ import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Configuration;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
-import com.evidence.rag.client.vector.MilvusRestProjection.Settings;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.config.TextAdapterSettings;
 import com.evidence.rag.exception.ApplicationException;
@@ -318,7 +317,8 @@ class TextAnswersLiveIT {
     }
   }
 
-  private static int singleEmbeddingBatchLimit(Configuration models, Settings projection) {
+  private static int singleEmbeddingBatchLimit(
+      Configuration models, MilvusRestProjection.Configuration projection) {
     // Mirror the existing worker's byte-bound batch formula solely to reject costs before
     // execution.
     int dimension = models.embeddingDimensions();
@@ -450,7 +450,10 @@ class TextAnswersLiveIT {
   }
 
   private record LiveSettings(
-      Configuration models, Settings projection, String proxyHost, String proxyPort) {
+      Configuration models,
+      MilvusRestProjection.Configuration projection,
+      String proxyHost,
+      String proxyPort) {
     static LiveSettings fromEnvironment() {
       assertTrue(
           "true".equals(required(PREFIX + "ENABLED")),
@@ -576,7 +579,7 @@ class TextAnswersLiveIT {
   private static final class OwnedCollection implements AutoCloseable {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final Duration ADMIN_TIMEOUT = Duration.ofSeconds(15);
-    private final Settings settings;
+    private final MilvusRestProjection.Configuration settings;
     private final HttpClient admin =
         HttpClient.newBuilder()
             .connectTimeout(ADMIN_TIMEOUT)
@@ -585,7 +588,7 @@ class TextAnswersLiveIT {
     private boolean initializationAttempted;
     private boolean owned;
 
-    OwnedCollection(Settings settings) {
+    OwnedCollection(MilvusRestProjection.Configuration settings) {
       this.settings = settings;
     }
 

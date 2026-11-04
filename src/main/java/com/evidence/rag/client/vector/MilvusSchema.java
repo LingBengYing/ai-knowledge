@@ -12,10 +12,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Fixed collection schema and index contract; never performs remote mutation or schema repair. */
 final class MilvusSchema {
-  private final MilvusRestProjection.Settings settings;
+  private final MilvusRestProjection.Configuration settings;
   private final JsonMapper json;
 
-  MilvusSchema(MilvusRestProjection.Settings settings, JsonMapper json) {
+  MilvusSchema(MilvusRestProjection.Configuration settings, JsonMapper json) {
     this.settings = settings;
     this.json = json;
   }

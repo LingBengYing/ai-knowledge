@@ -55,7 +55,7 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
           .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
           .build();
 
-  public record Settings(
+  public record Configuration(
       URI endpoint,
       String token,
       String database,
@@ -67,7 +67,7 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
       int maxResponseBytes,
       boolean allowLoopbackHttp,
       String analyzer) {
-    public Settings(
+    public Configuration(
         URI endpoint,
         String token,
         String database,
@@ -92,7 +92,7 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
           "standard");
     }
 
-    public Settings {
+    public Configuration {
       boolean loopback =
           endpoint != null
               && endpoint.getHost() != null
@@ -130,7 +130,7 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
 
     @Override
     public String toString() {
-      return "Settings[redacted]";
+      return "Configuration[redacted]";
     }
 
     public String identity() {
@@ -159,13 +159,13 @@ public final class MilvusRestProjection implements RetrievalProjection, AutoClos
     }
   }
 
-  private final Settings settings;
+  private final Configuration settings;
   private final MilvusSchema schema;
   private final HttpClient client;
   private final ReentrantLock operationLock = new ReentrantLock();
   private boolean initialized;
 
-  public MilvusRestProjection(Settings settings) {
+  public MilvusRestProjection(Configuration settings) {
     if (settings == null) {
       throw new ProjectionException("projection_invalid_configuration");
     }

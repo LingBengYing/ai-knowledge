@@ -214,7 +214,7 @@ class ImageEmbeddingConfigurationTest {
     return new TextAdapterSettings(
         new OpenAiCompatibleModels.Configuration(
             endpoint, endpoint, endpoint, 2, Duration.ofSeconds(3), 65536, true),
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             URI.create("http://127.0.0.1:1"),
             "",
             "default",

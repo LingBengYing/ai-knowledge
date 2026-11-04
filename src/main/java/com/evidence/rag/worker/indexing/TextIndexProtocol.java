@@ -41,7 +41,7 @@ final class TextIndexProtocol {
 
   record Request(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String workspaceId,
       String documentId,
@@ -66,7 +66,7 @@ final class TextIndexProtocol {
 
   static Request request(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       IndexClaim claim,
       TransientRetry retry,
@@ -94,7 +94,7 @@ final class TextIndexProtocol {
 
   static void validateSettings(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     if (models == null
         || projection == null
@@ -243,7 +243,7 @@ final class TextIndexProtocol {
             reader.readInt(),
             flag(reader));
     var projection =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             URI.create(string(reader, 4096)),
             string(reader, 4096),
             string(reader, 64),

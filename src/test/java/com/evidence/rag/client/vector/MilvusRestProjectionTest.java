@@ -49,7 +49,7 @@ class MilvusRestProjectionTest {
     try (var stub = new MilvusStub(true)) {
       var old = settings(stub.endpoint());
       var configured =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               old.endpoint(),
               old.token(),
               old.database(),
@@ -289,7 +289,7 @@ class MilvusRestProjectionTest {
       assertEquals(identity, original.identity());
       assertEquals(
           identity,
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
                   original.endpoint(),
                   "synthetic-credential",
                   "default",
@@ -303,7 +303,7 @@ class MilvusRestProjectionTest {
               .identity());
       for (var changed :
           List.of(
-              new MilvusRestProjection.Settings(
+              new MilvusRestProjection.Configuration(
                   URI.create("http://127.0.0.1:2"),
                   "",
                   "default",
@@ -314,7 +314,7 @@ class MilvusRestProjectionTest {
                   original.timeout(),
                   1024,
                   true),
-              new MilvusRestProjection.Settings(
+              new MilvusRestProjection.Configuration(
                   original.endpoint(),
                   "",
                   "other",
@@ -325,7 +325,7 @@ class MilvusRestProjectionTest {
                   original.timeout(),
                   1024,
                   true),
-              new MilvusRestProjection.Settings(
+              new MilvusRestProjection.Configuration(
                   original.endpoint(),
                   "",
                   "default",
@@ -336,7 +336,7 @@ class MilvusRestProjectionTest {
                   original.timeout(),
                   1024,
                   true),
-              new MilvusRestProjection.Settings(
+              new MilvusRestProjection.Configuration(
                   original.endpoint(),
                   "",
                   "default",
@@ -347,7 +347,7 @@ class MilvusRestProjectionTest {
                   original.timeout(),
                   1024,
                   true),
-              new MilvusRestProjection.Settings(
+              new MilvusRestProjection.Configuration(
                   original.endpoint(),
                   "",
                   "default",
@@ -358,7 +358,7 @@ class MilvusRestProjectionTest {
                   original.timeout(),
                   1024,
                   true),
-              new MilvusRestProjection.Settings(
+              new MilvusRestProjection.Configuration(
                   original.endpoint(),
                   "",
                   "default",
@@ -587,7 +587,7 @@ class MilvusRestProjectionTest {
     try (var stub = new MilvusStub(true)) {
       var base = settings(stub.endpoint());
       var configured =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               base.endpoint(),
               "",
               base.database(),
@@ -708,7 +708,7 @@ class MilvusRestProjectionTest {
       var base = settings(stub.endpoint());
       int dimension = 8192;
       var configured =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               base.endpoint(),
               "",
               base.database(),
@@ -759,7 +759,7 @@ class MilvusRestProjectionTest {
     try (var stub = new MilvusStub(true)) {
       var base = settings(stub.endpoint());
       var configured =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               base.endpoint(),
               "",
               base.database(),
@@ -850,8 +850,8 @@ class MilvusRestProjectionTest {
         first.workspaceId(), first.documentId(), first.revisionId(), digests);
   }
 
-  private static MilvusRestProjection.Settings settings(URI endpoint) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration settings(URI endpoint) {
+    return new MilvusRestProjection.Configuration(
         endpoint,
         "",
         "default",
@@ -1257,7 +1257,7 @@ class MilvusRestProjectionTest {
     try (var target = new MilvusStub(true);
         var stub = new MilvusStub(true)) {
       var configured =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               stub.endpoint(),
               "synthetic-" + "credential",
               "default",
@@ -1319,7 +1319,7 @@ class MilvusRestProjectionTest {
   void responseBodyIsBoundedBeforeAllocationAndDeadlineIncludesDelayedBody() throws Exception {
     try (var stub = new MilvusStub(true)) {
       var configured =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               stub.endpoint(),
               "",
               "default",
@@ -1394,7 +1394,7 @@ class MilvusRestProjectionTest {
   void collectionCannotBeReusedByChangingConfiguredWorkspace() throws Exception {
     try (var stub = new MilvusStub(true)) {
       var other =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               stub.endpoint(),
               "",
               "default",

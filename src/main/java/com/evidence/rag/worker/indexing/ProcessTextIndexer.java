@@ -36,7 +36,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   private static final Semaphore CAPACITY = new Semaphore(4);
   private static final long CLEANUP_NANOS = TimeUnit.SECONDS.toNanos(2);
   private final OpenAiCompatibleModels.Configuration models;
-  private final MilvusRestProjection.Settings projection;
+  private final MilvusRestProjection.Configuration projection;
   private final Duration timeout;
   private final List<String> launch;
   private final CleanupObserver cleanupObserver;
@@ -66,7 +66,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
 
   public ProcessTextIndexer(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     this(models, projection, timeout, null, List.of());
   }
@@ -74,7 +74,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   // Trusted process fixture Adapter; same JDK, cleared environment and resource constraints.
   ProcessTextIndexer(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String fixtureMainClass,
       List<String> fixtureArgs) {
@@ -84,7 +84,7 @@ public final class ProcessTextIndexer implements AutoCloseable {
   // Package-private observation only; cleanup and process exit remain the production path.
   ProcessTextIndexer(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String fixtureMainClass,
       List<String> fixtureArgs,

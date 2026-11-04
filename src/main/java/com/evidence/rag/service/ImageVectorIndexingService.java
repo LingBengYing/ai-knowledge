@@ -43,7 +43,7 @@ import java.util.function.Supplier;
 /** Explicit original-image vector publication; remote work never holds an authority transaction. */
 public final class ImageVectorIndexingService {
   private final SqliteAuthorityStore store;
-  private MilvusRestProjection.Settings cleanupProjection;
+  private MilvusRestProjection.Configuration cleanupProjection;
   private final ImageVectorRepository vectors;
   private final EvidenceRepository evidence;
   private final ManagementRepository management;
@@ -67,7 +67,7 @@ public final class ImageVectorIndexingService {
       Supplier<IndexTarget> textTarget,
       IndexTarget imageTarget,
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration processingBudget,
       int maxConcurrent) {
     return new ImageVectorIndexingService(
@@ -95,7 +95,7 @@ public final class ImageVectorIndexingService {
       Supplier<IndexTarget> textTarget,
       IndexTarget imageTarget,
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration processingBudget,
       int maxConcurrent) {
     this(

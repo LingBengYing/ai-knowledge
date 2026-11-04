@@ -58,7 +58,7 @@ import java.util.function.Supplier;
  */
 public final class AudioVectorIndexingService {
   private final SqliteAuthorityStore store;
-  private MilvusRestProjection.Settings cleanupProjection;
+  private MilvusRestProjection.Configuration cleanupProjection;
   private final AudioVectorRepository vectors;
   private final EvidenceRepository evidence;
   private final ManagementRepository management;
@@ -84,7 +84,7 @@ public final class AudioVectorIndexingService {
       Supplier<IndexTarget> textTarget,
       IndexTarget audioTarget,
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       AudioDecoder decoder,
       Duration processingBudget,
       int maxConcurrent) {
@@ -114,7 +114,7 @@ public final class AudioVectorIndexingService {
       Supplier<IndexTarget> textTarget,
       IndexTarget audioTarget,
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       AudioDecoder decoder,
       Duration processingBudget,
       int maxConcurrent) {

@@ -1,7 +1,7 @@
 package com.evidence.rag.worker.indexing;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels.Configuration;
-import com.evidence.rag.client.vector.MilvusRestProjection.Settings;
+import com.evidence.rag.client.vector.MilvusRestProjection;
 import java.time.Duration;
 import java.util.List;
 
@@ -12,7 +12,11 @@ public final class LiveIndexWorker {
   private LiveIndexWorker() {}
 
   public static ProcessTextIndexer create(
-      Configuration models, Settings projection, Duration timeout, String host, String port) {
+      Configuration models,
+      MilvusRestProjection.Configuration projection,
+      Duration timeout,
+      String host,
+      String port) {
     validateProxy(host, port);
     // ProcessTextIndexer clears the child environment. Only these non-secret arguments cross it.
     return new ProcessTextIndexer(

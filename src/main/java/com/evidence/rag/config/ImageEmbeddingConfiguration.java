@@ -54,7 +54,7 @@ public class ImageEmbeddingConfiguration {
       }
       try (var client = new SiliconFlowImageEmbeddingModels(models)) {
         var projection =
-            new MilvusRestProjection.Settings(
+            new MilvusRestProjection.Configuration(
                 URI.create(environment.getRequiredProperty(prefix + "milvus.endpoint")),
                 environment.getProperty(prefix + "milvus.token", ""),
                 environment.getProperty(prefix + "milvus.database", "default"),

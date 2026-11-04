@@ -614,7 +614,7 @@ public final class IndexingService {
 
   /** Persist the exact remote target and generation before the first possible worker write. */
   public boolean registerProjectionWrite(
-      IndexClaim claim, MilvusRestProjection.Settings projection) {
+      IndexClaim claim, MilvusRestProjection.Configuration projection) {
     if (projection == null
         || claim == null
         || !projection.identity().equals(claim.target().projectionIdentity())

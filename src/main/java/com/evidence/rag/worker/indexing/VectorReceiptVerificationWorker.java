@@ -12,7 +12,7 @@ public final class VectorReceiptVerificationWorker {
   private VectorReceiptVerificationWorker() {}
 
   public static List<VerifiedRevision> verify(
-      MilvusRestProjection.Settings settings,
+      MilvusRestProjection.Configuration settings,
       List<RetrievalProjection.RevisionManifest> manifests,
       Duration remaining) {
     if (settings == null
@@ -26,7 +26,7 @@ public final class VectorReceiptVerificationWorker {
     long started = System.nanoTime();
     var timeout = settings.timeout().compareTo(remaining) < 0 ? settings.timeout() : remaining;
     var bounded =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             settings.endpoint(),
             settings.token(),
             settings.database(),

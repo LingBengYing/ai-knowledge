@@ -366,8 +366,8 @@ class AudioEmbeddingConfigurationTest {
         projection(collection, "text-model-v1"));
   }
 
-  private static MilvusRestProjection.Settings projection(String collection, String identity) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration projection(String collection, String identity) {
+    return new MilvusRestProjection.Configuration(
         URI.create("http://127.0.0.1:1"),
         "",
         "default",

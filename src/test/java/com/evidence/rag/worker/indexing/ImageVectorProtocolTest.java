@@ -43,7 +43,7 @@ class ImageVectorProtocolTest {
   static ImageVectorProtocol.Request request() {
     try (var models = new SiliconFlowImageEmbeddingModels(MODEL)) {
       var projection =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               URI.create("http://127.0.0.1:1"),
               "",
               "default",
@@ -195,7 +195,7 @@ class ImageVectorProtocolTest {
     var request = request();
     var settings = request.projection();
     var otherDimension =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             settings.endpoint(),
             settings.token(),
             settings.database(),

@@ -110,8 +110,8 @@ class ProjectionAttemptRegistrationTest {
     }
   }
 
-  private static MilvusRestProjection.Settings settings(String collection) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration settings(String collection) {
+    return new MilvusRestProjection.Configuration(
         URI.create("http://127.0.0.1:1"),
         "",
         "default",

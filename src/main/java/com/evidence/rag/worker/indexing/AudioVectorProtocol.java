@@ -40,7 +40,7 @@ final class AudioVectorProtocol {
 
   record Request(
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       AudioVectorBuildClaim claim,
       IndexWorkerLifetime.Parent parent) {
@@ -52,7 +52,7 @@ final class AudioVectorProtocol {
 
   static Request request(
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       AudioVectorBuildClaim claim) {
     var request =
@@ -63,7 +63,7 @@ final class AudioVectorProtocol {
 
   static void validateSettings(
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     if (models == null
         || projection == null
@@ -198,7 +198,7 @@ final class AudioVectorProtocol {
             reader.readInt(),
             flag(reader));
     var projection =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             URI.create(string(reader, 4096)),
             string(reader, 4096),
             string(reader, 128),

@@ -10,7 +10,7 @@ import java.time.Duration;
  */
 public record ImageEmbeddingSettings(
     SiliconFlowImageEmbeddingModels.Configuration models,
-    MilvusRestProjection.Settings projection,
+    MilvusRestProjection.Configuration projection,
     IndexTarget target,
     Duration processingBudget,
     int maxConcurrent) {

@@ -53,7 +53,7 @@ public class DocumentCleanupConfiguration {
       ObjectProvider<ManagedTextRuntime> managedRuntime,
       SqliteAuthorityStore store,
       RagSettings properties) {
-    var targets = new ArrayList<MilvusRestProjection.Settings>();
+    var targets = new ArrayList<MilvusRestProjection.Configuration>();
     text.ifAvailable(settings -> targets.add(settings.projection()));
     images.ifAvailable(settings -> targets.add(settings.projection()));
     audio.ifAvailable(settings -> targets.add(settings.projection()));
@@ -90,7 +90,7 @@ public class DocumentCleanupConfiguration {
           }
           for (String analyzer : List.of("standard", "chinese")) {
             var candidate =
-                new MilvusRestProjection.Settings(
+                new MilvusRestProjection.Configuration(
                     connection.endpoint(),
                     connection.token(),
                     connection.database(),

@@ -10,7 +10,7 @@ import java.time.Duration;
  */
 public record AudioEmbeddingSettings(
     GeminiAudioEmbeddingModels.Configuration models,
-    MilvusRestProjection.Settings projection,
+    MilvusRestProjection.Configuration projection,
     IndexTarget target,
     Duration processingBudget,
     int maxConcurrent) {

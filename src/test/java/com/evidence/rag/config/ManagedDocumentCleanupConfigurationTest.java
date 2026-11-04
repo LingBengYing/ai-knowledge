@@ -46,7 +46,7 @@ class ManagedDocumentCleanupConfigurationTest {
       assertTrue(fixture.context.getBeansOfType(TextAdapterSettings.class).isEmpty());
       assertTrue(projection.settingsFor(MilvusProjectionCleanup.qualified(expected)).isPresent());
       var foreign =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               expected.endpoint(),
               expected.token(),
               expected.database(),

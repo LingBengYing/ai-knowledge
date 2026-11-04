@@ -63,7 +63,7 @@ public class AudioEmbeddingConfiguration {
       }
       try (var client = new GeminiAudioEmbeddingModels(models)) {
         var projection =
-            new MilvusRestProjection.Settings(
+            new MilvusRestProjection.Configuration(
                 URI.create(environment.getRequiredProperty(prefix + "milvus.endpoint")),
                 environment.getProperty(prefix + "milvus.token", ""),
                 environment.getProperty(prefix + "milvus.database", "default"),

@@ -12,18 +12,19 @@ import java.util.function.Function;
 
 /** Exact configured targets only; current configuration is never used to guess a past profile. */
 public final class MilvusProjectionCleanup implements ProjectionCleanup {
-  private final Map<String, MilvusRestProjection.Settings> configured;
-  private final Function<QualifiedProjectionTarget, Optional<MilvusRestProjection.Settings>>
+  private final Map<String, MilvusRestProjection.Configuration> configured;
+  private final Function<QualifiedProjectionTarget, Optional<MilvusRestProjection.Configuration>>
       registered;
 
-  public MilvusProjectionCleanup(List<MilvusRestProjection.Settings> targets) {
+  public MilvusProjectionCleanup(List<MilvusRestProjection.Configuration> targets) {
     this(targets, ignored -> Optional.empty());
   }
 
   public MilvusProjectionCleanup(
-      List<MilvusRestProjection.Settings> targets,
-      Function<QualifiedProjectionTarget, Optional<MilvusRestProjection.Settings>> registered) {
-    var values = new LinkedHashMap<String, MilvusRestProjection.Settings>();
+      List<MilvusRestProjection.Configuration> targets,
+      Function<QualifiedProjectionTarget, Optional<MilvusRestProjection.Configuration>>
+          registered) {
+    var values = new LinkedHashMap<String, MilvusRestProjection.Configuration>();
     for (var target : List.copyOf(targets)) {
       var old = values.putIfAbsent(target.identity(), target);
       if (old != null && !qualified(old).equals(qualified(target))) {
@@ -34,7 +35,7 @@ public final class MilvusProjectionCleanup implements ProjectionCleanup {
     this.registered = Objects.requireNonNull(registered);
   }
 
-  public static QualifiedProjectionTarget qualified(MilvusRestProjection.Settings settings) {
+  public static QualifiedProjectionTarget qualified(MilvusRestProjection.Configuration settings) {
     return new QualifiedProjectionTarget(
         settings.endpoint().resolve("/").toASCIIString(),
         settings.database(),
@@ -45,7 +46,8 @@ public final class MilvusProjectionCleanup implements ProjectionCleanup {
         settings.identity());
   }
 
-  public Optional<MilvusRestProjection.Settings> settingsFor(QualifiedProjectionTarget target) {
+  public Optional<MilvusRestProjection.Configuration> settingsFor(
+      QualifiedProjectionTarget target) {
     var settings = configured.get(target.projectionIdentity());
     if (settings == null) {
       settings = registered.apply(target).orElse(null);

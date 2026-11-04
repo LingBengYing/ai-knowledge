@@ -347,8 +347,8 @@ class RetrievalProjectionTest {
     assertThrows(ProjectionException.class, () -> settings(defaults));
   }
 
-  private static MilvusRestProjection.Settings settings(Object[] values) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration settings(Object[] values) {
+    return new MilvusRestProjection.Configuration(
         (URI) values[0],
         (String) values[1],
         (String) values[2],

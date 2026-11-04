@@ -103,7 +103,7 @@ class ImageEmbeddingSettingsTest {
     private final HttpServer server;
     private final URI endpoint;
     private final SiliconFlowImageEmbeddingModels.Configuration models;
-    private final MilvusRestProjection.Settings projection;
+    private final MilvusRestProjection.Configuration projection;
     private final IndexTarget target;
 
     Fixture() throws IOException {
@@ -135,8 +135,9 @@ class ImageEmbeddingSettingsTest {
           true);
     }
 
-    MilvusRestProjection.Settings projection(String identity, String collection, int dimensions) {
-      return new MilvusRestProjection.Settings(
+    MilvusRestProjection.Configuration projection(
+        String identity, String collection, int dimensions) {
+      return new MilvusRestProjection.Configuration(
           endpoint,
           "private-synthetic-key",
           "default",
@@ -151,14 +152,14 @@ class ImageEmbeddingSettingsTest {
 
     ImageEmbeddingSettings settings(
         SiliconFlowImageEmbeddingModels.Configuration currentModels,
-        MilvusRestProjection.Settings currentProjection,
+        MilvusRestProjection.Configuration currentProjection,
         IndexTarget currentTarget) {
       return settings(currentModels, currentProjection, currentTarget, Duration.ofSeconds(30), 2);
     }
 
     ImageEmbeddingSettings settings(
         SiliconFlowImageEmbeddingModels.Configuration currentModels,
-        MilvusRestProjection.Settings currentProjection,
+        MilvusRestProjection.Configuration currentProjection,
         IndexTarget currentTarget,
         Duration budget,
         int concurrency) {
