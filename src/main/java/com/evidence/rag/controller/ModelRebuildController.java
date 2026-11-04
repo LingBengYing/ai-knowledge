@@ -32,10 +32,7 @@ public final class ModelRebuildController {
       value = "/v1/model-configuration/rebuild",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelRebuildResult> get(HttpServletRequest request) {
-    RequestGuards.noQuery(request, ModelRebuildController::invalid);
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw invalid();
-    }
+    RequestGuards.noQueryOrBody(request, ModelRebuildController::invalid);
     return ResponseEntity.ok()
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .body(service.get(AuthenticatedActor.require(request)));

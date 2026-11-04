@@ -7,6 +7,7 @@ import com.evidence.rag.model.dto.AgentConfigurationResult;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.KnowledgeAgentService;
+import com.evidence.rag.web.RequestGuards;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.time.Duration;
@@ -143,9 +144,7 @@ public final class KnowledgeAgentController {
   }
 
   private static void read(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) throw ModelValues.invalid();
+    RequestGuards.noQueryOrBody(request);
   }
 
   private static ResponseEntity<AgentRunResult> response(AgentRunResult result) {

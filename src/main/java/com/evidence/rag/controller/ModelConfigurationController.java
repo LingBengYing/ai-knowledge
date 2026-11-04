@@ -31,10 +31,7 @@ public final class ModelConfigurationController {
 
   @GetMapping(value = "/v1/model-configuration", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ModelConfigurationResult> get(HttpServletRequest request) {
-    RequestGuards.noQuery(request, ModelConfigurationController::invalid);
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw invalid();
-    }
+    RequestGuards.noQueryOrBody(request, ModelConfigurationController::invalid);
     return success(service.get(AuthenticatedActor.require(request)));
   }
 

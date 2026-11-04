@@ -34,7 +34,7 @@ public final class ConversationController {
       HttpServletRequest request,
       @RequestParam(defaultValue = "0") int offset,
       @RequestParam(defaultValue = "30") int limit) {
-    bodyless(request);
+    RequestGuards.noBody(request, ModelValues::invalid);
     if (!Set.of("offset", "limit").containsAll(request.getParameterMap().keySet())
         || request.getParameterMap().values().stream().anyMatch(values -> values.length != 1)) {
       throw ModelValues.invalid();
@@ -67,7 +67,7 @@ public final class ConversationController {
       @PathVariable String id,
       @RequestParam(defaultValue = "0") int offset,
       @RequestParam(defaultValue = "20") int limit) {
-    bodyless(request);
+    RequestGuards.noBody(request, ModelValues::invalid);
     if (!Set.of("offset", "limit").containsAll(request.getParameterMap().keySet())
         || request.getParameterMap().values().stream().anyMatch(values -> values.length != 1)) {
       throw ModelValues.invalid();
@@ -91,17 +91,11 @@ public final class ConversationController {
   @DeleteMapping("/v1/knowledge-conversations/{id}")
   public ResponseEntity<Void> delete(HttpServletRequest request, @PathVariable String id) {
     RequestGuards.noQuery(request, ModelValues::invalid);
-    bodyless(request);
+    RequestGuards.noBody(request, ModelValues::invalid);
     conversations.delete(AuthenticatedActor.require(request), id);
     return ResponseEntity.noContent()
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .build();
-  }
-
-  private static void bodyless(HttpServletRequest request) {
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
   }
 
   private static <T> ResponseEntity<T> response(T value) {

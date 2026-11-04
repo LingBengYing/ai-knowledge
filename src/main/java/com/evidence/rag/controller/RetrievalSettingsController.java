@@ -29,10 +29,7 @@ public final class RetrievalSettingsController {
 
   @GetMapping(value = "/v1/retrieval-settings", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<RetrievalSettingsResult> read(HttpServletRequest request) {
-    RequestGuards.noQuery(request, RetrievalSettingsController::invalid);
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw invalid();
-    }
+    RequestGuards.noQueryOrBody(request, RetrievalSettingsController::invalid);
     return response(service.read(AuthenticatedActor.require(request)));
   }
 
