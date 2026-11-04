@@ -117,7 +117,7 @@ MVC 的 `org.springframework.ui.Model` 是视图属性容器，与此处领域/�
 | DTO | `model.dto.DocumentPatchCommand`、`DocumentResult`、`TaskResult` | 传输输入或结果；DTO 不专指请求。输入类型只声明用户可提交字段，可信 Actor 单独传入；不接受可伪造角色、claim token、active pointer。 |
 | Query | `model.query.DocumentQuery` | 承载筛选、分页、排序等条件，明确上下界和排序白名单；不使用可拼 SQL 的自由字符串，也不传无类型 Map。 |
 | VO | `model.vo.DocumentResponse` | VO 在本仓库只表示 View Object。按公开 API 白名单输出；`can_edit` 等由 Service 按当前权限计算，Web 只转换，不泄漏内部 claim、密钥、私有路径。 |
-| Domain / BO / Value Object | `model.domain.Actor`、`IndexClaim`、`ParsedText`、`VerifiedRevision`、`IndexingResult` | 表达业务身份、不变量或业务对象；值对象不用 VO 缩写。Worker 的索引校验结果不引用 Client 类型。BO 仅在有实际业务组合时创建，不强制每张表生成 BO。 |
+| Domain / BO / Value Object | `model.domain.Actor`、`IndexClaim`、`ParsedText`、`VerifiedRevision`、`IndexingOutcome` | 表达业务身份、不变量或业务对象；值对象不用 VO 缩写。Worker 的索引校验结果不引用 Client 类型。BO 仅在有实际业务组合时创建，不强制每张表生成 BO。 |
 
 M01：按信任边界和生命周期区分类型，不机械生成五套相同字段。传输结果已经与公开契约完全相同时，可直接使用同一安全 DTO，不强制复制成 VO；需在 spec 明确公开字段和敏感字段负例。持久化 Entity 和含内部 claim 的 Domain 不适用此简化。
 

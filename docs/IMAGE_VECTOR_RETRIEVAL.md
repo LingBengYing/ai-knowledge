@@ -16,7 +16,7 @@ processing-timeout-ms默认120000（10..120000），max-concurrent默认2（1..8
 
 认证GET/POST /v1/documents/{id}/image-vector均无query/body。成功响应恰十字段：status、document_id、publication_id、source_revision_id、source_sha256、profile_fingerprint、model_revision、dimensions、vector_generation_id、manifest_sha256。missing的最后两字段null；available为不可变回执。profile_fingerprint绑定完整独立投影，model_revision为完整固定模型profile，不泄漏endpoint或凭据。
 
-v17追加image_vector_publications；原v3文字IndexProtocol/8MiB预算及旧publication不变，原图单独走10MiB协议。v16升级前生成一次备份。回滚须由部署责任方配套恢复相应旧格式数据库及旧制品，不能只替换旧JAR读取新格式；开发任务不操作部署或旧数据。
+v17追加image_vector_publications；原v3文字TextIndexProtocol/8MiB预算及旧publication不变，原图单独走10MiB协议。v16升级前生成一次备份。回滚须由部署责任方配套恢复相应旧格式数据库及旧制品，不能只替换旧JAR读取新格式；开发任务不操作部署或旧数据。
 
 模型协议依据：[SiliconFlow Embeddings API](https://api-docs.siliconflow.cn/docs/api/embeddings-post)。本Adapter发送单对象input.image完整canonical裸base64及float/dimensions，严格核对返回model、index、维度和finite非零float32，不发caption/URL或截断内容。
 

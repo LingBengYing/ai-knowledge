@@ -1,5 +1,7 @@
 # AI Knowledge：智能体工作约定
 
+2026-11-04 Java后端瘦身与类名规整（分支refactor/slim-naming，未发布）：删除无调用代码（GeminiProtocol并入GeminiAudioEmbeddingModels、AudioContentResponse、controller.BoundedBody及若干无调用/仅测试使用的方法），控制器重复的请求守卫收进`web.RequestGuards`；按下方“命名约定”改名，清单见该分支提交说明。HTTP路由、JSON字段、错误码、能力名、配置键、环境变量与schema均不变，`--index-worker`等子进程开关不变。
+
 2026-11-03 删除声音/原视频音画整条功能线（分支chore/remove-sound-video-av，未发布，网页同步删除入口）：`/v1/sound-documents`、`/v1/video-av-documents`上传，`/v1/documents/{id}/sound-index|video-av-index`索引，Sound/VideoAv的Configuration/Settings/Controller/LibraryService/CompilationService/Repository/ResponseMapper/IndexResult、ManagedMediaSources、OriginalMediaUploadServlet/OriginalUploadResult、`--sound-index-worker`/`--video-av-index-worker`子进程及协议、ProcessVideoAvDecoder/VideoAvDecoder、Gemini声音/音画模型与embedding客户端（及ModelHttpTransport.postGoogleSound）、28个Sound*/VideoAv*领域记录、`rag.sound.*`/`rag.video-av.*`配置及`sound_*`/`video_av_*`五+四项能力名全部删除；ImportAutoIndex的媒体繁忙退避（BUSY）随之删除。ProcessAudioDecoder（音频库共用）、音频/0014视频/图片向量/查询附件/文档不变。**schema不变（v43），不加迁移**：sound_*/video_av_*表及其建表/校验、CleanupPayloadTables与清理盘点保留；旧资料只读兼容——列表/状态筛选/详情（改由ManagementRepository.legacyMediaEvidence读取）、原件下载、撤下清理照常，原件更新返回`can_upload=false`/409`replacement_state_conflict`，遗留自动索引请求标记`indexing_unavailable`失败，旧远端声音/音画集合清理记`cleanup_target_unknown`（需运维手动删集合）。覆盖见DocumentCleanupMediaPayloadTest与test侧LegacyMediaRows。迁移类测试中依赖已删领域代码的封存/trace用例一并删除。生产部署无需额外操作，`RAG_SOUND_*`/`RAG_VIDEO_AV_*`环境变量可从私有环境移除（残留也不再读取）。
 
 2026-11-03 负责人优先级调整：权限相关开发（角色/权限模型、授权范围扩展、权限审计与权限类加固等）调整为**最低优先级**，不抢占其他任何主线；现有授权与工作区隔离保持不变、不回退，只是不再主动投入新的权限开发。修测试或重构时遇到纯权限类问题，记录即可，排在最后处理。
@@ -37,6 +39,24 @@
 2026-10-11 0072本机SSE完成：上游stream:true、增量思考/terminate文本预览、纯Service订阅与Controller SSE，Web0053配套逐块转发；参数完整后执行工具、来源与持久化成功后才发布成功终态。相关Java85/85、最终打包/1220格式通过；新隔离真实服务整链、浏览器首段早于上游结束、刷新同任务、2来源与重启零模型回读通过。前端112相关通过，完整首526/526复525/526旧25ms截止竞态保留。云0、未提交/推送/部署，schema36/旧资料不变，生产仍0071；不续8/20旧批余额，不称完整verify/质量通过。先读0072四工件及verification，真实供应商SSE/生产网络尚未验；发布入口需含scripts/agent-event-stream.mjs。
 
 2026-10-11 0070/0071最新生产：`20261011-native-agent-0071`配套Java/原生Python执行器/Web0051/0052已上线，替换DB-GPT并新增持久对话/上下文压缩、上游思考和工具详情。真实副本35→36二次重开及停机备份通过；旧97表13文件保持，验收前99表14文件旧行/原件/配置逐摘要保持。新合成资料单次真实流程8/20（DS3/SF嵌入3/重排2）成功，3轮思考、2检索/1阅读/1引用；移除临时预算重启后完整历史/详情/来源零模型回读，实际HTTPS展开刷新通过。免登录、模型active7、中文索引及OCR保持，四服务active/NRestarts0。相关Java77/77、Python117/117、前端513/513，实际包入口226/代理16通过；正式verify PARTIAL/FAILED（434中29旧失败同HEAD+2新增测试适配已修），旧架构1失败/readiness503/未跑全仓余量开放，按负责人限定例外发布，不称全量绿。余12次不续用；新写入后禁止旧JAR/旧库覆盖。先读0070/0071四工件及0071 deployment-verification/provider-run；每轮响应后展示，非token流式；单样例不认证全库或压缩真实语义质量。Git只含源码和脱敏证据，不提交业务/真实思考正文或私密配置。
+
+## 命名约定（2026-11-04，Java后端）
+
+一种角色一个后缀，包与后缀一致；新代码照此命名，不再引入同义后缀。
+
+| 角色 | 包 | 命名 |
+| --- | --- | --- |
+| Spring装配 | `config` | `XxxConfiguration`（`@Configuration`）、`XxxSettings`（绑定并校验的配置值，含根`RagSettings`）、`XxxCondition` |
+| HTTP入口 | `controller` | 只放`XxxController`；共用的请求守卫/有界读体放`web.RequestGuards` |
+| HTTP协议辅助 | `web` | `XxxFilter`、`XxxServlet`、`ProblemHandler`/`HttpProblemMapper`、`MediaContentResponse` |
+| API转换 | `web.converter` | `XxxRequestMapper`（请求体→Command）、`XxxResponseMapper`（Result→Response）；不另建Converter/Assembler |
+| 业务 | `service` | `XxxService`；单次任务执行编排`XxxTaskProcessor` |
+| 持久化 | `repository` | `XxxRepository`（SQL读写）、`XxxSchema`（建表/迁移）、`XxxRows`（行映射）、唯一`SqliteAuthorityStore`；不用Dao/Store同义词 |
+| 外部调用 | `client.*` | 能力接口`XxxModels`/`XxxProjection`/`PageOcr`，实现前缀协议或厂商（`OpenAiCompatibleXxx`、`GeminiXxx`、`MilvusRestXxx`）；不可变选项统一为内嵌`Configuration` record |
+| 子进程 | `worker.*` | 子JVM入口`XxxWorker`、父进程侧`ProcessXxx`、线协议`XxxProtocol`；文字索引为`TextIndexWorker`/`TextIndexProtocol`/`ProcessTextIndexer` |
+| 模型 | `model.*` | dto：入参`XxxCommand`、Service出参`XxxResult`；vo：`XxxResponse`；entity：`XxxEntity`；domain：业务名词（如`IndexingOutcome`、`GroundingOutcome`），不用Result/Response/DTO/VO后缀；Agent协议记录与Result内嵌元素可用业务名词 |
+
+禁止`Helper`/`Util(s)`/`Manager`/`Support`/`Impl`/`Dao`后缀与含糊缩写（Ocr/Pdf/Http/Jwt等通用缩写除外）。改类名只用`git mv`加全部引用更新，类名不进入任何对外契约。
 
 ## 常驻规则：控制技术债（2026-10-10 负责人确认，优先于下方各阶段中“兼容保留/不删除旧功能”的表述）
 
@@ -145,7 +165,7 @@ PDF Blob打开仍被Browser Use策略禁止，未绕过、打开未认证；ASR�
 
 2026-10-03当前本机稳定增量：[0027原声向量检索](docs/changes/0027-audio-vector-retrieval/verification.md)。三代理完成独立默认关闭原声模型、完整speech-span构建/独立generation/v18 immutable receipts和完整scope原PCM dense召回，root接前端0016/实际Spring与FFmpeg合成正常链并统一验证。最终2042 Java/716格式/原双80%门禁、299前端/73 Node、4单列native通过，732/46输入无变、529生产类与JAR一致。原声向量只召回，保存转录和原音频SHA/时间来源继续作证；非语音事实与真实ASR仍未完成。新切未部署，页面由用户验收、Git/部署归原责任方、无真实模型调用、usage/计费取消。
 
-2026-10-03当前增量：[0026原图向量检索](docs/changes/0026-image-vector-retrieval/spec.md)。独立ImageEmbeddingModels、显式构建/新generation、v17不可变receipt与DENSE_ONLY召回；旧文字IndexProtocol/任务/publication保持。完整图片scope所有receipt先合格，每路candidate完整authority映射后融合，原图事实证明和typed来源保持；默认关闭，不自动调用。三代理分工已完成，根代理统一门禁/绑定/冻结，实际证据见[verification](docs/changes/0026-image-vector-retrieval/verification.md)。新image未部署；现网20261003-voice-tags已含标签/语音（报告只读核对），真实ASR失败保留。用户页面验收，Git/部署归原责任方，无新真实模型调用；usage/计费取消。下方为历史快照。
+2026-10-03当前增量：[0026原图向量检索](docs/changes/0026-image-vector-retrieval/spec.md)。独立ImageEmbeddingModels、显式构建/新generation、v17不可变receipt与DENSE_ONLY召回；旧文字TextIndexProtocol/任务/publication保持。完整图片scope所有receipt先合格，每路candidate完整authority映射后融合，原图事实证明和typed来源保持；默认关闭，不自动调用。三代理分工已完成，根代理统一门禁/绑定/冻结，实际证据见[verification](docs/changes/0026-image-vector-retrieval/verification.md)。新image未部署；现网20261003-voice-tags已含标签/语音（报告只读核对），真实ASR失败保留。用户页面验收，Git/部署归原责任方，无新真实模型调用；usage/计费取消。下方为历史快照。
 
 2026-10-03当前增量：[0025语音提问](docs/changes/0025-voice-questions/spec.md)（2026-10-10已整体移除：`/v1/voice-questions`、`voice_questions`、`RAG_VOICE_QUESTIONS_*`不再存在；共享BoundedMediaQueryServlet保留）。单音频→完整ASR文字→用户编辑确认→旧完整scope问答/库内来源；输入准备不读库、不入库或trace。共享BoundedMediaQueryServlet替代QueryAttachmentServlet并保留旧附件分派/预算，交接须记录旧文件删除，不能恢复兼容壳。默认关闭，独立audio/ingestion/answers及local依赖，无新增provider/凭据/真实调用。页面用户验收，Git/部署由原责任方处理，usage/计费取消。当前实际已部署20261003-scanned-pdf，标签/语音尚未发布；下方为历史快照。
 
@@ -167,7 +187,7 @@ PDF Blob打开仍被Browser Use策略禁止，未绕过、打开未认证；ASR�
 
 Java 测试夹具不跨包调用 `SqliteAuthorityStore` 的包内 `rows/count/execute`；优先使用 Module Interface，必要的 SQL 断言仅通过测试临时库 JDBC。不得为编译夹具而开放生产 SQL API，`testCompile` 失败不作为行为 RED。`SynopsisFileInput` 没有值等同性，重建结果应逐项比较 publication、完整 fingerprint、全部来源 ID/SHA，而不是比较对象地址。G02 同样适用于新测试：显式 import 和控制语句大括号要实际复核，Spotless 成功不证明这两项。
 
-完整配置测试和临时启动probe都按`TextAdapterSettings`/`MilvusRestProjection.Settings`生成参数：Milvus使用根URL及独立`java_`集合，三个文本模型共用`RAG_TEXT_ALLOW_LOOPBACK_HTTP`，不猜测各模型的独立同名开关。既有确定性配置测试持续拒绝未知字段/路径/集合；夹具不合合同的启动失败不算产品RED。运行能力实际入口是公开`GET /v1/config`，不得用未知路由的401冒充能力验收。
+完整配置测试和临时启动probe都按`TextAdapterSettings`/`MilvusRestProjection.Configuration`生成参数：Milvus使用根URL及独立`java_`集合，三个文本模型共用`RAG_TEXT_ALLOW_LOOPBACK_HTTP`，不猜测各模型的独立同名开关。既有确定性配置测试持续拒绝未知字段/路径/集合；夹具不合合同的启动失败不算产品RED。运行能力实际入口是公开`GET /v1/config`，不得用未知路由的401冒充能力验收。
 
 ## 当前：0019音视频模型评测入口（2026-09-21）
 

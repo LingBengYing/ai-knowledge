@@ -19,7 +19,7 @@
 | Repository | `IndexingRepository` / `EvidenceRepository` | 复用ProjectionItem、v3索引worker和完整manifest；发布及完整scope包含文字、图片、音频，不把模态候选当完整scope |
 | Service | `AnswerService` / `EvidenceService` | 共用并发、预算、检索、摘录、证明与最终trace；仅候选读取和typed来源物化按模态分派 |
 | Model + Repository | `AudioSourceEvidence` / `AudioTraceEvidence` / v9附表 | 内部CP绑定原span；保存原时间和source/text/transcript/quote摘要，联合文字/图片引用封存 |
-| Controller + Web | `AudioAnswerController` / `AudioContentResponse` | 复用请求映射及鉴权；来源完整授权通过后，才解析单byte Range并输出200/206/416 |
+| Controller + Web | `AudioAnswerController` / `MediaContentResponse` | 复用请求映射及鉴权；来源完整授权通过后，才解析单byte Range并输出200/206/416 |
 | Config | `AudioConfiguration` | 默认关闭，显式开发/测试loopback装配codec、ASR与compiler；管理资源关闭，不在启动时转写 |
 
 已有文字`verify`仍映射真实页全文，旧否定/条件/冲突/程序步骤算法保留。新候选可达4096 code points，已证明单摘录仍最多1200；音频完整上下文按原ordinal以单个换行连接全部span（包括空文本），不只检查已召回片段。每条摘录必须落在其索引span内，时间直接取原span起止；跨段事实输出多条引用，不能把CP偏移按比例换算成音频时间。

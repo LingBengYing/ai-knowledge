@@ -50,6 +50,6 @@
 
 v18 追加不可变 `audio_vector_publications` 与 `audio_vector_entries`。封存必须包含全部已发布 speech spans，逐项绑定 evidence/base physical/vector physical ID、原 sample 范围、PCM SHA、向量 digest 与完整 manifest；不接受成功前缀。解码及远程 embedding/投影工作在 authority 事务外，提交短事务复验当前 ACL、原 publication/source、profile 和完整回执。检索先按授权 workspace/document-vector generation 过滤，再取得 top-K；每路所有候选先由 authority 映射回原语音证据，才执行 RRF，最后原 trace 事务再次复验完整范围，包括未引用资料。
 
-现有 v17 库升级前生成一次一致备份 `java-library.v17-before-v18-*.db`；`.partial` 不是完成备份。旧文字 v3 IndexProtocol/8 MiB 和既有 ImageVectorProtocol 保持，原声使用独立最多 40 MiB 协议。回滚由部署责任方配套恢复旧格式数据库和相应旧制品，不能仅换旧 JAR 读取 v18；本次开发没有操作旧数据或部署。
+现有 v17 库升级前生成一次一致备份 `java-library.v17-before-v18-*.db`；`.partial` 不是完成备份。旧文字 v3 TextIndexProtocol/8 MiB 和既有 ImageVectorProtocol 保持，原声使用独立最多 40 MiB 协议。回滚由部署责任方配套恢复旧格式数据库和相应旧制品，不能仅换旧 JAR 读取 v18；本次开发没有操作旧数据或部署。
 
 2026-10-03本机完整门禁和四项显式native已通过，最终输入与JAR绑定见 [0027 验证记录](changes/0027-audio-vector-retrieval/verification.md)。本机使用合成音频与 loopback 模型/Milvus，真实语义召回、真实 provider/Milvus、网页和发布另验；原声新功能尚未部署。页面由用户验收；新增真实调用为 0，usage/计费开发保持取消。

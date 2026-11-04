@@ -85,7 +85,7 @@ job.IngestionJob → IngestionTaskProcessor → IngestionService.claimIngestion
 
 controller.IndexingController → IndexingTaskProcessor / IndexingService
 job.IndexingJob → IndexingTaskProcessor → IndexingService.claimIndexing
-  → 事务外 ProcessTextIndexer → IndexWorker JVM
+  → 事务外 ProcessTextIndexer → TextIndexWorker JVM
   → IndexWorkerLifetime 父存活 / 跨 JVM collection lease
   → client.model.TextModels.embed
   → client.vector.RetrievalProjection generation-scoped upsert / 完整 verify
@@ -119,7 +119,7 @@ GET /v1/sources/{answerId}/{ordinal} → AnswerService / EvidenceService.source
 | Model data | Entity 是持久化快照；DTO/Query 是输入和安全结果；VO 是公开白名单；Domain 表达身份及证据 | [DocumentEntity](../src/main/java/com/evidence/rag/model/entity/DocumentEntity.java)、[DocumentPatchCommand](../src/main/java/com/evidence/rag/model/dto/DocumentPatchCommand.java)、[DocumentQuery](../src/main/java/com/evidence/rag/model/query/DocumentQuery.java)、[DocumentResponse](../src/main/java/com/evidence/rag/model/vo/DocumentResponse.java)、[IndexClaim](../src/main/java/com/evidence/rag/model/domain/IndexClaim.java) |
 | Model / vector client | 模型和 Milvus 协议、响应限长与完整投影验证；不是数据 Model 层 | [TextModels](../src/main/java/com/evidence/rag/client/model/TextModels.java)、[RetrievalProjection](../src/main/java/com/evidence/rag/client/vector/RetrievalProjection.java)、[MilvusRestProjection](../src/main/java/com/evidence/rag/client/vector/MilvusRestProjection.java) |
 | HTTP / runtime | Controller 和上传 Servlet 处理协议；转换器保留 PATCH 三态/固定 JSON；错误类别在 Web 映射 HTTP | [ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[UploadServlet](../src/main/java/com/evidence/rag/web/UploadServlet.java)、[ManagementRequestMapper](../src/main/java/com/evidence/rag/web/converter/ManagementRequestMapper.java)、[HttpProblemMapper](../src/main/java/com/evidence/rag/web/HttpProblemMapper.java)、[RuntimeService](../src/main/java/com/evidence/rag/service/RuntimeService.java) |
-| Composition | 配置绑定、Bean 装配、恢复时序与资源关闭；其他层不读取全局配置 | [PersistenceConfiguration](../src/main/java/com/evidence/rag/config/PersistenceConfiguration.java)、[SecurityConfiguration](../src/main/java/com/evidence/rag/config/SecurityConfiguration.java)、[IndexingConfiguration](../src/main/java/com/evidence/rag/config/IndexingConfiguration.java)、[AnswersConfiguration](../src/main/java/com/evidence/rag/config/AnswersConfiguration.java)、[TextAdaptersConfiguration](../src/main/java/com/evidence/rag/config/TextAdaptersConfiguration.java) |
+| Composition | 配置绑定、Bean 装配、恢复时序与资源关闭；其他层不读取全局配置 | [PersistenceConfiguration](../src/main/java/com/evidence/rag/config/PersistenceConfiguration.java)、[SecurityConfiguration](../src/main/java/com/evidence/rag/config/SecurityConfiguration.java)、[IndexingConfiguration](../src/main/java/com/evidence/rag/config/IndexingConfiguration.java)、[AnswersConfiguration](../src/main/java/com/evidence/rag/config/AnswersConfiguration.java)、[TextAdapterConfiguration](../src/main/java/com/evidence/rag/config/TextAdapterConfiguration.java) |
 
 SQL 和行映射只在 Repository；Service 没有 JDBC、原始 SQL、Servlet 或 HTTP 状态码。Repository 的原始 SQL 方法为包私有，校验当前线程处于该 Store 的事务。没有按 Repository 新开连接，也不增加无意义 ServiceImpl、Manager、ORM 或 BaseService。测试装配 [AuthorityTestContext](../src/test/java/com/evidence/rag/support/AuthorityTestContext.java) 只位于 test 源集，调用真实三层和生产 HTTP 转换器，不是生产万能类的延续。
 
@@ -127,7 +127,7 @@ Model 不是 Controller → Service → Repository 之后的额外转发层。�
 
 只有确有两个Adapter（如真实provider与测试替身、生产子进程与受控真实进程）时才引入Seam。模型/检索Interface见[TEXT_ADAPTERS](TEXT_ADAPTERS.md)；索引业务已使用embedding与projection写入/验证，其本地替身结果不能代替真实provider/Milvus验收。
 
-`TextAdapterSettings.load(environmentMap)`仅校验配置、不发请求；索引或问答任一opt-in时由TextAdaptersConfiguration加载一次，三套Endpoint均必填。索引仅调用embedding；问答使用embedding/rerank/extract与只读prepareSearch/search。共享问答client按Bean生命周期关闭，不随单个请求关闭。embedding identity绑定URL/模型/revision/维度，Milvus只接受`java_`集合。索引仍按generation验证完整物理manifest；0007 AuthorizedScope从active publication派生完整`document → generation`，physical候选先经台账hydrate权威source。多HTTP调用不是快照，prepareSearch不创建或加载集合，也不证明loaded。
+`TextAdapterSettings.load(environmentMap)`仅校验配置、不发请求；索引或问答任一opt-in时由TextAdapterConfiguration加载一次，三套Endpoint均必填。索引仅调用embedding；问答使用embedding/rerank/extract与只读prepareSearch/search。共享问答client按Bean生命周期关闭，不随单个请求关闭。embedding identity绑定URL/模型/revision/维度，Milvus只接受`java_`集合。索引仍按generation验证完整物理manifest；0007 AuthorizedScope从active publication派生完整`document → generation`，physical候选先经台账hydrate权威source。多HTTP调用不是快照，prepareSearch不创建或加载集合，也不证明loaded。
 
 AnswerService在完整请求体解码后实施总预算及有界准入；远程阶段不持Store事务。EvidenceService在最终锁内及写trace前复验完整scope、预算和本地模型/投影资格，任一次资格失败不能恢复成功；外部Milvus配置不在该原子性范围内。来源回读绑定原Actor及当前完整scope。关闭最多等待5秒，未退出或被中断显式安全失败，后续close可继续等待；不能强杀忽略中断的线程，也不保证Spring会停止销毁其他依赖。
 
