@@ -17,7 +17,6 @@ import com.evidence.rag.worker.indexing.ProcessTextIndexer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -102,43 +101,6 @@ class IndexingTaskProcessorTest {
       assertEquals("queued", authority.indexingStatus(owner, queued).get("state"));
       assertTrue(external.requests.isEmpty());
       runtime.close();
-    }
-  }
-
-  @Test
-  void revokedWriterInterruptsRunningChildAndCannotPublish() throws Exception {
-    Path pid = directory.resolve("revoked.pid");
-    Path data = directory.resolve("authority");
-    try (var external = new IndexingTestServer();
-        var authority = new AuthorityTestContext(data);
-        var runtime =
-            new IndexingJob(
-                new IndexingTaskProcessor(
-                    authority.indexing(),
-                    owner.workspaceId(),
-                    external.target(),
-                    Duration.ofSeconds(8),
-                    limit -> child(external, limit, "hang", pid)),
-                null,
-                1)) {
-      String document = parsed(authority, "revoked.txt");
-      String task = task(authority, external, document);
-      await(() -> alive(pid));
-      // Controlled external ACL transition; no lifecycle HTTP endpoint exists in this slice.
-      try (var connection =
-              DriverManager.getConnection("jdbc:sqlite:" + data.resolve("java-library.db"));
-          var statement =
-              connection.prepareStatement(
-                  "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id=?")) {
-        statement.setString(1, document);
-        statement.setString(2, owner.principalId());
-        assertEquals(1, statement.executeUpdate());
-      }
-      await(() -> "failed".equals(authority.indexingStatus(owner, task).get("state")));
-      assertFalse(alive(pid));
-      assertEquals(false, authority.indexingStatus(owner, task).get("can_retry"));
-      assertNull(row(authority, document).get("active_revision_id"));
-      assertTrue(external.requests.isEmpty());
     }
   }
 

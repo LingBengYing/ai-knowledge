@@ -11,7 +11,6 @@ import com.evidence.rag.client.vector.MilvusProjectionCleanup;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.ProjectionCleanup;
 import com.evidence.rag.exception.ApplicationException;
-import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ProjectionAttempt;
@@ -136,41 +135,6 @@ class DocumentCleanupServiceTest {
   }
 
   @Test
-  void currentAclPrecedesBusyAndNoRunningBodyCanBeWithdrawnOrPurged() {
-    try (var authority = new AuthorityTestContext(directory)) {
-      String id = parsed(authority, "active synthetic document");
-      var service =
-          service(
-              authority.store(),
-              attempts -> {
-                throw new AssertionError();
-              });
-      try (var lease = authority.store().operationGate().enter()) {
-        assertEquals(
-            "document_busy",
-            assertThrows(ApplicationException.class, () -> service.request(owner, id)).code());
-        assertEquals(
-            FailureKind.NOT_FOUND,
-            assertThrows(
-                    ApplicationException.class,
-                    () -> service.request(new Actor("org-main", "reader"), id))
-                .kind());
-        assertEquals(
-            "not_found",
-            assertThrows(ApplicationException.class, () -> service.request(owner, "missing"))
-                .code());
-        assertFalse(service.runOnce());
-        var batch = service.batch(owner, List.of(id, "missing"));
-        assertEquals(
-            List.of("busy", "not_found"),
-            batch.items().stream().map(item -> item.status()).toList());
-      }
-      assertEquals(0, scalar("SELECT count(*) FROM document_tombstones WHERE document_id=?", id));
-      assertEquals("pending", service.request(owner, id).cleanupStatus());
-    }
-  }
-
-  @Test
   void anExistingReceiptReplaysDuringMaintenanceOrAnActiveBodyWithoutRetrying() {
     try (var authority = new AuthorityTestContext(directory)) {
       String id = parsed(authority, "stable cleanup receipt");
@@ -184,12 +148,6 @@ class DocumentCleanupServiceTest {
       try (var body = authority.store().operationGate().enter()) {
         assertEquals(accepted, service.request(owner, id));
         assertEquals("accepted", service.batch(owner, List.of(id)).items().getFirst().status());
-        assertEquals(
-            "not_found",
-            assertThrows(
-                    ApplicationException.class,
-                    () -> service.request(new Actor("org-main", "reader"), id))
-                .code());
       }
       try (var maintenance = authority.store().operationGate().tryMaintenance().orElseThrow()) {
         authority

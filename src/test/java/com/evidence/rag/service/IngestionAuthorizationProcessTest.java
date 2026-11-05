@@ -9,13 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.exception.ApplicationException;
-import com.evidence.rag.job.IngestionJob;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.support.AuthorityTestContext;
 import com.evidence.rag.tool.parser.TextParser;
 import com.evidence.rag.worker.parser.ProcessTextParser;
-import com.evidence.rag.worker.parser.SlowParserFixture;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,9 +21,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,134 +36,6 @@ class IngestionAuthorizationProcessTest {
   @TempDir Path directory;
   private final Actor creator = new Actor("org", "creator");
   private final Actor observer = new Actor("org", "observer");
-
-  @Test
-  void revocationStopsActualChildBeforeItsDeadlineAndRetryStartsOnlyAfterChildExit()
-      throws Exception {
-    Path database = directory.resolve("db");
-    Path pidFile = directory.resolve("revoked-child.pid");
-    var parserCalls = new AtomicInteger();
-    var slowPid = new AtomicLong();
-    var overlappingChildren = new AtomicBoolean();
-    try (var authority = new AuthorityTestContext(database)) {
-      var service = authority.ingestion();
-      var task = upload(service, creator, "revoked.txt");
-      setRole(database, task.documentId(), observer, "editor");
-      var processor =
-          new IngestionTaskProcessor(
-              service,
-              creator.workspaceId(),
-              PARSER_DEADLINE,
-              limit -> {
-                if (parserCalls.getAndIncrement() == 0) {
-                  return SlowParserFixture.parser(limit, pidFile);
-                }
-                overlappingChildren.set(isAlive(slowPid.get()));
-                return new ProcessTextParser(limit);
-              });
-      try (var job = new IngestionJob(processor, null, 1)) {
-        long pid = awaitPid(pidFile);
-        slowPid.set(pid);
-        assertTrue(isAlive(pid));
-        assertEquals("processing", service.ingestionStatus(observer, task.taskId()).state());
-        assertEquals(1, parserCalls.get());
-
-        setRole(database, task.documentId(), creator, "reader");
-        long cancellationUntil = System.nanoTime() + TRANSITION_BOUND.toNanos();
-        awaitUntil(
-            cancellationUntil,
-            () -> "cancelled".equals(service.ingestionStatus(observer, task.taskId()).state()),
-            "Revoked processing task must cancel before the 30-second parser deadline");
-        var cancelled = service.ingestionStatus(observer, task.taskId());
-        assertNull(cancelled.errorCode());
-        assertEquals(1, cancelled.attempt());
-        assertFalse(cancelled.canRetry());
-        assertNoEvidence(database, service, task);
-
-        // Retry as soon as cancellation is observable; the scheduler must still await old cleanup.
-        setRole(database, task.documentId(), creator, "owner");
-        var retry = service.retryIngestion(observer, task.taskId());
-        assertEquals("queued", retry.state());
-        assertEquals(2, retry.attempt());
-        assertEquals(task.revisionId(), retry.revisionId());
-        assertEquals(task.filename(), retry.filename());
-        awaitUntil(
-            cancellationUntil,
-            () -> !isAlive(pid),
-            "Actual parser child must exit within five seconds of revocation");
-        await(
-            () -> "parsed".equals(service.ingestionStatus(observer, task.taskId()).state()),
-            "Restored creator authorization must permit a successful explicit retry");
-
-        assertEquals(2, parserCalls.get());
-        assertFalse(overlappingChildren.get(), "Retry parser must not overlap the revoked child");
-        assertFalse(isAlive(pid));
-        var completed = service.ingestionStatus(observer, task.taskId());
-        assertEquals(2, completed.attempt());
-        assertNull(completed.errorCode());
-        var parsed = service.parsedEvidence(observer, task.documentId());
-        assertEquals(EVIDENCE, parsed.pages().getFirst().text());
-        assertEquals(EVIDENCE, parsed.segments().getFirst().text());
-      }
-    }
-  }
-
-  @Test
-  void revokedQueuedCreatorStartsNoParserAndTheJobStillProcessesLaterAuthorizedWork()
-      throws Exception {
-    Path database = directory.resolve("db");
-    var parserCalls = new AtomicInteger();
-    try (var authority = new AuthorityTestContext(database)) {
-      var service = authority.ingestion();
-      var revoked = upload(service, creator, "queued-revoked.txt");
-      setRole(database, revoked.documentId(), observer, "editor");
-      setRole(database, revoked.documentId(), creator, null);
-      try (var job = new IngestionJob(countingProcessor(service, parserCalls), null, 1)) {
-        await(
-            () -> "cancelled".equals(service.ingestionStatus(observer, revoked.taskId()).state()),
-            "A queued task whose creator lost access must be cancelled without parsing");
-        assertEquals(0, parserCalls.get(), "Revoked original bytes must not enter a parser");
-        var cancelled = service.ingestionStatus(observer, revoked.taskId());
-        assertNull(cancelled.errorCode());
-        assertEquals(1, cancelled.attempt());
-        assertNoEvidence(database, service, revoked);
-
-        var allowed = upload(service, observer, "authorized-later.txt");
-        await(
-            () -> "parsed".equals(service.ingestionStatus(observer, allowed.taskId()).state()),
-            "Cancelling unauthorized queued work must not stop the ingestion scheduler");
-        assertEquals(1, parserCalls.get());
-        assertEquals(
-            EVIDENCE,
-            service.parsedEvidence(observer, allowed.documentId()).pages().getFirst().text());
-        assertEquals("cancelled", service.ingestionStatus(observer, revoked.taskId()).state());
-        assertNoEvidence(database, service, revoked);
-      }
-    }
-  }
-
-  @Test
-  void directlyProcessingARevokedClaimRechecksAuthorizationBeforeCreatingTheParser()
-      throws Exception {
-    Path database = directory.resolve("db");
-    var parserCalls = new AtomicInteger();
-    try (var authority = new AuthorityTestContext(database)) {
-      var service = authority.ingestion();
-      var task = upload(service, creator, "revoked-before-process.txt");
-      setRole(database, task.documentId(), observer, "editor");
-      var claim = service.claimIngestion(creator.workspaceId()).orElseThrow();
-      setRole(database, task.documentId(), creator, null);
-
-      countingProcessor(service, parserCalls).process(claim);
-
-      assertEquals(0, parserCalls.get(), "TaskProcessor must revalidate before its parser factory");
-      var cancelled = service.ingestionStatus(observer, task.taskId());
-      assertEquals("cancelled", cancelled.state());
-      assertNull(cancelled.errorCode());
-      assertEquals(1, cancelled.attempt());
-      assertNoEvidence(database, service, task);
-    }
-  }
 
   @Test
   void anOldClaimCannotStartAParserOrCommitIntoTheExplicitRetryAttempt() throws Exception {

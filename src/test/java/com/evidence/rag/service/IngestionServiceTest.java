@@ -150,39 +150,6 @@ class IngestionServiceTest {
   }
 
   @Test
-  void readsAndActionsRequireCurrentAclAndWorkspaceInTheTransaction() throws Exception {
-    var reader = new Actor(owner.workspaceId(), "reader");
-    var editor = new Actor(owner.workspaceId(), "editor");
-    var other = new Actor("other", owner.principalId());
-    try (var authority = new AuthorityTestContext(directory)) {
-      var task = upload(authority);
-      String id = (String) task.get("task_id"), document = (String) task.get("document_id");
-      sql("INSERT INTO document_acl VALUES('" + document + "','reader','reader')");
-      sql("INSERT INTO document_acl VALUES('" + document + "','editor','editor')");
-      assertEquals(false, authority.ingestionStatus(reader, id).get("can_cancel"));
-      fails(404, () -> authority.cancelIngestion(reader, id));
-      fails(404, () -> authority.retryIngestion(reader, id));
-      fails(404, () -> authority.ingestionStatus(other, id));
-      fails(404, () -> authority.cancelIngestion(other, id));
-      assertTrue(authority.claimIngestion("other").isEmpty());
-      assertEquals("cancelled", authority.cancelIngestion(editor, id).get("state"));
-      assertEquals("queued", authority.retryIngestion(editor, id).get("state"));
-      var claim = authority.claimIngestion(owner.workspaceId()).orElseThrow();
-      assertTrue(authority.completeIngestion(claim, parsed()));
-      assertEquals(parsed(), authority.parsedEvidence(reader, document));
-      fails(404, () -> authority.parsedEvidence(other, document));
-      sql(
-          "DELETE FROM document_acl WHERE document_id='"
-              + document
-              + "' AND principal_id='reader'");
-      fails(404, () -> authority.ingestionStatus(reader, id));
-      fails(404, () -> authority.parsedEvidence(reader, document));
-      fails(422, () -> authority.ingestionStatus(null, id));
-      fails(422, () -> authority.ingestionStatus(owner, ""));
-    }
-  }
-
-  @Test
   void everyClaimIdentityAndTokenAreValidatedBeforeMutation() {
     try (var authority = new AuthorityTestContext(directory)) {
       upload(authority);

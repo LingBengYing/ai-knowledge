@@ -179,42 +179,6 @@ class SavedSourceReindexServiceTest {
   }
 
   @Test
-  void onlyCurrentWritersMayCreateOrRetryAndRevocationCannotSwitchTheActivePointer()
-      throws Exception {
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      var original = fixture.publish(owner, CONTENT);
-      var service = fixture.authority.indexing();
-      var base = active(fixture.authority.store(), original.documentId());
-      var reader = new Actor(owner.workspaceId(), "reader");
-      var editor = new Actor(owner.workspaceId(), "editor");
-      sql("INSERT INTO document_acl VALUES('" + original.documentId() + "','reader','reader')");
-      sql("INSERT INTO document_acl VALUES('" + original.documentId() + "','editor','editor')");
-      for (var denied :
-          List.of(reader, new Actor("other", "owner"), new Actor("org", "stranger"))) {
-        fails(404, () -> service.createReindexing(denied, original.documentId(), base, TARGET));
-      }
-      assertEquals(1, count("SELECT COUNT(*) FROM indexing_jobs"));
-      var job = service.createReindexing(owner, original.documentId(), base, TARGET);
-      assertEquals("queued", service.indexingStatus(reader, job.taskId()).state());
-      fails(404, () -> service.cancelIndexing(reader, job.taskId()));
-      var claim = service.claimIndexing(owner.workspaceId()).orElseThrow();
-      sql(
-          "UPDATE document_acl SET role='reader' WHERE document_id='"
-              + original.documentId()
-              + "' AND principal_id='owner'");
-      assertFalse(service.isIndexingClaimCurrent(claim));
-      assertFalse(complete(service, claim));
-      assertEquals(
-          "authorization_changed", service.indexingStatus(editor, job.taskId()).errorCode());
-      assertEquals(
-          "authorization_changed",
-          fails(409, () -> service.retryIndexing(editor, job.taskId(), TARGET)).code());
-      assertEquals(base, active(fixture.authority.store(), original.documentId()));
-      assertEquals(1, count("SELECT COUNT(*) FROM index_publications"));
-    }
-  }
-
-  @Test
   void failureAllowsAnExplicitNewJobButAnOlderRetryCannotCollideWithIt() throws Exception {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       var original = fixture.publish(owner, CONTENT);

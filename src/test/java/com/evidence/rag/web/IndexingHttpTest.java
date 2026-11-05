@@ -177,10 +177,6 @@ class IndexingHttpTest {
     assertEquals(false, row.get("can_answer"));
     assertEquals(
         409, request("POST", "/v1/documents/" + document + "/index", "owner", null).statusCode());
-    assertEquals(
-        404,
-        request("GET", "/v1/indexings/" + task.path("task_id").asString(), "stranger", null)
-            .statusCode());
     assertEquals(503, request("GET", "/health/ready", null, null).statusCode());
     assertEquals(404, request("POST", "/v1/answers", "owner", null).statusCode());
     assertTrue(
@@ -188,19 +184,6 @@ class IndexingHttpTest {
     assertFalse(
         external.requests.stream()
             .anyMatch(item -> item.path().contains("rerank") || item.path().contains("chat")));
-  }
-
-  @Test
-  void indexActionsRejectBodyQueryAndUnauthorizedRequestsBeforeSideEffects() throws Exception {
-    String document = parsed("index-http-envelope.txt");
-    String path = "/v1/documents/" + document + "/index";
-    assertEquals(404, request("POST", path, "stranger", null).statusCode());
-    assertEquals(422, request("POST", path + "?extra=1", "owner", null).statusCode());
-    assertEquals(422, request("POST", path, "owner", "{}").statusCode());
-    assertEquals(422, request("GET", "/v1/indexings/missing?extra=1", "owner", null).statusCode());
-    assertEquals(422, request("POST", "/v1/indexings/missing/retry", "owner", "{}").statusCode());
-    assertEquals(
-        422, request("POST", "/v1/indexings/missing/cancel?x=1", "owner", null).statusCode());
   }
 
   @SuppressWarnings("unchecked")

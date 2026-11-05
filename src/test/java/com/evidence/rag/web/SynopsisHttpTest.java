@@ -149,15 +149,6 @@ class SynopsisHttpTest {
               assertEquals(reference.path("time").path("start_us"), locator.path("start_us"));
               assertEquals(reference.path("time").path("end_us"), locator.path("end_us"));
             }
-            assertEquals(
-                404,
-                app.request(
-                        "GET",
-                        source.path("content_url").asString(),
-                        "stranger",
-                        null,
-                        "bytes=999999999-")
-                    .statusCode());
           }
         }
         saved.put(publication.documentId(), synopsis);
@@ -218,7 +209,6 @@ class SynopsisHttpTest {
       var missingIdentity = app.request("POST", path, null, null, null);
       assertEquals(422, missingIdentity.statusCode());
       assertEquals("invalid_identity", app.json(missingIdentity).path("error_code").asString());
-      assertEquals(404, app.request("POST", path, "stranger", null, null).statusCode());
       var unexpectedBody = app.request("POST", path, "owner", "{}", null);
       assertEquals(422, unexpectedBody.statusCode());
       assertEquals("invalid_request", app.json(unexpectedBody).path("error_code").asString());

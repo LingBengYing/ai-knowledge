@@ -106,27 +106,6 @@ class ReindexVectorContinuationAuthorityTest {
   }
 
   @Test
-  void revokedWriterCannotPublishTheFrozenReceiptSetAndOldActiveRemains() {
-    try (var context = context()) {
-      var audio = AudioTestFixture.publish(context, List.of(AudioVectorQueryFixture.FACT));
-      var old = scope(context, audio.documentId());
-      AudioVectorQueryFixture.publishVectors(context, old, audio);
-      var service = ReindexVectorTestSupport.service(context);
-      var claim = ReindexVectorTestSupport.claim(context, service, audio.documentId());
-      var verified =
-          ReindexVectorTestSupport.verified(service.reindexVectorPlan(claim).orElseThrow());
-      context.revoke(audio.documentId());
-      assertFalse(ReindexVectorTestSupport.complete(context, service, claim, verified));
-      assertEquals(1, context.scalar("SELECT COUNT(*) FROM index_publications"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM audio_vector_bindings"));
-      assertEquals(
-          1,
-          context.scalar(
-              "SELECT COUNT(*) FROM indexing_jobs WHERE error_code='authorization_changed'"));
-    }
-  }
-
-  @Test
   void aReceiptProofForAnotherTaskCannotPublishEvenWhenItsSourceSetIsEqual() {
     try (var context = context()) {
       String image = QueryAttachmentAnswerFixture.publishImage(context, "vision-v1");

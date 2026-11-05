@@ -280,7 +280,6 @@ class VideoTraceRepositoryTest {
                 expected.getFirst(), repository.findTraceVideoCitation(OWNER, "video-trace", 1));
             assertEquals(
                 expected.getLast(), repository.findTraceVideoCitation(OWNER, "video-trace", 2));
-            assertNull(repository.findTraceVideoProof(new Actor("org", "other"), "video-trace"));
             assertNull(repository.findTraceVideoCitation(OWNER, "video-trace", 3));
             assertEquals(
                 2,

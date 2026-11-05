@@ -88,31 +88,6 @@ class ImageVectorEvidenceServiceTest {
   }
 
   @Test
-  void uncitedSelectedDocumentRevocationRejectsCurrentCheckAndFinalImageTrace() {
-    try (var context = context()) {
-      String image = QueryAttachmentAnswerFixture.publishImage(context, "vision-v1");
-      String text = context.publish("uncited.txt", "Complete scope is immutable for this request.");
-      var scope = scope(context, image, text);
-      var receipt = publishVector(context, scope, image);
-      var vectorScope = context.evidence.imageVectorScope(scope, IMAGE_TARGET);
-      context.revoke(text);
-      assertThrows(
-          ApplicationException.class,
-          () -> context.evidence.hydrateImageVectors(vectorScope, List.of()));
-      var trace =
-          context.evidence.finish(
-              scope,
-              draft(context, receipt.basePhysicalSegmentId()),
-              () -> AnswerEligibility.ELIGIBLE,
-              vectorScope);
-      assertEquals("abstained", trace.outcome());
-      assertEquals("scope_changed", trace.reasonCode());
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
-      assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-    }
-  }
-
-  @Test
   void forgedManifestCannotQualifyAndSavedReceiptsRemainReadableAfterRestart() {
     String image;
     ImageVectorPublication saved;

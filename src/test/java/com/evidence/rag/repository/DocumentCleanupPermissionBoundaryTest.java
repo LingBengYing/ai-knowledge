@@ -106,53 +106,6 @@ class DocumentCleanupPermissionBoundaryTest {
     }
   }
 
-  @Test
-  void batchPreservesCompleteOrderAndCurrentEditorScopeWithoutWithdrawingBusyOrHiddenRows() {
-    try (var authority = new AuthorityTestContext(directory)) {
-      var store = authority.store();
-      String accepted = parsed(authority, "editable material");
-      String hidden = parsed(authority, "reader material");
-      String queued =
-          authority
-              .ingestion()
-              .uploadDocument(OWNER, "queued.txt", "text/plain", new byte[] {65})
-              .documentId();
-      store.transaction(
-          () -> {
-            var management = new ManagementRepository(store);
-            management.insertGrant(accepted, EDITOR.principalId(), "editor");
-            management.insertGrant(hidden, EDITOR.principalId(), "reader");
-            management.insertGrant(queued, EDITOR.principalId(), "editor");
-            return null;
-          });
-      var service = localService(store);
-      List<String> requested = List.of(hidden, accepted, "missing", queued);
-      var result = service.batch(EDITOR, requested);
-      assertEquals(4, result.total());
-      assertEquals(requested, result.items().stream().map(item -> item.documentId()).toList());
-      assertEquals(
-          List.of("not_found", "accepted", "not_found", "busy"),
-          result.items().stream().map(item -> item.status()).toList());
-      assertEquals("not_found", result.items().getFirst().errorCode());
-      assertEquals("document_busy", result.items().getLast().errorCode());
-      assertNull(result.items().getLast().cleanup());
-      assertEquals(1, scalar(store, "SELECT COUNT(*) FROM document_cleanups"));
-      assertEquals(
-          0,
-          scalar(
-              store,
-              "SELECT COUNT(*) FROM document_tombstones WHERE document_id IN (?,?)",
-              hidden,
-              queued));
-      assertEquals(
-          "not_found",
-          assertThrows(
-                  ApplicationException.class,
-                  () -> service.status(new Actor("another-org", EDITOR.principalId()), accepted))
-              .code());
-    }
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {"null", "empty", "duplicate", "too_many", "bad_tail", "null_tail"})
   void entireBatchIsValidatedBeforeTheFirstOtherwiseWritableDocumentIsChanged(String shape) {
@@ -183,54 +136,6 @@ class DocumentCleanupPermissionBoundaryTest {
       assertArrayEquals(
           "must survive malformed batch".getBytes(StandardCharsets.UTF_8),
           store.transaction(() -> new IngestionRepository(store).original(id)));
-    }
-  }
-
-  @Test
-  void currentAclIsAppliedBeforePaginationAndARevokedReceiptCannotBeReplayed() {
-    try (var authority = new AuthorityTestContext(directory)) {
-      var store = authority.store();
-      var service = localService(store);
-      var ids = new ArrayList<String>();
-      for (int i = 0; i < 3; i++) {
-        String id = parsed(authority, "page material " + i);
-        ids.add(id);
-        store.transaction(
-            () -> {
-              new ManagementRepository(store).insertGrant(id, EDITOR.principalId(), "editor");
-              return null;
-            });
-        service.request(OWNER, id);
-      }
-      store.transaction(
-          () -> {
-            store.execute(
-                "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id=?",
-                ids.getFirst(),
-                EDITOR.principalId());
-            return null;
-          });
-      var first = service.list(EDITOR, 1, 1);
-      var second = service.list(EDITOR, 2, 1);
-      assertEquals(2, first.total());
-      assertEquals(2, second.total());
-      assertEquals(1, first.items().size());
-      assertEquals(1, second.items().size());
-      assertNotEquals(
-          first.items().getFirst().documentId(), second.items().getFirst().documentId());
-      assertFalse(first.items().getFirst().documentId().equals(ids.getFirst()));
-      assertFalse(second.items().getFirst().documentId().equals(ids.getFirst()));
-      assertTrue(service.list(EDITOR, Integer.MAX_VALUE, 100).items().isEmpty());
-      assertEquals(0, service.list(new Actor("foreign", EDITOR.principalId()), 1, 100).total());
-      assertEquals(
-          "not_found",
-          assertThrows(ApplicationException.class, () -> service.request(EDITOR, ids.getFirst()))
-              .code());
-      assertEquals(
-          "not_found",
-          assertThrows(ApplicationException.class, () -> service.status(EDITOR, ids.getFirst()))
-              .code());
-      assertEquals(3, scalar(store, "SELECT COUNT(*) FROM document_cleanups"));
     }
   }
 

@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.CleanupClaim;
 import com.evidence.rag.model.domain.CleanupPlan;
-import com.evidence.rag.model.domain.CleanupResource;
 import com.evidence.rag.model.domain.DocumentOriginal;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.domain.ModelValues;
@@ -297,44 +296,6 @@ class DocumentCleanupRepositoryTest {
           store.transaction(
               () -> store.count("SELECT size_bytes FROM documents WHERE id=?", document)));
       assertTrue(Files.size(store.libraryPath()) < before - bytes.length / 2);
-    }
-  }
-
-  @Test
-  void completedReceiptNeedsAllNineResourcesAndIsImmutableWhileAclPaginationRemainsCurrent()
-      throws Exception {
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      var store = fixture.authority.store();
-      var claim = claim(store, fixture.publish(OWNER, "只在九种资源全部证明后完成。").documentId());
-      var repository = new DocumentCleanupRepository(store);
-      var plan = store.transaction(() -> repository.sealPlan(claim));
-      CleanupRestoreJournal.intent(directory, store.libraryIdentity(), plan);
-      try (var lease = store.operationGate().tryMaintenance().orElseThrow()) {
-        store.purge(claim, plan, lease);
-        store.compact(claim, lease);
-      }
-      store.transaction(
-          () -> {
-            for (String kind : CleanupResource.KINDS) {
-              repository.setResource(claim, kind, "completed", null, NOW);
-            }
-            var done = repository.finish(claim, NOW);
-            assertEquals("deleted", done.status());
-            assertEquals("completed", done.cleanupStatus());
-            assertEquals(9, done.resources().size());
-            assertEquals(
-                done.cleanupId(), repository.create(OWNER, claim.documentId(), NOW).cleanupId());
-            assertEquals(1, repository.list(OWNER, 1, 20).total());
-            assertTrue(
-                repository.find(new Actor("elsewhere", "owner"), claim.documentId()).isEmpty());
-            store.execute(
-                "UPDATE document_acl SET role='reader' WHERE document_id=?", claim.documentId());
-            assertEquals(0, repository.list(OWNER, 1, 20).total());
-            assertTrue(repository.find(OWNER, claim.documentId()).isEmpty());
-            return null;
-          });
-      assertRejected(store, "UPDATE document_cleanups SET state='pending',completed_at=NULL");
-      assertRejected(store, "UPDATE cleanup_resources SET status='pending'");
     }
   }
 

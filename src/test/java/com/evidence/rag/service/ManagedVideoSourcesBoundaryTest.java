@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
-import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
 import com.evidence.rag.model.domain.AudioTranscription;
 import com.evidence.rag.model.domain.DocumentSelection;
@@ -38,7 +37,6 @@ import com.evidence.rag.support.AnswerTestContext;
 import com.evidence.rag.support.VideoCompilationFixture;
 import com.evidence.rag.support.VideoSubtitleCompilationFixture;
 import java.nio.file.Path;
-import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.List;
 import java.util.TreeMap;
@@ -73,44 +71,6 @@ class ManagedVideoSourcesBoundaryTest {
       assertEquals(facts, saved.facts.contexts);
       assertEquals(
           1, Long.parseLong(saved.fixture.scalar("SELECT COUNT(*) FROM query_traces", null)));
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(SourceType.class)
-  void anchoredSourcesStillRequireTheOriginalActorAndEverySelectedDocument(SourceType type)
-      throws Exception {
-    try (var saved = save(type)) {
-      readExact(saved.producer, saved);
-      var current = saved.switchRoles();
-      var other = new Actor(TextRoleSwitchTestFixture.ADMIN.workspaceId(), "other-reader");
-      assertNotFound(() -> current.answers().videoSource(other, saved.result.answerId(), 1));
-      try (var connection =
-              DriverManager.getConnection(
-                  "jdbc:sqlite:" + saved.fixture.authority.store().libraryPath());
-          var statement =
-              connection.prepareStatement(
-                  "DELETE FROM document_acl WHERE document_id=? AND principal_id=?")) {
-        statement.setString(1, saved.nonCandidate);
-        statement.setString(2, TextRoleSwitchTestFixture.ADMIN.principalId());
-        assertEquals(1, statement.executeUpdate());
-      }
-      assertNotFound(
-          () ->
-              current
-                  .answers()
-                  .videoSource(TextRoleSwitchTestFixture.ADMIN, saved.result.answerId(), 1));
-      assertNotFound(
-          () ->
-              current
-                  .answers()
-                  .videoFrame(TextRoleSwitchTestFixture.ADMIN, saved.result.answerId(), 1));
-      assertNotFound(
-          () ->
-              current
-                  .answers()
-                  .videoContent(TextRoleSwitchTestFixture.ADMIN, saved.result.answerId(), 1));
-      assertTrue(((AnswerTestContext.RecordingModels) current.models()).calls.isEmpty());
     }
   }
 

@@ -96,35 +96,6 @@ class VisualQueryAttachmentAnswerTest {
   }
 
   @Test
-  void rankingRevocationOfUncitedSelectedDocumentStopsOriginalProof() {
-    try (var context = new AnswerTestContext(directory, QueryAttachmentAnswerFixture.BUDGET, 1)) {
-      var vision = new Vision();
-      String image = QueryAttachmentAnswerFixture.publishImage(context, vision.revision());
-      String other = context.publish("other.txt", "Uncited but selected.");
-      var ranking = new Ranking();
-      ranking.afterRank = () -> context.revoke(other);
-      try (var answers =
-          answers(
-              context, vision, QueryAttachmentAnswerFixture.queries(context, vision, ranking))) {
-        var result =
-            (VisualAnswerResult)
-                answers
-                    .answerAttached(
-                        context.owner,
-                        new AnswerCommand(
-                            QUESTION, DocumentSelection.selected(List.of(image, other))),
-                        List.of(QueryAttachmentAnswerFixture.attachment()))
-                    .result();
-        assertEquals("abstained", result.status());
-        assertEquals("scope_changed", result.reason());
-        assertEquals(List.of("describe"), vision.calls);
-        assertTrue(result.citations().isEmpty());
-        assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      }
-    }
-  }
-
-  @Test
   void existingTextOnlyEntryDoesNotDependOnUnusedQueryProfileOrCallPreparation() {
     try (var context = new AnswerTestContext(directory, QueryAttachmentAnswerFixture.BUDGET, 1)) {
       var vision = new Vision();

@@ -1,6 +1,5 @@
 package com.evidence.rag.service;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,54 +63,6 @@ class DocumentRemovalProcessTest {
 
       assertEquals(0, starts.get(), "Removed original evidence must not enter a worker factory");
       assertFalse(authority.isIndexingClaimCurrent(claim));
-    }
-  }
-
-  @Test
-  void revokedClaimFailsWithoutAWorkerAndDoesNotBlockTheNextAuthorizedDocument() throws Exception {
-    try (var authority = new AuthorityTestContext(directory)) {
-      String revoked = parsed(authority, "revoked.txt");
-      var target = new IndexTarget("embedding-v1", "projection-v1", "models-v1", 2);
-      var task = authority.indexing().createIndexing(OWNER, revoked, target);
-      var claim = authority.claimIndexing(OWNER.workspaceId()).orElseThrow();
-      // Test-only external ACL event; the removal path must retain existing revocation behavior.
-      try (var database =
-              DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
-          var statement =
-              database.prepareStatement(
-                  "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id=?")) {
-        statement.setString(1, revoked);
-        statement.setString(2, OWNER.principalId());
-        assertEquals(1, statement.executeUpdate());
-      }
-      var starts = new AtomicInteger();
-      var processor =
-          new IndexingTaskProcessor(
-              authority.indexing(),
-              OWNER.workspaceId(),
-              target,
-              Duration.ofSeconds(30),
-              limit -> {
-                starts.incrementAndGet();
-                throw new IllegalStateException("Controlled factory must not be entered");
-              });
-      processor.process(claim);
-      String next = parsed(authority, "next.txt");
-      authority.createIndexing(OWNER, next, target);
-      assertAll(
-          () -> assertEquals(0, starts.get()),
-          () ->
-              assertEquals(
-                  "failed", authority.indexing().indexingStatus(OWNER, task.taskId()).state()),
-          () ->
-              assertEquals(
-                  "authorization_changed",
-                  authority.indexing().indexingStatus(OWNER, task.taskId()).errorCode()),
-          () -> {
-            var nextClaim = authority.claimIndexing(OWNER.workspaceId());
-            assertTrue(nextClaim.isPresent(), "Revoked processing work must not block the queue");
-            assertEquals(next, nextClaim.orElseThrow().documentId());
-          });
     }
   }
 

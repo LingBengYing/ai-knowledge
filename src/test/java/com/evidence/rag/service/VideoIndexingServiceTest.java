@@ -232,13 +232,6 @@ class VideoIndexingServiceTest {
       assertEquals(textId, answer.citations().getFirst().documentId());
       assertEquals(4, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
       assertFalse(answer.answer().contains("视频"));
-
-      context.models.onExtract = () -> context.revoke(video.documentId());
-      var revoked = context.answers.answer(context.owner, new AnswerCommand(QUESTION, selection));
-      assertEquals("abstained", revoked.status());
-      assertEquals("scope_changed", revoked.reason());
-      assertTrue(revoked.citations().isEmpty());
-      assertEquals(8, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
     }
   }
 

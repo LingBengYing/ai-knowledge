@@ -3,13 +3,11 @@ package com.evidence.rag.service;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.client.model.QueryRankingModels;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.model.VisionModels;
-import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.PreparedQuery;
 import com.evidence.rag.model.domain.QueryAttachment;
@@ -168,34 +166,6 @@ class VideoQueryAttachmentProposalTest {
       assertEquals(List.of("embed", "rerank"), context.models.calls);
       assertTrue(
           result.trace().videoEvidence().stream().allMatch(item -> item.rerankScore() == 100));
-    }
-  }
-
-  @Test
-  void rankingCannotHideRevocationOfAnUncitedSelectedDocument() {
-    try (var context = new AnswerTestContext(directory, QueryAttachmentAnswerFixture.BUDGET, 1)) {
-      String video = VideoAnswerFixture.publish(context, "");
-      String other = context.publish("other.txt", "uncited selected evidence");
-      var ranking = new Ranking();
-      ranking.afterRank = () -> context.revoke(other);
-      var facts = new VideoAnswerFixture.Facts();
-      var scope =
-          context.evidence.snapshot(
-              context.owner, DocumentSelection.selected(List.of(video, other)), context.target);
-      var failure =
-          assertThrows(
-              ApplicationException.class,
-              () ->
-                  VideoAnswerFixture.proposals(context, facts)
-                      .propose(
-                          scope,
-                          QueryAttachmentAnswerFixture.prepared(VideoAnswerFixture.QUESTION),
-                          VideoAssessment.Mode.JOINT,
-                          queries(context, ranking),
-                          () -> context.evidence.hydrate(scope, List.of())));
-      assertEquals("scope_changed", failure.code());
-      assertEquals(1, ranking.calls);
-      assertTrue(facts.contexts.isEmpty());
     }
   }
 

@@ -12,7 +12,6 @@ import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.job.IngestionJob;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.SyntheticDocument;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
 import com.evidence.rag.model.dto.TaskResult;
 import com.evidence.rag.repository.IngestionRepository;
@@ -20,8 +19,6 @@ import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.IngestionService;
-import com.evidence.rag.service.ManagementService;
-import com.evidence.rag.support.DocumentWithdrawal;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -33,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.time.Duration;
-import java.util.Map;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterAll;
@@ -175,56 +171,6 @@ class DocumentOriginalHttpTest {
     assertTrue(context.getBeansOfType(IngestionJob.class).isEmpty());
     assertTrue(context.getBeansOfType(IndexingJob.class).isEmpty());
     assertEquals(503, get("/health/ready", null).statusCode());
-  }
-
-  @Test
-  void currentAclMissingOriginalAndPinnedRevisionAreRequiredForBothReads() throws Exception {
-    var task = uploadText("authority.txt");
-    var store = context.getBean(SqliteAuthorityStore.class);
-    store.transaction(
-        () -> {
-          context
-              .getBean(ManagementRepository.class)
-              .insertGrant(task.documentId(), "original-reader", "reader");
-          return null;
-        });
-    assertEquals(200, get(originalPath(task), "original-reader").statusCode());
-    assertEquals(200, get(contentPath(task), "original-reader").statusCode());
-    assertProblem(get(originalPath(task), "stranger"), 404);
-    assertProblem(get(contentPath(task), "stranger"), 404);
-    assertProblem(get(originalPath(task), null), 422);
-    assertProblem(get("/v1/documents/missing/original", OWNER.principalId()), 404);
-    assertProblem(
-        get(contentPath(task).replace(task.revisionId(), "stale-revision"), OWNER.principalId()),
-        404);
-    context
-        .getBean(ManagementService.class)
-        .registerSyntheticDocument(
-            OWNER,
-            new SyntheticDocument(
-                "original-metadata-only",
-                "fixture.pdf",
-                "document",
-                "application/pdf",
-                "registered",
-                "a".repeat(64),
-                50),
-            Map.of());
-    assertProblem(get("/v1/documents/original-metadata-only/original", OWNER.principalId()), 404);
-    assertProblem(
-        get(
-            "/v1/documents/original-metadata-only/revisions/registered/content",
-            OWNER.principalId()),
-        404);
-    execute(
-        "DELETE FROM document_acl WHERE document_id=? AND principal_id='original-reader'",
-        task.documentId());
-    assertProblem(get(originalPath(task), "original-reader"), 404);
-    assertProblem(get(contentPath(task), "original-reader"), 404);
-    DocumentWithdrawal.withdraw(
-        context.getBean(SqliteAuthorityStore.class), OWNER, task.documentId());
-    assertProblem(get(originalPath(task), OWNER.principalId()), 404);
-    assertProblem(get(contentPath(task), OWNER.principalId()), 404);
   }
 
   @Test

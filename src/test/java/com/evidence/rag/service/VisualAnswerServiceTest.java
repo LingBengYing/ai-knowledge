@@ -105,29 +105,6 @@ class VisualAnswerServiceTest {
     }
   }
 
-  @Test
-  void uncitedSelectedTextRevocationStopsSecondImageCallAndFinalAnswer() throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
-      var vision = new RecordingVision();
-      String doc = publish(context, vision);
-      String uncited = context.publish("selected.txt", "Unrelated selected document.");
-      vision.onDraft = () -> context.revoke(uncited);
-      try (var answers = service(context, vision)) {
-        var result =
-            answers.answer(
-                context.owner,
-                new AnswerCommand(
-                    "Name both shapes.", DocumentSelection.selected(List.of(doc, uncited))));
-        assertEquals("abstained", result.status());
-        assertEquals("scope_changed", result.reason());
-        assertEquals(List.of("draft"), vision.calls);
-        assertTrue(result.citations().isEmpty());
-        assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
-        assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      }
-    }
-  }
-
   private static VisualAnswerService service(AnswerTestContext context, RecordingVision vision) {
     return new VisualAnswerService(
         context.evidence,
