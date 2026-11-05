@@ -94,7 +94,10 @@ class TextIndexWorkerParallelEmbeddingTest {
       assertTrue(sent >= 3 && sent <= 6, "sent " + sent);
       var usage = indexer.modelUsage();
       assertEquals(usage.started(), usage.finished());
-      assertEquals(sent, usage.started());
+      // A request cancelled by the failure can be started (and audited) before the server sees it.
+      assertTrue(
+          usage.started() >= sent && usage.started() <= 6,
+          "started " + usage.started() + ", sent " + sent);
       assertTrue(usage.complete());
     }
   }

@@ -276,17 +276,21 @@ class SocketPageOcrTest {
                 try (var channel = server.accept()) {
                   var body = response.apply(request(channel));
                   var header = ByteBuffer.allocate(4).putInt(body.length).flip();
-                  while (header.hasRemaining()) {
-                    var one = ByteBuffer.wrap(new byte[] {header.get()});
-                    while (one.hasRemaining()) {
-                      channel.write(one);
+                  try {
+                    while (header.hasRemaining()) {
+                      var one = ByteBuffer.wrap(new byte[] {header.get()});
+                      while (one.hasRemaining()) {
+                        channel.write(one);
+                      }
                     }
-                  }
-                  if (body.length <= 4 * 1024 * 1024) {
-                    var payload = ByteBuffer.wrap(body);
-                    while (payload.hasRemaining()) {
-                      channel.write(payload);
+                    if (body.length <= 4 * 1024 * 1024) {
+                      var payload = ByteBuffer.wrap(body);
+                      while (payload.hasRemaining()) {
+                        channel.write(payload);
+                      }
                     }
+                  } catch (java.io.IOException hungUp) {
+                    // The client may reject the response and close before reading all of it.
                   }
                   return null;
                 }
