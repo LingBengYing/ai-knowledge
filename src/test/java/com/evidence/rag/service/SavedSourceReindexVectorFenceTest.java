@@ -16,6 +16,7 @@ import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
+import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.ImageVectorRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
@@ -28,7 +29,6 @@ import com.evidence.rag.web.HttpProblemMapper;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -86,7 +86,7 @@ class SavedSourceReindexVectorFenceTest {
   @ValueSource(booleans = {false, true})
   void audioReceiptBlocksCreationOrFencesAnAlreadyClaimedRebuild(boolean afterClaim)
       throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("星港项目预算为47万元。", "", "末尾事实是采用太阳能。"));
       var store = context.authority.store();
       var service = context.authority.indexing();
@@ -98,7 +98,7 @@ class SavedSourceReindexVectorFenceTest {
         service.createReindexing(context.owner, published.documentId(), base, context.target);
         rebuild = service.claimIndexing(context.owner.workspaceId()).orElseThrow();
       }
-      var receipt = AudioVectorQueryFixture.publishVectors(context, scope, published);
+      var receipt = VectorReceiptFixtures.publishAudioVectors(context, scope, published);
       assertEquals(
           List.of(0, 2), receipt.entries().stream().map(entry -> entry.ordinal()).toList());
       assertTrue(store.transaction(() -> new IndexingRepository(store).hasBaseVectorReceipt(base)));
@@ -152,7 +152,7 @@ class SavedSourceReindexVectorFenceTest {
         assertEquals(1, count("image_vector_publications"));
       }
     } else {
-      try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
+      try (var context = new AnswerTestContext(directory)) {
         var original =
             AudioTestFixture.publish(context, List.of("星港项目预算为47万元。", "", "末尾事实是采用太阳能。"));
         var store = context.authority.store();
@@ -165,7 +165,7 @@ class SavedSourceReindexVectorFenceTest {
                 context.target);
         service.createReindexing(context.owner, original.documentId(), base, context.target);
         var claim = service.claimIndexing(context.owner.workspaceId()).orElseThrow();
-        AudioVectorQueryFixture.publishVectors(context, scope, original);
+        VectorReceiptFixtures.publishAudioVectors(context, scope, original);
         int modelCallsBeforeFailure = context.models.calls.size();
         int projectionCallsBeforeFailure = context.projection.calls.size();
         assertFalse(service.isIndexingClaimCurrent(claim));
@@ -191,9 +191,12 @@ class SavedSourceReindexVectorFenceTest {
         fixture.evidence.snapshot(
             owner, DocumentSelection.selected(List.of(original.documentId())), TARGET);
     var image =
-        fixture
-            .evidence
-            .hydrateImages(scope, PublishedCorpusFixture.physicalIds(original))
+        store
+            .transaction(
+                () ->
+                    new EvidenceRepository(store)
+                        .findPublishedImageEvidence(
+                            scope, PublishedCorpusFixture.physicalIds(original)))
             .getFirst();
     String generation = UUID.randomUUID().toString();
     String vectorId = RetrievalProjection.physicalSegmentId(generation, image.image().id());

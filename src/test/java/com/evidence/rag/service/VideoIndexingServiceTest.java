@@ -1,7 +1,6 @@
 package com.evidence.rag.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +20,6 @@ import com.evidence.rag.model.domain.VideoCompilation;
 import com.evidence.rag.model.domain.VideoFrame;
 import com.evidence.rag.model.domain.VideoFrameRecall;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
-import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
@@ -156,16 +154,14 @@ class VideoIndexingServiceTest {
       assertEquals(0, scalar("SELECT COUNT(*) FROM image_publication_entries"));
       assertEquals(0, scalar("SELECT COUNT(*) FROM audio_publication_entries"));
       assertTrue(evidence.textPublications(snapshot).isEmpty());
-      assertTrue(evidence.imagePublications(snapshot).isEmpty());
-      assertTrue(evidence.audioPublications(snapshot).isEmpty());
     }
   }
 
   @ParameterizedTest(name = "allDocuments={0}")
   @ValueSource(booleans = {true, false})
-  void fourModalitiesKeepTheFullScopeWhenTextAnswersDoNotRetrieveVideo(boolean allDocuments)
+  void fourModalitiesKeepTheFullScopeWhileTextPublicationsStayTextOnly(boolean allDocuments)
       throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
+    try (var context = new AnswerTestContext(directory)) {
       String textId = context.publish("plan.txt", TEXT);
       var store = context.authority.store();
       var ingestion =
@@ -213,25 +209,6 @@ class VideoIndexingServiceTest {
           context.evidence.textPublications(snapshot).stream()
               .map(PublicationVersion::documentId)
               .toList());
-      assertEquals(
-          List.of(image.documentId()),
-          context.evidence.imagePublications(snapshot).stream()
-              .map(PublicationVersion::documentId)
-              .toList());
-      assertEquals(
-          List.of(audio.documentId()),
-          context.evidence.audioPublications(snapshot).stream()
-              .map(PublicationVersion::documentId)
-              .toList());
-      var answer = context.answers.answer(context.owner, new AnswerCommand(QUESTION, selection));
-      assertEquals("answered", answer.status(), answer.reason());
-      assertTrue(answer.answer().contains("A-42"));
-      assertEquals(Set.of(textId), context.projection.lastScope.documentRevisions().keySet());
-      assertEquals(List.of(TEXT), context.models.lastEvidence.stream().map(e -> e.text()).toList());
-      assertEquals(1, answer.citations().size());
-      assertEquals(textId, answer.citations().getFirst().documentId());
-      assertEquals(4, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      assertFalse(answer.answer().contains("视频"));
     }
   }
 

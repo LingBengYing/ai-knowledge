@@ -14,7 +14,6 @@ import com.evidence.rag.model.domain.VerifiedReindexVectors;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.support.AnswerTestContext;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
@@ -46,12 +45,12 @@ class ReindexVectorContinuationAuthorityTest {
   @Test
   void aLateReceiptAfterAnEmptySnapshotFailsCurrentPublicationInsteadOfStrandingTheTask() {
     try (var context = context()) {
-      String document = QueryAttachmentAnswerFixture.publishImage(context, "vision-v1");
+      String document = VectorReceiptFixtures.publishImage(context, "vision-v1");
       var old = scope(context, document);
       var service = ReindexVectorTestSupport.service(context);
       var claim = ReindexVectorTestSupport.claim(context, service, document);
       var empty = ReindexVectorTestSupport.verified(service.reindexVectorPlan(claim).orElseThrow());
-      ImageVectorEvidenceServiceTest.publishVector(context, old, document);
+      VectorReceiptFixtures.publishImageVector(context, old, document);
       assertFalse(service.isIndexingClaimCurrent(claim));
       assertFalse(ReindexVectorTestSupport.complete(context, service, claim, empty));
       assertEquals("failed", service.indexingStatus(context.owner, claim.jobId()).state());
@@ -66,9 +65,9 @@ class ReindexVectorContinuationAuthorityTest {
   @Test
   void receiptProfileMustBeConfiguredForEligibilityCreationClaimAndFinalCommit() {
     try (var context = context()) {
-      String document = QueryAttachmentAnswerFixture.publishImage(context, "vision-v1");
+      String document = VectorReceiptFixtures.publishImage(context, "vision-v1");
       var old = scope(context, document);
-      ImageVectorEvidenceServiceTest.publishVector(context, old, document);
+      VectorReceiptFixtures.publishImageVector(context, old, document);
       var configured = new AtomicBoolean(false);
       var service = ReindexVectorTestSupport.service(context, (route, target) -> configured.get());
       assertFalse(canReindexWithVectors(context, service, context.owner, document, context.target));
@@ -108,8 +107,8 @@ class ReindexVectorContinuationAuthorityTest {
   @Test
   void aReceiptProofForAnotherTaskCannotPublishEvenWhenItsSourceSetIsEqual() {
     try (var context = context()) {
-      String image = QueryAttachmentAnswerFixture.publishImage(context, "vision-v1");
-      ImageVectorEvidenceServiceTest.publishVector(context, scope(context, image), image);
+      String image = VectorReceiptFixtures.publishImage(context, "vision-v1");
+      VectorReceiptFixtures.publishImageVector(context, scope(context, image), image);
       var service = ReindexVectorTestSupport.service(context);
       var first = ReindexVectorTestSupport.claim(context, service, image);
       var oldProof =
@@ -134,8 +133,9 @@ class ReindexVectorContinuationAuthorityTest {
   void cancelledReceiptTaskCanRetryWithANewClaimButCannotAcceptTheLateOldClaim() {
     try (var context = context()) {
       var audio =
-          AudioTestFixture.publish(context, List.of("Start.", "", AudioVectorQueryFixture.FACT));
-      AudioVectorQueryFixture.publishVectors(context, scope(context, audio.documentId()), audio);
+          AudioTestFixture.publish(
+              context, List.of("Start.", "", VectorReceiptFixtures.AUDIO_FACT));
+      VectorReceiptFixtures.publishAudioVectors(context, scope(context, audio.documentId()), audio);
       var service = ReindexVectorTestSupport.service(context);
       var first = ReindexVectorTestSupport.claim(context, service, audio.documentId());
       var originalPlan = service.reindexVectorPlan(first).orElseThrow();
@@ -157,9 +157,9 @@ class ReindexVectorContinuationAuthorityTest {
   @Test
   void failedQueuedProfileIsTerminatedWithoutIssuingAClaim() {
     try (var context = context()) {
-      String document = QueryAttachmentAnswerFixture.publishImage(context, "vision-v1");
+      String document = VectorReceiptFixtures.publishImage(context, "vision-v1");
       var old = scope(context, document);
-      ImageVectorEvidenceServiceTest.publishVector(context, old, document);
+      VectorReceiptFixtures.publishImageVector(context, old, document);
       var supported = new AtomicBoolean(true);
       var service = ReindexVectorTestSupport.service(context, (route, target) -> supported.get());
       var task =
@@ -218,7 +218,7 @@ class ReindexVectorContinuationAuthorityTest {
   }
 
   private AnswerTestContext context() {
-    return new AnswerTestContext(directory, Duration.ofSeconds(10), 1);
+    return new AnswerTestContext(directory);
   }
 
   private static com.evidence.rag.model.domain.EvidenceScope scope(

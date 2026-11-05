@@ -142,8 +142,7 @@ public class ImageEmbeddingConfiguration {
   }
 
   private static void requireLocal(Environment environment) {
-    if (!RuntimeGuard.isLocalDevelopment(
-        environment, "indexing", "visual", "answers", "query-attachments")) {
+    if (!RuntimeGuard.isLocalDevelopment(environment, "indexing", "visual", "answers")) {
       throw invalid();
     }
   }

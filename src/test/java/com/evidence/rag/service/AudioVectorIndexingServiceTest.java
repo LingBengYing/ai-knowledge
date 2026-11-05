@@ -49,7 +49,7 @@ class AudioVectorIndexingServiceTest {
     var decoded = new AtomicInteger();
     var calls = new AtomicInteger();
     var documentId = new AtomicReference<String>();
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("first", "", "tail"));
       documentId.set(published.documentId());
       var service =
@@ -76,7 +76,7 @@ class AudioVectorIndexingServiceTest {
       assertEquals(2, context.scalar("SELECT COUNT(*) FROM audio_vector_entries"));
       assertEquals(1, context.scalar("SELECT COUNT(*) FROM active_corpus_publications"));
     }
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var service =
           service(
               context,
@@ -92,7 +92,7 @@ class AudioVectorIndexingServiceTest {
 
   @Test
   void corruptTailReceiptRollsBackWholePublication() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("first", "tail"));
       var service =
           service(
@@ -123,7 +123,7 @@ class AudioVectorIndexingServiceTest {
   @Test
   void changedPinnedDecoderRejectedBeforeDecodeOrModel() {
     var count = new AtomicInteger();
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       AudioDecoder decoder =
           new AudioDecoder() {
@@ -158,7 +158,7 @@ class AudioVectorIndexingServiceTest {
 
   @Test
   void liveProfileChangePreventsPublicationAfterCompleteReceipt() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var profile = new AtomicReference<>(AUDIO);
       var service =
@@ -186,7 +186,7 @@ class AudioVectorIndexingServiceTest {
   void sameDocumentInFlightRejectedAndReleasedAfterCompletion() throws Exception {
     var entered = new CountDownLatch(1);
     var release = new CountDownLatch(1);
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var service =
           service(
@@ -246,7 +246,7 @@ class AudioVectorIndexingServiceTest {
             throw new AssertionError("Shared decoder must not be closed");
           }
         };
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var service =
           service(
@@ -272,7 +272,7 @@ class AudioVectorIndexingServiceTest {
   @Test
   void interruptedCallerPreservesFlagAndDoesNoDecode() {
     var count = new AtomicInteger();
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var service =
           service(
@@ -300,7 +300,7 @@ class AudioVectorIndexingServiceTest {
 
   @Test
   void realDecodedTailUsesAllThreeSamplesInsideTheSavedCeilMillisecond() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       String documentId = publishShortTail(context);
       var service =
           service(
@@ -325,7 +325,7 @@ class AudioVectorIndexingServiceTest {
 
   @Test
   void databaseRejectsMissingTailAndImmutableReceiptMutationsAtomically() throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("first", "tail"));
       var service =
           service(context, decoder(new AtomicInteger()), AUDIO, (claim, budget) -> receipt(claim));
@@ -385,7 +385,7 @@ class AudioVectorIndexingServiceTest {
   void globalCapacityRejectsThirdDocumentAndRecoversAfterBothFinish() throws Exception {
     var entered = new CountDownLatch(2);
     var release = new CountDownLatch(1);
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var first = AudioTestFixture.publish(context, List.of("first"));
       var second = AudioTestFixture.publish(context, List.of("second"));
       var third = AudioTestFixture.publish(context, List.of("third"));

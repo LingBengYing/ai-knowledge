@@ -158,7 +158,7 @@ public class AudioEmbeddingConfiguration {
 
   private static void requireLocal(Environment environment) {
     if (!RuntimeGuard.isLocalDevelopment(
-        environment, "audio", "ingestion", "indexing", "answers", "query-attachments")) {
+        environment, "audio", "ingestion", "indexing", "answers")) {
       throw invalid();
     }
   }

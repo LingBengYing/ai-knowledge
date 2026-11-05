@@ -2,6 +2,7 @@ package com.evidence.rag.config;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.TextModelConnectionProbe;
+import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.job.IndexingJob;
@@ -13,7 +14,6 @@ import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.repository.TextModelTargetRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.security.authorization.ModelConfigurationPermissionPolicy;
-import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.IndexingService;
 import com.evidence.rag.service.IndexingTaskProcessor;
@@ -28,7 +28,6 @@ import com.evidence.rag.service.ReindexVectorVerifier;
 import com.evidence.rag.service.RetrievalSettingsService;
 import com.evidence.rag.service.TextRetrievalTestService;
 import com.evidence.rag.service.TextRuntimeSnapshot;
-import com.evidence.rag.service.VisualAnswerService;
 import java.time.Duration;
 import java.util.Objects;
 import org.springframework.beans.factory.ObjectProvider;
@@ -105,13 +104,10 @@ public class ModelConfigurationConfiguration {
   ManagedTextRuntime managedTextRuntime(
       SqliteAuthorityStore store,
       IndexingService indexing,
-      EvidenceService evidence,
       RagSettings properties,
       ManagedTextSettings settings,
-      AnswersSettings answerLimits,
       IndexingSettings indexLimits,
       ModelConfigurationRepository repository,
-      ManagedMediaTextFactory media,
       BatchProcessingSettings batch) {
     var runtime =
         ManagedTextRuntime.anchored(
@@ -123,8 +119,6 @@ public class ModelConfigurationConfiguration {
                   savedAnchor == null ? settings.anchor(version, roles, indexed) : savedAnchor;
               var models = new OpenAiCompatibleModels(adapters.models());
               MilvusRestProjection projection = null;
-              AnswerService answers = null;
-              VisualAnswerService visual = null;
               try {
                 projection = new MilvusRestProjection(adapters.projection());
                 var target = anchor.target();
@@ -151,28 +145,12 @@ public class ModelConfigurationConfiguration {
                     batch.transientRetry(),
                     batch.indexDeadline(Duration.ofMillis(indexLimits.timeoutMs())));
                 processor.configureThroughput(batch.embeddingThroughput());
-                var mediaBundle = media.build(models, projection, anchor);
-                var currentQueries = mediaBundle.queries();
-                var currentVideo = mediaBundle.video();
-                visual = mediaBundle.visual();
-                answers =
-                    new AnswerService(
-                        evidence,
-                        models,
-                        projection,
-                        target,
-                        Duration.ofMillis(answerLimits.timeoutMs()),
-                        answerLimits.maxConcurrent(),
-                        currentVideo,
-                        currentQueries,
-                        anchor);
                 var ownedProjection = projection;
                 return new TextRuntimeSnapshot(
                     version,
                     models,
                     projection,
                     target,
-                    answers,
                     processor,
                     () -> {
                       try {
@@ -182,15 +160,8 @@ public class ModelConfigurationConfiguration {
                       }
                     },
                     anchor,
-                    visual,
                     true);
               } catch (RuntimeException failed) {
-                if (answers != null) {
-                  answers.close();
-                }
-                if (visual != null) {
-                  visual.close();
-                }
                 if (projection != null) {
                   projection.close();
                 }
@@ -234,7 +205,7 @@ public class ModelConfigurationConfiguration {
       ManagedTextRuntime runtime,
       ConfigurableEnvironment environment,
       RagSettings properties,
-      ManagedMediaTextFactory media) {
+      ObjectProvider<VisionModels> vision) {
     IndexTarget target = null;
     try {
       var legacy = ManagedTextSettings.legacy(environment, properties.workspaceId());
@@ -249,7 +220,7 @@ public class ModelConfigurationConfiguration {
     } catch (RuntimeException absent) {
       /* Missing legacy media configuration does not block basic text setup. */
     }
-    return new LegacyTextProfileGuard(runtime, target, media.visualPresent());
+    return new LegacyTextProfileGuard(runtime, target, vision.getIfAvailable() != null);
   }
 
   @Bean

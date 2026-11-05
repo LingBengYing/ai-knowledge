@@ -45,8 +45,7 @@ class BatchUploadCapabilityTest {
     var withBatch =
         RuntimeConfiguration.reindexCapabilities(
             base("ingestions", "indexings", "text_index"), true);
-    var filtered =
-        RuntimeConfiguration.managedCapabilities(withBatch, false, true, true, true, true);
+    var filtered = RuntimeConfiguration.managedCapabilities(withBatch, false, true, true, true);
     assertFalse(filtered.capabilities().contains("batch_upload"));
     assertTrue(filtered.unavailable().contains("batch_upload"));
     assertFalse(filtered.capabilities().contains("batch_streaming_upload"));

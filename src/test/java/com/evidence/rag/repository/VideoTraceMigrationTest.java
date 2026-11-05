@@ -3,119 +3,13 @@ package com.evidence.rag.repository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.model.domain.Actor;
-import com.evidence.rag.model.domain.DocumentSelection;
-import com.evidence.rag.model.domain.EvidenceScope;
-import com.evidence.rag.model.domain.TraceDraft;
-import com.evidence.rag.support.PublishedCorpusFixture;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
+/** Migration-chain helper only: restores the v10 schema for later migration tests. */
 class VideoTraceMigrationTest {
-  private static final Actor OWNER = new Actor("org", "owner");
-  @TempDir Path directory;
-
-  @Test
-  void versionTenUpgradeRetainsVideoTextAndOldTraceWithOneRestorableBackup() throws Exception {
-    EvidenceScope expected;
-    List<String> videoIds;
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      fixture.publish(OWNER, "Retained before v11 trace migration.");
-      videoIds = VideoTraceRepositoryTest.publishVideo(fixture);
-      expected =
-          fixture.evidence.snapshot(
-              OWNER, DocumentSelection.allDocuments(), PublishedCorpusFixture.TARGET);
-      var repository = new EvidenceRepository(fixture.authority.store());
-      fixture
-          .authority
-          .store()
-          .transaction(
-              () -> {
-                repository.insertTrace(
-                    "old-refusal",
-                    expected,
-                    new TraceDraft(
-                        "a".repeat(64),
-                        null,
-                        "abstained",
-                        "insufficient_evidence",
-                        "model-v1",
-                        "prompt-v1",
-                        "policy-v1",
-                        List.of()),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    "2026-09-20T08:00:00Z");
-                return null;
-              });
-    }
-    restoreVersionTen(directory);
-    assertEquals(10, scalar(directory.resolve("java-library.db"), "PRAGMA user_version"));
-    for (int reopening = 0; reopening < 2; reopening++) {
-      try (var fixture = new PublishedCorpusFixture(directory)) {
-        assertEquals(
-            expected,
-            fixture.evidence.snapshot(
-                OWNER, DocumentSelection.allDocuments(), PublishedCorpusFixture.TARGET));
-        fixture
-            .authority
-            .store()
-            .transaction(
-                () -> {
-                  var repository = new EvidenceRepository(fixture.authority.store());
-                  assertEquals(
-                      4, repository.findPublishedVideoCandidates(expected, videoIds).size());
-                  assertEquals(
-                      1,
-                      fixture
-                          .authority
-                          .store()
-                          .count(
-                              "SELECT COUNT(*) FROM query_traces WHERE id='old-refusal' AND question_sha256=? AND outcome='abstained'",
-                              "a".repeat(64)));
-                  assertEquals(
-                      HistoricalSchemaV25Fixture.CURRENT_VERSION,
-                      fixture.authority.store().count("PRAGMA user_version"));
-                  return null;
-                });
-      }
-    }
-    List<Path> backups;
-    try (var files = Files.list(directory)) {
-      backups =
-          files
-              .filter(
-                  p ->
-                      p.getFileName().toString().startsWith("java-library.v10-before-v11-")
-                          && p.toString().endsWith(".db"))
-              .toList();
-    }
-    assertEquals(1, backups.size());
-    assertEquals(10, scalar(backups.getFirst(), "PRAGMA user_version"));
-    assertEquals(1, scalar(backups.getFirst(), "SELECT COUNT(*) FROM video_compilations"));
-    assertEquals(
-        0,
-        scalar(
-            backups.getFirst(),
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='video_trace_proofs'"));
-    Path restored = Files.createDirectory(directory.resolve("restored"));
-    Files.copy(backups.getFirst(), restored.resolve("java-library.db"));
-    try (var fixture = new PublishedCorpusFixture(restored)) {
-      assertEquals(
-          expected,
-          fixture.evidence.snapshot(
-              OWNER, DocumentSelection.allDocuments(), PublishedCorpusFixture.TARGET));
-    }
-  }
 
   /** Synthetic @TempDir fixtures only; refuses to discard any video query evidence. */
   static void restoreVersionTen(Path directory) throws SQLException {
@@ -160,15 +54,6 @@ class VideoTraceMigrationTest {
           """);
       statement.execute("UPDATE format_info SET version=10");
       statement.execute("PRAGMA user_version=10");
-    }
-  }
-
-  private static long scalar(Path database, String sql) throws SQLException {
-    try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
-        var statement = connection.createStatement();
-        var rows = statement.executeQuery(sql)) {
-      assertTrue(rows.next());
-      return rows.getLong(1);
     }
   }
 }

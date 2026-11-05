@@ -8,7 +8,6 @@ import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.ManagedTextRuntime;
-import com.evidence.rag.service.VisualAnswerService;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,16 +26,7 @@ class ManagedTextOperationFilterTest {
   @TempDir Path directory;
 
   @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "/v1/visual-answers",
-        "/v1/visual-sources/saved/1",
-        "/v1/video-answers",
-        "/v1/video-sources/saved/1",
-        "/v1/attachment-answers",
-        "/v1/documents/local/image-vector",
-        "/v1/documents/local/audio-vector"
-      })
+  @ValueSource(strings = {"/v1/documents/local/image-vector", "/v1/documents/local/audio-vector"})
   void dependentMediaCannotReachItsHandlerBeforeTextConfiguration(String path) throws Exception {
     try (var store = new SqliteAuthorityStore(directory);
         var runtime = unconfigured(store)) {
@@ -174,8 +164,7 @@ class ManagedTextOperationFilterTest {
         store.operationGate(),
         new ProblemHandler(),
         JsonMapper.builder().build(),
-        beans.getBeanProvider(LegacyTextProfileGuard.class),
-        beans.getBeanProvider(VisualAnswerService.class));
+        beans.getBeanProvider(LegacyTextProfileGuard.class));
   }
 
   private static MockHttpServletRequest request(String method, String path) {

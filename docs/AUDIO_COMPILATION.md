@@ -1,5 +1,7 @@
 # 音频知识库：编译、问答与时间来源
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/audio-answers`、`/v1/audio-sources/*`；`audio_answers/audio_sources`能力名仅作网页兼容保留）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 这是[0013音频知识库](changes/0013-audio-library/intent.md)的本机后端实现。显式音频开关复用既有上传/任务/索引HTTP，v8保存独立时间证据并完整发布；共用AnswerService接入音频问答，v9封存typed时间引用，来源接口回读同版本原音频并支持单byte Range。前端播放器、真实ASR效果和生产验收另行推进，不能由本机协议替身结果代证。
 
 ## 正常数据流与职责
@@ -50,7 +52,7 @@ mvn -Dtest=AudioDecoderNativeIT,AudioCompilationNativeIT,AudioPublicationNativeI
 
 ## 音频问答与回放接口
 
-音频与问答开关同时开启时提供以下端点；问题和所选文档合同复用[文字问答](API.md#post-v1answers)。显式空选择或不可用选择不回退全库，完整selected scope包含所选文字、图片和音频，只有检索候选缩小为音频。
+音频与问答开关同时开启时提供以下端点；问题和所选文档合同复用文字问答（已删除）。显式空选择或不可用选择不回退全库，完整selected scope包含所选文字、图片和音频，只有检索候选缩小为音频。
 
 | 方法与路径 | 返回 |
 | --- | --- |

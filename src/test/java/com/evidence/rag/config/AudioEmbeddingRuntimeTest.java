@@ -9,16 +9,20 @@ import org.junit.jupiter.api.Test;
 
 class AudioEmbeddingRuntimeTest {
   @Test
-  void completeAudioAttachmentPathCanAdvertiseWithoutImageVectors() {
+  void completeAudioPathCanAdvertiseWithoutImageVectors() {
     var runtime = runtime(true, true, true, true, true, true, true, true, true, false);
     assertTrue(runtime.capabilities().capabilities().contains("audio_vector_retrieval"));
     assertFalse(runtime.capabilities().capabilities().contains("image_vector_retrieval"));
   }
 
   @Test
-  void capabilityRequiresEveryExistingAttachmentAndAudioDependency() {
+  void capabilityRequiresAudioIngestionIndexingAnswersAndOptIn() {
+    // ingestion, indexing, answers, audio and the opt-in are required; the rest are not.
     for (int missing = 0; missing < 9; missing++) {
-      assertFalse(
+      boolean required =
+          missing == 0 || missing == 1 || missing == 2 || missing == 5 || missing == 8;
+      assertEquals(
+          !required,
           runtime(
                   missing != 0,
                   missing != 1,

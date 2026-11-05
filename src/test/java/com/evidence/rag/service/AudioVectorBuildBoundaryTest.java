@@ -45,7 +45,7 @@ class AudioVectorBuildBoundaryTest {
 
   @Test
   void safeAndUnsafeWorkerFailuresPublishNothingAndReleaseAdmissionForExplicitRetry() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var current = new AtomicReference<RuntimeException>();
       var calls = new AtomicInteger();
@@ -94,7 +94,7 @@ class AudioVectorBuildBoundaryTest {
 
   @Test
   void everyTailReceiptBindingAndWholeManifestMustValidateBeforeAnySqlInsertion() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("first", "tail"));
       var damage = new AtomicInteger();
       var service =
@@ -169,7 +169,7 @@ class AudioVectorBuildBoundaryTest {
 
   @Test
   void decoderMustReturnTheCurrentSourceProfileAndCompleteSavedDurationBeforeModels() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var decoding = new AtomicReference<Function<byte[], DecodedAudio>>();
       var modelCalls = new AtomicInteger();
@@ -224,7 +224,7 @@ class AudioVectorBuildBoundaryTest {
       throws Exception {
     var entered = new CountDownLatch(1);
     var stopped = new CountDownLatch(1);
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
+    try (var context = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(context, List.of("speech"));
       var decoder =
           decoder(

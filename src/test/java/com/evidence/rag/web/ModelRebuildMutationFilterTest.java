@@ -58,8 +58,7 @@ class ModelRebuildMutationFilterTest {
                 .path("error_code")
                 .asString());
       }
-      for (String path :
-          List.of("/v1/knowledge-answers", "/v1/answers", "/v1/management/document-actions")) {
+      for (String path : List.of("/v1/knowledge-answers", "/v1/management/document-actions")) {
         filter(fixture.filter, "POST", path, true);
       }
       filter(fixture.filter, "GET", "/v1/documents", true);

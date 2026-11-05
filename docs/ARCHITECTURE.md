@@ -1,5 +1,7 @@
 # Architecture：当前实现与未来边界
 
+2026-11-05：旧问答链（AnswerController/AnswerService、VisualAnswerService、Video/Audio问答、QueryAttachmentService、tool.answer包及TextGrounding）与其路由已删除；下文提及它们的段落为历史记录。当前问答只走KnowledgeAnswerService（知识问答与对话）与ProductHelpService，证据仍由EvidenceService/EvidenceRepository提供。
+
 ## 0053：共享组织与普通RAG路径
 
 登录/组织身份仍由security建立；Repository只按组织、删除状态及真实版本查询，不再读document_acl作授权；组织成员平等维护资料和模型配置。Controller不接受客户端角色替代身份。普通问答和召回固定全组织已发布资料，旧document_ids不收窄范围。
@@ -93,14 +95,11 @@ job.IndexingJob → IndexingTaskProcessor → IndexingService.claimIndexing
   → IndexingRepository publication / entries / active / indexed
     + ManagementRepository audit（同一个 Store 事务）
 
-本机显式 POST /v1/answers → AnswerController / AnswerRequestMapper → AnswerService
-  → EvidenceService.snapshot：当前授权active、完整选中集合与配置身份
+知识问答 / 对话 → KnowledgeAnswerService
+  → EvidenceService.snapshot / knowledgeEvidence：当前授权active、完整选中集合与配置身份
   → 事务外只读prepareSearch / query embedding / scoped dense+BM25 search
-  → EvidenceService.hydrate：权威source与locator → rerank / extract / TextGrounding
-  → EvidenceService.finish：锁内完整scope / 预算 / 本地配置资格复验
-  → EvidenceRepository：v4 trace与最终决定同事务 → 回答或拒答
-GET /v1/sources/{answerId}/{ordinal} → AnswerService / EvidenceService.source
-  → 原回答者与完整当前ACL/active复验 → 权威摘录（不是自由文件下载）
+  → EvidenceService.finishRetrieval：锁内完整scope / 预算复验 → 服务器引用
+（2026-11-05起旧 POST /v1/answers、/v1/sources/* 及 AnswerService 已删除）
 ~~~
 
 ## Module / Interface / Implementation / Adapter
@@ -115,7 +114,7 @@ GET /v1/sources/{answerId}/{ordinal} → AnswerService / EvidenceService.source
 | Text parsing | 受限 PDF/TXT/MD 抽取，返回无框架 ParsedText/Page/Segment；独立 JVM 处理不可信文件 | [TextParser](../src/main/java/com/evidence/rag/tool/parser/TextParser.java)、[ProcessTextParser](../src/main/java/com/evidence/rag/worker/parser/ProcessTextParser.java)、[ParserProtocol](../src/main/java/com/evidence/rag/worker/parser/ParserProtocol.java) |
 | Text ingestion | 配额、上传、claim/attempt、取消/重试、完整解析结果验收与审计；Job 只调度 | [IngestionService](../src/main/java/com/evidence/rag/service/IngestionService.java)、[IngestionRepository](../src/main/java/com/evidence/rag/repository/IngestionRepository.java)、[IngestionTaskProcessor](../src/main/java/com/evidence/rag/service/IngestionTaskProcessor.java)、[IngestionJob](../src/main/java/com/evidence/rag/job/IngestionJob.java) |
 | Text indexing | 冻结 target、claim/generation、完整 manifest 接受及原子 publication；远程阶段在事务外 | [IndexingService](../src/main/java/com/evidence/rag/service/IndexingService.java)、[IndexingRepository](../src/main/java/com/evidence/rag/repository/IndexingRepository.java)、[IndexingTaskProcessor](../src/main/java/com/evidence/rag/service/IndexingTaskProcessor.java)、[IndexingJob](../src/main/java/com/evidence/rag/job/IndexingJob.java) |
-| Text answers / evidence | 有界并发与总预算、只读检索和逐事实验证；完整scope、权威hydrate、最终资格与trace原子提交 | [AnswerService](../src/main/java/com/evidence/rag/service/AnswerService.java)、[EvidenceService](../src/main/java/com/evidence/rag/service/EvidenceService.java)、[EvidenceRepository](../src/main/java/com/evidence/rag/repository/EvidenceRepository.java)、[TextGrounding](../src/main/java/com/evidence/rag/tool/answer/TextGrounding.java) |
+| Text answers / evidence | 有界并发与总预算、只读检索和逐事实验证；完整scope、权威hydrate、最终资格与trace原子提交 | AnswerService（2026-11-05已删除）、[EvidenceService](../src/main/java/com/evidence/rag/service/EvidenceService.java)、[EvidenceRepository](../src/main/java/com/evidence/rag/repository/EvidenceRepository.java)、TextGrounding（2026-11-05已删除） |
 | Model data | Entity 是持久化快照；DTO/Query 是输入和安全结果；VO 是公开白名单；Domain 表达身份及证据 | [DocumentEntity](../src/main/java/com/evidence/rag/model/entity/DocumentEntity.java)、[DocumentPatchCommand](../src/main/java/com/evidence/rag/model/dto/DocumentPatchCommand.java)、[DocumentQuery](../src/main/java/com/evidence/rag/model/query/DocumentQuery.java)、[DocumentResponse](../src/main/java/com/evidence/rag/model/vo/DocumentResponse.java)、[IndexClaim](../src/main/java/com/evidence/rag/model/domain/IndexClaim.java) |
 | Model / vector client | 模型和 Milvus 协议、响应限长与完整投影验证；不是数据 Model 层 | [TextModels](../src/main/java/com/evidence/rag/client/model/TextModels.java)、[RetrievalProjection](../src/main/java/com/evidence/rag/client/vector/RetrievalProjection.java)、[MilvusRestProjection](../src/main/java/com/evidence/rag/client/vector/MilvusRestProjection.java) |
 | HTTP / runtime | Controller 和上传 Servlet 处理协议；转换器保留 PATCH 三态/固定 JSON；错误类别在 Web 映射 HTTP | [ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[UploadServlet](../src/main/java/com/evidence/rag/web/UploadServlet.java)、[ManagementRequestMapper](../src/main/java/com/evidence/rag/web/converter/ManagementRequestMapper.java)、[HttpProblemMapper](../src/main/java/com/evidence/rag/web/HttpProblemMapper.java)、[RuntimeService](../src/main/java/com/evidence/rag/service/RuntimeService.java) |
@@ -206,7 +205,7 @@ PDF 按页抽取文本；TXT / MD 严格按 UTF-8 解码。统一换行，移除
 
 这些限制**不等于OS解析沙箱**：直接调用TextParser仍是同进程，应用摄取必须经过独立ProcessTextParser JVM的资源/并发/总deadline约束。它不隔离宿主文件系统或网络，仅允许本机显式开发，生产还需容器级隔离与验收。
 
-四份[合成 PDF](../src/test/resources/corpus/)和未修改的[golden](evals/golden.json)已由[AnswerGoldenTest](../src/test/java/com/evidence/rag/service/AnswerGoldenTest.java)贯通Java解析/发布/问答，六项确定性替身通过；不是实际模型质量或完整语义报告。解析器抽取恶意指令本身仍不证明答案安全。
+四份[合成 PDF](../src/test/resources/corpus/)和未修改的[golden](evals/golden.json)已由AnswerGoldenTest（2026-11-05已删除）贯通Java解析/发布/问答，六项确定性替身通过；不是实际模型质量或完整语义报告。解析器抽取恶意指令本身仍不证明答案安全。
 
 ## 已接通链路与尚未验收边界
 

@@ -48,7 +48,7 @@ class VisualConfigurationTest {
     assertEquals("visual_answers", runtime.capabilities().migrationStage());
     assertTrue(runtime.capabilities().capabilities().contains("visual_image_upload"));
     assertFalse(runtime.capabilities().capabilities().contains("image_text_upload"));
-    assertTrue(runtime.capabilities().capabilities().contains("source_image_content"));
+    assertFalse(runtime.capabilities().capabilities().contains("source_image_content"));
   }
 
   private static MockEnvironment local() {

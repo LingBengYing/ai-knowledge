@@ -1,16 +1,10 @@
 package com.evidence.rag.config;
 
-import com.evidence.rag.client.model.FactTextModels;
 import com.evidence.rag.client.model.OpenAiCompatibleAudioModels;
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.OpenAiCompatibleVisionModels;
-import com.evidence.rag.client.model.TextModels;
-import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.ImageOcrOptions;
-import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.service.AudioTranscriptionService;
-import com.evidence.rag.service.EvidenceService;
-import com.evidence.rag.service.VideoAnswerProposalService;
 import com.evidence.rag.service.VideoCompilationService;
 import com.evidence.rag.worker.parser.ProcessImageParser;
 import com.evidence.rag.worker.parser.ProcessVideoDecoder;
@@ -18,7 +12,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -122,36 +115,6 @@ public class VideoConfiguration {
   @Bean
   VideoCompilationService videoCompilationService(VideoResources resources) {
     return resources.compiler;
-  }
-
-  @Bean
-  @ConditionalOnProperty(prefix = "rag.answers", name = "enabled", havingValue = "true")
-  @ConditionalOnExpression("!${rag.video.text-evidence-only:false}")
-  @Conditional(LegacyTextCondition.class)
-  VideoAnswerProposalService videoAnswerProposalService(
-      VideoResources resources,
-      EvidenceService evidence,
-      TextModels models,
-      RetrievalProjection projection,
-      TextAdapterSettings settings,
-      AnswersSettings limits) {
-    if (!(models instanceof FactTextModels facts)) {
-      throw new IllegalArgumentException("Video answers require fact-scoped text models");
-    }
-    var target =
-        new IndexTarget(
-            settings.projection().embeddingIdentity(),
-            settings.projection().identity(),
-            models.revision(),
-            settings.projection().dimension());
-    return new VideoAnswerProposalService(
-        evidence,
-        models,
-        facts,
-        resources.vision,
-        projection,
-        target,
-        Duration.ofMillis(limits.timeoutMs()));
   }
 
   private static Duration duration(Environment environment, String key, long defaultMillis) {

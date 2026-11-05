@@ -52,7 +52,11 @@ class KnowledgeAnswerServiceTest {
       "适用产品：青榆X1桌面净化器。\n01 开机\n短按电源开机。\n02 开启夜间模式\n" + "长按月亮键3秒，开启夜间模式。\n03 确认开启\n月亮指示灯变绿，表示开启。";
   private static final String UNRELATED = "这是同一完整所选范围中的保养说明，不描述夜间模式操作。";
   private static final String COMPILER = "java-video-compiler-v4:" + "e".repeat(64);
-  private static final String VIDEO_SHA = ModelValues.sha256(VideoAnswerFixture.ORIGINAL);
+  private static final byte[] VIDEO_ORIGINAL = {
+    0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p',
+    '4', '2'
+  };
+  private static final String VIDEO_SHA = ModelValues.sha256(VIDEO_ORIGINAL);
   private static final Duration DEADLINE = Duration.ofSeconds(10);
   @TempDir Path directory;
 
@@ -314,14 +318,11 @@ class KnowledgeAnswerServiceTest {
     final KnowledgeAnswerService answers;
 
     Fixture(Path directory) {
-      context = new AnswerTestContext(directory, DEADLINE, 1);
+      context = new AnswerTestContext(directory);
       runtime =
           new ManagedTextRuntime(
               context.authority.store(),
               (version, configuration) -> {
-                var textAnswers =
-                    new AnswerService(
-                        context.evidence, models, context.projection, context.target, DEADLINE, 1);
                 var indexing =
                     new IndexingTaskProcessor(
                         context.authority.indexing(),
@@ -332,13 +333,7 @@ class KnowledgeAnswerServiceTest {
                           throw new AssertionError("Answering must not start indexing");
                         });
                 return new TextRuntimeSnapshot(
-                    version,
-                    models,
-                    context.projection,
-                    context.target,
-                    textAnswers,
-                    indexing,
-                    () -> {});
+                    version, models, context.projection, context.target, indexing, () -> {});
               });
       var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration(), null);
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
@@ -370,7 +365,7 @@ class KnowledgeAnswerServiceTest {
               true);
       var upload =
           ingestion.uploadDocument(
-              context.owner, "synthetic-tutorial.mp4", "video/mp4", VideoAnswerFixture.ORIGINAL);
+              context.owner, "synthetic-tutorial.mp4", "video/mp4", VIDEO_ORIGINAL);
       var claim = ingestion.claimIngestion(context.owner.workspaceId()).orElseThrow();
       var frame = VideoCompilationFixture.frame(0, 0, 40_000).frame();
       int length = OCR.codePointCount(0, OCR.length());

@@ -172,14 +172,11 @@ class KnowledgeTopicAnswerServiceTest {
     final KnowledgeAnswerService answers;
 
     Fixture(Path path) {
-      context = new AnswerTestContext(path, DEADLINE, 1);
+      context = new AnswerTestContext(path);
       runtime =
           new ManagedTextRuntime(
               context.authority.store(),
               (version, configuration) -> {
-                var textAnswers =
-                    new AnswerService(
-                        context.evidence, models, context.projection, context.target, DEADLINE, 1);
                 var indexing =
                     new IndexingTaskProcessor(
                         context.authority.indexing(),
@@ -190,13 +187,7 @@ class KnowledgeTopicAnswerServiceTest {
                           throw new AssertionError("Answering must not index");
                         });
                 return new TextRuntimeSnapshot(
-                    version,
-                    models,
-                    context.projection,
-                    context.target,
-                    textAnswers,
-                    indexing,
-                    () -> {});
+                    version, models, context.projection, context.target, indexing, () -> {});
               });
       var snapshot = runtime.prepare(1, ManagedTextTestFixture.configuration(), null);
       try (var lease = context.authority.store().operationGate().tryMaintenance().orElseThrow()) {

@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.support.AnswerProtocolServer;
@@ -49,9 +48,6 @@ class ManagedTextRoleSwitchMainlineHttpTest {
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint());
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
       String documentId;
-      String oldAnswerId;
-      String oldSourceUrl;
-      JsonNode oldSource;
       Map<String, String> protectedRows;
       int upserts;
       try (var context = start(models, projection)) {
@@ -84,29 +80,23 @@ class ManagedTextRoleSwitchMainlineHttpTest {
         await(http, base, "indexings", indexed.path("task_id").asString(), "indexed");
         assertFalse(projection.committedUpserts.isEmpty());
         upserts = projection.committedUpserts.size();
-        var answer = exercise(http, base, models, database, documentId, 1, INITIAL, INITIAL);
-        oldAnswerId = answer.path("answer_id").asString();
-        oldSourceUrl = answer.path("citations").get(0).path("source_url").asString();
-        oldSource = request(http, base, "GET", oldSourceUrl, null, null, 200);
-        assertEquals(answer.path("citations").get(0), oldSource.path("citation"));
-        protectedRows = protectedRows(database, oldAnswerId);
+        exercise(http, base, models, database, documentId, 1, INITIAL, INITIAL);
+        protectedRows = protectedRows(database);
 
         save(http, base, models, projection, 1, INITIAL, GENERATION, "fixture-v1", false);
         testRole(http, base, models, projection, 2, "generation", GENERATION);
         // On the unchanged 0032 product this first role-only activation is the business RED.
         activate(http, base, models, projection, 2, 200);
-        assertEquals(protectedRows, protectedRows(database, oldAnswerId));
+        assertEquals(protectedRows, protectedRows(database));
         assertEquals(upserts, projection.committedUpserts.size());
         exercise(http, base, models, database, documentId, 2, INITIAL, GENERATION);
-        assertEquals(oldSource, request(http, base, "GET", oldSourceUrl, null, null, 200));
 
         save(http, base, models, projection, 2, RERANK, GENERATION, "fixture-v1", false);
         testRole(http, base, models, projection, 3, "rerank", RERANK);
         activate(http, base, models, projection, 3, 200);
         exercise(http, base, models, database, documentId, 3, RERANK, GENERATION);
-        assertEquals(protectedRows, protectedRows(database, oldAnswerId));
+        assertEquals(protectedRows, protectedRows(database));
         assertEquals(upserts, projection.committedUpserts.size());
-        assertEquals(oldSource, request(http, base, "GET", oldSourceUrl, null, null, 200));
         assertOriginal(http, base, documentId);
       }
 
@@ -119,7 +109,6 @@ class ManagedTextRoleSwitchMainlineHttpTest {
         assertEquals(3, active.path("active_version").asInt());
         assertEquals(RERANK, active.path("rerank").path("model").asString());
         assertEquals(GENERATION, active.path("generation").path("model").asString());
-        assertEquals(oldSource, request(http, base, "GET", oldSourceUrl, null, null, 200));
         assertOriginal(http, base, documentId);
         assertEquals(requests, models.requests.size() + projection.requests.size());
         exercise(http, base, models, database, documentId, 3, RERANK, GENERATION);
@@ -132,8 +121,7 @@ class ManagedTextRoleSwitchMainlineHttpTest {
             request(http, base, "GET", "/v1/model-configuration", null, null, 200)
                 .path("active_version")
                 .asInt());
-        assertEquals(oldSource, request(http, base, "GET", oldSourceUrl, null, null, 200));
-        assertEquals(protectedRows, protectedRows(database, oldAnswerId));
+        assertEquals(protectedRows, protectedRows(database));
         assertEquals(upserts, projection.committedUpserts.size());
         assertTrue(
             projection.requests.stream()
@@ -183,31 +171,7 @@ class ManagedTextRoleSwitchMainlineHttpTest {
         recallCalls.stream().map(AnswerProtocolServer.Request::path).toList());
     assertModels(recallCalls, rerank, generation);
 
-    before = models.requests.size();
-    var answer =
-        request(
-            http,
-            base,
-            "POST",
-            "/v1/answers",
-            JSON.writeValueAsBytes(question),
-            "application/json",
-            200);
-    assertEquals("answered", answer.path("status").asString(), answer.toString());
-    assertTrue(answer.path("answer").asString().contains("650"));
-    var answerCalls = List.copyOf(models.requests.subList(before, models.requests.size()));
-    assertEquals(1, answerCalls.stream().filter(call -> call.path().equals("/embeddings")).count());
-    assertEquals(1, answerCalls.stream().filter(call -> call.path().equals("/rerank")).count());
-    assertTrue(answerCalls.stream().anyMatch(call -> call.path().equals("/chat/completions")));
-    assertModels(answerCalls, rerank, generation);
-    assertEquals(
-        JSON.writeValueAsString(
-            List.of(List.of(modelsRevision(models.endpoint(), rerank, generation)))),
-        rows(
-            database,
-            "SELECT model_revision FROM query_traces WHERE id=?",
-            answer.path("answer_id").asString()));
-    return answer;
+    return retrieved;
   }
 
   private static void assertModels(
@@ -221,21 +185,6 @@ class ManagedTextRoleSwitchMainlineHttpTest {
             default -> throw new AssertionError("Unexpected synthetic model route: " + call.path());
           };
       assertEquals(expected, call.body().path("model").asString());
-    }
-  }
-
-  private static String modelsRevision(URI endpoint, String rerank, String generation) {
-    try (var models =
-        new OpenAiCompatibleModels(
-            new OpenAiCompatibleModels.Configuration(
-                new OpenAiCompatibleModels.Endpoint(endpoint, INITIAL, KEY),
-                new OpenAiCompatibleModels.Endpoint(endpoint, rerank, KEY),
-                new OpenAiCompatibleModels.Endpoint(endpoint, generation, KEY),
-                2,
-                Duration.ofSeconds(5),
-                4 * 1024 * 1024,
-                true))) {
-      return models.revision();
     }
   }
 
@@ -330,7 +279,7 @@ class ManagedTextRoleSwitchMainlineHttpTest {
     return result;
   }
 
-  private static Map<String, String> protectedRows(Path database, String traceId) throws Exception {
+  private static Map<String, String> protectedRows(Path database) throws Exception {
     var snapshot = new LinkedHashMap<String, String>();
     for (String table :
         List.of(
@@ -340,13 +289,6 @@ class ManagedTextRoleSwitchMainlineHttpTest {
             "index_publication_entries",
             "active_corpus_publications")) {
       String contents = rows(database, "SELECT * FROM " + table + " ORDER BY 1,2");
-      assertFalse(contents.equals("[]"), table);
-      snapshot.put(table, contents);
-    }
-    snapshot.put("query_traces", rows(database, "SELECT * FROM query_traces WHERE id=?", traceId));
-    for (String table : List.of("query_trace_documents", "query_trace_evidence")) {
-      String contents =
-          rows(database, "SELECT * FROM " + table + " WHERE trace_id=? ORDER BY 2", traceId);
       assertFalse(contents.equals("[]"), table);
       snapshot.put(table, contents);
     }

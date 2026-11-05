@@ -13,13 +13,11 @@ import com.evidence.rag.model.dto.AgentModelDelta;
 import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.tool.parser.TextParser;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.DriverManager;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -38,10 +36,9 @@ public final class AnswerTestContext implements AutoCloseable {
       new IndexTarget("embedding-v1", projection.identity(), models.revision(), 2);
   public final AuthorityTestContext authority;
   public final EvidenceService evidence;
-  public final AnswerService answers;
   private final Path directory;
 
-  public AnswerTestContext(Path directory, Duration timeout, int concurrency) {
+  public AnswerTestContext(Path directory) {
     this.directory = directory;
     authority = new AuthorityTestContext(directory);
     evidence =
@@ -50,7 +47,6 @@ public final class AnswerTestContext implements AutoCloseable {
             new EvidenceRepository(authority.store()),
             new ManagementRepository(authority.store()),
             new DocumentPermissionPolicy());
-    answers = new AnswerService(evidence, models, projection, target, timeout, concurrency);
   }
 
   public String publish(String filename, String content) {
@@ -129,7 +125,6 @@ public final class AnswerTestContext implements AutoCloseable {
 
   @Override
   public void close() {
-    answers.close();
     authority.close();
   }
 

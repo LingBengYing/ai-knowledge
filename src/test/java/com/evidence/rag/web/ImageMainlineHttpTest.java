@@ -1,6 +1,5 @@
 package com.evidence.rag.web;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,11 +7,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
 import com.evidence.rag.config.RagSettings;
-import com.evidence.rag.model.domain.Actor;
-import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.support.AnswerProtocolServer;
-import com.evidence.rag.support.DocumentWithdrawal;
 import com.evidence.rag.worker.indexing.IndexingTestServer;
 import java.awt.Color;
 import java.awt.Font;
@@ -27,7 +22,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -96,7 +90,7 @@ class ImageMainlineHttpTest {
   }
 
   @Test
-  void imageTravelsThroughOcrIndexAnswerAndOriginalReadback() throws Exception {
+  void imageTravelsThroughOcrParseAndIndex() throws Exception {
     assertNotNull(directory);
     byte[] image = image();
     try (var indexing = new IndexingTestServer();
@@ -159,90 +153,6 @@ class ImageMainlineHttpTest {
         assertTrue(row.path("active_revision_id").isNull());
         var index = json("POST", "/v1/documents/" + doc + "/index", null, null, 202);
         await("indexings", index.path("task_id").asString(), "indexed");
-        var answer =
-            json(
-                "POST",
-                "/v1/answers",
-                JSON.writeValueAsBytes(
-                    Map.of(
-                        "question", "What is Project A's budget?", "document_ids", List.of(doc))),
-                "application/json",
-                200);
-        assertEquals("answered", answer.path("status").asString(), answer.toString());
-        assertTrue(answer.path("answer").asString().contains("650 USD"));
-        var citation = answer.path("citations").get(0);
-        assertEquals(doc, citation.path("document_id").asString());
-        assertEquals(revision, citation.path("revision_id").asString());
-        assertEquals(ModelValues.sha256(image), citation.path("source_sha256").asString());
-        assertTrue(citation.path("parser_revision").asString().startsWith("java-image-ocr-"));
-        String sourceUrl = citation.path("source_url").asString();
-        var source = json("GET", sourceUrl, null, null, 200);
-        assertEquals(citation, source.path("citation"));
-        assertEquals("machine_ocr", source.path("image").path("text_origin").asString());
-        assertEquals(1200, source.path("image").path("width").asInt());
-        assertEquals(180, source.path("image").path("height").asInt());
-        assertEquals("ocr_word", source.path("image").path("region_kind").asString());
-        var regions = source.path("image").path("regions");
-        assertTrue(regions.isArray() && !regions.isEmpty(), source.toString());
-        boolean amountLocated = false;
-        int previousEnd = -1;
-        for (var region : regions) {
-          int start = region.path("start").asInt();
-          int end = region.path("end").asInt();
-          assertTrue(start >= previousEnd && end > start);
-          assertTrue(start < citation.path("end").asInt() && end > citation.path("start").asInt());
-          previousEnd = end;
-          var box = region.path("bbox");
-          assertEquals(4, box.size());
-          double left = box.get(0).asDouble(), top = box.get(1).asDouble();
-          double right = box.get(2).asDouble(), bottom = box.get(3).asDouble();
-          assertTrue(0 <= left && left < right && right <= 1);
-          assertTrue(0 <= top && top < bottom && bottom <= 1);
-          // The words were drawn inside this area. A whole-image placeholder cannot pass.
-          assertTrue(left >= 0.015 && right <= 0.95 && top >= 0.20 && bottom <= 0.75);
-          String quote = citation.path("quote").asString();
-          int amount = quote.indexOf("650");
-          if (amount >= 0) {
-            int amountStart = citation.path("start").asInt() + quote.codePointCount(0, amount);
-            amountLocated |= start <= amountStart && end >= amountStart + 3;
-          }
-        }
-        assertTrue(amountLocated, "The cited amount must have a real OCR word box");
-        String contentUrl = source.path("image").path("content_url").asString();
-        assertEquals(sourceUrl + "/content", contentUrl);
-        var original = request("GET", contentUrl, null, null, "image-owner");
-        assertEquals(200, original.statusCode());
-        assertArrayEquals(image, original.body());
-        assertEquals("image/png", original.headers().firstValue("Content-Type").orElseThrow());
-        assertTrue(
-            original.headers().firstValue("Cache-Control").orElseThrow().contains("no-store"));
-        assertEquals(
-            "nosniff", original.headers().firstValue("X-Content-Type-Options").orElseThrow());
-        // Development identity headers use the existing 422 invalid_identity contract (JWT uses
-        // 401).
-        var anonymous =
-            http.send(
-                HttpRequest.newBuilder(URI.create(base + contentUrl))
-                    .timeout(Duration.ofSeconds(5))
-                    .GET()
-                    .build(),
-                HttpResponse.BodyHandlers.ofByteArray());
-        assertEquals(422, anonymous.statusCode());
-        assertEquals(
-            "invalid_identity", JSON.readTree(anonymous.body()).path("error_code").asString());
-        var sharedOriginal = request("GET", contentUrl, null, null, "another-owner");
-        assertEquals(200, sharedOriginal.statusCode());
-        assertArrayEquals(image, sharedOriginal.body());
-        var sharedSource = request("GET", sourceUrl, null, null, "another-owner");
-        assertEquals(200, sharedSource.statusCode());
-        assertEquals(source, JSON.readTree(sharedSource.body()));
-        assertEquals(
-            401, request("GET", contentUrl, null, null, "other-org", "image-owner").statusCode());
-        DocumentWithdrawal.withdraw(
-            context.getBean(SqliteAuthorityStore.class), new Actor("org-main", "image-owner"), doc);
-        assertEquals(404, request("GET", contentUrl, null, null, "image-owner").statusCode());
-        assertEquals(404, request("GET", sourceUrl, null, null, "another-owner").statusCode());
-        assertEquals(404, request("GET", contentUrl, null, null, "another-owner").statusCode());
       }
     }
   }

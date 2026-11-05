@@ -237,6 +237,10 @@ public final class RuntimeService {
         false);
   }
 
+  /**
+   * Full form. {@code queryAttachments} is ignored since attachment answers were removed; it stays
+   * positional so the boolean argument order of existing callers keeps its meaning.
+   */
   public RuntimeService(
       String authMode,
       String workspaceId,
@@ -263,7 +267,7 @@ public final class RuntimeService {
                 "batch_move",
                 "batch_tag",
                 "document_originals"));
-    var unavailable = new ArrayList<>(List.of("answers", "sources", "reindex", "document_delete"));
+    var unavailable = new ArrayList<>(List.of("reindex", "document_delete"));
     if (ingestion) {
       enabled.addAll(List.of("text_upload", "ingestions"));
     } else {
@@ -274,10 +278,6 @@ public final class RuntimeService {
     } else {
       unavailable.addAll(List.of("text_index", "indexings"));
     }
-    if (answers) {
-      enabled.addAll(List.of("answers", "sources"));
-      unavailable.removeAll(List.of("answers", "sources"));
-    }
     if (documentCleanup) {
       enabled.add("document_cleanup");
     }
@@ -287,15 +287,13 @@ public final class RuntimeService {
     if (imageOcr && ingestion && !visual) {
       enabled.add("image_text_upload");
     }
-    if (imageOcr && answers) {
-      enabled.add("source_image_content");
-    }
     if (pdfOcr && ingestion) {
       enabled.add("pdf_ocr_upload");
     }
     if (visual && ingestion) {
       enabled.add("visual_image_upload");
     }
+    // Web-compatibility names only: the web gates image/audio vector builds on them.
     if (visual && answers) {
       enabled.addAll(List.of("visual_answers", "visual_sources"));
     }
@@ -314,21 +312,16 @@ public final class RuntimeService {
     if (video && indexing) {
       enabled.add("video_index");
     }
-    if (video && answers) {
-      enabled.addAll(List.of("video_answers", "video_sources"));
-    }
     if (synopsis) {
       enabled.addAll(List.of("file_synopsis", "synopsis_sources", "tag_suggestions"));
     } else {
       unavailable.addAll(List.of("file_synopsis", "synopsis_sources"));
     }
-    if (queryAttachments && answers && visual && imageOcr && audio && video) {
-      enabled.add("query_attachments");
-    }
-    if (imageVectorRetrieval && indexing && enabled.contains("query_attachments")) {
+    // Same prerequisites the embedding configurations require before assembling the service.
+    if (imageVectorRetrieval && indexing && visual && answers) {
       enabled.add("image_vector_retrieval");
     }
-    if (audioVectorRetrieval && ingestion && indexing && enabled.contains("query_attachments")) {
+    if (audioVectorRetrieval && audio && ingestion && indexing && answers) {
       enabled.add("audio_vector_retrieval");
     }
     capabilities =

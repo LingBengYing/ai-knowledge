@@ -154,7 +154,7 @@ class ManagedTextWiringBoundaryTest {
         new RuntimeService(
             () ->
                 RuntimeConfiguration.managedCapabilities(
-                    base, active.get(), compatible.get(), false, false, false));
+                    base, active.get(), compatible.get(), false, false));
     var controller = new RuntimeController(runtime);
     var missing = controller.configuration();
     assertTrue(missing.capabilities().contains("model_configuration"));
@@ -168,10 +168,8 @@ class ManagedTextWiringBoundaryTest {
         configured
             .capabilities()
             .containsAll(
-                List.of("text_index", "indexings", "answers", "sources", "retrieval_test")));
+                List.of("text_index", "indexings", "knowledge_answers", "retrieval_test")));
     assertFalse(configured.capabilities().contains("visual_answers"));
-    assertFalse(configured.capabilities().contains("video_answers"));
-    assertFalse(configured.capabilities().contains("query_attachments"));
     assertTrue(configured.capabilities().contains("file_synopsis"));
     assertEquals("org-main", configured.workspaceId());
     assertEquals("java", configured.edition());
@@ -186,39 +184,36 @@ class ManagedTextWiringBoundaryTest {
             "unavailable"),
         new HashSet<>(json.propertyNames()));
     active.set(false);
-    assertFalse(controller.configuration().capabilities().contains("answers"));
+    assertFalse(controller.configuration().capabilities().contains("text_index"));
     assertTrue(
-        base.capabilities().contains("answers"),
+        base.capabilities().contains("text_index"),
         "Filtering must not mutate the original legacy snapshot");
   }
 
   @Test
   void actualLegacyBeansRequireMatchingProfileWhileIndependentFeaturesRemainAvailable() {
     var base = capabilities();
-    var matching = RuntimeConfiguration.managedCapabilities(base, true, true, true, true, true);
+    var matching = RuntimeConfiguration.managedCapabilities(base, true, true, true, true);
     assertTrue(
         matching
             .capabilities()
             .containsAll(
                 List.of(
                     "visual_answers",
-                    "video_answers",
-                    "query_attachments",
+                    "video_upload",
                     "image_vector_retrieval",
                     "audio_vector_retrieval")));
-    var drifted = RuntimeConfiguration.managedCapabilities(base, true, false, true, true, true);
+    var drifted = RuntimeConfiguration.managedCapabilities(base, true, false, true, true);
     for (String unavailable :
         List.of(
-            "visual_answers",
-            "video_answers",
-            "query_attachments",
-            "image_vector_retrieval",
-            "audio_vector_retrieval")) {
+            "visual_answers", "video_upload", "image_vector_retrieval", "audio_vector_retrieval")) {
       assertFalse(drifted.capabilities().contains(unavailable));
       assertTrue(drifted.unavailable().contains(unavailable));
     }
     assertTrue(
-        drifted.capabilities().containsAll(List.of("file_synopsis", "answers", "retrieval_test")));
+        drifted
+            .capabilities()
+            .containsAll(List.of("file_synopsis", "text_index", "retrieval_test")));
     assertTrue(
         new HashSet<>(drifted.capabilities()).stream().noneMatch(drifted.unavailable()::contains));
   }
@@ -304,17 +299,11 @@ class ManagedTextWiringBoundaryTest {
             "ingestions",
             "text_index",
             "indexings",
-            "answers",
-            "sources",
-            "source_image_content",
             "visual_image_upload",
             "visual_answers",
             "visual_sources",
             "video_upload",
             "video_index",
-            "video_answers",
-            "video_sources",
-            "query_attachments",
             "image_vector_retrieval",
             "audio_vector_retrieval",
             "file_synopsis"),

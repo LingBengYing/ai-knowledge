@@ -12,7 +12,7 @@ final class ManagedTextTestFixture implements AutoCloseable {
   final ManagedTextRuntime runtime;
 
   ManagedTextTestFixture(Path directory) {
-    context = new AnswerTestContext(directory, Duration.ofSeconds(3), 2);
+    context = new AnswerTestContext(directory);
     runtime =
         new ManagedTextRuntime(
             context.authority.store(), (version, configuration) -> snapshot(version, () -> {}));
@@ -32,19 +32,10 @@ final class ManagedTextTestFixture implements AutoCloseable {
             ignored -> {
               throw new AssertionError("Retrieval must not create a worker");
             });
-    var answers =
-        new AnswerService(
-            context.evidence,
-            context.models,
-            context.projection,
-            context.target,
-            Duration.ofSeconds(3),
-            2);
     try {
       return new TextRuntimeSnapshot(
-          version, context.models, context.projection, context.target, answers, indexing, release);
+          version, context.models, context.projection, context.target, indexing, release);
     } catch (RuntimeException failure) {
-      answers.close();
       throw failure;
     }
   }

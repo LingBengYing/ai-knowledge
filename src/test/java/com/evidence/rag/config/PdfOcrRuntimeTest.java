@@ -103,7 +103,7 @@ class PdfOcrRuntimeTest {
             .capabilities();
     assertEquals(legacy, pdfDisabled);
     assertFalse(legacy.capabilities().contains("pdf_ocr_upload"));
-    assertTrue(legacy.capabilities().contains("query_attachments"));
+    assertFalse(legacy.capabilities().contains("query_attachments"));
   }
 
   private RuntimeService configured(

@@ -26,7 +26,6 @@ import java.time.Duration;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -121,7 +120,7 @@ class TextMainlineHttpTest {
   }
 
   @Test
-  void fixedPdfTravelsThroughUploadParseIndexAnswerAndSourceOverHttp() throws Exception {
+  void fixedPdfTravelsThroughUploadParseAndIndexOverHttp() throws Exception {
     byte[] pdf;
     try (var input = getClass().getResourceAsStream("/corpus/" + FILENAME)) {
       assertNotNull(input, "The original fixed PDF fixture must remain available");
@@ -162,37 +161,6 @@ class TextMainlineHttpTest {
     assertEquals(revisionId, indexedRow.path("active_revision_id").asString());
     assertEquals(indexed.path("index_publication_id"), indexedRow.path("index_publication_id"));
     assertFalse(indexing.committedUpserts.isEmpty(), "The real index worker must write the rows");
-
-    var answer =
-        jsonRequest(
-            "POST",
-            "/v1/answers",
-            JSON.writeValueAsBytes(
-                Map.of("question", "上海住宿标准是多少？", "document_ids", List.of(documentId))),
-            "application/json",
-            200);
-    assertEquals("answered", answer.path("status").asString(), answer.toString());
-    assertTrue(answer.path("answer").asString().contains("650"));
-    assertFalse(answer.path("citations").isEmpty());
-    var citation = answer.path("citations").get(0);
-    assertEquals(documentId, citation.path("document_id").asString());
-    assertEquals(revisionId, citation.path("revision_id").asString());
-    assertEquals(PDF_SHA256, citation.path("source_sha256").asString());
-    assertEquals(FILENAME, citation.path("filename").asString());
-    assertTrue(citation.path("quote").asString().contains(EXPECTED_QUOTE));
-    String sourceUrl = citation.path("source_url").asString();
-    assertEquals("/v1/sources/" + answer.path("answer_id").asString() + "/1", sourceUrl);
-    var source = jsonRequest("GET", sourceUrl, null, null, 200);
-    assertEquals(answer.path("answer_id"), source.path("answer_id"));
-    assertEquals(citation, source.path("citation"));
-    assertEquals(
-        2,
-        indexing.requests.stream()
-            .filter(request -> request.path().endsWith("/entities/search"))
-            .count());
-    assertEquals(
-        List.of("/rerank", "/chat/completions"),
-        answers.requests.stream().map(AnswerProtocolServer.Request::path).toList());
   }
 
   private JsonNode onlyDocument() throws Exception {

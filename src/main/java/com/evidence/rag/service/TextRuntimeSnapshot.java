@@ -15,9 +15,7 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
   private final IndexTarget target;
   private final TextIndexAnchor indexAnchor;
   private final String modelsRevision;
-  private final AnswerService answers;
   private final IndexingTaskProcessor indexing;
-  private final VisualAnswerService visual;
   private final boolean mediaRebound;
   private final Runnable releaseClients;
   private final AtomicBoolean closed = new AtomicBoolean();
@@ -27,10 +25,9 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
       TextModels models,
       RetrievalProjection projection,
       IndexTarget target,
-      AnswerService answers,
       IndexingTaskProcessor indexing,
       Runnable releaseClients) {
-    this(version, models, projection, target, answers, indexing, releaseClients, null);
+    this(version, models, projection, target, indexing, releaseClients, null);
   }
 
   public TextRuntimeSnapshot(
@@ -38,21 +35,10 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
       TextModels models,
       RetrievalProjection projection,
       IndexTarget target,
-      AnswerService answers,
       IndexingTaskProcessor indexing,
       Runnable releaseClients,
       TextIndexAnchor indexAnchor) {
-    this(
-        version,
-        models,
-        projection,
-        target,
-        answers,
-        indexing,
-        releaseClients,
-        indexAnchor,
-        null,
-        false);
+    this(version, models, projection, target, indexing, releaseClients, indexAnchor, false);
   }
 
   public TextRuntimeSnapshot(
@@ -60,26 +46,21 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
       TextModels models,
       RetrievalProjection projection,
       IndexTarget target,
-      AnswerService answers,
       IndexingTaskProcessor indexing,
       Runnable releaseClients,
       TextIndexAnchor indexAnchor,
-      VisualAnswerService visual,
       boolean mediaRebound) {
     if (version < 1
         || version > 9_007_199_254_740_991L
         || models == null
         || projection == null
         || target == null
-        || answers == null
         || indexing == null
         || releaseClients == null
         || (indexAnchor == null && !target.modelRevision().equals(models.revision()))
         || (indexAnchor != null
             && (!indexAnchor.target().equals(target) || indexAnchor.originatingVersion() > version))
-        || !models.revision().equals(answers.runtimeModelsRevision())
         || !target.projectionIdentity().equals(projection.identity())
-        || !target.equals(answers.runtimeTarget())
         || !target.equals(indexing.runtimeTarget())) {
       throw ModelValues.invalid();
     }
@@ -89,9 +70,7 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
     this.target = target;
     this.indexAnchor = indexAnchor;
     this.modelsRevision = models.revision();
-    this.answers = answers;
     this.indexing = indexing;
-    this.visual = visual;
     this.mediaRebound = mediaRebound;
     this.releaseClients = releaseClients;
   }
@@ -122,23 +101,14 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
 
   boolean identityCurrent() {
     return modelsRevision.equals(models.revision())
-        && modelsRevision.equals(answers.runtimeModelsRevision())
         && target.projectionIdentity().equals(projection.identity())
         && (indexAnchor == null
             ? target.modelRevision().equals(modelsRevision)
             : indexAnchor.target().equals(target));
   }
 
-  public AnswerService answers() {
-    return answers;
-  }
-
   public IndexingTaskProcessor indexing() {
     return indexing;
-  }
-
-  public VisualAnswerService visual() {
-    return visual;
   }
 
   public boolean mediaRebound() {
@@ -152,17 +122,7 @@ public final class TextRuntimeSnapshot implements AutoCloseable {
   @Override
   public void close() {
     if (closed.compareAndSet(false, true)) {
-      try {
-        answers.close();
-      } finally {
-        try {
-          if (visual != null) {
-            visual.close();
-          }
-        } finally {
-          releaseClients.run();
-        }
-      }
+      releaseClients.run();
     }
   }
 

@@ -42,7 +42,12 @@ class SharedWorkspaceAccessTest {
       var scope = fixture.evidence.snapshot(member, DocumentSelection.allDocuments(), TARGET);
       assertEquals(1, scope.publications().size());
       assertEquals(published.documentId(), scope.publications().getFirst().documentId());
-      assertEquals(1, fixture.evidence.hydrate(scope, physicalIds(published)).size());
+      assertEquals(
+          1,
+          fixture
+              .evidence
+              .finishRetrieval(scope, physicalIds(published), TARGET, () -> true)
+              .size());
       var repository = new ManagementRepository(fixture.authority.store());
       var original =
           fixture

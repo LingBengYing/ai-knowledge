@@ -51,10 +51,6 @@ public record PublishedVideoSubtitleEvidence(
         source.endOffset());
   }
 
-  public String trackText() {
-    return track.text();
-  }
-
   public String trackTextSha256() {
     return track.textSha256();
   }

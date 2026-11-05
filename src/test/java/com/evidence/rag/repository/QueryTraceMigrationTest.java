@@ -4,14 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.model.domain.Actor;
-import com.evidence.rag.model.domain.DocumentSelection;
-import com.evidence.rag.model.domain.EvidenceScope;
-import com.evidence.rag.model.domain.QueryAttachment;
-import com.evidence.rag.model.domain.QueryAttachmentManifest;
-import com.evidence.rag.model.domain.QueryTrace;
-import com.evidence.rag.model.domain.QueryTraceAttachment;
-import com.evidence.rag.model.domain.TraceDraft;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
@@ -25,7 +17,6 @@ class QueryTraceMigrationTest {
       List.of(
           "query_trace_attachment_images", "query_trace_attachments", "query_trace_preparations");
   static final String SHA = "a".repeat(64);
-  static final String OTHER = "b".repeat(64);
   @TempDir Path directory;
 
   @Test
@@ -70,7 +61,7 @@ class QueryTraceMigrationTest {
   @Test
   void versionFifteenUpgradePreservesOldTraceAndOneRestorableBackup() throws Exception {
     try (var store = new SqliteAuthorityStore(directory)) {
-      insert(store, "legacy", null);
+      insert(store, "legacy");
     }
     restoreVersionFifteen(directory);
     for (int opening = 0; opening < 2; opening++) {
@@ -124,7 +115,7 @@ class QueryTraceMigrationTest {
   @Test
   void migrationFailureRollsBackWithoutChangingReleasedTraceHistory() throws Exception {
     try (var store = new SqliteAuthorityStore(directory)) {
-      insert(store, "legacy", null);
+      insert(store, "legacy");
     }
     restoreVersionFifteen(directory);
     sql("CREATE TABLE query_trace_preparations(unexpected TEXT)");
@@ -137,64 +128,6 @@ class QueryTraceMigrationTest {
         scalar(
             directory.resolve("java-library.db"),
             "SELECT COUNT(*) FROM sqlite_master WHERE name='query_trace_attachments'"));
-  }
-
-  @Test
-  void reopeningRefusesPartialSidecarsAndDowngradeNeverDiscardsRealAttachments() throws Exception {
-    try (var store = new SqliteAuthorityStore(directory)) {
-      insert(store, "prepared", prepared());
-    }
-    assertThrows(AssertionError.class, () -> restoreVersionFifteen(directory));
-    assertEquals(
-        1,
-        scalar(
-            directory.resolve("java-library.db"), "SELECT COUNT(*) FROM query_trace_preparations"));
-    sql("DROP TRIGGER query_trace_preparations_no_update");
-    assertThrows(IllegalStateException.class, () -> new SqliteAuthorityStore(directory));
-  }
-
-  static QueryTrace prepared() {
-    var manifest =
-        new QueryAttachmentManifest(
-            0,
-            SHA,
-            QueryAttachment.Kind.VIDEO,
-            "video-compiler-v1",
-            OTHER,
-            19,
-            4,
-            List.of(SHA, OTHER),
-            true);
-    return new QueryTrace(
-        SHA,
-        "prepare-v1",
-        "rank-v1",
-        "prepared",
-        null,
-        OTHER,
-        List.of(new QueryTraceAttachment(0, SHA, QueryAttachment.Kind.VIDEO, manifest)));
-  }
-
-  static void insert(SqliteAuthorityStore store, String id, QueryTrace trace) {
-    store.transaction(
-        () -> {
-          new EvidenceRepository(store)
-              .insertTrace(
-                  id,
-                  new EvidenceScope(
-                      new Actor("org", "owner"), DocumentSelection.allDocuments(), List.of()),
-                  new TraceDraft(
-                          SHA, null, "abstained", "insufficient_evidence", "m", "p", "g", List.of())
-                      .withQueryTrace(trace),
-                  List.of(),
-                  List.of(),
-                  List.of(),
-                  List.of(),
-                  List.of(),
-                  List.of(),
-                  "2026-09-20T09:00:00Z");
-          return null;
-        });
   }
 
   /** Test-only downgrade refuses nonempty query sidecars instead of deleting audit history. */
@@ -250,5 +183,33 @@ class QueryTraceMigrationTest {
       assertTrue(rows.next());
       return rows.getInt(1);
     }
+  }
+
+  /** A sealed, citation-free legacy abstention header; the answer write path no longer exists. */
+  static void insert(SqliteAuthorityStore store, String id) {
+    store.transaction(
+        () -> {
+          store.execute(
+              """
+              INSERT INTO query_traces(id,workspace_id,actor_id,selection_all,scope_count,citation_count,
+                question_sha256,answer_sha256,outcome,reason_code,model_revision,prompt_revision,policy_revision,created_at)
+              VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              """,
+              id,
+              "org",
+              "owner",
+              1,
+              0,
+              0,
+              SHA,
+              null,
+              "abstained",
+              "insufficient_evidence",
+              "m",
+              "p",
+              "g",
+              "2026-09-20T09:00:00Z");
+          return null;
+        });
   }
 }

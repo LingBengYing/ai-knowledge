@@ -3,13 +3,22 @@ package com.evidence.rag.repository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.evidence.rag.client.vector.RetrievalProjection;
+import com.evidence.rag.model.domain.AudioTranscription;
 import com.evidence.rag.model.domain.EvidenceScope;
+import com.evidence.rag.model.domain.ModelValues;
+import com.evidence.rag.model.domain.VerifiedRevision;
+import com.evidence.rag.model.domain.VideoCompilation;
+import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
+import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.support.PublishedCorpusFixture;
+import com.evidence.rag.support.VideoCompilationFixture;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,7 +32,7 @@ class VideoOcrMigrationTest {
     List<String> videoIds;
     try (var fixture = new PublishedCorpusFixture(directory)) {
       fixture.publish(VideoOcrRepositoryTest.OWNER, "A retained v11 document.");
-      videoIds = VideoTraceRepositoryTest.publishVideo(fixture);
+      videoIds = publishVideo(fixture);
       expected = VideoOcrRepositoryTest.scope(fixture);
     }
     restoreVersionEleven(directory);
@@ -143,5 +152,66 @@ class VideoOcrMigrationTest {
       statement.execute("UPDATE format_info SET version=11");
       statement.execute("PRAGMA user_version=11");
     }
+  }
+
+  /** A complete text-only video publication (no OCR sidecar), as published before v12. */
+  private static List<String> publishVideo(PublishedCorpusFixture fixture) {
+    var owner = VideoOcrRepositoryTest.OWNER;
+    var original = VideoOcrRepositoryTest.ORIGINAL;
+    var template = VideoCompilationFixture.compilation(true);
+    var store = fixture.authority.store();
+    var ingestion =
+        new IngestionService(
+            store,
+            new IngestionRepository(store),
+            new ManagementRepository(store),
+            new DocumentPermissionPolicy(),
+            null,
+            null,
+            null,
+            VideoCompilationFixture.COMPILER);
+    var uploaded = ingestion.uploadDocument(owner, "recording.mp4", "video/mp4", original);
+    var claim = ingestion.claimIngestion(owner.workspaceId()).orElseThrow();
+    var audio = template.audio();
+    var source = ModelValues.sha256(original);
+    var compilation =
+        new VideoCompilation(
+            source,
+            template.decoderRevision(),
+            template.compilerRevision(),
+            template.timelineOriginUs(),
+            template.durationUs(),
+            template.frames(),
+            new AudioTranscription(
+                source,
+                audio.decoderRevision(),
+                audio.modelRevision(),
+                audio.transcriptionRevision(),
+                audio.sampleCount(),
+                audio.spans()));
+    assertTrue(ingestion.completeVideoIngestion(claim, compilation));
+    fixture
+        .authority
+        .indexing()
+        .createIndexing(owner, uploaded.documentId(), PublishedCorpusFixture.TARGET);
+    var index = fixture.authority.indexing().claimIndexing(owner.workspaceId()).orElseThrow();
+    var ids = PublishedCorpusFixture.physicalIds(index);
+    var digests = new LinkedHashMap<String, String>();
+    ids.forEach(id -> digests.put(id, VideoOcrRepositoryTest.HASH));
+    var manifest =
+        new RetrievalProjection.RevisionManifest(
+            owner.workspaceId(), uploaded.documentId(), index.projectionGenerationId(), digests);
+    assertTrue(
+        fixture
+            .authority
+            .indexing()
+            .completeIndexing(
+                index,
+                digests,
+                new VerifiedRevision(
+                    PublishedCorpusFixture.TARGET.projectionIdentity(),
+                    manifest.sha256(),
+                    digests.size())));
+    return ids;
   }
 }

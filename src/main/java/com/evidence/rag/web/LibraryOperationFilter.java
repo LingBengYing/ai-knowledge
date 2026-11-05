@@ -3,7 +3,6 @@ package com.evidence.rag.web;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.service.LegacyTextProfileGuard;
-import com.evidence.rag.service.VisualAnswerService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,14 +43,12 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
       LibraryOperationGate operations,
       ProblemHandler errors,
       JsonMapper json,
-      ObjectProvider<LegacyTextProfileGuard> legacy,
-      ObjectProvider<VisualAnswerService> visual) {
+      ObjectProvider<LegacyTextProfileGuard> legacy) {
     this.operations = Objects.requireNonNull(operations);
     this.errors = Objects.requireNonNull(errors);
     this.json = Objects.requireNonNull(json);
     this.legacy = legacy.getIfAvailable();
-    this.visualPresent =
-        visual.getIfAvailable() != null || (this.legacy != null && this.legacy.visualConfigured());
+    this.visualPresent = this.legacy != null && this.legacy.visualConfigured();
   }
 
   @Override
@@ -103,17 +100,8 @@ public final class LibraryOperationFilter extends OncePerRequestFilter {
 
   private boolean legacyRoute(HttpServletRequest request) {
     String path = paths.getPathWithinApplication(request);
-    if ("GET".equals(request.getMethod())
-        && (path.startsWith("/v1/visual-sources/") || path.startsWith("/v1/video-sources/"))) {
-      return false;
-    }
-    if (path.equals("/v1/visual-answers")
-        || path.startsWith("/v1/visual-sources/")
-        || path.equals("/v1/video-answers")
-        || path.startsWith("/v1/video-sources/")
-        || path.equals("/v1/attachment-answers")
-        || path.matches(
-            "/v1/documents/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}/(image-vector|audio-vector)")) {
+    if (path.matches(
+        "/v1/documents/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}/(image-vector|audio-vector)")) {
       return true;
     }
     if (!"POST".equals(request.getMethod()) || !path.equals("/v1/documents")) {

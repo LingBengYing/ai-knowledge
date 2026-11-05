@@ -105,7 +105,7 @@ class KnowledgeAgentSubscriptionTest {
     final KnowledgeAgentService agents;
 
     Fixture(Path directory) {
-      context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1);
+      context = new AnswerTestContext(directory);
       runtime =
           new ManagedTextRuntime(
               context.authority.store(),
@@ -115,13 +115,6 @@ class KnowledgeAgentSubscriptionTest {
                       context.models,
                       context.projection,
                       context.target,
-                      new AnswerService(
-                          context.evidence,
-                          context.models,
-                          context.projection,
-                          context.target,
-                          Duration.ofSeconds(10),
-                          1),
                       new IndexingTaskProcessor(
                           context.authority.indexing(),
                           context.owner.workspaceId(),

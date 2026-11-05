@@ -1,5 +1,7 @@
 # 原图向量检索
 
+> 2026-11-05：查询入口`POST /v1/attachment-answers`与`/v1/visual-answers`已删除，原图向量目前只能建立与查看状态（`GET/POST /v1/documents/{id}/image-vector`），不再被任何问答路由消费；下文召回段落仅作历史记录。schema不变（v43）。
+
 已索引的真实 PNG/JPEG 可在资料详情显式“建立原图向量”。操作调用服务器配置的图片 embedding；默认关闭，不自动补建。GET读取保存状态，POST仅当前编辑者可用；同原图、发布及模型profile已有合格回执时不再次调用。失败不改变原文字索引、原文件、active版本或已有来源。
 
 只有原图模式的查询附件具有实际queryImages且模块启用，才走独立图片dense召回。当前完整授权范围内每张库图都需当前profile回执；缺失时明确image_vector_required，不删掉缺失资料或扩大范围。普通文字/无参考图问答沿旧路径。每路candidate先在authority映射和完整回读后融合；图片embedding只召回，最后仍对库内原图进行draft/verify并形成原typed引用。来源重启回读不调用embedding。

@@ -1,5 +1,7 @@
 # 视频内嵌文本字幕
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/video-answers`、`/v1/video-sources/*`）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 变更工件：[0016](changes/0016-subtitle-tracks/intent.md)。本机后端已接真实字幕输入、v15 持久化、完整索引、字幕问答、文件摘要和 typed 时间来源；最终验收见 [library-verification](changes/0016-subtitle-tracks/library-verification.md)。默认关闭，模型和 Milvus 服务端为本机协议替身；前端、真实模型质量及生产没有完成。
 
 ## 它与其他视频文字有什么不同

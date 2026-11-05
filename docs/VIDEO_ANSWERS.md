@@ -1,5 +1,7 @@
 # 视频授权问答与 typed 来源
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/video-answers`、`/v1/video-sources/*`及`video_answers/video_sources`能力）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 0014当前后端将既有视频上传/索引接入显式画面、转录及音画联合问答，再读取同版本关键帧与原视频字节；新增独立`ocr`模式消费[选中原帧文字证据](VIDEO_OCR.md)，不改变原三模式证明语义。OCR主线已本机冻结，证据见[OCR验证记录](changes/0014-video-library/ocr-verification.md)。本文记录当前代码合同；不代表完整多模态目标、网页或生产已经完成。已有摄取与发布流程见[VIDEO_PUBLICATION](VIDEO_PUBLICATION.md)，共同事实证明机制见[VIDEO_ASSESSMENT](VIDEO_ASSESSMENT.md)，完整目标和当前验证记录以[0014工件](changes/0014-video-library/plan.md)为准。
 
 ## 启用与调用顺序
@@ -155,4 +157,4 @@ JSON不公开内部physical segment ID、事实原文/分数，也没有`page`�
 
 视频选中原帧OCR链已完成本机冻结：1352 Java、73 Node、458文件格式及双80%门禁通过，6项真实音视频流程单列通过，其中新增OCR验收使用真实FFmpeg/Tesseract合成英文视频；模型/Milvus服务端仍为本机协议替身。源码、报告和旧1299用例保留绑定见[OCR验证记录](changes/0014-video-library/ocr-verification.md)，不能沿用此前三模式报告认证新增源码。独立字幕轨、未选帧文字覆盖、视觉/声音向量、查询附件、文件摘要、真实中文OCR与模型质量、网页播放器和生产发布仍未验收。本轮不调用云模型、不修改旧服务/数据、不推送或部署。视频知识库不是文件摘要接口，当前后端闭环也不等于完整多模态目标完成。
 
-代码依据：[VideoAnswerController](../src/main/java/com/evidence/rag/controller/VideoAnswerController.java)、[VideoAnswerRequestMapper](../src/main/java/com/evidence/rag/web/converter/VideoAnswerRequestMapper.java)、[AnswerService](../src/main/java/com/evidence/rag/service/AnswerService.java)、[VideoAnswerProposalService](../src/main/java/com/evidence/rag/service/VideoAnswerProposalService.java)、[EvidenceService](../src/main/java/com/evidence/rag/service/EvidenceService.java)、[VideoCitationResult](../src/main/java/com/evidence/rag/model/dto/VideoCitationResult.java)、[MediaContentResponse](../src/main/java/com/evidence/rag/web/MediaContentResponse.java)。
+代码依据：VideoAnswerController（2026-11-05已删除）、VideoAnswerRequestMapper（2026-11-05已删除）、AnswerService（2026-11-05已删除）、VideoAnswerProposalService（2026-11-05已删除）、[EvidenceService](../src/main/java/com/evidence/rag/service/EvidenceService.java)、VideoCitationResult（2026-11-05已删除）、[MediaContentResponse](../src/main/java/com/evidence/rag/web/MediaContentResponse.java)。

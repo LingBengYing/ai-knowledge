@@ -99,11 +99,7 @@ final class TextRoleSwitchTestFixture implements AutoCloseable {
             ignored -> {
               throw new AssertionError("Activation and answers must not index");
             });
-    var answers =
-        new AnswerService(
-            evidence, actual, projection, target, Duration.ofSeconds(3), 2, null, null, fixed);
-    return new TextRuntimeSnapshot(
-        version, actual, projection, target, answers, processor, release, fixed);
+    return new TextRuntimeSnapshot(version, actual, projection, target, processor, release, fixed);
   }
 
   TextRuntimeSnapshot activate(long version, TextModelConfiguration roles, TextIndexAnchor anchor) {

@@ -65,7 +65,7 @@ class DocumentLifecycleMigrationTest {
       physicalIds = PublishedCorpusFixture.physicalIds(claim);
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       publications = scope.publications();
-      sources = fixture.evidence.hydrate(scope, physicalIds);
+      sources = fixture.evidence.finishRetrieval(scope, physicalIds, TARGET, () -> true);
       assertEquals(1, publications.size());
       assertEquals(1, sources.size());
     }
@@ -86,7 +86,8 @@ class DocumentLifecycleMigrationTest {
       try (var fixture = new PublishedCorpusFixture(directory)) {
         var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
         assertEquals(publications, scope.publications());
-        assertEquals(sources, fixture.evidence.hydrate(scope, physicalIds));
+        assertEquals(
+            sources, fixture.evidence.finishRetrieval(scope, physicalIds, TARGET, () -> true));
         assertEquals(
             HistoricalSchemaV25Fixture.CURRENT_VERSION, scalar(database, "PRAGMA user_version"));
         assertEquals(
@@ -111,7 +112,8 @@ class DocumentLifecycleMigrationTest {
     try (var restored = new PublishedCorpusFixture(restoredDirectory)) {
       var scope = restored.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       assertEquals(publications, scope.publications());
-      assertEquals(sources, restored.evidence.hydrate(scope, physicalIds));
+      assertEquals(
+          sources, restored.evidence.finishRetrieval(scope, physicalIds, TARGET, () -> true));
     }
     // The independently restored copy cannot modify its immutable v4 source backup.
     assertEquals(4, scalar(backup, "PRAGMA user_version"));

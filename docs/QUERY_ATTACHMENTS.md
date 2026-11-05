@@ -1,5 +1,7 @@
 # 多模态查询附件
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/attachment-answers`及`query_attachments`能力、`rag.query-attachments.*`配置）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 0017已接通请求期编译、授权答案生命周期、hash-only trace和独立有界HTTP入口。默认关闭，仅开发/测试loopback；真实合成PNG/WAV/MP4的HTTP链已通过，本轮完整冻结记录见[附件答案验证](changes/0017-query-attachments/answers-verification.md)。**前端尚未接线，真实provider质量、完整生产配置和生产发布未验收**。完整合同见[0017 spec](changes/0017-query-attachments/spec.md)，此前输入/匹配Module的独立历史证据仍见[步骤1–2验证](changes/0017-query-attachments/verification.md)。
 
 ## HTTP正常路径
