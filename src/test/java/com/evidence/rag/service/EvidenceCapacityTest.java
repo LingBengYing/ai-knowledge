@@ -30,7 +30,9 @@ class EvidenceCapacityTest {
       }
       var scope = fixture.evidence.snapshot(owner, DocumentSelection.allDocuments(), TARGET);
       var error =
-          assertThrows(ApplicationException.class, () -> fixture.evidence.hydrate(scope, ids));
+          assertThrows(
+              ApplicationException.class,
+              () -> fixture.evidence.finishRetrieval(scope, ids, TARGET, () -> true));
       assertEquals(FailureKind.CAPACITY_EXCEEDED, error.kind());
       assertEquals("evidence_capacity_exceeded", error.code());
     }
@@ -44,7 +46,7 @@ class EvidenceCapacityTest {
       var scope =
           fixture.evidence.snapshot(
               owner, DocumentSelection.selected(List.of(publication.documentId())), TARGET);
-      var hydrated = fixture.evidence.hydrate(scope, candidates);
+      var hydrated = fixture.evidence.finishRetrieval(scope, candidates, TARGET, () -> true);
       assertEquals(4, hydrated.size());
       assertEquals(candidates, hydrated.stream().map(item -> item.physicalSegmentId()).toList());
       assertEquals(1, hydrated.stream().map(item -> item.page()).distinct().count());

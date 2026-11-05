@@ -14,11 +14,7 @@ import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.TextIndexAnchor;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import com.evidence.rag.model.dto.SaveModelConfigurationCommand;
-import com.evidence.rag.repository.EvidenceRepository;
-import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.ModelConfigurationRepository;
-import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
-import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.support.AnswerProtocolServer;
 import com.evidence.rag.support.AuthorityTestContext;
@@ -30,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
 
 /** Genuine local configuration identities and real queued index JVM; no remote accounts. */
@@ -265,7 +260,6 @@ class ManagedTextRoleSwitchConfigurationTest {
     final ManagedTextSettings settings;
     final RagSettings properties;
     final ModelConfigurationConfiguration configuration = new ModelConfigurationConfiguration();
-    final EvidenceService evidence;
 
     Fixture(Path directory) throws Exception {
       models = new AnswerProtocolServer();
@@ -295,28 +289,16 @@ class ManagedTextRoleSwitchConfigurationTest {
               null,
               null,
               directory.resolve("authority"));
-      evidence =
-          new EvidenceService(
-              authority.store(),
-              new EvidenceRepository(authority.store()),
-              new ManagementRepository(authority.store()),
-              new DocumentPermissionPolicy());
     }
 
     ManagedTextRuntime start() {
-      var providers = new DefaultListableBeanFactory();
-      providers.registerSingleton("evidenceService", evidence);
-      providers.registerSingleton("answersSettings", new AnswersSettings(true, 10000, 2));
       return configuration.managedTextRuntime(
           authority.store(),
           authority.indexing(),
-          evidence,
           properties,
           new ManagedTextSettings(environment),
-          new AnswersSettings(true, 10000, 2),
           new IndexingSettings(true, 10000),
           repository,
-          providers.createBean(ManagedMediaTextFactory.class),
           new BatchProcessingSettings(
               2, 2, 2, 10000, 0, 1, 1, 0, 600000, 2, 1, 0, 0, 10737418240L));
     }

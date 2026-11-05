@@ -1,24 +1,15 @@
 package com.evidence.rag.service;
 
-import static com.evidence.rag.support.PublishedCorpusFixture.TARGET;
-import static com.evidence.rag.support.PublishedCorpusFixture.physicalIds;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
-import com.evidence.rag.model.domain.AnswerEligibility;
-import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.ImageDimensions;
 import com.evidence.rag.model.domain.ImageOcrOptions;
 import com.evidence.rag.model.domain.ImageTextRegion;
-import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ParsedImage;
-import com.evidence.rag.model.domain.TraceDraft;
-import com.evidence.rag.model.domain.TraceEvidence;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
@@ -28,7 +19,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
@@ -48,68 +38,6 @@ class ImageRegionServiceTest {
           AMOUNT,
           new ImageTextRegion(11, 14, 60, 0, 85, 10));
   @TempDir Path directory;
-
-  @Test
-  void completedImageSurvivesRestartAndSourceReturnsOnlyIntersectingWord() throws Exception {
-    byte[] original = image();
-    String traceId;
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      var ingestion = ingestion(fixture);
-      var task = ingestion.uploadDocument(OWNER, "budget.png", "image/png", original);
-      var claim = ingestion.claimIngestion(OWNER.workspaceId()).orElseThrow();
-
-      assertTrue(ingestion.completeImageIngestion(claim, parsed(REGIONS)));
-
-      assertEquals("parsed", ingestion.ingestionStatus(OWNER, task.taskId()).state());
-      assertEquals(
-          TEXT, ingestion.parsedEvidence(OWNER, task.documentId()).pages().getFirst().text());
-      fixture.authority.indexing().createIndexing(OWNER, task.documentId(), TARGET);
-      var indexing = fixture.authority.indexing().claimIndexing(OWNER.workspaceId()).orElseThrow();
-      var digests = new LinkedHashMap<String, String>();
-      physicalIds(indexing).forEach(id -> digests.put(id, "a".repeat(64)));
-      var manifest =
-          new RetrievalProjection.RevisionManifest(
-              OWNER.workspaceId(), task.documentId(), indexing.projectionGenerationId(), digests);
-      assertTrue(
-          fixture
-              .authority
-              .indexing()
-              .completeIndexing(
-                  indexing,
-                  digests,
-                  new com.evidence.rag.model.domain.VerifiedRevision(
-                      TARGET.projectionIdentity(), manifest.sha256(), digests.size())));
-      var scope =
-          fixture.evidence.snapshot(
-              OWNER, DocumentSelection.selected(List.of(task.documentId())), TARGET);
-      String hash = ModelValues.sha256("50".getBytes(StandardCharsets.UTF_8));
-      var receipt =
-          fixture.evidence.finish(
-              scope,
-              new TraceDraft(
-                  hash,
-                  hash,
-                  "answered",
-                  null,
-                  TARGET.modelRevision(),
-                  "image-region-fixture",
-                  "image-region-fixture",
-                  List.of(
-                      new TraceEvidence(
-                          1, physicalIds(indexing).getFirst(), 8, 10, 1, 1, List.of(hash)))),
-              () -> AnswerEligibility.ELIGIBLE,
-              null);
-      assertEquals("answered", receipt.outcome());
-      traceId = receipt.traceId();
-    }
-    try (var reopened = new PublishedCorpusFixture(directory)) {
-      var source = reopened.evidence.source(OWNER, traceId, 1);
-      assertEquals(8, source.start());
-      assertEquals(10, source.end());
-      assertEquals(List.of(AMOUNT), source.image().regions());
-      assertArrayEquals(original, source.image().content());
-    }
-  }
 
   @ParameterizedTest
   @MethodSource("invalidRegions")

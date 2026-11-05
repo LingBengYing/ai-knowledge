@@ -14,14 +14,12 @@ import com.evidence.rag.model.domain.QualifiedProjectionTarget;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import com.evidence.rag.repository.DocumentCleanupRepository;
 import com.evidence.rag.repository.DocumentLifecycleRepository;
-import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.repository.ModelConfigurationRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.DocumentCleanupService;
-import com.evidence.rag.service.EvidenceService;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.support.AuthorityTestContext;
 import com.evidence.rag.tool.parser.TextParser;
@@ -29,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -151,15 +148,6 @@ class ManagedDocumentCleanupConfigurationTest {
               null,
               null,
               directory.resolve("authority"));
-      var evidence =
-          new EvidenceService(
-              authority.store(),
-              new EvidenceRepository(authority.store()),
-              new ManagementRepository(authority.store()),
-              new DocumentPermissionPolicy());
-      var providers = new DefaultListableBeanFactory();
-      providers.registerSingleton("evidenceService", evidence);
-      providers.registerSingleton("answersSettings", new AnswersSettings(true, 10000, 2));
       repository.save(0, roles);
       repository.activate(1);
       runtime =
@@ -167,13 +155,10 @@ class ManagedDocumentCleanupConfigurationTest {
               .managedTextRuntime(
                   authority.store(),
                   authority.indexing(),
-                  evidence,
                   properties,
                   settings,
-                  new AnswersSettings(true, 10000, 2),
                   new IndexingSettings(true, 10000),
                   repository,
-                  providers.createBean(ManagedMediaTextFactory.class),
                   new BatchProcessingSettings(
                       2, 2, 2, 10000, 0, 1, 1, 0, 600000, 2, 1, 0, 0, 10737418240L));
       context.setEnvironment(environment);

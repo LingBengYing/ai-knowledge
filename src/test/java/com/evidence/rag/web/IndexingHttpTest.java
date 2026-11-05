@@ -152,8 +152,8 @@ class IndexingHttpTest {
     assertTrue(capabilities.toString().contains("\"text_index\""));
     assertTrue(capabilities.toString().contains("\"indexings\""));
     assertFalse(capabilities.toString().contains("text_upload"));
-    assertFalse(capabilities.toString().contains("answers"));
-    assertTrue(config.path("unavailable").toString().contains("answers"));
+    assertFalse(capabilities.toString().contains("\"answers\""));
+    assertFalse(config.path("unavailable").toString().contains("\"answers\""));
     assertFalse(result.body().contains("synthetic-model-credential"));
     assertFalse(result.body().contains("synthetic-projection-credential"));
     assertEquals(503, request("GET", "/health/ready", null, null).statusCode());

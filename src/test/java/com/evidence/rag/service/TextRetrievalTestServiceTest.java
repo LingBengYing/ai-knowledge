@@ -11,7 +11,6 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
-import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.AnswerCommand;
@@ -450,44 +449,6 @@ class TextRetrievalTestServiceTest {
         assertFalse(fixture.context.models.calls.contains("extract"));
         assertEquals(0, fixture.context.scalar("SELECT COUNT(*) FROM query_traces"));
       }
-    }
-  }
-
-  @Test
-  void matchingCapturedTargetSourceReadRetainsLegacySourceAndRejectsOtherProfile() {
-    try (var fixture = new ManagedTextTestFixture(directory)) {
-      String document = fixture.context.publish("policy.txt", "星港项目的识别码为A-42。");
-      var command =
-          new AnswerCommand("星港项目的识别码是什么？", DocumentSelection.selected(List.of(document)));
-      var answer = fixture.context.answers.answer(fixture.context.owner, command);
-      assertEquals("answered", answer.status());
-      var legacy = fixture.context.answers.source(fixture.context.owner, answer.answerId(), 1);
-      var matching =
-          fixture.context.answers.source(
-              fixture.context.owner, answer.answerId(), 1, fixture.context.target);
-      assertEquals(legacy, matching);
-      var target = fixture.context.target;
-      var other =
-          new IndexTarget(
-              "changed-embedding", target.projectionIdentity(), target.modelRevision(), 2);
-      assertEquals(
-          "not_found",
-          assertThrows(
-                  ApplicationException.class,
-                  () ->
-                      fixture.context.answers.source(
-                          fixture.context.owner, answer.answerId(), 1, other))
-              .code());
-      assertEquals(
-          "not_found",
-          assertThrows(
-                  ApplicationException.class,
-                  () ->
-                      fixture.context.evidence.source(
-                          fixture.context.owner, answer.answerId(), 1, other))
-              .code());
-      assertEquals(
-          legacy, fixture.context.answers.source(fixture.context.owner, answer.answerId(), 1));
     }
   }
 

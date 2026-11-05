@@ -1378,19 +1378,11 @@ class KnowledgeAgentServiceTest {
 
     /** The first {@code persistenceFailures} conversation terminal writes fail. */
     Fixture(Path directory, Duration timeout, int persistenceFailures) {
-      context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1);
+      context = new AnswerTestContext(directory);
       runtime =
           new ManagedTextRuntime(
               context.authority.store(),
               (version, configuration) -> {
-                var answers =
-                    new AnswerService(
-                        context.evidence,
-                        context.models,
-                        context.projection,
-                        context.target,
-                        Duration.ofSeconds(10),
-                        1);
                 var indexing =
                     new IndexingTaskProcessor(
                         context.authority.indexing(),
@@ -1405,7 +1397,6 @@ class KnowledgeAgentServiceTest {
                     context.models,
                     context.projection,
                     context.target,
-                    answers,
                     indexing,
                     () -> {});
               });

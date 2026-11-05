@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -100,7 +99,7 @@ class PdfOcrMainlineHttpTest {
   }
 
   @Test
-  void everyOriginalPageTravelsThroughOcrPersistenceIndexAnswerAndOriginalPdf() throws Exception {
+  void everyOriginalPageTravelsThroughOcrPersistenceIndexAndOriginalPdf() throws Exception {
     byte[] pdf = pdf();
     try (var indexing = new IndexingTestServer();
         var answers = new AnswerProtocolServer();
@@ -175,41 +174,6 @@ class PdfOcrMainlineHttpTest {
         assertTrue(
             parsed.pages().get(2).text().contains("810 USD"),
             "Mixed page must also retain its visible text layer");
-        for (String project : List.of("A", "B", "C")) {
-          var answer =
-              json(
-                  "POST",
-                  "/v1/answers",
-                  JSON.writeValueAsBytes(
-                      Map.of(
-                          "question",
-                          "What is Project " + project + "'s budget?",
-                          "document_ids",
-                          List.of(doc))),
-                  "application/json",
-                  200);
-          assertEquals("answered", answer.path("status").asString(), answer.toString());
-          assertTrue(
-              answer
-                  .path("answer")
-                  .asString()
-                  .contains(Map.of("A", "650", "B", "470", "C", "810").get(project)),
-              answer.toString());
-          var citation = answer.path("citations").get(0);
-          assertEquals(doc, citation.path("document_id").asString());
-          assertEquals(revision, citation.path("revision_id").asString());
-          assertEquals(ModelValues.sha256(pdf), citation.path("source_sha256").asString());
-          assertTrue(
-              citation.path("parser_revision").asString().matches("java-pdf-ocr-v1:[0-9a-f]{64}"));
-          assertEquals(project.equals("A") ? 2 : 3, citation.path("page").asInt());
-          var source = json("GET", citation.path("source_url").asString(), null, null, 200);
-          assertEquals(citation, source.path("citation"));
-          assertTrue(source.path("image").isMissingNode());
-          var sharedSource =
-              request("GET", citation.path("source_url").asString(), null, null, "other-owner");
-          assertEquals(200, sharedSource.statusCode());
-          assertEquals(source, JSON.readTree(sharedSource.body()));
-        }
         var original = json("GET", "/v1/documents/" + doc + "/original", null, null, 200);
         assertEquals(revision, original.path("revision_id").asString());
         assertEquals(ModelValues.sha256(pdf), original.path("source_sha256").asString());

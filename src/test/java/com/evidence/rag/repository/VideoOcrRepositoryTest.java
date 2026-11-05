@@ -3,7 +3,6 @@ package com.evidence.rag.repository;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.client.vector.RetrievalProjection;
@@ -13,14 +12,11 @@ import com.evidence.rag.model.domain.EvidenceScope;
 import com.evidence.rag.model.domain.ImageDimensions;
 import com.evidence.rag.model.domain.ImageTextRegion;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.domain.TraceDraft;
-import com.evidence.rag.model.domain.TraceEvidence;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import com.evidence.rag.model.domain.VideoCompilation;
 import com.evidence.rag.model.domain.VideoFrameOcr;
 import com.evidence.rag.model.domain.VideoOcrCompilation;
 import com.evidence.rag.model.domain.VideoOcrSegment;
-import com.evidence.rag.model.entity.TraceVideoOcrCitationEntity;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.IngestionService;
 import com.evidence.rag.support.PublishedCorpusFixture;
@@ -74,8 +70,6 @@ class VideoOcrRepositoryTest {
             assertEquals(2, store.count("SELECT projection_count FROM video_compilations"));
             assertEquals(1, store.count("SELECT projection_count FROM video_ocr_compilations"));
             assertEquals(3, ids.size());
-            var publications = repository.findVideoOcrPublications(scope);
-            assertEquals(1, publications.size());
             var source = repository.findPublishedVideoOcrEvidence(scope, ids).getFirst();
             assertEquals("预算42万元。", source.frame().text());
             assertEquals(0, source.source().segment().start());
@@ -98,161 +92,6 @@ class VideoOcrRepositoryTest {
                 List.of(), repository.findPublishedVideoOcrEvidence(scope, List.of("unknown")));
             return null;
           });
-    }
-  }
-
-  @Test
-  void ocrTraceSealsExactChunkAndFullScopeWithoutVideoJointProofAcrossReopen() {
-    TraceVideoOcrCitationEntity expected;
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      fixture.publish(OWNER, "Unrelated document remains in the trace.");
-      var ids = publish(fixture);
-      var scope = scope(fixture);
-      var store = fixture.authority.store();
-      var repository = new EvidenceRepository(store);
-      expected =
-          store.transaction(
-              () -> {
-                var source = repository.findPublishedVideoOcrEvidence(scope, ids).getFirst();
-                var trace =
-                    new TraceEvidence(1, source.physicalSegmentId(), 0, 7, 0.8, 0.9, List.of(HASH));
-                var citation =
-                    new TraceVideoOcrCitationEntity(
-                        trace,
-                        source.publication().publicationId(),
-                        source.source().id(),
-                        source.source().frameId(),
-                        source.publication().sourceSha256(),
-                        source.frame().frameSha256(),
-                        source.ocrManifestSha256(),
-                        sha(source.frame().text()),
-                        sha(source.frame().text()));
-                var draft =
-                    new TraceDraft(
-                        HASH,
-                        HASH,
-                        "answered",
-                        null,
-                        "model",
-                        "prompt",
-                        "policy",
-                        List.of(),
-                        List.of(),
-                        List.of(),
-                        List.of(),
-                        null,
-                        List.of(trace));
-                repository.insertTrace(
-                    "ocr-trace",
-                    scope,
-                    draft,
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(citation),
-                    List.of(),
-                    NOW);
-                assertEquals(
-                    2, store.count("SELECT scope_count FROM query_traces WHERE id='ocr-trace'"));
-                assertEquals(0, store.count("SELECT COUNT(*) FROM video_trace_proofs"));
-                assertThrows(
-                    RuntimeException.class,
-                    () ->
-                        store.execute(
-                            "UPDATE video_ocr_trace_evidence SET quote_sha256=?", "b".repeat(64)));
-                assertThrows(
-                    RuntimeException.class, () -> store.execute("DELETE FROM video_frame_ocr"));
-                return citation;
-              });
-    }
-    try (var store = new SqliteAuthorityStore(directory)) {
-      store.transaction(
-          () -> {
-            assertEquals(
-                expected,
-                new EvidenceRepository(store).findTraceVideoOcrCitation(OWNER, "ocr-trace", 1));
-            assertEquals(0, store.count("SELECT COUNT(*) FROM pragma_foreign_key_check"));
-            return null;
-          });
-    }
-  }
-
-  @Test
-  void ocrCitationCannotUseCaptionPhysicalIdentityOrEscapeItsChunk() {
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      var ids = publish(fixture);
-      var scope = scope(fixture);
-      var store = fixture.authority.store();
-      var repository = new EvidenceRepository(store);
-      var source =
-          store.transaction(() -> repository.findPublishedVideoOcrEvidence(scope, ids).getFirst());
-      String captionId =
-          ids.stream()
-              .filter(id -> !id.equals(source.physicalSegmentId()))
-              .findFirst()
-              .orElseThrow();
-      for (var locator :
-          List.of(
-              new TraceEvidence(1, captionId, 0, 7, 0.8, 0.9, List.of(HASH)),
-              new TraceEvidence(1, source.physicalSegmentId(), 0, 8, 0.8, 0.9, List.of(HASH)))) {
-        var citation =
-            new TraceVideoOcrCitationEntity(
-                locator,
-                source.publication().publicationId(),
-                source.source().id(),
-                source.source().frameId(),
-                source.publication().sourceSha256(),
-                source.frame().frameSha256(),
-                source.ocrManifestSha256(),
-                sha(source.frame().text()),
-                sha(source.frame().text()));
-        var draft =
-            new TraceDraft(
-                HASH,
-                HASH,
-                "answered",
-                null,
-                "model",
-                "prompt",
-                "policy",
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                null,
-                List.of(locator));
-        assertThrows(
-            RuntimeException.class,
-            () ->
-                store.transaction(
-                    () -> {
-                      repository.insertTrace(
-                          "invalid-ocr",
-                          scope,
-                          draft,
-                          List.of(),
-                          List.of(),
-                          List.of(),
-                          List.of(),
-                          List.of(citation),
-                          List.of(),
-                          NOW);
-                      return null;
-                    }));
-        store.transaction(
-            () -> {
-              assertEquals(
-                  0,
-                  store.count(
-                      "SELECT COUNT(*) FROM query_trace_documents WHERE trace_id='invalid-ocr'"));
-              assertEquals(
-                  0,
-                  store.count(
-                      "SELECT COUNT(*) FROM video_ocr_trace_evidence WHERE trace_id='invalid-ocr'"));
-              return null;
-            });
-      }
     }
   }
 
@@ -325,9 +164,5 @@ class VideoOcrRepositoryTest {
   static EvidenceScope scope(PublishedCorpusFixture fixture) {
     return fixture.evidence.snapshot(
         OWNER, DocumentSelection.allDocuments(), PublishedCorpusFixture.TARGET);
-  }
-
-  static String sha(String text) {
-    return ModelValues.sha256(text.getBytes(StandardCharsets.UTF_8));
   }
 }

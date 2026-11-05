@@ -1,7 +1,6 @@
 package com.evidence.rag.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.service.RuntimeService;
@@ -9,14 +8,17 @@ import org.junit.jupiter.api.Test;
 
 class ImageEmbeddingRuntimeTest {
   @Test
-  void imageVectorCapabilityRequiresIndexingAndTheActualVisualAttachmentPath() {
+  void imageVectorCapabilityRequiresIndexingVisualAnswersAndOptIn() {
     assertTrue(
         runtime(true, true, true, true, true, true, true)
             .capabilities()
             .capabilities()
             .contains("image_vector_retrieval"));
+    // Indexing, answers, visual and the opt-in are required; OCR, audio and video are not.
     for (int missing = 0; missing < 7; missing++) {
-      assertFalse(
+      boolean required = missing == 0 || missing == 1 || missing == 2 || missing == 6;
+      assertEquals(
+          !required,
           runtime(
                   missing != 0,
                   missing != 1,
@@ -29,25 +31,6 @@ class ImageEmbeddingRuntimeTest {
               .capabilities()
               .contains("image_vector_retrieval"));
     }
-    assertFalse(
-        new RuntimeService(
-                "development_headers",
-                "org-main",
-                true,
-                true,
-                true,
-                false,
-                true,
-                true,
-                true,
-                true,
-                false,
-                false,
-                false,
-                true)
-            .capabilities()
-            .capabilities()
-            .contains("image_vector_retrieval"));
   }
 
   @Test

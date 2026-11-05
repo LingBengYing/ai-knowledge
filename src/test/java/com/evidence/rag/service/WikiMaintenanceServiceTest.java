@@ -603,8 +603,6 @@ class WikiMaintenanceServiceTest {
     var store = fixture.authority.store();
     var projection = new DeterministicProjection(owner.workspaceId(), 2);
     var target = new IndexTarget("wiki-test", projection.identity(), models.revision(), 2);
-    var answers =
-        new AnswerService(fixture.evidence, models, projection, target, Duration.ofSeconds(3), 2);
     var indexing =
         new IndexingTaskProcessor(
             fixture.authority.indexing(),
@@ -614,8 +612,7 @@ class WikiMaintenanceServiceTest {
             ignored -> {
               throw new AssertionError("Wiki must not reindex");
             });
-    var snapshot =
-        new TextRuntimeSnapshot(1, models, projection, target, answers, indexing, () -> {});
+    var snapshot = new TextRuntimeSnapshot(1, models, projection, target, indexing, () -> {});
     var runtime = new ManagedTextRuntime(store, (version, configuration) -> snapshot);
     try (var lease = store.operationGate().tryMaintenance().orElseThrow()) {
       runtime.install(snapshot, lease, () -> {});

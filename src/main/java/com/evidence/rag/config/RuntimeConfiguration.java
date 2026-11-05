@@ -1,5 +1,6 @@
 package com.evidence.rag.config;
 
+import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.job.DocumentCleanupJob;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import com.evidence.rag.model.dto.RuntimeCapabilitiesResult;
@@ -8,10 +9,8 @@ import com.evidence.rag.service.DocumentCleanupService;
 import com.evidence.rag.service.ImageVectorIndexingService;
 import com.evidence.rag.service.LegacyTextProfileGuard;
 import com.evidence.rag.service.ManagedTextRuntime;
-import com.evidence.rag.service.QueryAttachmentService;
 import com.evidence.rag.service.RuntimeService;
 import com.evidence.rag.service.VideoCompilationService;
-import com.evidence.rag.service.VisualAnswerService;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
@@ -36,10 +35,8 @@ public class RuntimeConfiguration {
       ObjectProvider<LibraryOperationGate> operations,
       ObjectProvider<ManagedTextRuntime> managed,
       ObjectProvider<LegacyTextProfileGuard> legacy,
-      ObjectProvider<VisualAnswerService> visual,
-      ObjectProvider<VideoCompilationService> video,
-      ObjectProvider<QueryAttachmentService> attachments,
-      ObjectProvider<ManagedMediaTextFactory> media) {
+      ObjectProvider<VisionModels> visual,
+      ObjectProvider<VideoCompilationService> video) {
     var base =
         create(
             p,
@@ -66,15 +63,8 @@ public class RuntimeConfiguration {
                   reindexCapabilities(base.capabilities(), autoIndex), textEvidenceOnly));
     }
     var guard = legacy.getIfAvailable();
-    var configuredMedia = media.getIfAvailable();
-    boolean visualPresent =
-        configuredMedia != null ? configuredMedia.visualPresent() : visual.getIfAvailable() != null;
-    boolean videoPresent =
-        configuredMedia != null ? configuredMedia.videoPresent() : video.getIfAvailable() != null;
-    boolean attachmentsPresent =
-        configuredMedia != null
-            ? configuredMedia.attachmentsPresent()
-            : attachments.getIfAvailable() != null;
+    boolean visualPresent = visual.getIfAvailable() != null;
+    boolean videoPresent = video.getIfAvailable() != null;
     return new RuntimeService(
         () ->
             managedCapabilities(
@@ -83,8 +73,7 @@ public class RuntimeConfiguration {
                 runtime.currentVersion() != null,
                 guard != null && guard.compatible(),
                 visualPresent,
-                videoPresent,
-                attachmentsPresent));
+                videoPresent));
   }
 
   private static RuntimeCapabilitiesResult textEvidenceCapabilities(
@@ -94,14 +83,7 @@ public class RuntimeConfiguration {
     }
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
-    disable(
-        enabled,
-        unavailable,
-        List.of(
-            "video_answers",
-            "query_attachments",
-            "image_vector_retrieval",
-            "audio_vector_retrieval"));
+    disable(enabled, unavailable, List.of("image_vector_retrieval", "audio_vector_retrieval"));
     return new RuntimeCapabilitiesResult(
         base.authMode(), base.workspaceId(), base.migrationStage(), enabled, unavailable);
   }
@@ -146,8 +128,7 @@ public class RuntimeConfiguration {
       boolean textReady,
       boolean legacyCompatible,
       boolean visualPresent,
-      boolean videoPresent,
-      boolean attachmentsPresent) {
+      boolean videoPresent) {
     var enabled = new ArrayList<>(base.capabilities());
     var unavailable = new ArrayList<>(base.unavailable());
     enabled.add("model_configuration");
@@ -170,9 +151,6 @@ public class RuntimeConfiguration {
               "text_reindex",
               "text_reindex_with_vectors",
               "batch_text_reindex",
-              "answers",
-              "sources",
-              "source_image_content",
               "audio_index",
               "audio_answers",
               "audio_sources"));
@@ -186,16 +164,10 @@ public class RuntimeConfiguration {
       disable(enabled, unavailable, List.of("visual_sources"));
     }
     if (!legacyCompatible || !videoPresent) {
-      disable(enabled, unavailable, List.of("video_upload", "video_index", "video_answers"));
+      disable(enabled, unavailable, List.of("video_upload", "video_index"));
     }
-    if (!textReady) {
-      disable(enabled, unavailable, List.of("video_sources"));
-    }
-    if (!legacyCompatible || !attachmentsPresent) {
-      disable(
-          enabled,
-          unavailable,
-          List.of("query_attachments", "image_vector_retrieval", "audio_vector_retrieval"));
+    if (!legacyCompatible) {
+      disable(enabled, unavailable, List.of("image_vector_retrieval", "audio_vector_retrieval"));
     }
     return new RuntimeCapabilitiesResult(
         base.authMode(),
@@ -266,7 +238,7 @@ public class RuntimeConfiguration {
         environment.getProperty("rag.audio.enabled", Boolean.class, false),
         environment.getProperty("rag.video.enabled", Boolean.class, false),
         environment.getProperty("rag.synopsis.enabled", Boolean.class, false),
-        environment.getProperty("rag.query-attachments.enabled", Boolean.class, false),
+        false,
         PdfOcrConfiguration.options(environment) != null,
         imageVectorAvailable
             && environment.getProperty("rag.image-embedding.enabled", Boolean.class, false),

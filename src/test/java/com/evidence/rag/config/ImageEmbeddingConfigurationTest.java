@@ -115,7 +115,7 @@ class ImageEmbeddingConfigurationTest {
 
   @Test
   void nonlocalOrMissingPrerequisitesFailWithSanitizedErrors() {
-    for (String dependency : List.of("indexing", "visual", "answers", "query-attachments")) {
+    for (String dependency : List.of("indexing", "visual", "answers")) {
       invalid(local().withProperty("rag." + dependency + ".enabled", "false"));
     }
     for (String bind : List.of("0.0.0.0", "localhost", "127.0.0.2", "::")) {
@@ -180,7 +180,6 @@ class ImageEmbeddingConfigurationTest {
         .withProperty("rag.indexing.enabled", "true")
         .withProperty("rag.visual.enabled", "true")
         .withProperty("rag.answers.enabled", "true")
-        .withProperty("rag.query-attachments.enabled", "true")
         .withProperty("rag.image-embedding.base-url", "http://127.0.0.1:1/v1")
         .withProperty("rag.image-embedding.model", "synthetic-image-model")
         .withProperty("rag.image-embedding.api-key", "synthetic-image-key")

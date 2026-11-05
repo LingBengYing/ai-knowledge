@@ -375,7 +375,6 @@ class ReindexVectorContinuationMainlineHttpTest {
             "audio",
             "video",
             "image-ocr",
-            "query-attachments",
             "image-embedding",
             "audio-embedding")) {
       values.put("rag." + module + ".enabled", true);
@@ -389,7 +388,6 @@ class ReindexVectorContinuationMainlineHttpTest {
             "rag.audio",
             "rag.video.asr",
             "rag.video.vision",
-            "rag.query-attachments.ranking",
             "rag.image-embedding",
             "rag.audio-embedding")) {
       values.put(prefix + ".base-url", remote.endpoint().toString());

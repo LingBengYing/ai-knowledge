@@ -424,9 +424,6 @@ class ManagedMediaIngestionBoundaryTest {
     var target =
         new IndexTarget(
             "embedding-v2", fixture.context.projection.identity(), models.revision(), 2);
-    var answers =
-        new AnswerService(
-            fixture.context.evidence, models, fixture.context.projection, target, DEADLINE, 2);
     var indexing =
         new IndexingTaskProcessor(
             fixture.context.authority.indexing(),
@@ -437,8 +434,7 @@ class ManagedMediaIngestionBoundaryTest {
               throw new AssertionError("Ingestion must not invoke an indexing worker");
             });
     var snapshot =
-        new TextRuntimeSnapshot(
-            2, models, fixture.context.projection, target, answers, indexing, () -> {});
+        new TextRuntimeSnapshot(2, models, fixture.context.projection, target, indexing, () -> {});
     try (var lease =
         fixture.context.authority.store().operationGate().tryMaintenance().orElseThrow()) {
       fixture.runtime.install(snapshot, lease, () -> {});

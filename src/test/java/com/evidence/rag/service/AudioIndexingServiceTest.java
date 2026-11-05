@@ -1,7 +1,6 @@
 package com.evidence.rag.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,7 +16,6 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.ProjectionItem;
 import com.evidence.rag.model.domain.PublicationVersion;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
-import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.repository.EvidenceRepository;
 import com.evidence.rag.repository.IndexingRepository;
 import com.evidence.rag.repository.IngestionRepository;
@@ -125,7 +123,6 @@ class AudioIndexingServiceTest {
       assertEquals(2, publication.segmentCount());
       assertEquals(result.verified().manifestSha256(), publication.manifestSha256());
       assertTrue(evidence.textPublications(snapshot).isEmpty());
-      assertTrue(evidence.imagePublications(snapshot).isEmpty());
       assertTrue(ingestion.parsedEvidence(owner, upload.documentId()).pages().isEmpty());
       assertTrue(ingestion.parsedEvidence(owner, upload.documentId()).segments().isEmpty());
     }
@@ -133,9 +130,9 @@ class AudioIndexingServiceTest {
 
   @ParameterizedTest(name = "allDocuments={0}")
   @ValueSource(booleans = {true, false})
-  void mixedTextImageAndAudioKeepCompleteScopeWhileTextAnswersUseOnlyText(boolean allDocuments)
-      throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
+  void mixedTextImageAndAudioKeepCompleteScopeWhileTextPublicationsStayTextOnly(
+      boolean allDocuments) throws Exception {
+    try (var context = new AnswerTestContext(directory)) {
       String textDocument = context.publish("plan.txt", TEXT);
       var store = context.authority.store();
       var ingestion =
@@ -181,26 +178,6 @@ class AudioIndexingServiceTest {
           context.evidence.textPublications(snapshot).stream()
               .map(PublicationVersion::documentId)
               .toList());
-      assertEquals(
-          List.of(image.documentId()),
-          context.evidence.imagePublications(snapshot).stream()
-              .map(PublicationVersion::documentId)
-              .toList());
-
-      var answer = context.answers.answer(context.owner, new AnswerCommand(QUESTION, selection));
-      assertEquals("answered", answer.status(), answer.reason());
-      assertTrue(answer.answer().contains("A-42"));
-      assertEquals(Set.of(textDocument), context.projection.lastScope.documentRevisions().keySet());
-      assertEquals(List.of(TEXT), context.models.lastEvidence.stream().map(e -> e.text()).toList());
-      assertEquals(1, answer.citations().size());
-      assertEquals(textDocument, answer.citations().getFirst().documentId());
-      assertEquals(
-          answer.citations().getFirst(),
-          context.answers.source(context.owner, answer.answerId(), 1).citation());
-      assertEquals(3, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      assertEquals(1, context.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
-      assertFalse(answer.answer().contains("合成转录"));
     }
   }
 

@@ -216,7 +216,7 @@ class ManagedTextRuntimeBoundaryTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"model", "projection", "answer-target"})
+  @ValueSource(strings = {"model", "projection"})
   void snapshotAssemblyRejectsCrossProfileCollaboratorsWithoutClosingBorrowedServices(String kind) {
     try (var fixture = new ManagedTextTestFixture(directory)) {
       var base = fixture.context.target;
@@ -227,9 +227,6 @@ class ManagedTextRuntimeBoundaryTest {
                     base.embeddingIdentity(), base.projectionIdentity(), "other-model-v2", 2);
             case "projection" ->
                 new IndexTarget(base.embeddingIdentity(), "c".repeat(64), base.modelRevision(), 2);
-            case "answer-target" ->
-                new IndexTarget(
-                    "other-embedding-v2", base.projectionIdentity(), base.modelRevision(), 2);
             default -> throw new AssertionError("Unknown synthetic profile mismatch");
           };
       var indexing = indexer(fixture, target);
@@ -242,11 +239,9 @@ class ManagedTextRuntimeBoundaryTest {
                   fixture.context.models,
                   fixture.context.projection,
                   target,
-                  fixture.context.answers,
                   indexing,
                   released::incrementAndGet));
       assertEquals(0, released.get());
-      assertEquals(base, fixture.context.answers.runtimeTarget());
       assertTrue(fixture.context.models.calls.isEmpty());
       assertTrue(fixture.context.projection.calls.isEmpty());
     }
@@ -254,20 +249,11 @@ class ManagedTextRuntimeBoundaryTest {
 
   private static TextRuntimeSnapshot snapshot(
       ManagedTextTestFixture fixture, RetrievalProjection projection, Runnable release) {
-    var answers =
-        new AnswerService(
-            fixture.context.evidence,
-            fixture.context.models,
-            projection,
-            fixture.context.target,
-            Duration.ofSeconds(3),
-            1);
     return new TextRuntimeSnapshot(
         2,
         fixture.context.models,
         projection,
         fixture.context.target,
-        answers,
         indexer(fixture, fixture.context.target),
         release);
   }

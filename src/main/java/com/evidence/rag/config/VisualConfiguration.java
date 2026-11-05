@@ -2,17 +2,10 @@ package com.evidence.rag.config;
 
 import com.evidence.rag.client.model.OpenAiCompatibleModels;
 import com.evidence.rag.client.model.OpenAiCompatibleVisionModels;
-import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.model.VisionModels;
-import com.evidence.rag.client.vector.RetrievalProjection;
-import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
-import com.evidence.rag.service.EvidenceService;
-import com.evidence.rag.service.QueryAttachmentService;
-import com.evidence.rag.service.VisualAnswerService;
 import java.net.URI;
 import java.time.Duration;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -50,32 +43,5 @@ public class VisualConfiguration {
   @Bean
   VisualIngestionOptions visualIngestionOptions(VisionModels models) {
     return new VisualIngestionOptions(models.revision());
-  }
-
-  @Bean(destroyMethod = "close")
-  @Conditional(LegacyTextCondition.class)
-  VisualAnswerService visualAnswerService(
-      EvidenceService evidence,
-      TextModels text,
-      VisionModels vision,
-      RetrievalProjection projection,
-      TextAdapterSettings settings,
-      AnswersSettings limits,
-      ObjectProvider<QueryAttachmentService> queryAttachments) {
-    var target =
-        new IndexTarget(
-            settings.projection().embeddingIdentity(),
-            settings.projection().identity(),
-            text.revision(),
-            settings.projection().dimension());
-    return new VisualAnswerService(
-        evidence,
-        text,
-        vision,
-        projection,
-        target,
-        Duration.ofMillis(limits.timeoutMs()),
-        limits.maxConcurrent(),
-        queryAttachments.getIfAvailable());
   }
 }

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class AnswersRuntimeTest {
   @Test
-  void answerCapabilityRequiresItsOwnFlagAndNeverMeansProductionReadiness() {
+  void removedAnswerCapabilitiesAreNeverAdvertised() {
     for (boolean ingestion : List.of(false, true)) {
       for (boolean indexing : List.of(false, true)) {
         for (boolean answers : List.of(false, true)) {
@@ -19,9 +19,9 @@ class AnswersRuntimeTest {
               new RuntimeController(
                   new RuntimeService("jwt", "org-main", ingestion, indexing, answers));
           var config = controller.configuration();
-          for (String name : List.of("answers", "sources")) {
-            assertEquals(answers, config.capabilities().contains(name));
-            assertEquals(!answers, config.unavailable().contains(name));
+          for (String name : List.of("answers", "sources", "query_attachments")) {
+            assertFalse(config.capabilities().contains(name));
+            assertFalse(config.unavailable().contains(name));
           }
           assertEquals(
               answers

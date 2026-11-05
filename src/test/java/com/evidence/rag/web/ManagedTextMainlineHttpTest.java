@@ -35,11 +35,10 @@ class ManagedTextMainlineHttpTest {
   @TempDir Path directory;
 
   @Test
-  void setupTestActivateUploadIndexRecallAnswerSourceAndCompatibleRotation() throws Exception {
+  void setupTestActivateUploadIndexRecallKnowledgeSourceAndCompatibleRotation() throws Exception {
     try (var models = new AnswerProtocolServer();
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint());
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
-      String sourceUrl;
       String knowledgeSourceUrl;
       String documentId;
       try (var context = start(models, projection)) {
@@ -53,19 +52,6 @@ class ManagedTextMainlineHttpTest {
         assertEquals(6, caps.size());
         assertTrue(caps.path("capabilities").toString().contains("model_configuration"));
         assertFalse(caps.path("capabilities").toString().contains("text_index"));
-        assertEquals(
-            "text_configuration_required",
-            request(
-                    http,
-                    base,
-                    "owner",
-                    "POST",
-                    "/v1/answers",
-                    json(Map.of("question", "上海住宿标准是多少？")),
-                    "application/json",
-                    503)
-                .path("error_code")
-                .asString());
         assertTrue(models.requests.isEmpty());
         assertTrue(projection.requests.isEmpty());
         var reader =
@@ -116,8 +102,7 @@ class ManagedTextMainlineHttpTest {
         assertEquals("active", applied.path("state").asString());
         assertEquals(count, models.requests.size() + projection.requests.size());
         caps = request(http, base, "owner", "GET", "/v1/config", null, null, 200);
-        for (String capability :
-            List.of("text_index", "indexings", "answers", "sources", "retrieval_test")) {
+        for (String capability : List.of("text_index", "indexings", "retrieval_test")) {
           assertTrue(
               caps.path("capabilities").toString().contains("\"" + capability + "\""),
               caps.toString());
@@ -185,20 +170,6 @@ class ManagedTextMainlineHttpTest {
         assertEquals(
             documentId, legacyEmptySelection.path("matches").get(0).path("document_id").asString());
         assertPersistentRetrievalSettings(models, http, base, question);
-        var answer =
-            request(
-                http,
-                base,
-                "owner",
-                "POST",
-                "/v1/answers",
-                json(question),
-                "application/json",
-                200);
-        assertEquals("answered", answer.path("status").asString(), answer.toString());
-        sourceUrl = answer.path("citations").get(0).path("source_url").asString();
-        request(http, base, "owner", "GET", sourceUrl, null, null, 200);
-        request(http, base, "member-without-acl", "GET", sourceUrl, null, null, 200);
         knowledgeSourceUrl = assertSharedKnowledgeMainline(models, http, base, documentId);
         request(
             http,
@@ -225,7 +196,7 @@ class ManagedTextMainlineHttpTest {
             request(http, base, "owner", "GET", "/v1/model-configuration", null, null, 200)
                 .path("active_version")
                 .asInt());
-        request(http, base, "owner", "GET", sourceUrl, null, null, 200);
+        request(http, base, "owner", "GET", knowledgeSourceUrl, null, null, 200);
         request(
             http,
             base,
@@ -244,7 +215,7 @@ class ManagedTextMainlineHttpTest {
             json(Map.of("version", 3)),
             "application/json",
             200);
-        request(http, base, "owner", "GET", sourceUrl, null, null, 200);
+        request(http, base, "owner", "GET", knowledgeSourceUrl, null, null, 200);
         assertFalse(
             context
                 .getBean(SqliteAuthorityStore.class)
@@ -271,7 +242,6 @@ class ManagedTextMainlineHttpTest {
             request(http, base, "owner", "GET", "/v1/model-configuration", null, null, 200)
                 .path("active_version")
                 .asInt());
-        request(http, base, "owner", "GET", sourceUrl, null, null, 200);
         request(http, base, "reader", "GET", knowledgeSourceUrl, null, null, 200);
         assertEquals(count, models.requests.size() + projection.requests.size());
         var result =

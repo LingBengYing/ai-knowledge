@@ -42,9 +42,13 @@ class RuntimeControllerTest {
         assertEquals(!index, unavailable.contains("indexings"));
         assertEquals(!ingest, unavailable.contains("upload"));
         assertEquals(!ingest, unavailable.contains("ingestions"));
-        for (String missing : List.of("answers", "sources", "reindex", "document_delete")) {
+        for (String missing : List.of("reindex", "document_delete")) {
           assertFalse(capabilities.contains(missing));
           assertTrue(unavailable.contains(missing));
+        }
+        for (String removed : List.of("answers", "sources")) {
+          assertFalse(capabilities.contains(removed));
+          assertFalse(unavailable.contains(removed));
         }
         assertEquals(503, controller.ready().getStatusCode().value());
         assertEquals("ok", controller.live().status());

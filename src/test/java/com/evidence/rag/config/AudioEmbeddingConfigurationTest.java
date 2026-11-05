@@ -122,8 +122,7 @@ class AudioEmbeddingConfigurationTest {
 
   @Test
   void rejectsNonlocalMissingDependenciesAndDecoderDriftBeforeDecode() {
-    for (String dependency :
-        List.of("audio", "ingestion", "indexing", "answers", "query-attachments")) {
+    for (String dependency : List.of("audio", "ingestion", "indexing", "answers")) {
       invalid(local().withProperty("rag." + dependency + ".enabled", "false"), text(), null);
     }
     for (String bind : List.of("localhost", "127.0.0.2", "0.0.0.0", "::")) {
@@ -212,7 +211,6 @@ class AudioEmbeddingConfigurationTest {
     var environment = runtimeEnvironment();
     var beans = new DefaultListableBeanFactory();
     var runtime = configuredRuntime(environment, beans);
-    assertTrue(runtime.capabilities().capabilities().contains("query_attachments"));
     assertFalse(runtime.capabilities().capabilities().contains("audio_vector_retrieval"));
   }
 
@@ -334,7 +332,6 @@ class AudioEmbeddingConfigurationTest {
         .withProperty("rag.ingestion.enabled", "true")
         .withProperty("rag.indexing.enabled", "true")
         .withProperty("rag.answers.enabled", "true")
-        .withProperty("rag.query-attachments.enabled", "true")
         .withProperty("rag.audio-embedding.base-url", "http://127.0.0.1:1")
         .withProperty("rag.audio-embedding.model", "synthetic-audio-model")
         .withProperty("rag.audio-embedding.api-key", "private-synthetic-key")

@@ -1,22 +1,18 @@
 package com.evidence.rag.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.ImageRecall;
 import com.evidence.rag.model.domain.VisualIngestionOptions;
-import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.support.AnswerTestContext;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.List;
-import java.util.Set;
 import java.util.TreeMap;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,8 +28,8 @@ class TextVisualCoexistenceTest {
 
   @ParameterizedTest(name = "allDocuments={0}")
   @ValueSource(booleans = {true, false})
-  void answersTextFromMixedLibraryForAllAndSelectedScopes(boolean allDocuments) throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
+  void mixedLibraryScopeKeepsImageOutOfTextPublications(boolean allDocuments) throws Exception {
+    try (var context = new AnswerTestContext(directory)) {
       String textDocument = context.publish("plan.txt", TEXT);
       String imageDocument = publishImage(context);
       var selection =
@@ -60,23 +56,11 @@ class TextVisualCoexistenceTest {
                       16))
               .size());
 
-      var answer = context.answers.answer(context.owner, new AnswerCommand(QUESTION, selection));
-
-      assertEquals("answered", answer.status(), answer.reason());
-      assertTrue(answer.answer().contains("A-42"));
-      assertFalse(answer.answer().contains(CAPTION));
-      assertEquals(Set.of(textDocument), context.projection.lastScope.documentRevisions().keySet());
-      assertEquals(List.of("embed", "rerank", "extract"), context.models.calls);
-      assertEquals(List.of(TEXT), context.models.lastEvidence.stream().map(e -> e.text()).toList());
-      assertEquals(1, answer.citations().size());
-      var citation = answer.citations().getFirst();
-      assertEquals(textDocument, citation.documentId());
-      assertEquals("plan.txt", citation.filename());
       assertEquals(
-          citation, context.answers.source(context.owner, answer.answerId(), 1).citation());
-      assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      assertEquals(1, context.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
+          List.of(textDocument),
+          context.evidence.textPublications(snapshot).stream()
+              .map(publication -> publication.documentId())
+              .toList());
     }
   }
 

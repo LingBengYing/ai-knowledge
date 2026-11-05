@@ -139,7 +139,7 @@ class SynopsisSubtitleLibraryTest {
       var material = store.transaction(() -> repository.source(OWNER, publication, reference));
       var locator =
           assertInstanceOf(SynopsisSourceMaterial.VideoSubtitle.class, material.locator());
-      assertEquals("\n预算😀42万元。\n补充条件：须经审批。\n", locator.subtitle().trackText());
+      assertEquals("\n预算😀42万元。\n补充条件：须经审批。\n", locator.subtitle().track().text());
       assertEquals(1, locator.subtitle().source().startOffset());
       assertEquals(1, locator.subtitle().source().cue().ordinal());
       assertNotEquals(item.sha256(), locator.subtitle().source().cue().payloadSha256());

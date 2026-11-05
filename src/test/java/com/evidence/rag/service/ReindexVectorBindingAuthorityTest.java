@@ -201,14 +201,14 @@ class ReindexVectorBindingAuthorityTest {
 
   @Test
   void audioInheritancePreservesCompleteOrdinalGapsSampleBoundsAndAllRemoteEntryIdentities() {
-    try (var fixture = new AnswerTestContext(directory, Duration.ofSeconds(5), 1)) {
+    try (var fixture = new AnswerTestContext(directory)) {
       var published = AudioTestFixture.publish(fixture, List.of("头部预算为650元。", "", "尾部编号为73921。"));
       var base =
           fixture.evidence.snapshot(
               fixture.owner,
               DocumentSelection.selected(List.of(published.documentId())),
               fixture.target);
-      var origin = AudioVectorQueryFixture.publishVectors(fixture, base, published);
+      var origin = VectorReceiptFixtures.publishAudioVectors(fixture, base, published);
       var store = fixture.authority.store();
       var plan = queue(store, fixture.owner.workspaceId(), published.documentId());
       assertEquals(

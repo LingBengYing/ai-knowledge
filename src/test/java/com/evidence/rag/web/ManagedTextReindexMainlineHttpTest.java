@@ -56,7 +56,6 @@ class ManagedTextReindexMainlineHttpTest {
         var projection = new IndexingTestServer(2, 4 * 1024 * 1024, models.endpoint());
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
       String document;
-      String oldSourceUrl;
       String nextPublication;
       Map<String, String> history;
       Seed seed;
@@ -65,10 +64,8 @@ class ManagedTextReindexMainlineHttpTest {
         Path database = context.getBean(SqliteAuthorityStore.class).libraryPath();
         seed = seed(context, http, models, projection);
         document = seed.document();
-        var answered = exercise(http, base, models, database, document, 1, INITIAL, INITIAL);
-        oldSourceUrl = answered.path("citations").get(0).path("source_url").asString();
-        request(http, base, "GET", oldSourceUrl, null, null, 200);
-        history = history(database, seed, answered.path("answer_id").asString());
+        exercise(http, base, models, database, document, 1, INITIAL, INITIAL);
+        history = history(database, seed);
 
         save(http, base, models, projection, 1, INITIAL, GENERATION, "fixture-v1", false);
         testRole(http, base, models, projection, 2, "generation", GENERATION);
@@ -84,7 +81,6 @@ class ManagedTextReindexMainlineHttpTest {
         assertEquals(seed.publication(), active(database, document));
         assertReindexEntry(
             http, base, document, seed.revision(), seed.publication(), task, "queued", false);
-        request(http, base, "GET", oldSourceUrl, null, null, 200);
         reindex(http, base, document, seed.publication(), 409);
         assertEquals(before, calls(models, projection));
 
@@ -94,7 +90,6 @@ class ManagedTextReindexMainlineHttpTest {
         assertNotEquals(seed.claim().projectionGenerationId(), claim.projectionGenerationId());
         assertEquals(seed.claim().items(), claim.items());
         assertEquals(seed.publication(), active(database, document));
-        request(http, base, "GET", oldSourceUrl, null, null, 200);
         int embeddings = count(models, "/embeddings");
         int generations = count(models, "/chat/completions");
         int reranks = count(models, "/rerank");
@@ -108,23 +103,13 @@ class ManagedTextReindexMainlineHttpTest {
         assertEquals(embeddings + 1, count(models, "/embeddings"));
         assertEquals(generations, count(models, "/chat/completions"));
         assertEquals(reranks, count(models, "/rerank"));
-        assertEquals(history, history(database, seed, answered.path("answer_id").asString()));
-        request(http, base, "GET", oldSourceUrl, null, null, 404);
+        assertEquals(history, history(database, seed));
         assertOriginal(http, base, document);
 
         before = calls(models, projection);
         reindex(http, base, document, seed.publication(), 409);
         assertEquals(before, calls(models, projection));
-        var currentAnswer =
-            exercise(http, base, models, database, document, 2, INITIAL, GENERATION);
-        request(
-            http,
-            base,
-            "GET",
-            currentAnswer.path("citations").get(0).path("source_url").asString(),
-            null,
-            null,
-            200);
+        exercise(http, base, models, database, document, 2, INITIAL, GENERATION);
         var lastSearch =
             projection.requests.stream()
                 .filter(r -> r.path().endsWith("/entities/search"))
@@ -141,7 +126,6 @@ class ManagedTextReindexMainlineHttpTest {
         assertEquals(before, calls(models, projection));
         assertEquals(nextPublication, active(database, document));
         status(http, base, seed.task(), "indexed");
-        request(http, base, "GET", oldSourceUrl, null, null, 404);
         assertOriginal(http, base, document);
         assertEquals(before, calls(models, projection));
         exercise(http, base, models, database, document, 2, INITIAL, GENERATION);
@@ -156,14 +140,12 @@ class ManagedTextReindexMainlineHttpTest {
         var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
       Seed seed;
       String task;
-      String source;
       IndexClaim interrupted;
       try (var context = start(models, projection)) {
         String base = base(context);
         Path database = context.getBean(SqliteAuthorityStore.class).libraryPath();
         seed = seed(context, http, models, projection);
-        var answered = exercise(http, base, models, database, seed.document(), 1, INITIAL, INITIAL);
-        source = answered.path("citations").get(0).path("source_url").asString();
+        exercise(http, base, models, database, seed.document(), 1, INITIAL, INITIAL);
         int before = calls(models, projection);
         task =
             reindex(http, base, seed.document(), seed.publication(), 202)
@@ -183,7 +165,6 @@ class ManagedTextReindexMainlineHttpTest {
             true);
         assertEquals(before, calls(models, projection));
         assertEquals(seed.publication(), active(database, seed.document()));
-        request(http, base, "GET", source, null, null, 200);
 
         var retry =
             request(http, base, "POST", "/v1/indexings/" + task + "/retry", null, null, 200);
@@ -194,7 +175,6 @@ class ManagedTextReindexMainlineHttpTest {
         status(http, base, task, "failed");
         projection.failureMode = "";
         assertEquals(seed.publication(), active(database, seed.document()));
-        request(http, base, "GET", source, null, null, 200);
 
         retry = request(http, base, "POST", "/v1/indexings/" + task + "/retry", null, null, 200);
         assertEquals(3, retry.path("attempt").asInt());
@@ -211,7 +191,6 @@ class ManagedTextReindexMainlineHttpTest {
         var recovered = status(http, base, task, "failed");
         assertEquals("worker_interrupted", recovered.path("error_code").asString());
         assertEquals(seed.publication(), active(database, seed.document()));
-        request(http, base, "GET", source, null, null, 200);
         assertFalse(
             restored.getBean(IndexingService.class).completeIndexing(interrupted, Map.of(), null));
         assertEquals(seed.publication(), active(database, seed.document()));
@@ -370,8 +349,7 @@ class ManagedTextReindexMainlineHttpTest {
         .asString();
   }
 
-  private static Map<String, String> history(Path database, Seed seed, String answer)
-      throws Exception {
+  private static Map<String, String> history(Path database, Seed seed) throws Exception {
     var result = new LinkedHashMap<String, String>();
     result.put(
         "original",
@@ -401,11 +379,6 @@ class ManagedTextReindexMainlineHttpTest {
             database,
             "SELECT * FROM index_publication_entries WHERE publication_id=? ORDER BY source_segment_id",
             seed.publication()));
-    result.put("old_trace", rows(database, "SELECT * FROM query_traces WHERE id=?", answer));
-    for (String table : List.of("query_trace_documents", "query_trace_evidence")) {
-      result.put(
-          table, rows(database, "SELECT * FROM " + table + " WHERE trace_id=? ORDER BY 2", answer));
-    }
     for (var entry : result.entrySet()) {
       assertNotEquals("[]", entry.getValue(), entry.getKey());
     }
@@ -449,31 +422,7 @@ class ManagedTextReindexMainlineHttpTest {
         recallCalls.stream().map(AnswerProtocolServer.Request::path).toList());
     assertModels(recallCalls, rerank, generation);
 
-    before = models.requests.size();
-    var answer =
-        request(
-            http,
-            base,
-            "POST",
-            "/v1/answers",
-            JSON.writeValueAsBytes(question),
-            "application/json",
-            200);
-    assertEquals("answered", answer.path("status").asString(), answer.toString());
-    assertTrue(answer.path("answer").asString().contains("650"));
-    var answerCalls = List.copyOf(models.requests.subList(before, models.requests.size()));
-    assertEquals(1, answerCalls.stream().filter(call -> call.path().equals("/embeddings")).count());
-    assertEquals(1, answerCalls.stream().filter(call -> call.path().equals("/rerank")).count());
-    assertTrue(answerCalls.stream().anyMatch(call -> call.path().equals("/chat/completions")));
-    assertModels(answerCalls, rerank, generation);
-    assertEquals(
-        JSON.writeValueAsString(
-            List.of(List.of(modelsRevision(models.endpoint(), rerank, generation)))),
-        rows(
-            database,
-            "SELECT model_revision FROM query_traces WHERE id=?",
-            answer.path("answer_id").asString()));
-    return answer;
+    return retrieved;
   }
 
   private static void assertModels(
