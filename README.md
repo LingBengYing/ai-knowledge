@@ -94,6 +94,8 @@ Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操�
 
 新增[原图向量检索](docs/IMAGE_VECTOR_RETRIEVAL.md)：已索引图片显式建立独立原图向量，原图模式携参考图片时按完整授权范围召回，再核验库内原图事实并打开原来源。默认关闭，不自动补建旧资料；本机实现与验证见[0026](docs/changes/0026-image-vector-retrieval/verification.md)。本增量未部署。当前已部署20261003-voice-tags，含扫描PDF、查询附件、摘要建议标签和语音提问；部署结果与只读入口报告已核对，完整页面由用户验收，真实ASR仍未通过。下方日期和发布状态均为对应历史快照。
 
+**已移除（2026-11-05）**：Java库的逐版本升级链（v1→v43迁移、每步`java-library.vN-before-vM`备份）删除。新库直接按`src/main/resources/db/schema-v43.sql`建成v43（与原迁移链结果逐对象一致），已有v43库照旧校验后打开；**最低可打开schema为v43**，更旧的库不被改动并报错，须先用上一版本（ce6912a）打开一次完成升级。已有的旧备份文件仍由撤下清理盘点与重写。见[ARCHITECTURE](docs/ARCHITECTURE.md)。
+
 **已移除（2026-11-05）**：旧问答与来源接口 `POST /v1/answers`、`/v1/sources/{answerId}/{ordinal}`（含`/content`）、`POST /v1/visual-answers`、`/v1/visual-sources/*`、`POST /v1/video-answers`、`/v1/video-sources/*`、`POST /v1/audio-answers`、`/v1/audio-sources/*`、`POST /v1/attachment-answers`（查询附件）连同AnswerService及`answers/sources/source_image_content/video_answers/video_sources/query_attachments`能力名、`rag.query-attachments.*`配置已从后端删除（网页早已不调用）。问答统一走知识问答与对话；`visual_answers/visual_sources`、`audio_answers/audio_sources`暂作网页兼容能力名。上传/摄取/索引、图片与原声向量建设、视频、wiki、摘要、批量导入、清理与模型配置不受影响；schema不变（v43），trace表保留不写入。图片/原声向量目前仍可建立但已无查询路由消费。
 
 **已移除（2026-11-03）**：独立声音知识库（0028）与原视频音画知识库（0029）整体删除——上传 `POST /v1/sound-documents`、`POST /v1/video-av-documents`，索引 `/v1/documents/{id}/sound-index`、`/v1/documents/{id}/video-av-index`，对应编译/索引子进程/模型客户端、`rag.sound.*`/`rag.video-av.*` 配置及 `sound_*`/`video_av_*` 能力名均已移除。音频（ASR/原声向量）、0014视频、图片向量、查询附件和文档不受影响。schema不变（v43），旧声音/原视频音画资料仍可列出、查看、下载原件与撤下清理，但不能再更新原件或建立索引。见[声音知识库](docs/SOUND_LIBRARY.md)与[原视频音画](docs/VIDEO_AUDIOVISUAL.md)。
@@ -232,7 +234,7 @@ RAG_DATA_DIRECTORY=./text-demo-data RAG_PORT=18086 bash run-dev.sh
 
 ## 配置与密钥
 
-文档撤下须显式设`RAG_DOCUMENT_REMOVAL_ENABLED=true`，只允许development/test及字面loopback，不依赖模型配置，也不会开启其他任务。能力名为`document_removal`；物理删除`document_delete`仍不可用，前端未加删除按钮。关闭开关只关闭新请求，不会使已撤下资料重新可见。已有Java库会一致性备份后迁移v5；旧备份不包含后续删除请求，切勿当作保留删除状态的生产恢复方案。
+文档撤下须显式设`RAG_DOCUMENT_REMOVAL_ENABLED=true`，只允许development/test及字面loopback，不依赖模型配置，也不会开启其他任务。能力名为`document_removal`；物理删除`document_delete`仍不可用，前端未加删除按钮。关闭开关只关闭新请求，不会使已撤下资料重新可见。（历史：v5迁移曾生成一致性备份；旧备份不包含后续删除请求，切勿当作保留删除状态的生产恢复方案。）
 
 文本问答需另设`RAG_ANSWERS_ENABLED=true`，并提供[模型与Milvus配置](docs/TEXT_ADAPTERS.md)。仅development/test及字面loopback；默认总处理预算60000毫秒、并发2，分别通过`RAG_ANSWERS_TIMEOUT_MS`（10–600000）和`RAG_ANSWERS_MAX_CONCURRENT`（1–8）调整。接口、显式空选择、错误和来源语义见[API](docs/API.md)。索引/摄取/问答三个开关独立，不自动创建索引或调用真实模型重试。
 

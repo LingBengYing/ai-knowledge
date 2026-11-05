@@ -1,7 +1,5 @@
 package com.evidence.rag.repository;
 
-import com.evidence.rag.model.domain.ModelValues;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -24,37 +22,6 @@ final class BatchStreamSchema {
 
   BatchStreamSchema(SqliteAuthorityStore store) {
     this.store = store;
-  }
-
-  void migrate() {
-    store.transaction(
-        () -> {
-          new BatchHistorySchema(store).verify(BatchHistorySchema.VERSION);
-          store.execute(
-              """
-          CREATE TABLE document_import_batch_streams(
-            batch_id TEXT PRIMARY KEY REFERENCES document_import_batches(id),
-            expected_total INTEGER NOT NULL CHECK(expected_total BETWEEN 1 AND 10000),
-            include_duplicates INTEGER NOT NULL CHECK(include_duplicates IN (0,1)),
-            sealed_at TEXT)
-          """);
-          for (var row :
-              store.rows(
-                  "SELECT name,type,sql FROM sqlite_master WHERE name IN ("
-                      + names()
-                      + ") AND sql IS NOT NULL")) {
-            store.execute(
-                "INSERT INTO cleanup_schema_objects(name,object_type,sql_sha256) VALUES(?,?,?)",
-                row.get("name"),
-                row.get("type"),
-                ModelValues.sha256(
-                    AuthorityRows.text(row, "sql").getBytes(StandardCharsets.UTF_8)));
-          }
-          store.execute("UPDATE format_info SET version=" + VERSION);
-          store.execute("PRAGMA user_version=" + VERSION);
-          verify();
-          return null;
-        });
   }
 
   void verify() {

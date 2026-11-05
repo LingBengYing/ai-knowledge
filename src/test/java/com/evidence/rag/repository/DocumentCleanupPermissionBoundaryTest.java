@@ -420,11 +420,14 @@ class DocumentCleanupPermissionBoundaryTest {
       throws Exception {
     String id;
     try (var authority = new AuthorityTestContext(directory)) {
-      // Seed the historical v21 workflow, without creating a newer v34 admission intent.
       authority.ingestion().setAutomaticIndexingEnabled(false);
       id = parsed(authority, "legacy projection provenance");
     }
-    CleanupV21Fixture.restoreVersionTwentyOne(directory);
+    // Libraries upgraded across v22 recorded pre-existing documents with an unknown inventory.
+    LibraryFileFixture.executeUnguarded(
+        directory.resolve("java-library.db"),
+        "cleanup_document_provenance",
+        "UPDATE cleanup_document_provenance SET inventory_known=0 WHERE document_id='" + id + "'");
     try (var store = new SqliteAuthorityStore(directory)) {
       assertEquals(
           0,
