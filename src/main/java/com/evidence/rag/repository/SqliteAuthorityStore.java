@@ -26,7 +26,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.sqlite.Function;
 import tools.jackson.core.StreamReadFeature;
@@ -50,7 +49,6 @@ public final class SqliteAuthorityStore implements AutoCloseable {
   private Path libraryDirectory;
   private Path libraryPath;
   private String libraryIdentity;
-  private final List<Path> generatedBackups = new ArrayList<>();
   private String modelRebuildId;
   private Set<String> modelRebuildDocuments = Set.of();
   private String replacementDocument;
@@ -59,16 +57,6 @@ public final class SqliteAuthorityStore implements AutoCloseable {
   private Set<String> purgeRows = Set.of();
   private String wikiPurgeWorkspace;
   private String wikiPurgePage;
-  private static volatile Consumer<Path> freshLibrarySeeder;
-
-  /**
-   * Test suites install a seeder that copies an already migrated current-version library to the new
-   * database path, so every fresh test library does not rerun all migrations. Production never
-   * installs one; a seeded library is opened through the normal existing-library verification.
-   */
-  public static void seedFreshLibrariesWith(Consumer<Path> seeder) {
-    freshLibrarySeeder = seeder;
-  }
 
   public SqliteAuthorityStore(Path directory) {
     try {
@@ -93,10 +81,6 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       }
       Path database = canonicalDirectory.resolve("java-library.db");
       libraryPath = database;
-      Consumer<Path> seeder = freshLibrarySeeder;
-      if (seeder != null && !Files.exists(database, LinkOption.NOFOLLOW_LINKS)) {
-        seeder.accept(database);
-      }
       boolean exists = Files.exists(database, LinkOption.NOFOLLOW_LINKS);
       if (exists && !Files.isRegularFile(database, LinkOption.NOFOLLOW_LINKS)) {
         throw new IllegalStateException("Unsafe Java database path");
@@ -160,41 +144,17 @@ public final class SqliteAuthorityStore implements AutoCloseable {
               return modelRebuildId != null && modelRebuildId.equals(value_text(0));
             }
           });
-      var schema = new AuthoritySchema(this);
       if (exists) {
+        refuseUnsupportedVersion();
         transaction(
             () -> {
-              verifyStoredFormat(schema, count("PRAGMA user_version"));
+              new BatchPlacementSchema(this).verify();
               return null;
             });
       }
       rawExecute("PRAGMA foreign_keys=ON");
       rawExecute("PRAGMA busy_timeout=5000");
       if (!exists) {
-        schema.initialize();
-      }
-      // Each step re-reads the version, snapshots an existing library, then migrates one version.
-      upgrade(schema, exists, 1, false, schema::migrateVersionTwo);
-      upgrade(schema, exists, 2, false, schema::migrateVersionThree);
-      upgrade(schema, exists, 3, false, schema::migrateVersionFour);
-      upgrade(schema, exists, 4, false, schema::migrateVersionFive);
-      upgrade(schema, exists, 5, false, schema::migrateVersionSix);
-      upgrade(schema, exists, 6, false, schema::migrateVersionSeven);
-      upgrade(schema, exists, 7, false, schema::migrateVersionEight);
-      upgrade(schema, exists, 8, false, schema::migrateVersionNine);
-      upgrade(schema, exists, 9, false, schema::migrateVersionTen);
-      upgrade(schema, exists, 10, false, schema::migrateVersionEleven);
-      upgrade(schema, exists, 11, false, schema::migrateVersionTwelve);
-      upgrade(schema, exists, 12, false, schema::migrateVersionThirteen);
-      upgrade(schema, exists, 13, false, schema::migrateVersionFourteen);
-      upgrade(schema, exists, 14, false, schema::migrateVersionFifteen);
-      upgrade(schema, exists, 15, false, schema::migrateVersionSixteen);
-      upgrade(schema, exists, 16, false, schema::migrateVersionSeventeen);
-      upgrade(schema, exists, 17, false, schema::migrateVersionEighteen);
-      upgrade(schema, exists, 18, false, schema::migrateVersionNineteen);
-      upgrade(schema, exists, 19, false, schema::migrateVersionTwenty);
-      upgrade(schema, exists, 20, false, schema::migrateVersionTwentyOne);
-      if (transaction(() -> count("PRAGMA user_version")) == 21) {
         boolean backupsKnown;
         try (var files = Files.list(canonicalDirectory)) {
           backupsKnown =
@@ -202,39 +162,11 @@ public final class SqliteAuthorityStore implements AutoCloseable {
                   path -> {
                     String name = path.getFileName().toString();
                     return name.startsWith("java-library.v")
-                        && (name.endsWith(".db") || name.endsWith(".partial"))
-                        && generatedBackups.stream()
-                            .noneMatch(
-                                partial ->
-                                    completedBackup(partial).equals(path) || partial.equals(path));
+                        && (name.endsWith(".db") || name.endsWith(".partial"));
                   });
         }
-        if (exists) {
-          schema.backupVersion(canonicalDirectory, 21, 22);
-        }
-        withTableRebuildPragmas(() -> new DocumentCleanupSchema(this).migrate(backupsKnown));
+        new LibrarySchema(this).create(backupsKnown);
       }
-      upgrade(schema, exists, 22, true, schema::migrateVersionTwentyThree);
-      upgrade(schema, exists, 23, true, schema::migrateVersionTwentyFour);
-      upgrade(schema, exists, 24, false, schema::migrateVersionTwentyFive);
-      upgrade(schema, exists, 25, true, () -> new DocumentReplacementSchema(this).migrate());
-      upgrade(schema, exists, 26, true, () -> new ModelRebuildSchema(this).migrate());
-      upgrade(schema, exists, 27, true, () -> new VideoTextEvidenceSchema(this).migrate());
-      upgrade(schema, exists, 28, false, () -> new KnowledgeAnswerSchema(this).migrate());
-      upgrade(schema, exists, 29, true, () -> new SharedWorkspaceSchema(this).migrate());
-      upgrade(schema, exists, 30, false, () -> new WikiWorkspaceSchema(this).migrate());
-      upgrade(schema, exists, 31, false, () -> new WikiDraftSchema(this).migrate());
-      upgrade(schema, exists, 32, false, () -> new WikiPageLifecycleSchema(this).migrate());
-      upgrade(schema, exists, 33, false, () -> new ImportIndexSchema(this).migrate());
-      upgrade(schema, exists, 34, false, () -> new WikiPagePurgeSchema(this).migrate());
-      upgrade(schema, exists, 35, false, () -> new ConversationSchema(this).migrate());
-      upgrade(schema, exists, 36, true, () -> new IndexRestartSchema(this).migrate());
-      upgrade(schema, exists, 37, false, () -> new DocumentBatchSchema(this).migrate());
-      upgrade(schema, exists, 38, false, () -> new BatchRequeueSchema(this).migrate());
-      upgrade(schema, exists, 39, false, () -> new BatchThroughputSchema(this).migrate());
-      upgrade(schema, exists, 40, false, () -> new BatchHistorySchema(this).migrate());
-      upgrade(schema, exists, 41, false, () -> new BatchStreamSchema(this).migrate());
-      upgrade(schema, exists, 42, false, () -> new BatchPlacementSchema(this).migrate());
       transaction(
           () -> {
             new BatchPlacementSchema(this).verify();
@@ -243,20 +175,6 @@ public final class SqliteAuthorityStore implements AutoCloseable {
                     rows("SELECT library_id FROM cleanup_library WHERE id=1")
                         .getFirst()
                         .get("library_id");
-            for (Path partial : generatedBackups) {
-              Path backup = completedBackup(partial);
-              try {
-                if (Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
-                  execute(
-                      "INSERT INTO cleanup_managed_backups(relative_path,sha256,size_bytes) VALUES(?,?,?)",
-                      backup.getFileName().toString(),
-                      fileHash(backup),
-                      Files.size(backup));
-                }
-              } catch (IOException error) {
-                throw new IllegalStateException("Cannot record managed snapshot");
-              }
-            }
             return null;
           });
       verifyRestoreJournal();
@@ -269,9 +187,26 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       if (transaction(() -> count("PRAGMA foreign_keys")) != 1) {
         throw new IllegalStateException("Authority foreign keys are disabled");
       }
+    } catch (OutdatedLibraryException outdated) {
+      close();
+      throw outdated;
     } catch (IOException | SQLException | RuntimeException error) {
       close();
       throw new IllegalStateException("Cannot open isolated Java library");
+    }
+  }
+
+  /** Thrown for a library older than v43; it is refused without being changed. */
+  public static final class OutdatedLibraryException extends IllegalStateException {
+    private OutdatedLibraryException(long version) {
+      super(
+          "Java library schema v"
+              + version
+              + " is older than v"
+              + LibrarySchema.VERSION
+              + "; upgrade it first by opening it once with release "
+              + LibrarySchema.LAST_UPGRADING_RELEASE
+              + " (the last with the step-by-step upgrade chain)");
     }
   }
 
@@ -433,14 +368,6 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     } catch (SQLException failure) {
       throw unavailable();
     }
-  }
-
-  synchronized void backupSnapshot(Path destination) throws SQLException {
-    if (transactionOwner != null || connection == null) {
-      throw new IllegalStateException("Backup requires an idle authority store");
-    }
-    rawExecute("VACUUM INTO ?", destination.toString());
-    generatedBackups.add(destination);
   }
 
   /**
@@ -786,10 +713,6 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     }
   }
 
-  private static Path completedBackup(Path partial) {
-    return partial.resolveSibling(partial.getFileName().toString().replace(".partial", ".db"));
-  }
-
   private static String fileHash(Path path) throws IOException {
     try (var input = Files.newInputStream(path)) {
       java.security.MessageDigest digest;
@@ -826,64 +749,23 @@ public final class SqliteAuthorityStore implements AutoCloseable {
     }
   }
 
-  /** Verifies an existing library at its stored version before any upgrade step runs. */
-  private void verifyStoredFormat(AuthoritySchema schema, long version) {
-    switch ((int) version) {
-      case 43 -> new BatchPlacementSchema(this).verify();
-      case 42 -> new BatchStreamSchema(this).verify();
-      case 41 -> new BatchHistorySchema(this).verify();
-      case 40 -> new BatchThroughputSchema(this).verify();
-      case 39 -> new BatchRequeueSchema(this).verify();
-      case 38 -> new DocumentBatchSchema(this).verify();
-      case 37 -> new IndexRestartSchema(this).verify();
-      case 36 -> new ConversationSchema(this).verify();
-      case 35 -> new WikiPagePurgeSchema(this).verify();
-      case 34 -> new ImportIndexSchema(this).verify();
-      case 33 -> new WikiPageLifecycleSchema(this).verify();
-      case 32 -> new WikiDraftSchema(this).verify();
-      case 31 -> new WikiWorkspaceSchema(this).verify();
-      case 30 -> new SharedWorkspaceSchema(this).verify();
-      case 29 -> new KnowledgeAnswerSchema(this).verify();
-      case 28 -> new VideoTextEvidenceSchema(this).verify();
-      case 27 -> new ModelRebuildSchema(this).verify();
-      case 26 -> new DocumentReplacementSchema(this).verify();
-      case 25 -> schema.verifyVersionTwentyFive();
-      case 24 -> schema.verifyVersionTwentyFour();
-      case 23 -> schema.verifyVersionTwentyThree();
-      case 22 -> new DocumentCleanupSchema(this).verify();
-      default -> schema.verifyFormat();
-    }
-  }
-
   /**
-   * Upgrades one version when the library is at {@code from}: an existing library is snapshotted
-   * first, and steps that rebuild tables run with the table-rebuild pragmas.
+   * Refuses an existing library that is not at the current version before anything reads or writes
+   * it further: an older library gets an explicit upgrade hint, anything else (a newer or a foreign
+   * database) the generic refusal.
    */
-  private void upgrade(
-      AuthoritySchema schema, boolean exists, int from, boolean rebuildsTables, Runnable migrate)
-      throws IOException, SQLException {
-    if (transaction(() -> count("PRAGMA user_version")) != from) {
+  private void refuseUnsupportedVersion() {
+    long version = transaction(() -> count("PRAGMA user_version"));
+    long application = transaction(() -> count("PRAGMA application_id"));
+    if (version == LibrarySchema.VERSION) {
       return;
     }
-    if (exists) {
-      schema.backupVersion(libraryDirectory, from, from + 1);
+    if (application == LibrarySchema.APPLICATION_ID
+        && version >= 1
+        && version < LibrarySchema.VERSION) {
+      throw new OutdatedLibraryException(version);
     }
-    if (rebuildsTables) {
-      withTableRebuildPragmas(migrate);
-    } else {
-      migrate.run();
-    }
-  }
-
-  private void withTableRebuildPragmas(Runnable migrate) throws SQLException {
-    rawExecute("PRAGMA foreign_keys=OFF");
-    rawExecute("PRAGMA legacy_alter_table=ON");
-    try {
-      migrate.run();
-    } finally {
-      rawExecute("PRAGMA legacy_alter_table=OFF");
-      rawExecute("PRAGMA foreign_keys=ON");
-    }
+    throw new IllegalStateException("Unsupported Java database format");
   }
 
   private void rawExecute(String sql, Object... args) throws SQLException {

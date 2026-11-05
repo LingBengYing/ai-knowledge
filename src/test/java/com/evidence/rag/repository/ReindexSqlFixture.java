@@ -24,10 +24,9 @@ final class ReindexSqlFixture {
 
   private ReindexSqlFixture() {}
 
-  static void requireVersionTwentyFour(SqliteAuthorityStore store) {
+  static void requireCurrentVersion(SqliteAuthorityStore store) {
     assertEquals(
-        HistoricalSchemaV25Fixture.CURRENT_VERSION,
-        store.transaction(() -> store.count("PRAGMA user_version")));
+        LibrarySchema.VERSION, store.transaction(() -> store.count("PRAGMA user_version")));
   }
 
   static Published publish(AuthorityTestContext authority) throws Exception {

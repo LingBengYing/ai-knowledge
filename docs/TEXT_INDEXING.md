@@ -85,7 +85,7 @@ authority以自身全部source segment ID和当前generation调用共享`physica
 
 ## v3迁移与列表语义
 
-authority打开已有合法Java v1/v2数据库时，持有single-writer锁后逐版本迁移到v3；即使索引开关关闭也执行schema迁移。每个已有版本迁移前用`VACUUM INTO`创建唯一`.partial`文件，成功后原子改名为`java-library.v1-before-v2-*.db`或`java-library.v2-before-v3-*.db`，再执行增量事务。新库直接经过初始化/迁移到v3。
+（历史，2026-11-05起迁移链已删除：最低可打开schema为v43，新库直接建为v43，旧库须先用ce6912a升级，见[ARCHITECTURE](ARCHITECTURE.md)。）authority打开已有合法Java v1/v2数据库时，持有single-writer锁后逐版本迁移到v3；即使索引开关关闭也执行schema迁移。每个已有版本迁移前用`VACUUM INTO`创建唯一`.partial`文件，成功后原子改名为`java-library.v1-before-v2-*.db`或`java-library.v2-before-v3-*.db`，再执行增量事务。新库直接经过初始化/迁移到v3。
 
 v3新增`indexing_jobs`、不可变`indexing_attempts`、`index_publications`、完整`index_publication_entries`和`active_corpus_publications` sidecar；保留v2原文件、页、segment、source/revision触发器及恒null旧corpus active字段，不重建或放宽它们。publication记录source revision与projection generation，真实active只由publication sidecar读取source revision。
 

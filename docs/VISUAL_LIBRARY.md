@@ -51,5 +51,5 @@
 
 代码导航：VisualAnswerController → VisualAnswerService → EvidenceService / EvidenceRepository；视觉通信由 VisionModels / OpenAiCompatibleVisionModels 承担；Config集中装配，Model区分Domain与公开DTO。没有第二套鉴权或空转ServiceImpl。
 
-验收入口：VisualLibraryHttpTest（真实Spring/SQLite/HTTP与独立索引子进程；云模型和Milvus服务是本机协议替身）、VisualAnswerServiceTest、VisualEvidenceServiceTest、VisualIndexingServiceTest、VisualLibraryMigrationTest。替身通过不等于实际模型召回/事实准确率、真实Milvus视觉数据验收、网页或生产上线。
-完整迁移会先一致性备份v6再升级v7；原v1-v6迁移和文本证据约束保留。备份不包含升级后的新增资料，不能把恢复旧备份当作无损回滚。
+验收入口：VisualLibraryHttpTest（真实Spring/SQLite/HTTP与独立索引子进程；云模型和Milvus服务是本机协议替身）、VisualAnswerServiceTest、VisualEvidenceServiceTest、VisualIndexingServiceTest。替身通过不等于实际模型召回/事实准确率、真实Milvus视觉数据验收、网页或生产上线。
+（历史）完整迁移曾先一致性备份v6再升级v7；2026-11-05起迁移链已删除，只打开v43库。备份不包含升级后的新增资料，不能把恢复旧备份当作无损回滚。

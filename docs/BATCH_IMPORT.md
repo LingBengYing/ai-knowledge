@@ -234,5 +234,5 @@ v39→v40新增`document_import_file_states`表、6个索引与7个触发器（�
 - `GET /v1/document-batches/{id}/sources?offset=0&limit=50&q=&folder=` 返回可用于知识建设的该批已发布来源。仅返回当前权威发布仍有效、源版本与本批一致且有文字证据的资料；已替换、撤下、未发布或纯视觉资料不会混入。此读取不调用模型，不读取全部正文，也不触发编译。
 - 结果为 `{batch_id,total,offset,limit,items,folders}`。每行包含 `ordinal,document_id,filename,display_name,relative_path,publication_id,source_revision_id`；`folders` 是本批合资格来源的目录分组 `{path,count}`：每个目录计入其下全部层级的来源，只含子目录的上级目录也会列出；`""` 只计根层文件。`q` 对文件名、显示名和相对路径做大小写不敏感字面匹配，`folder` 选择该相对目录及其下级；先过滤再计数与分页，`limit` 为 1–100。
 - 前端依 `batch_sources` 能力显示“整理为知识页”，显式选择一组资料后使用原提案 API。已有单提案上限 50 份保持，不能把一整个导入批次自动送进模型。提案仍需审阅采纳，读取、勾选或导入完成都不会直接发布知识页。
-- v43 只新增 `document_import_batch_placement` 表并登记受管 schema 对象，旧批次没有该表记录时使用默认设置；迁移前保留 `v42-before-v43` 一致备份。生产发布须验证真实 v42 副本及兼容回退包，不能以旧库覆盖新业务。此节描述本地实现，生产状态以当前变更验收记录为准。
+- v43 只新增 `document_import_batch_placement` 表并登记受管 schema 对象，旧批次没有该表记录时使用默认设置；迁移前保留 `v42-before-v43` 一致备份。2026-11-05起迁移链已删除，本页各版本“升级前备份”均为历史：后端只打开v43库，旧库须先用ce6912a升级；已有的`java-library.vN-before-vM-*.db`备份仍由撤下清理盘点与重写。生产发布须验证真实 v42 副本及兼容回退包，不能以旧库覆盖新业务。此节描述本地实现，生产状态以当前变更验收记录为准。
 - 生产入口需要精确放行新增只读 `GET /v1/document-batches/{id}/sources` 和 `offset,limit,q,folder` 参数；不扩大模型或上传代理权限。

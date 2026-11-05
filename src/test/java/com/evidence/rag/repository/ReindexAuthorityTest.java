@@ -30,7 +30,7 @@ class ReindexAuthorityTest {
   void duplicateInitialAndTwoPendingTasksCannotBypassTheOriginalIndexContract() throws Exception {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      ReindexSqlFixture.requireVersionTwentyFour(store);
+      ReindexSqlFixture.requireCurrentVersion(store);
       var base = ReindexSqlFixture.publish(authority);
       assertThrows(
           RuntimeException.class,
@@ -95,7 +95,7 @@ class ReindexAuthorityTest {
       throws Exception {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      ReindexSqlFixture.requireVersionTwentyFour(store);
+      ReindexSqlFixture.requireCurrentVersion(store);
       var base = ReindexSqlFixture.publish(authority);
       var target = base.claim().target();
       var proposed =
@@ -131,7 +131,7 @@ class ReindexAuthorityTest {
   void incompleteNewPublicationRollsBackAndOnlyTheFullReceiptCanSwitchActive() throws Exception {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      ReindexSqlFixture.requireVersionTwentyFour(store);
+      ReindexSqlFixture.requireCurrentVersion(store);
       var base = ReindexSqlFixture.publish(authority);
       ReindexSqlFixture.queue(store, base, 1);
       var claim = authority.claimIndexing(ReindexSqlFixture.OWNER.workspaceId()).orElseThrow();
@@ -207,7 +207,7 @@ class ReindexAuthorityTest {
   void successRetiresOnlyOldBasePendingSynopsisAndTheNewSynopsisSlotIsUsable() throws Exception {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      ReindexSqlFixture.requireVersionTwentyFour(store);
+      ReindexSqlFixture.requireCurrentVersion(store);
       var base = ReindexSqlFixture.publish(authority);
       store.transaction(
           () -> {
@@ -249,7 +249,7 @@ class ReindexAuthorityTest {
   void failedRebuildNeverRetiresTheOldPendingSynopsis() throws Exception {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      ReindexSqlFixture.requireVersionTwentyFour(store);
+      ReindexSqlFixture.requireCurrentVersion(store);
       var base = ReindexSqlFixture.publish(authority);
       store.transaction(
           () -> {
@@ -280,7 +280,7 @@ class ReindexAuthorityTest {
     String document;
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
-      ReindexSqlFixture.requireVersionTwentyFour(store);
+      ReindexSqlFixture.requireCurrentVersion(store);
       var base = ReindexSqlFixture.publish(authority);
       document = base.documentId();
       ReindexSqlFixture.queue(store, base, 1);
@@ -359,7 +359,7 @@ class ReindexAuthorityTest {
           });
     }
     try (var reopened = new SqliteAuthorityStore(directory)) {
-      ReindexSqlFixture.requireVersionTwentyFour(reopened);
+      ReindexSqlFixture.requireCurrentVersion(reopened);
       assertEquals(
           2,
           reopened.transaction(

@@ -33,8 +33,7 @@ class SynopsisRepositoryTest {
     try (var store = new SqliteAuthorityStore(directory)) {
       store.transaction(
           () -> {
-            assertEquals(
-                HistoricalSchemaV25Fixture.CURRENT_VERSION, store.count("PRAGMA user_version"));
+            assertEquals(LibrarySchema.VERSION, store.count("PRAGMA user_version"));
             assertEquals(
                 4,
                 store.count(

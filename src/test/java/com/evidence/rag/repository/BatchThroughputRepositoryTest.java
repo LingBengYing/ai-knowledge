@@ -45,6 +45,24 @@ class BatchThroughputRepositoryTest {
     return result.items().stream().filter(i -> i.ordinal() == ordinal).findFirst().orElseThrow();
   }
 
+  /**
+   * Batch file state from its inputs, the derivation the triggers maintain; aliases f (file), g
+   * (parse), a (request), j (index).
+   */
+  private static final String STATE =
+      """
+      CASE WHEN EXISTS(SELECT 1 FROM document_tombstones t WHERE t.document_id=f.document_id) THEN 'deleted'
+        WHEN f.document_id IS NULL THEN 'awaiting_upload'
+        WHEN g.state IN ('failed','cancelled') THEN g.state
+        WHEN a.state='failed' THEN 'failed'
+        WHEN j.state IN ('failed','cancelled') THEN j.state
+        WHEN j.state='indexed' THEN 'indexed'
+        WHEN j.state IN ('queued','processing','prepared') THEN 'indexing'
+        WHEN g.state='parsed' THEN 'parsed'
+        WHEN g.state='processing' THEN 'parsing'
+        ELSE 'queued' END
+      """;
+
   /** Cached state rows must equal the full derivation for every file. */
   static void assertCacheMatches(SqliteAuthorityStore store) {
     store.transaction(
@@ -59,7 +77,7 @@ class BatchThroughputRepositoryTest {
     for (var row :
         store.rows(
             "SELECT f.batch_id||':'||f.ordinal AS k,"
-                + BatchThroughputSchema.STATE
+                + STATE
                 + " AS s "
                 + BatchThroughputSchema.INPUTS)) {
       derived.put((String) row.get("k"), (String) row.get("s"));
