@@ -1,5 +1,7 @@
 # 视频原帧文字证据
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/video-answers`、`/v1/video-sources/*`）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 这是 0014 的视频 OCR 后端主线，不是文件摘要、字幕轨导入或完整多模态发布。2026-09-20 已本机冻结：1352 Java、73 Node、单列 native 6 项通过，详见[验证记录](changes/0014-video-library/ocr-verification.md)与源码绑定。
 
 ## 正常路径

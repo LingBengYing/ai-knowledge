@@ -1,5 +1,7 @@
 # 原图知识库：当前后端 Interface
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/visual-answers`、`/v1/visual-sources/*`；`visual_answers/visual_sources`能力名仅作网页兼容保留）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 对应[0012规格](changes/0012-visual-library/spec.md)。2026-09-10已通过[本地后端验收](changes/0012-visual-library/verification.md)及[限定审查](changes/0012-visual-library/REVIEW.md)，完整产品仍为 IMPLEMENTATION。不是生产版，也不是文件摘要功能；真实云效果、网页与音视频尚未验收。
 
 ## 正常路径

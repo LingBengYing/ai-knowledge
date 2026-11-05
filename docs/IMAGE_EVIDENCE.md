@@ -1,5 +1,7 @@
 # 图片文字证据：本机开发入口
 
+> 2026-11-05：本文涉及的旧问答/来源路由（`POST /v1/answers`、`/v1/sources/*`及`source_image_content`能力）已删除，请求返回404；下文相关段落仅作历史记录。上传、摄取与索引不受影响，schema不变（v43）。问答请用[知识问答](KNOWLEDGE_ANSWERS.md)。
+
 当前变更[0010词级区域](changes/0010-image-regions/intent.md)，基于[0009图片文字](changes/0009-image-evidence/intent.md)。PNG/JPEG中的机器识别文字复用现有文本索引与问答，原图经受保护的引用接口回读；0010为引用增加OCR词级位置。它不是字符级框、完整图片视觉理解、扫描PDF、音频/视频或生产能力。[0010验收](changes/0010-image-regions/verification.md)记录真实Tesseract合成英文PNG及最终900 Java/73 Node；0009报告仅认证历史源码。
 
 ## 启用

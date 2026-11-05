@@ -1,5 +1,7 @@
 # 完整多模态后端运行与验收
 
+> 2026-11-05：查询附件（`RAG_QUERY_ATTACHMENTS_*`/`RAG_QUERY_RANKING_*`）及图片/视频/音频问答与来源路由已删除；下表对应行仅作历史记录，上传/摄取/索引装配不变。
+
 适用独立Java后端的development/test、字面loopback环境。完整装配验收工件位于[0018](changes/0018-multimodal-composition/intent.md)；执行结果以该目录verification为准。全开关启动不是生产发布，也不是模型效果评测。
 
 ## 配置一次说明白

@@ -94,6 +94,8 @@ Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操�
 
 新增[原图向量检索](docs/IMAGE_VECTOR_RETRIEVAL.md)：已索引图片显式建立独立原图向量，原图模式携参考图片时按完整授权范围召回，再核验库内原图事实并打开原来源。默认关闭，不自动补建旧资料；本机实现与验证见[0026](docs/changes/0026-image-vector-retrieval/verification.md)。本增量未部署。当前已部署20261003-voice-tags，含扫描PDF、查询附件、摘要建议标签和语音提问；部署结果与只读入口报告已核对，完整页面由用户验收，真实ASR仍未通过。下方日期和发布状态均为对应历史快照。
 
+**已移除（2026-11-05）**：旧问答与来源接口 `POST /v1/answers`、`/v1/sources/{answerId}/{ordinal}`（含`/content`）、`POST /v1/visual-answers`、`/v1/visual-sources/*`、`POST /v1/video-answers`、`/v1/video-sources/*`、`POST /v1/audio-answers`、`/v1/audio-sources/*`、`POST /v1/attachment-answers`（查询附件）连同AnswerService及`answers/sources/source_image_content/video_answers/video_sources/query_attachments`能力名、`rag.query-attachments.*`配置已从后端删除（网页早已不调用）。问答统一走知识问答与对话；`visual_answers/visual_sources`、`audio_answers/audio_sources`暂作网页兼容能力名。上传/摄取/索引、图片与原声向量建设、视频、wiki、摘要、批量导入、清理与模型配置不受影响；schema不变（v43），trace表保留不写入。图片/原声向量目前仍可建立但已无查询路由消费。
+
 **已移除（2026-11-03）**：独立声音知识库（0028）与原视频音画知识库（0029）整体删除——上传 `POST /v1/sound-documents`、`POST /v1/video-av-documents`，索引 `/v1/documents/{id}/sound-index`、`/v1/documents/{id}/video-av-index`，对应编译/索引子进程/模型客户端、`rag.sound.*`/`rag.video-av.*` 配置及 `sound_*`/`video_av_*` 能力名均已移除。音频（ASR/原声向量）、0014视频、图片向量、查询附件和文档不受影响。schema不变（v43），旧声音/原视频音画资料仍可列出、查看、下载原件与撤下清理，但不能再更新原件或建立索引。见[声音知识库](docs/SOUND_LIBRARY.md)与[原视频音画](docs/VIDEO_AUDIOVISUAL.md)。
 
 **已移除（2026-11-02）**：声音与原视频音画的问答/来源接口 `POST /v1/sound-answers`、`POST /v1/sound-query-answers`、`/v1/sound-sources/*`、`POST /v1/video-av-answers`、`POST /v1/video-av-query-answers`、`/v1/video-av-sources/*` 及 `video_av_query_attachments` 能力已从后端删除（网页早先已移除代理）；声音/原视频音画的上传与索引保留，trace表结构保留不迁移。见[声音知识库](docs/SOUND_LIBRARY.md)与[原视频音画](docs/VIDEO_AUDIOVISUAL.md)。
@@ -170,13 +172,13 @@ Chrome仍为 `ERR_BLOCKED_BY_CLIENT`，未认证新版DOM、布局及页面操�
 | 上传、持久任务、取消/重试、版本化解析证据 | 本地验收通过 | 默认关闭；显式启用且loopback；解析完成标为parsed，保留原文件 |
 | 摄取后台当前授权与撤权取消 | 0006 本地验收通过 | 领取/执行前/提交复验原创建者当前写权限；取消审计原子提交；重试需恢复创建者权限 |
 | 显式索引任务与active发布 | 已实现 | 每attempt独立generation、完整物理manifest与映射台账；实际能力取决于运行配置，不将parsed当indexed |
-| 有证问答与来源 | 已实现；10/04已有局部页面记录 | POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；完整范围/配置复验和trace同事务；0042/0044支持正常字段/启动日期表达，不改原文 |
+| 有证问答与来源（旧路由2026-11-05已删除） | 已删除；问答改走知识问答 | 原POST /v1/answers、GET /v1/sources/{answerId}/{ordinal}；完整范围/配置复验和trace同事务；0042/0044支持正常字段/启动日期表达，不改原文 |
 | 文档撤下、取消在途任务与旧引用失效 | 0008开发实现，单项DELETE入口已移除 | 现走 /v1/documents/{id}/cleanup；原 DELETE /v1/documents/{id}；当前权限与事务审计，v5墓碑；返回deleting/pending；当前受控清理和逐项状态见0031，不代表同步清理完成 |
 | PNG/JPEG文字识别、索引问答、词框与原图引用回读 | 0010本机后端验收通过 | 实际Tesseract合成英文PNG；模型/Milvus为协议替身，非真实图片检索质量；见[图片入口](docs/IMAGE_EVIDENCE.md) |
 | 原图视觉模型通信、库内索引、逐事实问答与整图引用 | 已实现；10/04已有图片页面记录 | 独立image证据，caption仅用于召回；局部实际回答/原图回读不认证所有图片质量 |
 | 音频解码、ASR协议、索引、问答与原文件Range | 已实现；10/04已有日期/播放记录 | [接口及验证边界](docs/AUDIO_COMPILATION.md)；时间为真实分段，保存转录错字保留，不假报词级对齐或ASR质量已解决 |
 | 视频上传、原帧/完整音轨/时间组与完整索引 | 0014本机后端验收通过 | [显式视频MIME合同](docs/VIDEO_PUBLICATION.md)，真实FFmpeg/HTTP/SQLite/索引进程；描述仅供召回，模型/Milvus为协议替身 |
-| 视频三模式问答、typed时间/原帧/原视频Range | 已实现；10/04已有画面页面记录 | [接口合同](docs/VIDEO_ANSWERS.md)；同组逐事实证明及完整scope；原帧时间不等于逐词对齐，间歇model_failure原因仍开放 |
+| 视频三模式问答、typed时间/原帧/原视频Range | 2026-11-05已删除 | [接口合同](docs/VIDEO_ANSWERS.md)；同组逐事实证明及完整scope；原帧时间不等于逐词对齐，间歇model_failure原因仍开放 |
 | 视频选中原帧OCR、文字问答与像素词框 | 0014本机后端验收通过 | [独立OCR合同](docs/VIDEO_OCR.md)及[验证记录](docs/changes/0014-video-library/ocr-verification.md)，默认关闭；真实帧显示时间，非全视频字幕或中文识别质量结论 |
 | 独立视频字幕轨、完整索引、文字问答与时间来源 | 0016本机后端已接 | [配置与接口](docs/VIDEO_SUBTITLES.md)，默认关闭；完整同轨上下文，字幕不是ASR或画面OCR |
 | 短/长文件摘要、完整材料与持久原始来源 | 0015/0016本机后端已接 | [文件摘要](docs/FILE_SYNOPSIS.md)，包含字幕第八类原始材料；摘要不替代事实证据 |

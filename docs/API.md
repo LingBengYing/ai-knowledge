@@ -1,5 +1,7 @@
 # HTTP API：资料管理、文本摄取、索引与可选问答
 
+2026-11-05删除：旧问答与来源接口`POST /v1/answers`、`GET /v1/sources/{answerId}/{ordinal}`（含`/content`）、`POST /v1/visual-answers`、`/v1/visual-sources/*`、`POST /v1/video-answers`、`/v1/video-sources/*`、`POST /v1/audio-answers`、`/v1/audio-sources/*`、`POST /v1/attachment-answers`不再路由（404）；`answers`、`sources`、`source_image_content`、`video_answers`、`video_sources`、`query_attachments`能力名不再出现在`GET /v1/config`，`rag.query-attachments.*`配置键删除。`visual_answers/visual_sources`与`audio_answers/audio_sources`暂作网页兼容能力名保留（网页据此开放图片/原声向量建设），不代表对应问答路由存在。知识问答与对话、检索测试、wiki、摘要、摄取/索引、图片/原声向量和视频摄取/索引不变；schema不变（v43），trace表保留但不再写入。
+
 ## 0072 Agent SSE（当前开发）
 
 创建仍为 `POST /v1/knowledge-agent/runs`，返回任务编号；新增 `GET /v1/knowledge-agent/runs/{id}/events`（无query/body），复用既有身份和任务授权。
@@ -36,7 +38,7 @@
 
 0003提供显式本机摄取：[TEXT_INGESTION](TEXT_INGESTION.md)；0004新增显式索引：[TEXT_INDEXING](TEXT_INDEXING.md)。0007新增独立、默认关闭的文本问答与引用读取，见下方“可选文本问答与引用读取”。三个开关只允许development/test与字面loopback。0007仍为IMPLEMENTATION：本机真实HTTP九项回归已通过，但不代表完整0007、网页问答、真实provider/Milvus质量或生产验收；逐次源码与验证边界见[0007 verification](changes/0007-text-answers/verification.md)。0003发布bc82a7a的190项Java/42项Node和0005/0006历史验收不认证新增问答代码。
 
-本文只记录当前代码已映射的端点。基础URL使用本地配置，默认端口18084；响应通常为JSON，上传body为原文件字节，任务操作无body。源码依据：[ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[ManagementService](../src/main/java/com/evidence/rag/service/ManagementService.java)、[IndexingController](../src/main/java/com/evidence/rag/controller/IndexingController.java)、[AnswerController](../src/main/java/com/evidence/rag/controller/AnswerController.java)、[RuntimeController](../src/main/java/com/evidence/rag/controller/RuntimeController.java)、[SessionController](../src/main/java/com/evidence/rag/controller/SessionController.java)。
+本文只记录当前代码已映射的端点。基础URL使用本地配置，默认端口18084；响应通常为JSON，上传body为原文件字节，任务操作无body。源码依据：[ManagementController](../src/main/java/com/evidence/rag/controller/ManagementController.java)、[ManagementService](../src/main/java/com/evidence/rag/service/ManagementService.java)、[IndexingController](../src/main/java/com/evidence/rag/controller/IndexingController.java)、[RuntimeController](../src/main/java/com/evidence/rag/controller/RuntimeController.java)、[SessionController](../src/main/java/com/evidence/rag/controller/SessionController.java)。
 
 0008新增独立默认关闭的文档撤下入口，见下方“文档撤下请求”；这是立即失效与取消，不是物理清理完成。原三个文本开关及HTTP认证行为保持。
 
@@ -80,13 +82,13 @@ X-Principal-Id: owner
   "edition": "java",
   "migration_stage": "management_slice",
   "capabilities": ["management", "folders", "metadata", "batch_move", "batch_tag", "document_originals"],
-  "unavailable": ["answers", "sources", "reindex", "document_delete", "upload", "ingestions", "text_index", "indexings"]
+  "unavailable": ["reindex", "document_delete", "upload", "ingestions", "text_index", "indexings"]
 }
 ```
 
-capabilities/unavailable是能力名称数组，不是布尔字段。管理五项能力和`document_originals`始终保留；摄取启用时加入`text_upload/ingestions`并移除`upload/ingestions`不可用项；索引启用时加入`text_index/indexings`并移除对应不可用项。问答关闭时，原stage优先级保持`text_indexing`、`text_ingestion`、`management_slice`；问答启用时另加入`answers/sources`、移除对应不可用项，stage为`text_answers`，不隐式开启摄取或索引。`reindex/document_delete`继续不可用，readiness始终503。能力开关不代表网页已经接线或任何具体资料可直接回答。
+capabilities/unavailable是能力名称数组，不是布尔字段。管理五项能力和`document_originals`始终保留；摄取启用时加入`text_upload/ingestions`并移除`upload/ingestions`不可用项；索引启用时加入`text_index/indexings`并移除对应不可用项。问答关闭时，原stage优先级保持`text_indexing`、`text_ingestion`、`management_slice`；问答启用时stage为`text_answers`（2026-11-05起不再声明`answers/sources`，也不再列入不可用项），不隐式开启摄取或索引。`reindex/document_delete`继续不可用，readiness始终503。能力开关不代表网页已经接线或任何具体资料可直接回答。
 
-视频开启且摄取/索引各自开启时分别声明`video_upload`/`video_index`；视频与问答同时开启才声明`video_answers/video_sources`，不改变上述stage或readiness。视频装配仍要求摄取开启、development/test及字面loopback，不能仅设置两个问答开关而省略原视频配置。
+视频开启且摄取/索引各自开启时分别声明`video_upload`/`video_index`；`video_answers/video_sources`已于2026-11-05删除。视频装配仍要求摄取开启、development/test及字面loopback，不能仅设置两个问答开关而省略原视频配置。
 
 `RAG_DOCUMENT_REMOVAL_ENABLED=true`只额外声明`document_removal`，不改变stage，不移除`document_delete/reindex`，不自动开启上述三个开关或要求模型配置。关闭时保持原能力数组。
 
@@ -239,7 +241,7 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 取消使旧claim失效，普通清理确认旧worker退出后释放本进程额度；重启将processing改为failed/worker_interrupted，需显式重试。新claim使用独立generation与物理ID；旧请求即使后来在上游完成，也仅写旧namespace，不以kill代表撤回上游。protocol v2父存活检查和跨JVM collection lease控制本地writer，相关异常进程/晚写验收仍以VERIFICATION为准。每次retry可能再次计费/写投影，网络中断先读状态，不自动重复写请求。完整物理manifest与映射台账事务提交后才indexed且publication非空；回执/generation无HTTP提交接口。单资料索引路由保持，当前管理批量reindex仅委托同一完整重建流程，见[操作指南](BATCH_TEXT_REINDEX.md)。
 
-## 可选文本问答与引用读取（0007）
+## 问答开关与预算（0007旧路由已删除）
 
 本节记录已接入并通过本机真实HTTP回归的协议，不宣称0007已完成完整验收。测试使用临时SQLite与本机模型/Milvus协议替身，不是实际provider质量或网页验收。实现和未验证项以[0007 spec](changes/0007-text-answers/spec.md)及[verification](changes/0007-text-answers/verification.md)为准。
 
@@ -255,89 +257,9 @@ HTTP任务revision_id与列表active_revision_id始终表示source revision。�
 
 装配不发网络请求；非空授权范围确认后才准备查询。查询只校验已有Milvus集合/schema/索引，不创建、加载或写集合；schema检查成功不等于集合已经loaded。原发布目标须与当前模型/投影配置匹配。总处理预算不包含慢请求体接收防护；取消请求不代表上游计费或任务已撤回，不自动重试计费调用。
 
-### `POST /v1/answers`
+### 已删除的旧问答与来源路由（2026-11-05）
 
-请求使用`Content-Type: application/json`，不接受query（包括空query分隔符）。仅允许以下字段：
-
-```json
-{"question":"上海住宿上限是多少？","document_ids":["doc-policy"]}
-```
-
-`doc-policy`是示意ID，调用时应使用当前有权访问且已发布的真实资料ID。
-
-| 字段/范围 | 契约 |
-| --- | --- |
-| `question` | 必填字符串，非空白、合法Unicode，最多4096 UTF-8字节；不接受非法surrogate或控制字符（允许换行和制表符） |
-| 不提供`document_ids` | 当前用户有权读取、已发布的全库；超过128份明确失败，不截断成前128份 |
-| `document_ids: []` | 显式空范围，200拒答、`reason=empty_scope`、`citations=[]`，零模型/投影调用，绝不回退全库 |
-| 非空`document_ids` | 最多128个不重复字符串ID；每个匹配`[A-Za-z0-9][A-Za-z0-9._:-]{0,99}` |
-
-`document_ids:null`、重复/非法/超量ID、未知字段、非对象JSON、重复键和尾随JSON均422 `invalid_request`。客户端不能设置角色、workspace、模型、分数、页码或locator。任一显式所选资料不存在、无权、未发布或发布目标不匹配，整次404 `not_found`，不会只保留其余项或扩大范围。
-
-沿用本文件的身份和Origin规则：JWT Bearer/Cookie对应的可信Actor决定范围；无效Bearer不降级Cookie，开发身份头不能覆盖JWT。JWT缺失/无效为401；开发身份缺失为422 `invalid_identity`；跨源写入403。回答提交前复验整个冻结范围，包含未进入候选的所选资料。
-
-成功回答和有审计的拒答均返回200 `application/json`，固定字段如下；客户端必须检查`status`，不能把所有200当作已回答。
-
-| 字段 | 含义 |
-| --- | --- |
-| `answer_id` | 服务器生成并持久化的答案/拒答标识 |
-| `status` | `answered`或`abstained` |
-| `answer` | 已验证的证据摘录组成的答案；拒答时为安全说明，不用模型常识补齐 |
-| `reason` | `answered`时为null；拒答时为安全原因码，例如`empty_scope`、`no_evidence`、`incomplete_evidence`、`conflicting_evidence`、`upstream_unavailable`、`scope_changed` |
-| `citations` | 服务器校验后的引用数组；拒答时为空数组，不返回未验证引文 |
-
-每个citation固定包含以下字段，不返回内部claim、projection generation或整页正文：
-
-| 字段 | 含义 |
-| --- | --- |
-| `number` | 此答案中的1起引用序号，最多32 |
-| `document_id`、`revision_id` | 文档与source revision身份；不是Milvus generation |
-| `source_sha256`、`parser_revision` | 原文件摘要与解析版本 |
-| `filename` | 原文件名，不是可修改的显示名 |
-| `page`、`start`、`end` | 页号从1起；页内Unicode code point的0起半开范围`[start,end)`，不是UTF-8字节或JavaScript UTF-16索引 |
-| `quote`、`quote_sha256` | 经过服务器原文校验的摘录及其UTF-8 SHA-256 |
-| `source_url` | 服务器生成的相对URL：`/v1/sources/{answer_id}/{number}`；不能信任模型自由生成链接 |
-
-### `GET /v1/sources/{answerId}/{ordinal}`
-
-使用原回答者的当前身份读取`source_url`；`ordinal`为1–32整数。不接受query或body（包括Transfer-Encoding）；非法序号/请求形状422。成功200，JSON仅含`answer_id`和`citation`，后者采用上表同一结构，由权威原文重新构造，不把保存的答案文本当成来源。
-
-未知答案/引用、拒答的引用、非原回答者访问，或原回答完整范围内任一资料的当前ACL/active绑定失效，均404 `not_found`，不返回旧摘录；仅拥有同一资料权限也不能读取其他人的答案来源。该接口不是文件下载、任意页浏览或可自由传入文件路径的预览端点。回答和来源响应均保持no-store与`X-Request-Id`。
-
-问答协议错误仍使用下方既有`application/problem+json`，安全码字段是`error_code`，不是`code`或回答的`reason`。典型额外错误为408 `answer_timeout`、429 `answer_capacity_exceeded`/`scope_capacity_exceeded`、503 `answers_unavailable`；未开启问答时上述路由在通过身份检查后为404。证据不足的200拒答与这些HTTP错误必须分开处理。
-
-## 视频问答与来源（0014）
-
-需同时显式设置`RAG_VIDEO_ENABLED=true`与`RAG_ANSWERS_ENABLED=true`。视频原有`RAG_INGESTION_ENABLED=true`、development/test、字面`127.0.0.1`/`::1`和codec/ASR/vision配置要求不变；问答还需完整TextAdapterSettings。视频使用自己的vision资源及共用fact-capable文字模型，不要求打开旧`RAG_AUDIO_ENABLED`/`RAG_VISUAL_ENABLED`。完整配置、逐字段JSON合同和验证边界见[VIDEO_ANSWERS](VIDEO_ANSWERS.md)。
-
-视频OCR摄取额外使用默认关闭的`RAG_VIDEO_OCR_ENABLED`及显式本机Tesseract设置，详见[VIDEO_OCR](VIDEO_OCR.md#配置)。它逐个处理已有选帧，使用v2 compiler/v12附表；旧v1资料不自动重识别，不代表全部视频帧、独立字幕轨或完整字幕识别。
-
-| 方法与路径 | 返回与用途 |
-| --- | --- |
-| `POST /v1/video-answers` | 200：`answer_id/status/answer/reason/citations`；有据回答或有审计拒答 |
-| `GET /v1/video-sources/{answerId}/{ordinal}` | 200：`answer_id/citation`；重读当前授权的同一typed引用 |
-| `GET /v1/video-sources/{answerId}/{ordinal}/frame` | 200：该引用封存的原始解码PNG/JPEG；旧三模式组无帧时404 |
-| `GET /v1/video-sources/{answerId}/{ordinal}/content` | 原视频：无Range为200，单byte Range为206，非法/多段/不可满足Range为416 |
-
-POST使用JSON，无query，仅允许如下字段；`mode`必填且只接受小写`visual`、`transcript`、`joint`或`ocr`，不会从问题推断或降级：
-
-```json
-{"question":"指示灯的颜色是什么？重启等待时间是多少秒？","document_ids":["doc-video"],"mode":"joint"}
-```
-
-`doc-video`为示意ID。`question`和`document_ids`复用文字问答的验证及完整范围：省略选择为当前可见已发布全库；`[]`是零模型/投影调用的`empty_scope`拒答；任一不可用的显式选择使整次404，绝不回退全库。视频筛选只缩小检索候选，不删去原范围中的普通文本/图片/音频资料；最终提交和来源回读仍复验完整范围。
-
-`visual`或`transcript`要求该模态覆盖完整问题；`joint`要求同一个真实`EvidenceGroup`覆盖全部事实，而且原帧和转录各自至少贡献一个通过证明的事实。caption仅供召回，不能替代原帧证明。沿用有界确定性语法，最多8个事实，不提供通用拆题/代词消解；无法保留共享条件、时间或所属关系时明确拒答，不截断问题。
-
-`ocr`走独立文字证明，使用完整原帧OCR上下文及精确摘录覆盖全部事实，不使用caption/ASR代证，也不计为`joint`的视觉贡献。同generation混合命中先全部经authority验证分类，再按证据类型筛选；未知或越权ID不能被静默滤掉。
-
-引用最多32个。原三模式的`kind=video_frame`或`video_transcript`分别对应`proof_origin=machine_vlm`或`machine_asr`。公共字段包含parent文档/revision/source SHA、compiler版本、真实`group_id`、`start_us/end_us`及精确十进制`start_ms/end_ms`、`time_precision=group_interval`、`frame`/`transcript`、服务器生成的来源/原视频URL。帧有真实PTS、SHA、尺寸和`origin=decoded_original`；转录有精确摘录及ASR整段`start_ms/end_ms`、`text_origin=machine_asr`、`time_precision=server_chunk`。
-
-OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null`、`time_precision=frame_interval`；有`frame`、无`transcript`，时间严格取该原帧PTS及实际显示时长。独立`ocr`对象含整帧文字的`start_code_point/end_code_point`、`quote/quote_sha256`、`ocr_revision`和相交完整词框`regions`（`start/end`为CP，`left/top/right/bottom`为原像素坐标）。旧三模式的`ocr`为null。全部模式均不伪造scene、page或词级时间；OCR只公开真实frame-local CP，完整字段见[typed引用表](VIDEO_ANSWERS.md#typed引用字段)。
-
-所有来源GET只接受1–32的`ordinal`，无query/body/Transfer-Encoding；需原回答者当前身份。未知/拒答来源、失效publication、完整范围内任何资料失权或源SHA不符统一404。先完整授权及原视频SHA校验，再处理Range；不会通过416泄露未授权文件长度。帧不按请求时间重新生成，`/content`不提供按毫秒剪辑或抽取音轨。
-
-视频、文字与音频共用原`RAG_ANSWERS_TIMEOUT_MS`和`RAG_ANSWERS_MAX_CONCURRENT`；没有额外视频执行队列或调用额度。预算中断不返回部分答案；200 `abstained`与408/429/503 HTTP错误保持区别。真实FFmpeg/Spring HTTP/SQLite链路使用本机ASR/VLM/embedding/rerank/Milvus协议替身，未证明真实云模型质量、网页播放器或生产可用性。
+原`POST /v1/answers`、`GET /v1/sources/{answerId}/{ordinal}`及`/content`、`POST /v1/visual-answers`、`/v1/visual-sources/*`、`POST /v1/video-answers`、`/v1/video-sources/*`、`POST /v1/audio-answers`、`/v1/audio-sources/*`与`POST /v1/attachment-answers`均已删除，请求返回404。问答请改用知识问答与对话（见本文0072 Agent SSE及[知识问答](KNOWLEDGE_ANSWERS.md)）；检索测试`POST /v1/retrieval-tests`不变。上表`RAG_ANSWERS_ENABLED/TIMEOUT_MS/MAX_CONCURRENT`仍是知识问答的开关与预算。旧答案/来源trace表结构保留（schema v43），不再写入。
 
 ## 编辑资料展示元数据
 
@@ -456,7 +378,7 @@ OCR引用为`kind=video_frame_ocr`、`proof_origin=machine_ocr`、`group_id=null
 
 显式图片OCR opt-in后，原上传接口额外支持PNG/JPG/JPEG，真实type=image、上限10MiB/1200万像素；其他任务/索引/回答路径复用上文契约。关闭图片配置保留原文本准入。配置与当前验证边界见[IMAGE_EVIDENCE](IMAGE_EVIDENCE.md)。
 
-`GET /v1/sources/{answerId}/{ordinal}` 对图片来源增加 `image` 对象：`type=image`、`mime_type`、`width`、`height`、`bbox=[0,0,1,1]`、`coordinate_system=normalized_xyxy`、`text_origin=machine_ocr`、`content_url`。文本来源不输出image字段，原citation字段不变。page/start/end是OCR转录定位，bbox只是整图，不是文字区域。
+（2026-11-05起旧`/v1/sources/*`路由已删除，下列来源格式仅作历史记录。）`GET /v1/sources/{answerId}/{ordinal}` 对图片来源增加 `image` 对象：`type=image`、`mime_type`、`width`、`height`、`bbox=[0,0,1,1]`、`coordinate_system=normalized_xyxy`、`text_origin=machine_ocr`、`content_url`。文本来源不输出image字段，原citation字段不变。page/start/end是OCR转录定位，bbox只是整图，不是文字区域。
 
 0010新增词级区域：新`java-image-ocr-v2-tsv`解析结果的`image`另含`region_kind=ocr_word`和`regions`数组；每项为`{start,end,bbox:[left,top,right,bottom]}`，bbox为0–1归一化xyxy浮点数，start/end为同一OCR页的code point半开区间。只返回与该引用相交的完整词框，不冒称字符级框；词框可超出摘录的字符范围。原整图bbox和content_url保持不变，旧v1图片省略region_kind/regions，不重新识别或推测位置。示例（合成，不是真实OCR结果）：
 

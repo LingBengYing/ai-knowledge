@@ -161,7 +161,7 @@
 
 ## Frozen fixtures 与 eval 的准确用法
 
-[src/test/resources/corpus](../src/test/resources/corpus/)的四份合成 PDF 覆盖政策、运维、不可信指令、另一组织资料，不含真实业务文档。[TextParserTest](../src/test/java/com/evidence/rag/tool/parser/TextParserTest.java)验证抽取和定位；未修改的[golden.json](evals/golden.json)包含精确事实、政策事实、同义查询、无答案、提示注入、组织隔离六个预期，已由[AnswerGoldenTest](../src/test/java/com/evidence/rag/service/AnswerGoldenTest.java)接入Java解析/发布/问答链路并通过确定性替身验证。
+[src/test/resources/corpus](../src/test/resources/corpus/)的四份合成 PDF 覆盖政策、运维、不可信指令、另一组织资料，不含真实业务文档。[TextParserTest](../src/test/java/com/evidence/rag/tool/parser/TextParserTest.java)验证抽取和定位；未修改的[golden.json](evals/golden.json)包含精确事实、政策事实、同义查询、无答案、提示注入、组织隔离六个预期，已由AnswerGoldenTest（2026-11-05已删除）接入Java解析/发布/问答链路并通过确定性替身验证。
 
 六项通过只证明冻结fixture与确定性Adapter下的预期，不是实际模型召回率、完整语义覆盖或真实provider质量报告，也不是仅凭parser抽出危险文字就推定安全。后续实际质量评测仍须固定语料/配置/模型版本，分别报告召回、重排、答案/引用、拒答与权限结果。
 
