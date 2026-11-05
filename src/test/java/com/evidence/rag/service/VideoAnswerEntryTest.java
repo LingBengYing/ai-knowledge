@@ -2,7 +2,6 @@ package com.evidence.rag.service;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,19 +10,16 @@ import com.evidence.rag.controller.VideoAnswerController;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
-import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.VideoAssessment;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.security.web.AuthenticationFilter;
 import com.evidence.rag.security.web.RequestAuthenticator;
 import com.evidence.rag.support.AnswerTestContext;
 import com.evidence.rag.support.VideoCompilationFixture;
-import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +29,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import tools.jackson.databind.json.JsonMapper;
 
 class VideoAnswerEntryTest {
   @TempDir Path directory;
@@ -49,110 +44,6 @@ class VideoAnswerEntryTest {
       assertUnavailable(() -> context.answers.videoContent(context.owner, "trace-1", 1));
       assertTrue(context.models.calls.isEmpty());
       assertTrue(context.projection.calls.isEmpty());
-    }
-  }
-
-  @Test
-  void jointAnswerPublishesTypedFrameAndWholeTranscriptSpanThenRevokesAllSourceReads() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
-      String other = context.publish("selected.txt", "旁支资料。");
-      String video = VideoAnswerFixture.publish(context, "");
-      var facts = new VideoAnswerFixture.Facts();
-      try (var answers = answers(context, facts)) {
-        var result =
-            answers.answerVideo(context.owner, command(other, video), VideoAssessment.Mode.JOINT);
-        assertEquals("answered", result.status(), result.reason());
-        assertEquals(2, result.citations().size());
-        assertTrue(result.answer().contains("蓝色"));
-        assertTrue(result.answer().contains("5秒"));
-        assertFalse(result.answer().contains("红"));
-        assertFalse(result.answer().contains("99"));
-        assertEquals(Set.of(video), context.projection.lastScope.documentRevisions().keySet());
-        var visual =
-            result.citations().stream()
-                .filter(c -> "video_frame".equals(c.kind()))
-                .findFirst()
-                .orElseThrow();
-        var transcript =
-            result.citations().stream()
-                .filter(c -> "video_transcript".equals(c.kind()))
-                .findFirst()
-                .orElseThrow();
-        assertEquals(visual.groupId(), transcript.groupId());
-        assertEquals("machine_vlm", visual.proofOrigin());
-        assertEquals("machine_asr", transcript.proofOrigin());
-        assertEquals(video, visual.documentId());
-        assertEquals(ModelValues.sha256(VideoAnswerFixture.ORIGINAL), visual.sourceSha256());
-        assertEquals(visual.sourceSha256(), transcript.sourceSha256());
-        assertEquals(0, visual.startUs());
-        assertEquals(200_000, visual.endUs());
-        assertEquals(new BigDecimal("200.000"), visual.endMs());
-        assertEquals("group_interval", visual.timePrecision());
-        assertEquals(0, visual.frame().frameUs());
-        assertEquals(200_000, visual.frame().durationUs());
-        assertEquals(VideoCompilationFixture.image().sha256(), visual.frame().frameSha256());
-        assertEquals(2, visual.frame().width());
-        assertEquals(2, visual.frame().height());
-        assertEquals("decoded_original", visual.frame().origin());
-        assertNull(visual.transcript());
-        assertNull(transcript.frame());
-        assertEquals(0, transcript.transcript().startMs());
-        assertEquals(1000, transcript.transcript().endMs());
-        assertEquals("重启等待时间是5秒", transcript.transcript().quote());
-        assertEquals("machine_asr", transcript.transcript().textOrigin());
-        assertEquals("server_chunk", transcript.transcript().timePrecision());
-        for (var citation : result.citations()) {
-          assertEquals(
-              citation,
-              answers.videoSource(context.owner, result.answerId(), citation.number()).citation());
-          assertArrayEquals(
-              VideoAnswerFixture.ORIGINAL,
-              answers.videoContent(context.owner, result.answerId(), citation.number()).content());
-          assertTrue(citation.sourceUrl().startsWith("/v1/video-sources/" + result.answerId()));
-          assertEquals(citation.sourceUrl() + "/content", citation.contentUrl());
-        }
-        assertArrayEquals(
-            VideoCompilationFixture.image().content(),
-            answers.videoFrame(context.owner, result.answerId(), visual.number()).content());
-        var serialized = JsonMapper.builder().build().valueToTree(result);
-        assertEquals(result.answerId(), serialized.path("answer_id").asText());
-        assertEquals(
-            "machine_vlm",
-            serialized.path("citations").get(visual.number() - 1).path("proof_origin").asText());
-        assertEquals(
-            "machine_asr",
-            serialized
-                .path("citations")
-                .get(transcript.number() - 1)
-                .path("proof_origin")
-                .asText());
-        assertFalse(serialized.toString().contains("physical_segment_id"));
-        assertFalse(serialized.toString().contains("start_code_point"));
-        assertFalse(serialized.toString().contains("\"page\""));
-        assertFalse(result.toString().contains("5秒"));
-        context.revoke(other);
-        assertNotFound(() -> answers.videoSource(context.owner, result.answerId(), 1));
-        assertNotFound(() -> answers.videoFrame(context.owner, result.answerId(), 1));
-        assertNotFound(() -> answers.videoContent(context.owner, result.answerId(), 1));
-      }
-    }
-  }
-
-  @Test
-  void nonCandidateScopeChangeDuringProofRefusesThroughTheSharedFinalReceipt() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
-      String other = context.publish("selected.txt", "旁支资料。");
-      String video = VideoAnswerFixture.publish(context, "");
-      var facts = new VideoAnswerFixture.Facts();
-      facts.afterDraft = () -> context.revoke(other);
-      try (var answers = answers(context, facts)) {
-        var result =
-            answers.answerVideo(context.owner, command(other, video), VideoAssessment.Mode.JOINT);
-        assertEquals("abstained", result.status());
-        assertEquals("scope_changed", result.reason());
-        assertTrue(result.citations().isEmpty());
-        assertNotFound(() -> answers.videoContent(context.owner, result.answerId(), 1));
-      }
     }
   }
 

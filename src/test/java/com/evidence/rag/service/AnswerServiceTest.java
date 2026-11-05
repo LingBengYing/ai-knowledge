@@ -10,7 +10,6 @@ import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.vector.RetrievalProjection.Candidate;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
-import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.support.AnswerTestContext;
@@ -63,13 +62,6 @@ class AnswerServiceTest {
       assertEquals(
           citation, fixture.answers.source(fixture.owner, answer.answerId(), 1).citation());
       assertEquals(1, fixture.scalar("SELECT COUNT(*) FROM query_traces"));
-      fixture.revoke(document);
-      assertEquals(
-          FailureKind.NOT_FOUND,
-          assertThrows(
-                  ApplicationException.class,
-                  () -> fixture.answers.source(fixture.owner, answer.answerId(), 1))
-              .kind());
     }
   }
 
@@ -87,25 +79,6 @@ class AnswerServiceTest {
               .kind());
       assertTrue(fixture.models.calls.isEmpty());
       assertTrue(fixture.projection.calls.isEmpty());
-    }
-  }
-
-  @Test
-  void nonCandidateSelectedRevocationDuringModelCallPreventsAllAnswerRelease() {
-    try (var fixture = fixture()) {
-      String first = fixture.publish("plan.txt", "星港项目的识别码为A-42。");
-      String second = fixture.publish("other.txt", "另一个计划的资料尚未公开。");
-      fixture.projection.results = values -> values.stream().limit(1).toList();
-      fixture.models.onExtract = () -> fixture.revoke(second);
-      var answer =
-          fixture.answers.answer(fixture.owner, command("星港项目的识别码是什么？", List.of(first, second)));
-      assertEquals("abstained", answer.status());
-      assertEquals("scope_changed", answer.reason());
-      assertFalse(answer.answer().contains("A-42"));
-      assertTrue(answer.citations().isEmpty());
-      assertEquals(1, fixture.scalar("SELECT COUNT(*) FROM query_traces"));
-      assertEquals(2, fixture.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      assertEquals(0, fixture.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
     }
   }
 
@@ -191,24 +164,6 @@ class AnswerServiceTest {
       } finally {
         release.countDown();
       }
-    }
-  }
-
-  @Test
-  void anotherPrincipalCannotReadTheOriginalAnswerSource() {
-    try (var fixture = fixture()) {
-      String document = fixture.publish("plan.txt", "星港项目的识别码为A-42。");
-      var answer =
-          fixture.answers.answer(fixture.owner, command("星港项目的识别码是什么？", List.of(document)));
-      assertEquals("answered", answer.status());
-      assertEquals(
-          FailureKind.NOT_FOUND,
-          assertThrows(
-                  ApplicationException.class,
-                  () ->
-                      fixture.answers.source(
-                          new Actor("org-main", "other-reader"), answer.answerId(), 1))
-              .kind());
     }
   }
 

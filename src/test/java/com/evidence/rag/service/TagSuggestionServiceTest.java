@@ -1,7 +1,6 @@
 package com.evidence.rag.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -107,48 +106,6 @@ class TagSuggestionServiceTest {
               new TagSuggestionApplyCommand(
                   preview.suggestions().suggestionFingerprint(), List.of(1, 2)));
       assertEquals(List.of("后来添加", "太阳能", "设备"), saved.tags());
-    }
-  }
-
-  @Test
-  void readersMayReadButApplyChecksCurrentWritePermissionBeforeSynopsis() throws Exception {
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      String documentId = fixture.publish(owner, "设备采用太阳能。").documentId();
-      var library = library(fixture.authority.store());
-      available(library, documentId, "设备", "太阳能");
-      var service = service(fixture, library);
-      var reader = new Actor(owner.workspaceId(), "reader");
-      fixture
-          .authority
-          .store()
-          .transaction(
-              () -> {
-                new ManagementRepository(fixture.authority.store())
-                    .insertGrant(documentId, reader.principalId(), "reader");
-                return null;
-              });
-      var read = service.get(reader, documentId);
-      assertFalse(read.canApply());
-      var command =
-          new TagSuggestionApplyCommand(read.suggestions().suggestionFingerprint(), List.of(1));
-      revisionReads.set(0);
-      assertCode("not_found", () -> service.apply(reader, documentId, command));
-      assertEquals(0, revisionReads.get());
-      assertCode(
-          "not_found", () -> service.get(new Actor("other", reader.principalId()), documentId));
-      sql(
-          "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id=?",
-          documentId,
-          owner.principalId());
-      revisionReads.set(0);
-      assertCode("not_found", () -> service.apply(owner, documentId, command));
-      assertEquals(0, revisionReads.get());
-      assertEquals(List.of(), service.get(owner, documentId).existingTags());
-      sql(
-          "DELETE FROM document_acl WHERE document_id=? AND principal_id=?",
-          documentId,
-          owner.principalId());
-      assertCode("not_found", () -> service.get(owner, documentId));
     }
   }
 

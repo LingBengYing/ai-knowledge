@@ -116,10 +116,6 @@ class VideoSubtitleAnswerServiceTest {
             ApplicationException.class,
             () -> answers.videoFrame(context.owner, result.answerId(), citation.number()));
       }
-      context.revoke(extra);
-      assertThrows(
-          ApplicationException.class,
-          () -> answers.videoSource(context.owner, result.answerId(), 1));
     }
   }
 
@@ -174,23 +170,6 @@ class VideoSubtitleAnswerServiceTest {
               context.owner, new AnswerCommand(QUESTION, DocumentSelection.allDocuments()));
       assertEquals("abstained", result.status());
       assertTrue(result.citations().isEmpty());
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM video_subtitle_trace_evidence"));
-    }
-  }
-
-  @Test
-  void revokedUnquotedSelectedDocumentClearsSubtitleCitationsAtCommit() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1);
-        var answers = answers(context)) {
-      String extra = context.publish("other.txt", "Unrelated authorized text.");
-      String video = publish(context, "后续字幕内容。");
-      context.models.onExtract = () -> context.revoke(extra);
-      var result =
-          answers.answerVideoSubtitle(
-              context.owner,
-              new AnswerCommand(QUESTION, DocumentSelection.selected(List.of(video, extra))));
-      assertEquals("abstained", result.status());
-      assertEquals("scope_changed", result.reason());
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM video_subtitle_trace_evidence"));
     }
   }

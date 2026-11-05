@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
-import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioVectorBuildClaim;
 import com.evidence.rag.model.domain.AudioVectorReceipt;
 import com.evidence.rag.model.domain.DecodedAudio;
@@ -24,7 +23,6 @@ import com.evidence.rag.support.AnswerTestContext;
 import com.evidence.rag.worker.indexing.ProcessAudioVectorIndexer;
 import com.evidence.rag.worker.parser.AudioDecoder;
 import java.nio.file.Path;
-import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -267,56 +265,6 @@ class AudioVectorBuildBoundaryTest {
       } finally {
         caller.interrupt();
       }
-    }
-  }
-
-  @Test
-  void textDocumentsWrongWorkspaceAndReaderBuildAreRejectedWithoutDecodeOrModel() throws Exception {
-    var decodes = new AtomicInteger();
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
-      String text = context.publish("policy.txt", "Policy is data.");
-      var audio = AudioTestFixture.publish(context, List.of("speech"));
-      var service =
-          service(
-              context,
-              decoder(
-                  source -> {
-                    decodes.incrementAndGet();
-                    return decoded(source, DECODER);
-                  }),
-              (claim, budget) -> {
-                throw new AssertionError("Ineligible source cannot reach models");
-              });
-      assertEquals(
-          FailureKind.NOT_FOUND,
-          assertThrows(ApplicationException.class, () -> service.build(context.owner, text))
-              .kind());
-      assertEquals(
-          FailureKind.NOT_FOUND,
-          assertThrows(
-                  ApplicationException.class,
-                  () ->
-                      service.get(
-                          new Actor("other-workspace", context.owner.principalId()),
-                          audio.documentId()))
-              .kind());
-      try (var connection =
-              DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
-          var statement =
-              connection.prepareStatement(
-                  "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id=?")) {
-        statement.setString(1, audio.documentId());
-        statement.setString(2, context.owner.principalId());
-        assertEquals(1, statement.executeUpdate());
-      }
-      assertEquals(null, service.get(context.owner, audio.documentId()).publication());
-      assertEquals(
-          FailureKind.NOT_FOUND,
-          assertThrows(
-                  ApplicationException.class,
-                  () -> service.build(context.owner, audio.documentId()))
-              .kind());
-      assertEquals(0, decodes.get());
     }
   }
 

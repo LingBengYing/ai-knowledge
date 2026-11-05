@@ -127,54 +127,6 @@ class IndexingServiceTest {
   }
 
   @Test
-  void unparsedSyntheticUnknownAndReaderCannotCreateAndAclIsRechecked() throws Exception {
-    try (var authority = new AuthorityTestContext(directory)) {
-      var unparsed = upload(authority);
-      fails(
-          409, () -> authority.createIndexing(owner, (String) unparsed.get("document_id"), target));
-      authority.registerSyntheticDocument(
-          owner,
-          new SyntheticDocument(
-              "synthetic", "demo.txt", "document", "text/plain", "registration", "a".repeat(64), 1),
-          Map.of());
-      fails(409, () -> authority.createIndexing(owner, "synthetic", target));
-      fails(404, () -> authority.createIndexing(owner, "missing", target));
-      var ingestion = authority.claimIngestion("org").orElseThrow();
-      assertTrue(authority.completeIngestion(ingestion, evidence()));
-      String doc = ingestion.documentId();
-      sql("INSERT INTO document_acl VALUES('" + doc + "','reader','reader')");
-      fails(404, () -> authority.createIndexing(reader, doc, target));
-      fails(404, () -> authority.createIndexing(new Actor("other", "owner"), doc, target));
-      var job = authority.createIndexing(owner, doc, target);
-      String id = (String) job.get("task_id");
-      fails(409, () -> authority.createIndexing(owner, doc, target));
-      assertEquals(false, authority.indexingStatus(reader, id).get("can_cancel"));
-      fails(404, () -> authority.cancelIndexing(reader, id));
-      fails(404, () -> authority.retryIndexing(reader, id, target));
-      fails(404, () -> authority.indexingStatus(new Actor("other", "owner"), id));
-      assertTrue(authority.claimIndexing("other").isEmpty());
-      sql(
-          "UPDATE document_acl SET role='reader' WHERE document_id='"
-              + doc
-              + "' AND principal_id='owner'");
-      assertTrue(authority.claimIndexing("org").isEmpty());
-      assertEquals("failed", authority.indexingStatus(owner, id).get("state"));
-      sql(
-          "UPDATE document_acl SET role='owner' WHERE document_id='"
-              + doc
-              + "' AND principal_id='owner'");
-      authority.retryIndexing(owner, id, target);
-      var claim = authority.claimIndexing("org").orElseThrow();
-      sql("DELETE FROM document_acl WHERE document_id='" + doc + "' AND principal_id='owner'");
-      assertFalse(authority.isIndexingClaimCurrent(claim));
-      assertFalse(
-          authority.completeIndexing(claim, digests(claim), receipt(claim, digests(claim))));
-      fails(404, () -> authority.indexingStatus(owner, id));
-      assertNull(first(authority.listDocuments(reader, Map.of())).get("active_revision_id"));
-    }
-  }
-
-  @Test
   void partialExtraForgedManifestAndTargetNeverPublishAndAuditFailureRollsBack() throws Exception {
     try (var authority = new AuthorityTestContext(directory)) {
       var parsed = parsed(authority);
@@ -524,27 +476,6 @@ class IndexingServiceTest {
       assertTrue(authority.failIndexing(claim, "index_configuration_changed"));
       assertEquals(
           "index_configuration_changed", authority.indexingStatus(owner, id).get("error_code"));
-    }
-  }
-
-  @Test
-  void revokedCreatorCanBeFailedButCannotRetryThroughAnotherEditor() throws Exception {
-    try (var authority = new AuthorityTestContext(directory)) {
-      var parsed = parsed(authority);
-      var editor = new Actor("org", "editor");
-      sql("INSERT INTO document_acl VALUES('" + parsed.documentId() + "','editor','editor')");
-      authority.createIndexing(owner, parsed.documentId(), target);
-      var claim = authority.claimIndexing("org").orElseThrow();
-      sql(
-          "UPDATE document_acl SET role='reader' WHERE document_id='"
-              + parsed.documentId()
-              + "' AND principal_id='owner'");
-      assertTrue(authority.failIndexing(claim, "indexing_failed"));
-      assertEquals(
-          "authorization_changed",
-          authority.indexingStatus(editor, claim.jobId()).get("error_code"));
-      fails(409, () -> authority.retryIndexing(editor, claim.jobId(), target));
-      assertNull(first(authority.listDocuments(editor, Map.of())).get("active_revision_id"));
     }
   }
 

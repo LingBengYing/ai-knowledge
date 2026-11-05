@@ -58,6 +58,8 @@ public final class KnowledgeAgentService implements AutoCloseable {
   /** Process-local runs retained for idempotent replay; finished ones are evicted oldest first. */
   static final int MAX_RETAINED_RUNS = 256;
 
+  private static final long ADMISSION_GRACE_MILLIS = 250;
+
   /** Distinct sources one run may discover; later new search hits are omitted, not fatal. */
   static final int MAX_SOURCES = 64;
 
@@ -182,7 +184,7 @@ public final class KnowledgeAgentService implements AutoCloseable {
       runs.remove(finished.next().id);
     }
     requestIds.values().removeIf(id -> !runs.containsKey(id));
-    if (runs.size() >= MAX_RETAINED_RUNS || !admission.tryAcquire()) {
+    if (runs.size() >= MAX_RETAINED_RUNS || !acquireAdmission()) {
       throw problem(FailureKind.CAPACITY_EXCEEDED, "agent_capacity_exceeded");
     }
     var run = new Run(actor, question, conversationId);
@@ -266,6 +268,20 @@ public final class KnowledgeAgentService implements AutoCloseable {
       throw unavailable();
     }
     return run.view();
+  }
+
+  /**
+   * A run publishes its terminal state before its worker returns the slot, so a client that starts
+   * its next question right after seeing "completed" briefly waits for that slot instead of being
+   * refused.
+   */
+  private boolean acquireAdmission() {
+    try {
+      return admission.tryAcquire(ADMISSION_GRACE_MILLIS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
   }
 
   public AgentRunResult get(Actor actor, String id) {

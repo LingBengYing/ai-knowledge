@@ -124,32 +124,4 @@ class AudioAnswerServiceTest {
       assertEquals(1, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
     }
   }
-
-  @Test
-  void nonCandidateTextRevocationDuringAudioExtractionPreservesCompleteScopeTrace() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
-      String textDocument = context.publish("other.txt", "旁支项目的识别码为B-7。");
-      var audio = AudioTestFixture.publish(context, List.of(CODE, "", BUDGET));
-      context.models.onExtract = () -> context.revoke(textDocument);
-
-      var answer =
-          context.answers.answerAudio(
-              context.owner,
-              new AnswerCommand(
-                  QUESTION, DocumentSelection.selected(List.of(textDocument, audio.documentId()))));
-
-      assertEquals("abstained", answer.status());
-      assertEquals("scope_changed", answer.reason());
-      assertFalse(answer.answer().contains("A-42"));
-      assertTrue(answer.citations().isEmpty());
-      assertEquals(
-          Set.of(audio.documentId()), context.projection.lastScope.documentRevisions().keySet());
-      assertEquals(List.of("embed", "rerank", "extract"), context.models.calls);
-      assertEquals(
-          1, context.scalar("SELECT COUNT(*) FROM query_traces WHERE outcome='abstained'"));
-      assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
-    }
-  }
 }

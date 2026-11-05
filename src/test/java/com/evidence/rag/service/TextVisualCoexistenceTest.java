@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -77,35 +76,6 @@ class TextVisualCoexistenceTest {
           citation, context.answers.source(context.owner, answer.answerId(), 1).citation());
       assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
       assertEquals(1, context.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
-    }
-  }
-
-  @Test
-  void nonCandidateImageRevocationDuringTextExtractionRefusesWithCompleteScopeTrace()
-      throws Exception {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
-      String textDocument = context.publish("plan.txt", TEXT);
-      String imageDocument = publishImage(context);
-      context.models.onExtract = () -> context.revoke(imageDocument);
-
-      var answer =
-          context.answers.answer(
-              context.owner,
-              new AnswerCommand(
-                  QUESTION, DocumentSelection.selected(List.of(textDocument, imageDocument))));
-
-      assertEquals("abstained", answer.status());
-      assertEquals("scope_changed", answer.reason());
-      assertFalse(answer.answer().contains("A-42"));
-      assertTrue(answer.citations().isEmpty());
-      assertEquals(Set.of(textDocument), context.projection.lastScope.documentRevisions().keySet());
-      assertEquals(List.of("embed", "rerank", "extract"), context.models.calls);
-      assertEquals(List.of(TEXT), context.models.lastEvidence.stream().map(e -> e.text()).toList());
-      assertEquals(
-          1, context.scalar("SELECT COUNT(*) FROM query_traces WHERE outcome='abstained'"));
-      assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
     }
   }

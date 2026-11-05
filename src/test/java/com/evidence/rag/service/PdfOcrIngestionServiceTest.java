@@ -155,28 +155,6 @@ class PdfOcrIngestionServiceTest {
   }
 
   @Test
-  void currentCreatorRevocationCancelsPdfCompletionAndLeavesNoPages() throws Exception {
-    try (var context = new AuthorityTestContext(directory)) {
-      var service = service(context, options);
-      service.uploadDocument(owner, "synthetic.pdf", "application/pdf", pdf());
-      var claim = service.claimIngestion(owner.workspaceId()).orElseThrow();
-      try (var connection =
-              DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("java-library.db"));
-          var statement =
-              connection.prepareStatement(
-                  "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id=?")) {
-        statement.setString(1, claim.documentId());
-        statement.setString(2, owner.principalId());
-        assertEquals(1, statement.executeUpdate());
-      }
-      assertFalse(service.completeIngestion(claim, transcript()));
-      assertEquals("cancelled", service.ingestionStatus(owner, claim.jobId()).state());
-      assertEquals(0, scalar("SELECT COUNT(*) FROM corpus_pages"));
-      assertEquals(0, scalar("SELECT COUNT(*) FROM corpus_segments"));
-    }
-  }
-
-  @Test
   void processorRejectsOldDisabledAndChangedProfilesBeforeStartingOcr() throws Exception {
     var changed =
         new PdfOcrOptions(

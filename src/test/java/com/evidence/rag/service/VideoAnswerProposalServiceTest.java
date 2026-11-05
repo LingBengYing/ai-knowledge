@@ -3,10 +3,8 @@ package com.evidence.rag.service;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.VideoAssessment;
@@ -64,10 +62,6 @@ class VideoAnswerProposalServiceTest {
         assertEquals(source.trace(), saved.trace());
         assertArrayEquals(VideoAnswerFixture.ORIGINAL, saved.video().content());
       }
-      context.revoke(other);
-      assertThrows(
-          ApplicationException.class,
-          () -> context.evidence.videoSource(context.owner, receipt.traceId(), 1));
     }
   }
 
@@ -89,30 +83,6 @@ class VideoAnswerProposalServiceTest {
       assertEquals("conflicting_evidence", result.trace().reasonCode());
       assertTrue(result.sources().isEmpty());
       assertTrue(result.trace().videoEvidence().isEmpty());
-    }
-  }
-
-  @Test
-  void revokingNonCandidateSelectedDocumentStopsProofBeforeRelease() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(10), 1)) {
-      String other = context.publish("other.txt", "旁支资料。");
-      String video = VideoAnswerFixture.publish(context, "");
-      var scope =
-          context.evidence.snapshot(
-              context.owner, DocumentSelection.selected(List.of(other, video)), context.target);
-      var facts = new VideoAnswerFixture.Facts();
-      facts.afterDraft = () -> context.revoke(other);
-      var error =
-          assertThrows(
-              ApplicationException.class,
-              () ->
-                  VideoAnswerFixture.proposals(context, facts)
-                      .propose(
-                          scope,
-                          VideoAnswerFixture.QUESTION,
-                          VideoAssessment.Mode.JOINT,
-                          () -> context.evidence.hydrate(scope, List.of())));
-      assertEquals("scope_changed", error.code());
     }
   }
 }

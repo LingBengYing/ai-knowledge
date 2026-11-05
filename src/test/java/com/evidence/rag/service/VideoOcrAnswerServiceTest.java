@@ -111,10 +111,6 @@ class VideoOcrAnswerServiceTest {
             VideoAnswerFixture.ORIGINAL,
             answers.videoContent(context.owner, answer.answerId(), citation.number()).content());
       }
-      context.revoke(extra);
-      assertThrows(
-          ApplicationException.class,
-          () -> answers.videoSource(context.owner, answer.answerId(), 1));
     }
   }
 

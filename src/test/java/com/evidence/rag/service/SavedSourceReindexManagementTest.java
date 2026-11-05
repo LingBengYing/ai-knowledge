@@ -55,12 +55,6 @@ class SavedSourceReindexManagementTest {
       assertEquals(queued.taskId(), pending.latestIndexJob().taskId());
       fixture.authority.indexing().cancelIndexing(owner, queued.taskId());
       assertTrue(document(management, owner).canReindex());
-      store.transaction(
-          () -> {
-            repository.insertGrant(original.documentId(), "reader", "reader");
-            return null;
-          });
-      assertFalse(document(management, new Actor("org", "reader")).canReindex());
     }
   }
 

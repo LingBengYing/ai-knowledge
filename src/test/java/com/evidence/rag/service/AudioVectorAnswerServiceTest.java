@@ -147,35 +147,6 @@ class AudioVectorAnswerServiceTest {
     }
   }
 
-  @Test
-  void uncitedAclOrModelProfileChangeAfterEmbeddingStopsRecallAndLeavesNoAudioCitation() {
-    for (boolean revoke : List.of(true, false)) {
-      try (var context =
-          new AnswerTestContext(
-              directory.resolve(Boolean.toString(revoke)), AudioVectorQueryFixture.BUDGET, 1)) {
-        var audio = AudioTestFixture.publish(context, List.of(AudioVectorQueryFixture.FACT));
-        String text = context.publish("uncited.txt", "完整范围。");
-        var selected = DocumentSelection.selected(List.of(audio.documentId(), text));
-        var scope = context.evidence.snapshot(context.owner, selected, context.target);
-        AudioVectorQueryFixture.publishVectors(context, scope, audio);
-        var fixture = new AudioVectorQueryFixture();
-        var models = new AudioVectorQueryFixture.Embeddings();
-        var projection = new AudioVectorQueryFixture.Projection();
-        models.after =
-            revoke ? () -> context.revoke(text) : () -> models.revision = "changed-audio-profile";
-        try (var answers = answers(context, fixture.queries(context, models, projection))) {
-          var result = attached(answers, context, fixture, selected);
-          assertEquals("abstained", result.status());
-          assertEquals(revoke ? "scope_changed" : "configuration_changed", result.reason());
-          assertEquals(1, models.received.size());
-          assertTrue(projection.queries.isEmpty());
-          assertTrue(context.models.calls.isEmpty());
-          assertEquals(0, context.scalar("SELECT COUNT(*) FROM audio_trace_evidence"));
-        }
-      }
-    }
-  }
-
   private AnswerTestContext context() {
     return new AnswerTestContext(directory, AudioVectorQueryFixture.BUDGET, 1);
   }

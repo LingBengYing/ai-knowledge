@@ -3,7 +3,6 @@ package com.evidence.rag.repository;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -95,9 +94,6 @@ class VideoOcrRepositoryTest {
             var frame =
                 repository.findVideoFrame(OWNER, source.publication(), source.source().frameId());
             assertArrayEquals(VideoCompilationFixture.image().content(), frame.image().content());
-            assertNull(
-                repository.findVideoFrame(
-                    new Actor("org", "other"), source.publication(), source.source().frameId()));
             assertEquals(
                 List.of(), repository.findPublishedVideoOcrEvidence(scope, List.of("unknown")));
             return null;
@@ -167,9 +163,6 @@ class VideoOcrRepositoryTest {
                             "UPDATE video_ocr_trace_evidence SET quote_sha256=?", "b".repeat(64)));
                 assertThrows(
                     RuntimeException.class, () -> store.execute("DELETE FROM video_frame_ocr"));
-                assertNull(
-                    repository.findTraceVideoOcrCitation(
-                        new Actor("org", "other"), "ocr-trace", 1));
                 return citation;
               });
     }

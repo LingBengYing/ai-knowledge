@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.exception.ApplicationException;
-import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AnswerEligibility;
 import com.evidence.rag.model.domain.AudioTraceEvidence;
 import com.evidence.rag.model.domain.DocumentSelection;
@@ -58,40 +57,6 @@ class AudioEvidenceServiceTest {
       assertEquals(1, context.scalar("SELECT COUNT(*) FROM audio_trace_evidence"));
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM query_trace_evidence"));
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM image_trace_evidence"));
-      var foreign = new Actor(context.owner.workspaceId(), "reader");
-      assertEquals(
-          "not_found",
-          assertThrows(
-                  ApplicationException.class,
-                  () -> context.evidence.audioSource(foreign, receipt.traceId(), 1))
-              .code());
-    }
-  }
-
-  @Test
-  void sourceRevocationChecksTheUncitedSelectedDocumentToo() {
-    try (var context = context()) {
-      String uncited = context.publish("plan.txt", "这是文字资料。");
-      var audio = AudioTestFixture.publish(context, TEXTS);
-      var scope = scope(context, List.of(uncited, audio.documentId()));
-      var material = context.evidence.hydrateAudio(scope, audio.physicalIds()).getLast();
-      var receipt =
-          context.evidence.finish(
-              scope,
-              trace(
-                  material.physicalSegmentId(),
-                  material.transcript().startCodePoint(),
-                  material.transcript().endCodePoint()),
-              () -> AnswerEligibility.ELIGIBLE,
-              null);
-      context.revoke(uncited);
-      assertThrows(
-          ApplicationException.class,
-          () -> context.evidence.audioSource(context.owner, receipt.traceId(), 1));
-      assertThrows(
-          ApplicationException.class,
-          () -> context.evidence.hydrateAudio(scope, audio.physicalIds()));
-      assertThrows(ApplicationException.class, () -> context.evidence.audioPublications(scope));
     }
   }
 

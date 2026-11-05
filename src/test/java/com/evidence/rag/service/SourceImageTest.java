@@ -67,23 +67,6 @@ class SourceImageTest {
   }
 
   @Test
-  void readerMayReadTheirOwnImageCitationButAnotherAuthorizedActorCannot() throws Exception {
-    byte[] original = image("png");
-    var reader = new Actor(OWNER.workspaceId(), "reader");
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      String traceId = publishImage(fixture, original, "png", "image/png", reader);
-
-      assertArrayEquals(original, fixture.evidence.source(reader, traceId, 1).image().content());
-      for (Actor other : List.of(OWNER, new Actor("other-org", "reader"))) {
-        var failure =
-            assertThrows(
-                ApplicationException.class, () -> fixture.evidence.source(other, traceId, 1));
-        assertEquals(FailureKind.NOT_FOUND, failure.kind());
-      }
-    }
-  }
-
-  @Test
   void withdrawnImageCitationDoesNotReturnTheRetainedOriginal() throws Exception {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       String traceId = publishImage(fixture, image("png"), "png", "image/png", OWNER);

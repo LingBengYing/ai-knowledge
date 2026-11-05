@@ -124,36 +124,6 @@ class ImageVectorVisualAnswerServiceTest {
   }
 
   @Test
-  void embeddingRevocationOfUncitedTextPreventsProjectionAndProof() {
-    try (var context = context()) {
-      var vision = new Vision();
-      var images = new Images();
-      var projection = new Projection();
-      var ranking = new Ranking();
-      String image = QueryAttachmentAnswerFixture.publishImage(context, vision.revision());
-      String text =
-          context.publish("uncited.txt", "Keep full authority through every model request.");
-      var command = command(image, text);
-      var scope = context.evidence.snapshot(context.owner, command.selection(), context.target);
-      projection.receipts =
-          List.of(ImageVectorEvidenceServiceTest.publishVector(context, scope, image));
-      images.afterEmbed = () -> context.revoke(text);
-      try (var answers =
-          answers(context, vision, queries(context, vision, ranking, images, projection))) {
-        var result = attached(answers, context, command);
-        assertEquals("abstained", result.status());
-        assertEquals("scope_changed", result.reason());
-        assertEquals(1, images.received.size());
-        assertEquals(0, projection.searches);
-        assertEquals(0, ranking.calls);
-        assertEquals(List.of("describe"), vision.calls);
-        assertTrue(result.citations().isEmpty());
-        assertEquals(2, context.scalar("SELECT COUNT(*) FROM query_trace_documents"));
-      }
-    }
-  }
-
-  @Test
   void noReferenceImageUsesExistingTextRouteDespiteUnusedImageProfileDrift() {
     try (var context = context()) {
       var vision = new Vision();

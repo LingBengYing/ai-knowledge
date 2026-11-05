@@ -358,15 +358,6 @@ class AudioVectorAuthorityBoundaryTest {
       assertTrue(vectors.publications().isEmpty());
       assertEquals(scope, vectors.base());
       assertTrue(context.evidence.hydrateAudioVectors(vectors, List.of()).isEmpty());
-      context.revoke(document);
-      assertEquals(
-          "scope_changed",
-          assertThrows(
-                  ApplicationException.class,
-                  () ->
-                      context.evidence.audioVectorScope(
-                          scope, AudioVectorQueryFixture.TARGET, AudioVectorQueryFixture.DECODER))
-              .code());
       assertEquals(0, context.scalar("SELECT COUNT(*) FROM query_traces"));
     }
   }

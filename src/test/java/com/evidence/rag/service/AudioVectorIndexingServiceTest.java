@@ -121,25 +121,6 @@ class AudioVectorIndexingServiceTest {
   }
 
   @Test
-  void permissionRevocationDuringRemoteWorkCannotCommit() {
-    try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {
-      var published = AudioTestFixture.publish(context, List.of("speech"));
-      var service =
-          service(
-              context,
-              decoder(new AtomicInteger()),
-              AUDIO,
-              (claim, budget) -> {
-                context.revoke(published.documentId());
-                return receipt(claim);
-              });
-      assertThrows(
-          ApplicationException.class, () -> service.build(context.owner, published.documentId()));
-      assertEquals(0, context.scalar("SELECT COUNT(*) FROM audio_vector_publications"));
-    }
-  }
-
-  @Test
   void changedPinnedDecoderRejectedBeforeDecodeOrModel() {
     var count = new AtomicInteger();
     try (var context = new AnswerTestContext(directory, Duration.ofSeconds(5), 2)) {

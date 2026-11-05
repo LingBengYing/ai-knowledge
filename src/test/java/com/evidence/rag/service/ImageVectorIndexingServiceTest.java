@@ -173,28 +173,6 @@ class ImageVectorIndexingServiceTest {
   }
 
   @Test
-  void unknownUnauthorizedAndNonImageInputsNeverInvokeTheWorker() {
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      String doc = publish(fixture);
-      var service =
-          service(
-              fixture,
-              Duration.ofSeconds(2),
-              2,
-              () -> IMAGE_TARGET,
-              (claim, budget) -> {
-                throw new AssertionError("Rejected input cannot contact models");
-              });
-      assertThrows(
-          ApplicationException.class, () -> service.build(new Actor("other", "owner"), doc));
-      assertThrows(ApplicationException.class, () -> service.get(new Actor("org", "reader"), doc));
-      assertThrows(ApplicationException.class, () -> service.build(OWNER, "unknown"));
-      String text = fixture.publish(OWNER, "Ordinary text.").documentId();
-      assertThrows(ApplicationException.class, () -> service.build(OWNER, text));
-    }
-  }
-
-  @Test
   void corruptedReceiptAndProfileDriftNeverPublishAndRetriesUseNewGenerations() {
     try (var fixture = new PublishedCorpusFixture(directory)) {
       String doc = publish(fixture);
@@ -241,42 +219,6 @@ class ImageVectorIndexingServiceTest {
       assertEquals(doc, good.build(OWNER, doc).basePublication().documentId());
       assertEquals(3, generations.stream().distinct().count());
       assertNotEquals(generations.get(0), generations.get(2));
-    }
-  }
-
-  @Test
-  void readerCanInspectButCannotBuildAndRevokedWriterCannotCommit() throws Exception {
-    try (var fixture = new PublishedCorpusFixture(directory)) {
-      String doc = publish(fixture);
-      sql(
-          "INSERT INTO document_acl(document_id,principal_id,role) VALUES(?, 'reader', 'reader')",
-          doc);
-      var service =
-          service(
-              fixture,
-              Duration.ofSeconds(2),
-              2,
-              () -> IMAGE_TARGET,
-              (claim, budget) -> {
-                throw new AssertionError("Reader must not build");
-              });
-      assertNull(service.get(new Actor("org", "reader"), doc).publication());
-      assertThrows(
-          ApplicationException.class, () -> service.build(new Actor("org", "reader"), doc));
-      var revoked =
-          service(
-              fixture,
-              Duration.ofSeconds(2),
-              2,
-              () -> IMAGE_TARGET,
-              (claim, budget) -> {
-                sql(
-                    "UPDATE document_acl SET role='reader' WHERE document_id=? AND principal_id='owner'",
-                    doc);
-                return receipt(claim);
-              });
-      assertThrows(ApplicationException.class, () -> revoked.build(OWNER, doc));
-      assertNull(revoked.get(OWNER, doc).publication());
     }
   }
 

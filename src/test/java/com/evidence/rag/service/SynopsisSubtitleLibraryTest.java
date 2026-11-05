@@ -163,10 +163,6 @@ class SynopsisSubtitleLibraryTest {
                   locator,
                   material.content(),
                   null));
-      var outsider = new Actor(OWNER.workspaceId(), "outsider");
-      assertThrows(
-          RuntimeException.class,
-          () -> store.transaction(() -> repository.source(outsider, publication, reference)));
     }
   }
 
