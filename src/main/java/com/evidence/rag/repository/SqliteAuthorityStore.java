@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.sqlite.Function;
 import tools.jackson.core.StreamReadFeature;
@@ -58,6 +59,16 @@ public final class SqliteAuthorityStore implements AutoCloseable {
   private Set<String> purgeRows = Set.of();
   private String wikiPurgeWorkspace;
   private String wikiPurgePage;
+  private static volatile Consumer<Path> freshLibrarySeeder;
+
+  /**
+   * Test suites install a seeder that copies an already migrated current-version library to the new
+   * database path, so every fresh test library does not rerun all migrations. Production never
+   * installs one; a seeded library is opened through the normal existing-library verification.
+   */
+  public static void seedFreshLibrariesWith(Consumer<Path> seeder) {
+    freshLibrarySeeder = seeder;
+  }
 
   public SqliteAuthorityStore(Path directory) {
     try {
@@ -82,6 +93,10 @@ public final class SqliteAuthorityStore implements AutoCloseable {
       }
       Path database = canonicalDirectory.resolve("java-library.db");
       libraryPath = database;
+      Consumer<Path> seeder = freshLibrarySeeder;
+      if (seeder != null && !Files.exists(database, LinkOption.NOFOLLOW_LINKS)) {
+        seeder.accept(database);
+      }
       boolean exists = Files.exists(database, LinkOption.NOFOLLOW_LINKS);
       if (exists && !Files.isRegularFile(database, LinkOption.NOFOLLOW_LINKS)) {
         throw new IllegalStateException("Unsafe Java database path");
