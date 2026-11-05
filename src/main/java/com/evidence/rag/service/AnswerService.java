@@ -408,17 +408,24 @@ public final class AnswerService implements AutoCloseable {
       // Cancelling the result must not prevent this runnable's finally from releasing admission.
       executor.execute(
           () -> {
+            T value = null;
+            Throwable failure = null;
             try (var operation = reservation.begin()) {
               processing.thread.set(Thread.currentThread());
               try {
-                result.complete(
-                    resultMapping.apply(execute(actor, command, kind, attachments, processing)));
-              } catch (RuntimeException | Error failure) {
-                result.completeExceptionally(failure);
+                value = resultMapping.apply(execute(actor, command, kind, attachments, processing));
+              } catch (RuntimeException | Error error) {
+                failure = error;
               } finally {
                 processing.thread.set(null);
                 admission.release();
               }
+            }
+            // Complete only after the slot is free, so a caller's next request is admitted.
+            if (failure == null) {
+              result.complete(value);
+            } else {
+              result.completeExceptionally(failure);
             }
           });
     } catch (RejectedExecutionException failure) {

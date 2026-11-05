@@ -104,16 +104,24 @@ public final class TextRetrievalTestService implements AutoCloseable {
     try {
       executor.execute(
           () -> {
+            RetrievalTestResult value = null;
+            Throwable failure = null;
             try (var operation = reservation.begin()) {
               progress.worker.attach();
-              result.complete(execute(actor, command, progress));
-            } catch (RuntimeException | Error failure) {
-              result.completeExceptionally(failure);
+              value = execute(actor, command, progress);
+            } catch (RuntimeException | Error error) {
+              failure = error;
             } finally {
               progress.worker.detach();
               reservation.close();
               processing.remove(progress);
               admission.release();
+            }
+            // Complete only after the slot is free, so a caller's next request is admitted.
+            if (failure == null) {
+              result.complete(value);
+            } else {
+              result.completeExceptionally(failure);
             }
           });
     } catch (RejectedExecutionException rejected) {

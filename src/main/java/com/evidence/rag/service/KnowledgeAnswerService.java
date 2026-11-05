@@ -98,16 +98,24 @@ public final class KnowledgeAnswerService implements AutoCloseable {
     try {
       executor.execute(
           () -> {
+            KnowledgeAnswerResult value = null;
+            Throwable failure = null;
             try (var operation = reservation.begin()) {
               progress.worker.attach();
-              result.complete(execute(actor, command, progress));
-            } catch (RuntimeException | Error failed) {
-              result.completeExceptionally(failed);
+              value = execute(actor, command, progress);
+            } catch (RuntimeException | Error error) {
+              failure = error;
             } finally {
               progress.worker.detach();
               pending.remove(progress);
               admission.release();
               reservation.close();
+            }
+            // Complete only after the slot is free, so a caller's next request is admitted.
+            if (failure == null) {
+              result.complete(value);
+            } else {
+              result.completeExceptionally(failure);
             }
           });
     } catch (RuntimeException failed) {
