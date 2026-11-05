@@ -6,7 +6,7 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.ProjectionItem;
 import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VerifiedRevision;
@@ -30,18 +30,18 @@ import java.util.TreeMap;
 /**
  * Internal, versioned, bounded protocol. No authority token, database path, or inherited settings.
  */
-final class IndexProtocol {
+final class TextIndexProtocol {
   static final int MAGIC = 0x52414749;
   static final int VERSION = 3;
   static final int MAX_REQUEST = 8 * 1024 * 1024;
   static final int MAX_OUTPUT = 1024 * 1024;
   static final int MAX_SEGMENTS = 4096;
 
-  private IndexProtocol() {}
+  private TextIndexProtocol() {}
 
   record Request(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String workspaceId,
       String documentId,
@@ -66,7 +66,7 @@ final class IndexProtocol {
 
   static Request request(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       IndexClaim claim,
       TransientRetry retry,
@@ -94,7 +94,7 @@ final class IndexProtocol {
 
   static void validateSettings(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     if (models == null
         || projection == null
@@ -243,7 +243,7 @@ final class IndexProtocol {
             reader.readInt(),
             flag(reader));
     var projection =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             URI.create(string(reader, 4096)),
             string(reader, 4096),
             string(reader, 64),
@@ -310,7 +310,7 @@ final class IndexProtocol {
     return request;
   }
 
-  static byte[] encode(IndexingResult result) throws IOException {
+  static byte[] encode(IndexingOutcome result) throws IOException {
     var bytes = new ByteArrayOutputStream();
     var writer = boundedWriter(bytes, MAX_OUTPUT);
     writer.writeInt(MAGIC);
@@ -336,7 +336,7 @@ final class IndexProtocol {
     return bytes.toByteArray();
   }
 
-  static IndexingResult decode(byte[] response, Request request) throws IOException {
+  static IndexingOutcome decode(byte[] response, Request request) throws IOException {
     if (response.length > MAX_OUTPUT) {
       throw invalid();
     }
@@ -381,7 +381,7 @@ final class IndexProtocol {
         || !manifestHash.equals(manifest.sha256())) {
       throw invalid();
     }
-    return new IndexingResult(
+    return new IndexingOutcome(
         digests, new VerifiedRevision(projectionIdentity, manifestHash, count));
   }
 

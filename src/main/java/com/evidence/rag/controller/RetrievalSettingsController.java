@@ -6,6 +6,7 @@ import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.RetrievalSettingsResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.RetrievalSettingsService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.RetrievalSettingsRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -28,10 +29,7 @@ public final class RetrievalSettingsController {
 
   @GetMapping(value = "/v1/retrieval-settings", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<RetrievalSettingsResult> read(HttpServletRequest request) {
-    noQuery(request);
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw invalid();
-    }
+    RequestGuards.noQueryOrBody(request, RetrievalSettingsController::invalid);
     return response(service.read(AuthenticatedActor.require(request)));
   }
 
@@ -40,7 +38,7 @@ public final class RetrievalSettingsController {
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<RetrievalSettingsResult> save(HttpServletRequest request) {
-    noQuery(request);
+    RequestGuards.noQuery(request, RetrievalSettingsController::invalid);
     var actor = AuthenticatedActor.require(request);
     try {
       var settings =
@@ -56,12 +54,6 @@ public final class RetrievalSettingsController {
     return ResponseEntity.ok()
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .body(RetrievalSettingsResult.from(settings));
-  }
-
-  private static void noQuery(HttpServletRequest request) {
-    if (request.getQueryString() != null) {
-      throw invalid();
-    }
   }
 
   private static ApplicationException invalid() {

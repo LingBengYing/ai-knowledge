@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.IndexTarget;
 import com.evidence.rag.model.domain.ModelValues;
@@ -241,7 +241,7 @@ class HierarchicalSynopsisHttpTest {
               "--rag.synopsis.allow-loopback-http=true",
               "--rag.synopsis.deadline-ms=5000",
               "--rag.synopsis.budget-ms=60000");
-      assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
+      assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
       base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
     }
 

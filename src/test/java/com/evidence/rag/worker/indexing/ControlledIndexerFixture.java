@@ -12,7 +12,7 @@ public final class ControlledIndexerFixture {
 
   public static ProcessTextIndexer indexer(
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String mode,
       Path argument) {

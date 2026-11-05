@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 import org.slf4j.LoggerFactory;
 
 /** Fixed-field model telemetry only; stderr is never forwarded as arbitrary diagnostic text. */
-final class IndexWorkerModelHttpLog {
+final class TextIndexModelHttpLog {
   private static final String LOGGER = "com.evidence.rag.client.model.ModelHttpTransport";
   private static final String READY = "index_model_audit_ready";
   private static final String DONE = "index_model_audit_complete";
@@ -33,7 +33,7 @@ final class IndexWorkerModelHttpLog {
               + UUID
               + " status=(-1|[1-5][0-9]{2}) transport_ok=(true|false) elapsed_ms=[0-9]{1,12}");
 
-  private IndexWorkerModelHttpLog() {}
+  private TextIndexModelHttpLog() {}
 
   static ChildLog child() {
     return new ChildLog();
@@ -128,7 +128,7 @@ final class IndexWorkerModelHttpLog {
       }
       var start = START.matcher(line);
       if (start.matches()
-          && started.size() < IndexProtocol.MAX_SEGMENTS
+          && started.size() < TextIndexProtocol.MAX_SEGMENTS
           && started.add(start.group(1))) {
         logger.info("{}", line);
         if (taskId != null)

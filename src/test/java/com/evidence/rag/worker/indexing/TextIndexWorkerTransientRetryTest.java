@@ -10,7 +10,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
 /** The actual child retries transient embedding failures inside one bounded, audited attempt. */
-class IndexWorkerTransientRetryTest {
+class TextIndexWorkerTransientRetryTest {
   private static final TransientRetry RETRY =
       new TransientRetry(2, Duration.ofMillis(10), Duration.ofSeconds(5));
 

@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 /** The workspace's import batches, newest first. */
-public record DocumentBatchList(int offset, int limit, int total, List<Item> items) {
-  public DocumentBatchList {
+public record DocumentBatchListResult(int offset, int limit, int total, List<Item> items) {
+  public DocumentBatchListResult {
     items = List.copyOf(items);
   }
 

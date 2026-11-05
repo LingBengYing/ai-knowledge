@@ -77,7 +77,7 @@ class ImageEmbeddingConfigurationTest {
   void enabledSpringGraphComposesBuildAndQueryResourcesWithoutRemotePreparation() {
     try (var context = new AnnotationConfigApplicationContext()) {
       context.setEnvironment(local());
-      context.registerBean(RagProperties.class, ImageEmbeddingConfigurationTest::properties);
+      context.registerBean(RagSettings.class, ImageEmbeddingConfigurationTest::properties);
       context.registerBean(TextAdapterSettings.class, () -> text());
       context.registerBean(SqliteAuthorityStore.class, () -> new SqliteAuthorityStore(directory));
       context.registerBean(
@@ -192,8 +192,8 @@ class ImageEmbeddingConfigurationTest {
         .withProperty("rag.image-embedding.milvus.allow-loopback-http", "true");
   }
 
-  private static RagProperties properties() {
-    return new RagProperties(
+  private static RagSettings properties() {
+    return new RagSettings(
         "test",
         "org-main",
         "development_headers",
@@ -214,7 +214,7 @@ class ImageEmbeddingConfigurationTest {
     return new TextAdapterSettings(
         new OpenAiCompatibleModels.Configuration(
             endpoint, endpoint, endpoint, 2, Duration.ofSeconds(3), 65536, true),
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             URI.create("http://127.0.0.1:1"),
             "",
             "default",

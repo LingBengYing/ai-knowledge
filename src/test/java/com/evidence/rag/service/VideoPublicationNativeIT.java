@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.DocumentSelection;
 import com.evidence.rag.model.domain.IndexTarget;
@@ -121,7 +121,7 @@ class VideoPublicationNativeIT {
               "--rag.video.vision.api-key=" + models.key,
               "--rag.video.vision.allow-loopback-http=true",
               "--rag.indexing.timeout-ms=15000")) {
-        assertEquals(data, context.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, context.getBean(RagSettings.class).dataDirectory());
         base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
         var runtime = json("GET", "/v1/config", null, null, 200);
         var capabilities = new ArrayList<String>();

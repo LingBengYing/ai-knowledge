@@ -30,7 +30,7 @@ public class DocumentCleanupConfiguration {
   @ConditionalOnProperty(prefix = "rag.document-cleanup", name = "enabled", havingValue = "true")
   DocumentCleanupRepository documentCleanupRepository(
       SqliteAuthorityStore store,
-      RagProperties properties,
+      RagSettings properties,
       DocumentRemovalSettings removal,
       Environment environment) {
     if (!removal.enabled()
@@ -52,8 +52,8 @@ public class DocumentCleanupConfiguration {
       ObjectProvider<ManagedTextSettings> managed,
       ObjectProvider<ManagedTextRuntime> managedRuntime,
       SqliteAuthorityStore store,
-      RagProperties properties) {
-    var targets = new ArrayList<MilvusRestProjection.Settings>();
+      RagSettings properties) {
+    var targets = new ArrayList<MilvusRestProjection.Configuration>();
     text.ifAvailable(settings -> targets.add(settings.projection()));
     images.ifAvailable(settings -> targets.add(settings.projection()));
     audio.ifAvailable(settings -> targets.add(settings.projection()));
@@ -90,7 +90,7 @@ public class DocumentCleanupConfiguration {
           }
           for (String analyzer : List.of("standard", "chinese")) {
             var candidate =
-                new MilvusRestProjection.Settings(
+                new MilvusRestProjection.Configuration(
                     connection.endpoint(),
                     connection.token(),
                     connection.database(),

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.LibraryOperationGate;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,7 +29,7 @@ class ProcessTextIndexerTerminalCleanupTest {
     var gate = new LibraryOperationGate(temporary.toRealPath().resolve("owned-work"));
     var callerFailure = new AtomicReference<Throwable>();
     var closeFailure = new AtomicReference<Throwable>();
-    var firstResult = new AtomicReference<IndexingResult>();
+    var firstResult = new AtomicReference<IndexingOutcome>();
     try (var server = new IndexingTestServer();
         var indexer =
             new ProcessTextIndexer(
@@ -78,7 +78,7 @@ class ProcessTextIndexerTerminalCleanupTest {
       assertFalse(closer.isAlive());
 
       // Check a real subsequent child before asserting, so RED records any poisoned admission.
-      IndexingResult nextResult = null;
+      IndexingOutcome nextResult = null;
       Throwable nextFailure = null;
       try (var operation = gate.enter();
           var next =

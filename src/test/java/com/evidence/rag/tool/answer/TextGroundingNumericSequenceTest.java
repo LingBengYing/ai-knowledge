@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.evidence.rag.model.domain.GroundingOutcome;
 import com.evidence.rag.model.domain.GroundingQuote;
-import com.evidence.rag.model.domain.GroundingResult;
 import com.evidence.rag.model.domain.GroundingText;
 import com.evidence.rag.model.domain.ModelValues;
 import java.nio.charset.StandardCharsets;
@@ -243,7 +243,7 @@ class TextGroundingNumericSequenceTest {
         SourceFields.split(page).stream().map(SourceFields.Field::text).toList());
   }
 
-  private GroundingResult verify(String question, String page, String quote) {
+  private GroundingOutcome verify(String question, String page, String quote) {
     var source =
         new GroundingText(
             "physical-audio",

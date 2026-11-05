@@ -31,7 +31,7 @@ public class AudioEmbeddingConfiguration {
   @Bean
   AudioEmbeddingSettings audioEmbeddingSettings(
       Environment environment,
-      RagProperties properties,
+      RagSettings properties,
       AudioDecoder decoder,
       ObjectProvider<ImageEmbeddingSettings> images) {
     try {
@@ -63,7 +63,7 @@ public class AudioEmbeddingConfiguration {
       }
       try (var client = new GeminiAudioEmbeddingModels(models)) {
         var projection =
-            new MilvusRestProjection.Settings(
+            new MilvusRestProjection.Configuration(
                 URI.create(environment.getRequiredProperty(prefix + "milvus.endpoint")),
                 environment.getProperty(prefix + "milvus.token", ""),
                 environment.getProperty(prefix + "milvus.database", "default"),
@@ -96,7 +96,7 @@ public class AudioEmbeddingConfiguration {
   // Existing callers can still bind an explicit complete legacy text configuration.
   AudioEmbeddingSettings audioEmbeddingSettings(
       Environment environment,
-      RagProperties properties,
+      RagSettings properties,
       TextAdapterSettings text,
       AudioDecoder decoder,
       ObjectProvider<ImageEmbeddingSettings> images) {

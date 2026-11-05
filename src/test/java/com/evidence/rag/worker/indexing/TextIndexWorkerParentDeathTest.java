@@ -9,7 +9,7 @@ import com.evidence.rag.client.vector.MilvusRestProjection;
 import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.TransientRetry;
 import java.io.File;
 import java.nio.file.Path;
@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-class IndexWorkerParentDeathTest {
+class TextIndexWorkerParentDeathTest {
   @Test
   void forciblyKilledParentCannotLeaveAWriterThatUpsertsAfterRetryPublication() throws Exception {
     try (var server = new IndexingTestServer()) {
@@ -28,9 +28,9 @@ class IndexWorkerParentDeathTest {
       ProcessHandle oldWorker = null;
       try {
         try (var input = parent.getOutputStream()) {
-          IndexProtocol.writeRequest(
+          TextIndexProtocol.writeRequest(
               input,
-              IndexProtocol.request(
+              TextIndexProtocol.request(
                   server.settings().models(),
                   server.settings().projection(),
                   Duration.ofSeconds(15),
@@ -89,9 +89,9 @@ class IndexWorkerParentDeathTest {
       ProcessHandle oldWorker = null;
       try {
         try (var input = parent.getOutputStream()) {
-          IndexProtocol.writeRequest(
+          TextIndexProtocol.writeRequest(
               input,
-              IndexProtocol.request(
+              TextIndexProtocol.request(
                   server.settings().models(),
                   server.settings().projection(),
                   Duration.ofSeconds(15),
@@ -107,7 +107,7 @@ class IndexWorkerParentDeathTest {
         parent.destroyForcibly();
         assertTrue(parent.waitFor(3, TimeUnit.SECONDS));
         server.failureMode = "";
-        IndexingResult publication;
+        IndexingOutcome publication;
         try (var retry =
             new ProcessTextIndexer(
                 server.settings().models(),
@@ -195,7 +195,7 @@ class IndexWorkerParentDeathTest {
 
   public static final class ParentFixture {
     public static void main(String[] args) throws Exception {
-      var request = IndexProtocol.readRequest(System.in);
+      var request = TextIndexProtocol.readRequest(System.in);
       var claim =
           new IndexClaim(
               "fixture-job",

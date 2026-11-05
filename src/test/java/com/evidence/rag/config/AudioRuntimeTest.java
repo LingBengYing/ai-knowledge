@@ -23,7 +23,7 @@ class AudioRuntimeTest {
               var actual =
                   new RuntimeConfiguration()
                       .runtimeService(
-                          new RagProperties(
+                          new RagSettings(
                               "test", "org-main", "development_headers", "", "", "", Path.of(".")),
                           new IngestionSettings(ingestion, 30000, 30000),
                           new IndexingSettings(indexing, 60000),

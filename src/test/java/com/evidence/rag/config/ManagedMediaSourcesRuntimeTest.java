@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.model.dto.RuntimeCapabilities;
+import com.evidence.rag.model.dto.RuntimeCapabilitiesResult;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -86,7 +86,7 @@ class ManagedMediaSourcesRuntimeTest {
     assertEquals(base.unavailable(), filtered.unavailable());
   }
 
-  private static RuntimeCapabilities capabilities(boolean videoRoutes) {
+  private static RuntimeCapabilitiesResult capabilities(boolean videoRoutes) {
     var sources =
         List.of(
             "answers",
@@ -106,7 +106,7 @@ class ManagedMediaSourcesRuntimeTest {
     if (videoRoutes) {
       enabled.addAll(List.of("video_upload", "video_index", "video_answers", "video_sources"));
     }
-    return new RuntimeCapabilities(
+    return new RuntimeCapabilitiesResult(
         "development_headers",
         "org-main",
         "text_answers",

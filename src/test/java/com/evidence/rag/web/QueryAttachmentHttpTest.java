@@ -11,7 +11,7 @@ import com.evidence.rag.client.model.QueryRankingModels;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.config.TextAdapterSettings;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
@@ -95,7 +95,7 @@ class QueryAttachmentHttpTest {
       Path data = directory.resolve("data");
       String source;
       try (var context = app.run(arguments(data))) {
-        assertEquals(data, context.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, context.getBean(RagSettings.class).dataDirectory());
         assertTrue(remote.requests.isEmpty());
         var settings = context.getBean(TextAdapterSettings.class);
         var text = context.getBean(TextModels.class);
@@ -312,7 +312,7 @@ class QueryAttachmentHttpTest {
       }
       int calls = remote.requests.size();
       try (var context = application(remote).run(arguments(data))) {
-        assertEquals(data, context.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, context.getBean(RagSettings.class).dataDirectory());
         String base =
             "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
         assertEquals(200, request(http, base, "GET", source, null, true).statusCode());

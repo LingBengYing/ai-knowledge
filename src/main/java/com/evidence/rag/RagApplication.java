@@ -4,10 +4,10 @@ import com.evidence.rag.config.AnswersSettings;
 import com.evidence.rag.config.BatchProcessingSettings;
 import com.evidence.rag.config.IndexingSettings;
 import com.evidence.rag.config.IngestionSettings;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.worker.indexing.AudioVectorWorker;
 import com.evidence.rag.worker.indexing.ImageVectorWorker;
-import com.evidence.rag.worker.indexing.IndexWorker;
+import com.evidence.rag.worker.indexing.TextIndexWorker;
 import com.evidence.rag.worker.parser.ParserWorker;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -15,7 +15,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 
 @SpringBootApplication
 @EnableConfigurationProperties({
-  RagProperties.class,
+  RagSettings.class,
   IngestionSettings.class,
   IndexingSettings.class,
   AnswersSettings.class,
@@ -32,7 +32,7 @@ public class RagApplication {
       return;
     }
     if (args.length == 1 && "--index-worker".equals(args[0])) {
-      IndexWorker.main(new String[0]);
+      TextIndexWorker.main(new String[0]);
       return;
     }
     if (args.length > 0 && "--parse-worker".equals(args[0])) {

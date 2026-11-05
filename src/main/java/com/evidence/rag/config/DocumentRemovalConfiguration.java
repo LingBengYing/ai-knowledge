@@ -15,7 +15,7 @@ public class DocumentRemovalConfiguration {
   @Bean
   @ConditionalOnProperty(prefix = "rag.document-removal", name = "enabled", havingValue = "true")
   DocumentLifecycleRepository documentLifecycleRepository(
-      SqliteAuthorityStore store, RagProperties properties, Environment environment) {
+      SqliteAuthorityStore store, RagSettings properties, Environment environment) {
     String address = environment.getProperty("server.address");
     if (!("development".equals(properties.environment()) || "test".equals(properties.environment()))
         || !RuntimeGuard.isLiteralLoopback(address)) {

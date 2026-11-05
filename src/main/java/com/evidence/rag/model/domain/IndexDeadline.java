@@ -20,10 +20,6 @@ public record IndexDeadline(Duration base, Duration perBatch, Duration cap) {
     }
   }
 
-  public static IndexDeadline fixed(Duration base) {
-    return new IndexDeadline(base, Duration.ZERO, base);
-  }
-
   public Duration forRequests(int requests) {
     long extra = perBatch.toMillis() * Math.max(requests, 0);
     long total = Math.min(cap.toMillis(), base.toMillis() + extra);

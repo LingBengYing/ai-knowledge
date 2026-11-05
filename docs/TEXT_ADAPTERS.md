@@ -35,7 +35,7 @@ Strong由collection describe校验，不给Query添加未被其契约识别的ov
 
 ## 显式环境配置
 
-`TextAdapterSettings.load(environmentMap)`仅校验配置，不发网络。TextAdaptersConfiguration在`RAG_INDEXING_ENABLED=true`或`RAG_ANSWERS_ENABLED=true`任一成立时加载一次，两者都关闭才不加载；三套完整Endpoint均必填，即使索引任务只调用embedding。问答启用才装配共享model/projection Client及AnswerService，不隐式启动索引/摄取Job；共享Client在Bean生命周期关闭，不随单个请求取消而关闭。远程写入仍仅由索引任务触发，问答仅查询已有发布。仅添加模型变量不会启用功能；不要提交真实key，程序不自动source `.env`。
+`TextAdapterSettings.load(environmentMap)`仅校验配置，不发网络。TextAdapterConfiguration在`RAG_INDEXING_ENABLED=true`或`RAG_ANSWERS_ENABLED=true`任一成立时加载一次，两者都关闭才不加载；三套完整Endpoint均必填，即使索引任务只调用embedding。问答启用才装配共享model/projection Client及AnswerService，不隐式启动索引/摄取Job；共享Client在Bean生命周期关闭，不随单个请求取消而关闭。远程写入仍仅由索引任务触发，问答仅查询已有发布。仅添加模型变量不会启用功能；不要提交真实key，程序不自动source `.env`。
 
 | 环境变量 | 要求 |
 | --- | --- |

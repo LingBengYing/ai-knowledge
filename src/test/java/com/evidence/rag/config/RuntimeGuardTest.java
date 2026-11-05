@@ -8,8 +8,8 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class RuntimeGuardTest {
-  private RagProperties properties(String mode) {
-    return new RagProperties(
+  private RagSettings properties(String mode) {
+    return new RagSettings(
         "test",
         "org-main",
         mode,

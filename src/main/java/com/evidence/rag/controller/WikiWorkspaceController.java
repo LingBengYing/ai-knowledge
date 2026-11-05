@@ -11,6 +11,7 @@ import com.evidence.rag.model.vo.WikiSourceResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.WikiWorkspaceService;
 import com.evidence.rag.web.MediaContentResponse;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.WikiRequestMapper;
 import com.evidence.rag.web.converter.WikiSourceResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +38,7 @@ public final class WikiWorkspaceController {
 
   @GetMapping("/v1/wiki/pages")
   public ResponseEntity<WikiPageListResult> pages(HttpServletRequest request) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit", "q", "state"));
     return ok(
         service.pages(
@@ -51,7 +52,7 @@ public final class WikiWorkspaceController {
   @DeleteMapping("/v1/wiki/pages/{id}")
   public ResponseEntity<WikiPageResult> delete(
       HttpServletRequest request, @PathVariable String id) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("version", "lifecycle_version"));
     return ok(
         service.delete(
@@ -72,7 +73,7 @@ public final class WikiWorkspaceController {
   @DeleteMapping("/v1/wiki/pages/{id}/purge")
   public ResponseEntity<WikiPagePurgeResult> purge(
       HttpServletRequest request, @PathVariable String id) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("version", "lifecycle_version"));
     return ok(
         service.purge(
@@ -97,7 +98,7 @@ public final class WikiWorkspaceController {
 
   @GetMapping("/v1/wiki/proposals")
   public ResponseEntity<WikiProposalListResult> proposals(HttpServletRequest request) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit", "status"));
     String status = request.getParameter("status");
     return ok(
@@ -223,14 +224,8 @@ public final class WikiWorkspaceController {
     }
   }
 
-  private static void noBody(HttpServletRequest request) {
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
-      throw WikiRequestMapper.invalid();
-    }
-  }
-
   private static void readOnly(HttpServletRequest request) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     if (request.getQueryString() != null) {
       throw WikiRequestMapper.invalid();
     }

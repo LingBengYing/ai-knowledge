@@ -197,7 +197,7 @@ class MilvusSearchPreparationTest {
 
     MilvusRestProjection projection(int timeoutMillis) {
       return new MilvusRestProjection(
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               URI.create("http://127.0.0.1:" + server.getAddress().getPort()),
               "",
               "default",

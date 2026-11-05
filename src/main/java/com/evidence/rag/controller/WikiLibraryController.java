@@ -7,6 +7,7 @@ import com.evidence.rag.model.dto.WikiDraftResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.WikiCatalogService;
 import com.evidence.rag.service.WikiDraftService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.WikiDraftRequestMapper;
 import com.evidence.rag.web.converter.WikiRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +36,7 @@ public final class WikiLibraryController {
 
   @GetMapping("/v1/wiki/catalog")
   public ResponseEntity<WikiCatalogResult> catalog(HttpServletRequest request) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit", "q", "kind"));
     return ok(
         catalog.list(
@@ -48,7 +49,7 @@ public final class WikiLibraryController {
 
   @GetMapping("/v1/wiki/drafts")
   public ResponseEntity<WikiDraftListResult> drafts(HttpServletRequest request) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("offset", "limit"));
     return ok(
         drafts.list(
@@ -60,7 +61,7 @@ public final class WikiLibraryController {
   @GetMapping("/v1/wiki/drafts/{id}")
   public ResponseEntity<WikiDraftResult> draft(
       HttpServletRequest request, @PathVariable String id) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of());
     return ok(drafts.get(AuthenticatedActor.require(request), id));
   }
@@ -85,7 +86,7 @@ public final class WikiLibraryController {
 
   @DeleteMapping("/v1/wiki/drafts/{id}")
   public ResponseEntity<Void> delete(HttpServletRequest request, @PathVariable String id) {
-    noBody(request);
+    RequestGuards.noBody(request, WikiRequestMapper::invalid);
     WikiRequestMapper.query(request.getParameterMap(), Set.of("version"));
     drafts.delete(
         AuthenticatedActor.require(request),
@@ -107,12 +108,6 @@ public final class WikiLibraryController {
     try {
       return request.getInputStream().readNBytes(WikiDraftRequestMapper.MAX_BYTES + 1);
     } catch (IOException failure) {
-      throw WikiRequestMapper.invalid();
-    }
-  }
-
-  private static void noBody(HttpServletRequest request) {
-    if (request.getContentLengthLong() > 0 || request.getHeader("Transfer-Encoding") != null) {
       throw WikiRequestMapper.invalid();
     }
   }

@@ -99,7 +99,7 @@ public class SynopsisConfiguration {
       DocumentPermissionPolicy permissions,
       SynopsisModels models,
       HierarchicalSynopsisModels hierarchyModels,
-      RagProperties properties) {
+      RagSettings properties) {
     return new SynopsisLibraryService(
         store,
         repository,
@@ -121,7 +121,7 @@ public class SynopsisConfiguration {
       SynopsisLibraryService library,
       SynopsisService generator,
       HierarchicalSynopsisService hierarchyGenerator,
-      RagProperties properties) {
+      RagSettings properties) {
     return new SynopsisTaskProcessor(
         library, generator, hierarchyGenerator, properties.workspaceId());
   }

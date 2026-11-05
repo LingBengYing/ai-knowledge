@@ -124,7 +124,7 @@ class MilvusProjectionCleanupTest {
   }
 
   private static ProjectionAttempt attempt(
-      MilvusRestProjection.Settings settings, String document, String generation) {
+      MilvusRestProjection.Configuration settings, String document, String generation) {
     return new ProjectionAttempt(
         document,
         "org-main",
@@ -136,8 +136,8 @@ class MilvusProjectionCleanupTest {
         true);
   }
 
-  private static MilvusRestProjection.Settings settings(URI endpoint) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration settings(URI endpoint) {
+    return new MilvusRestProjection.Configuration(
         endpoint,
         "",
         "default",

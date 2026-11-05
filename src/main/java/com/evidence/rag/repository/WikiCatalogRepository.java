@@ -3,7 +3,7 @@ package com.evidence.rag.repository;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.PublicationVersion;
-import com.evidence.rag.model.entity.WikiCatalogDocument;
+import com.evidence.rag.model.entity.WikiCatalogDocumentEntity;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
@@ -16,7 +16,7 @@ public final class WikiCatalogRepository {
     this.store = Objects.requireNonNull(store);
   }
 
-  public List<WikiCatalogDocument> documents(Actor actor, String kind) {
+  public List<WikiCatalogDocumentEntity> documents(Actor actor, String kind) {
     return store
         .rows(
             """
@@ -38,7 +38,7 @@ public final class WikiCatalogRepository {
         .stream()
         .map(
             row ->
-                new WikiCatalogDocument(
+                new WikiCatalogDocumentEntity(
                     AuthorityRows.text(row, "id"), AuthorityRows.text(row, "filename"),
                     AuthorityRows.text(row, "display_name"), AuthorityRows.text(row, "mime_type"),
                     AuthorityRows.text(row, "document_type"),

@@ -20,10 +20,11 @@ import java.util.Set;
 /** Exact configured media targets and real, complete original-generation verification. */
 public final class ReindexVectorVerifier {
   private final Map<String, IndexTarget> targets;
-  private final Map<String, MilvusRestProjection.Settings> projections;
+  private final Map<String, MilvusRestProjection.Configuration> projections;
 
   public ReindexVectorVerifier(
-      Map<String, IndexTarget> targets, Map<String, MilvusRestProjection.Settings> projections) {
+      Map<String, IndexTarget> targets,
+      Map<String, MilvusRestProjection.Configuration> projections) {
     if (targets == null
         || projections == null
         || !targets.keySet().equals(projections.keySet())

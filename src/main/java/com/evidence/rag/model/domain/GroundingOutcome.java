@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Only supported results carry verified fragments; reasons contain no source or query text. */
-public record GroundingResult(boolean supported, String reason, List<GroundedQuote> quotes) {
+public record GroundingOutcome(boolean supported, String reason, List<GroundedQuote> quotes) {
   private static final Set<String> REFUSAL_REASONS =
       Set.of(
           "unsupported_question",
@@ -13,7 +13,7 @@ public record GroundingResult(boolean supported, String reason, List<GroundedQuo
           "unsafe_evidence",
           "invalid_quote");
 
-  public GroundingResult {
+  public GroundingOutcome {
     if (quotes == null
         || reason == null
         || (supported
@@ -31,6 +31,6 @@ public record GroundingResult(boolean supported, String reason, List<GroundedQuo
 
   @Override
   public String toString() {
-    return "GroundingResult[supported=" + supported + ", reason=" + reason + "]";
+    return "GroundingOutcome[supported=" + supported + ", reason=" + reason + "]";
   }
 }

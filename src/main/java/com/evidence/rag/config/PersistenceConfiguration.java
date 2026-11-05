@@ -30,7 +30,7 @@ import org.springframework.core.env.Environment;
 public class PersistenceConfiguration {
   @Bean(destroyMethod = "close")
   SqliteAuthorityStore authorityStore(
-      RagProperties properties, Environment environment, BatchProcessingSettings batch) {
+      RagSettings properties, Environment environment, BatchProcessingSettings batch) {
     RuntimeGuard.check(properties, environment.getProperty("server.address"));
     var store = new SqliteAuthorityStore(properties.dataDirectory());
     store.configureWorkspaceOriginalBytes(batch.workspaceOriginalBytes());
@@ -44,7 +44,7 @@ public class PersistenceConfiguration {
 
   /** Recovery needs only authority storage, even when the paid synopsis feature is disabled. */
   @Bean
-  SynopsisRepository synopsisRepository(SqliteAuthorityStore store, RagProperties properties) {
+  SynopsisRepository synopsisRepository(SqliteAuthorityStore store, RagSettings properties) {
     var repository = new SynopsisRepository(store);
     SynopsisLibraryService.recoverProcessing(store, repository, properties.workspaceId());
     return repository;

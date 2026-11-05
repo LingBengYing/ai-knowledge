@@ -3,8 +3,8 @@ package com.evidence.rag.model.domain;
 import java.util.Map;
 
 /** Complete digest manifest and the internal Adapter's full-revision verification receipt. */
-public record IndexingResult(Map<String, String> entryDigests, VerifiedRevision verified) {
-  public IndexingResult {
+public record IndexingOutcome(Map<String, String> entryDigests, VerifiedRevision verified) {
+  public IndexingOutcome {
     if (entryDigests == null || verified == null) {
       throw new IllegalArgumentException("Invalid indexing result");
     }
@@ -13,6 +13,6 @@ public record IndexingResult(Map<String, String> entryDigests, VerifiedRevision 
 
   @Override
   public String toString() {
-    return "IndexingResult[redacted]";
+    return "IndexingOutcome[redacted]";
   }
 }

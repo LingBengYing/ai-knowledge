@@ -255,7 +255,7 @@ class DocumentCleanupServiceTest {
                           .findWritableDocument(owner, id)
                           .orElseThrow());
       var settings =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               URI.create("http://127.0.0.1:1"),
               "",
               "default",

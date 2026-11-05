@@ -16,7 +16,7 @@ public record RetrievalTestResult(
     String reason,
     @JsonProperty("scope_count") int scopeCount,
     @JsonProperty("score_kind") String scoreKind,
-    List<RetrievalTestMatch> matches,
+    List<RetrievalTestMatchResult> matches,
     @JsonProperty("effective_settings") RetrievalSettingsResult effectiveSettings) {
   public RetrievalTestResult(
       String testId,
@@ -25,7 +25,7 @@ public record RetrievalTestResult(
       String reason,
       int scopeCount,
       String scoreKind,
-      List<RetrievalTestMatch> matches) {
+      List<RetrievalTestMatchResult> matches) {
     this(
         testId,
         configurationVersion,

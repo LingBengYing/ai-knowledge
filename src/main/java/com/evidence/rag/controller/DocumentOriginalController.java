@@ -4,6 +4,7 @@ import com.evidence.rag.model.vo.DocumentOriginalResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.ManagementService;
 import com.evidence.rag.web.MediaContentResponse;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.ManagementResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;

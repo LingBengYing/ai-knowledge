@@ -11,7 +11,7 @@ import com.evidence.rag.client.vector.RetrievalProjection;
 import com.evidence.rag.model.domain.EmbeddingThroughput;
 import com.evidence.rag.model.domain.IndexClaim;
 import com.evidence.rag.model.domain.IndexTarget;
-import com.evidence.rag.model.domain.IndexingResult;
+import com.evidence.rag.model.domain.IndexingOutcome;
 import com.evidence.rag.model.domain.TransientRetry;
 import com.evidence.rag.model.domain.VerifiedRevision;
 import java.nio.ByteBuffer;
@@ -224,7 +224,7 @@ class ProcessTextIndexerTest {
   void everyMalformedResponseFailsAsAWholeAndNeverReturnsAPartialManifest() throws Exception {
     try (var server = new IndexingTestServer()) {
       var request =
-          IndexProtocol.request(
+          TextIndexProtocol.request(
               server.settings().models(),
               server.settings().projection(),
               Duration.ofSeconds(10),
@@ -232,10 +232,10 @@ class ProcessTextIndexerTest {
               TransientRetry.NONE,
               EmbeddingThroughput.SERIAL);
       var good = receipt(request);
-      byte[] encoded = IndexProtocol.encode(good);
+      byte[] encoded = TextIndexProtocol.encode(good);
       var cases = new ArrayList<byte[]>();
       cases.add(integerAt(encoded, 0, 0));
-      cases.add(integerAt(encoded, 4, IndexProtocol.VERSION + 1));
+      cases.add(integerAt(encoded, 4, TextIndexProtocol.VERSION + 1));
       cases.add(integerAt(encoded, 8, 3));
       cases.add(integerAt(encoded, 8, 1));
       cases.add(integerAt(encoded, 12, 0));
@@ -249,21 +249,21 @@ class ProcessTextIndexerTest {
       badUtf8[20] = (byte) 0xff;
       cases.add(badUtf8);
       cases.add(
-          IndexProtocol.encode(
-              new IndexingResult(
+          TextIndexProtocol.encode(
+              new IndexingOutcome(
                   good.entryDigests(),
                   new VerifiedRevision("0".repeat(64), good.verified().manifestSha256(), 2))));
       cases.add(
-          IndexProtocol.encode(
-              new IndexingResult(
+          TextIndexProtocol.encode(
+              new IndexingOutcome(
                   good.entryDigests(),
                   new VerifiedRevision(good.verified().projectionIdentity(), "0".repeat(64), 2))));
       var missing = new TreeMap<>(good.entryDigests());
       missing.remove(missing.firstKey());
-      cases.add(IndexProtocol.encode(new IndexingResult(missing, good.verified())));
+      cases.add(TextIndexProtocol.encode(new IndexingOutcome(missing, good.verified())));
       var badHash = new TreeMap<>(good.entryDigests());
       badHash.put(badHash.firstKey(), "z".repeat(64));
-      cases.add(IndexProtocol.encode(new IndexingResult(badHash, good.verified())));
+      cases.add(TextIndexProtocol.encode(new IndexingOutcome(badHash, good.verified())));
       Path response = temporary.resolve("response.bin");
       for (byte[] invalid : cases) {
         Files.write(response, invalid);
@@ -331,7 +331,7 @@ class ProcessTextIndexerTest {
     return result;
   }
 
-  private static IndexingResult receipt(IndexProtocol.Request request) {
+  private static IndexingOutcome receipt(TextIndexProtocol.Request request) {
     var digests = new TreeMap<String, String>();
     var vector = new ArrayList<Double>();
     for (int i = 0; i < request.target().dimensions(); i++) {
@@ -355,7 +355,7 @@ class ProcessTextIndexerTest {
     var manifest =
         new RetrievalProjection.RevisionManifest(
             request.workspaceId(), request.documentId(), request.projectionGenerationId(), digests);
-    return new IndexingResult(
+    return new IndexingOutcome(
         digests,
         new VerifiedRevision(
             request.target().projectionIdentity(), manifest.sha256(), digests.size()));
@@ -414,10 +414,10 @@ class ProcessTextIndexerTest {
       }
       if (List.of("success", "environment").contains(args[0])) {
         System.out.write(
-            IndexProtocol.encode(
-                receipt(IndexProtocol.readRequest(new java.io.ByteArrayInputStream(input)))));
+            TextIndexProtocol.encode(
+                receipt(TextIndexProtocol.readRequest(new java.io.ByteArrayInputStream(input)))));
       } else if (args[0].equals("oversize")) {
-        System.out.write(new byte[IndexProtocol.MAX_OUTPUT + 1]);
+        System.out.write(new byte[TextIndexProtocol.MAX_OUTPUT + 1]);
       } else {
         System.out.write(Files.readAllBytes(Path.of(args[1])));
       }

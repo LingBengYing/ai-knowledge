@@ -8,7 +8,7 @@ public record KnowledgeAnswerResult(
     String status,
     String answer,
     String reason,
-    List<KnowledgeCitation> citations) {
+    List<KnowledgeCitationResult> citations) {
   public KnowledgeAnswerResult {
     citations = List.copyOf(citations);
   }

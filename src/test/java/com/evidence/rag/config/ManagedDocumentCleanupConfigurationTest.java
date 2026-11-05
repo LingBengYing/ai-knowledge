@@ -46,7 +46,7 @@ class ManagedDocumentCleanupConfigurationTest {
       assertTrue(fixture.context.getBeansOfType(TextAdapterSettings.class).isEmpty());
       assertTrue(projection.settingsFor(MilvusProjectionCleanup.qualified(expected)).isPresent());
       var foreign =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               expected.endpoint(),
               expected.token(),
               expected.database(),
@@ -143,7 +143,7 @@ class ManagedDocumentCleanupConfigurationTest {
               .withProperty("RAG_MILVUS_COLLECTION", "java_initial_managed_collection");
       settings = new ManagedTextSettings(environment);
       var properties =
-          new RagProperties(
+          new RagSettings(
               "development",
               "org-main",
               "development_headers",
@@ -178,7 +178,7 @@ class ManagedDocumentCleanupConfigurationTest {
                       2, 2, 2, 10000, 0, 1, 1, 0, 600000, 2, 1, 0, 0, 10737418240L));
       context.setEnvironment(environment);
       context.register(DocumentCleanupConfiguration.class);
-      context.registerBean(RagProperties.class, () -> properties);
+      context.registerBean(RagSettings.class, () -> properties);
       context.registerBean(SqliteAuthorityStore.class, authority::store);
       context.registerBean(ManagedTextSettings.class, () -> settings);
       context.registerBean(ManagedTextRuntime.class, () -> runtime);

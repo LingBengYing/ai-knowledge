@@ -9,7 +9,7 @@ import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.dto.AgentProtocol;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
-import com.evidence.rag.model.dto.KnowledgeCitation;
+import com.evidence.rag.model.dto.KnowledgeCitationResult;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
 import com.evidence.rag.service.ConversationService;
 import com.evidence.rag.service.DocumentCleanupService;
@@ -154,7 +154,7 @@ class DocumentCleanupConversationRedactionTest {
             false,
             List.of());
     var citation =
-        new KnowledgeCitation(
+        new KnowledgeCitationResult(
             1,
             "document_text",
             documentId,

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.nio.charset.StandardCharsets;
 
 /** Full authority-owned segment and code-point locator; scores are not factual confidence. */
-public record RetrievalTestMatch(
+public record RetrievalTestMatchResult(
     int rank,
     @JsonProperty("document_id") String documentId,
     @JsonProperty("revision_id") String revisionId,
@@ -19,7 +19,7 @@ public record RetrievalTestMatch(
     @JsonProperty("text_sha256") String textSha256,
     @JsonProperty("retrieval_score") double retrievalScore,
     @JsonProperty("rerank_score") Double rerankScore) {
-  public RetrievalTestMatch {
+  public RetrievalTestMatchResult {
     ModelValues.identifier(documentId, 100);
     ModelValues.identifier(revisionId, 128);
     ModelValues.identifier(filename, 255);
@@ -46,6 +46,6 @@ public record RetrievalTestMatch(
 
   @Override
   public String toString() {
-    return "RetrievalTestMatch[redacted]";
+    return "RetrievalTestMatchResult[redacted]";
   }
 }

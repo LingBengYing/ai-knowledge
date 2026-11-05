@@ -23,14 +23,14 @@ public final class ProcessImageVectorIndexer implements AutoCloseable {
               ImageVectorProtocol::writeRequest,
               ImageVectorProtocol::decode);
   private final SiliconFlowImageEmbeddingModels.Configuration models;
-  private final MilvusRestProjection.Settings projection;
+  private final MilvusRestProjection.Configuration projection;
   private final Duration timeout;
   private final ChildProcessIndexer<ImageVectorProtocol.Request, ImageVectorReceipt, Failure>
       process;
 
   public ProcessImageVectorIndexer(
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     this(models, projection, timeout, null, List.of());
   }
@@ -38,7 +38,7 @@ public final class ProcessImageVectorIndexer implements AutoCloseable {
   // Trusted process fixture Adapter; same JDK, cleared environment and resource constraints.
   ProcessImageVectorIndexer(
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String fixtureMainClass,
       List<String> fixtureArgs) {

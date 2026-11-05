@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.SqliteAuthorityStore;
@@ -580,7 +580,7 @@ class MultimodalCompositionNativeIT {
       var application = new SpringApplication(RagApplication.class);
       application.setEnvironment(springEnvironment);
       context = application.run();
-      assertEquals(data, context.getBean(RagProperties.class).dataDirectory());
+      assertEquals(data, context.getBean(RagSettings.class).dataDirectory());
       base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");
     }
 

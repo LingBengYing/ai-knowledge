@@ -23,14 +23,14 @@ public final class ProcessAudioVectorIndexer implements AutoCloseable {
               AudioVectorProtocol::writeRequest,
               AudioVectorProtocol::decode);
   private final GeminiAudioEmbeddingModels.Configuration models;
-  private final MilvusRestProjection.Settings projection;
+  private final MilvusRestProjection.Configuration projection;
   private final Duration timeout;
   private final ChildProcessIndexer<AudioVectorProtocol.Request, AudioVectorReceipt, Failure>
       process;
 
   public ProcessAudioVectorIndexer(
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     this(models, projection, timeout, null, List.of());
   }
@@ -38,7 +38,7 @@ public final class ProcessAudioVectorIndexer implements AutoCloseable {
   // Trusted process fixture Adapter; same JDK, cleared environment and resource constraints.
   ProcessAudioVectorIndexer(
       GeminiAudioEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       String fixtureMainClass,
       List<String> fixtureArgs) {

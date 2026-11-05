@@ -85,9 +85,9 @@ class DocumentCleanupConfigurationTest {
     context.register(DocumentCleanupConfiguration.class);
     context.registerBean(DocumentRemovalSettings.class, () -> new DocumentRemovalSettings(removal));
     context.registerBean(
-        RagProperties.class,
+        RagSettings.class,
         () ->
-            new RagProperties(
+            new RagSettings(
                 runtime,
                 "org-main",
                 "jwt",

@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class RetrievalSettingsConfiguration {
   @Bean
   RetrievalSettingsRepository retrievalSettingsRepository(
-      SqliteAuthorityStore store, RagProperties properties) {
+      SqliteAuthorityStore store, RagSettings properties) {
     return new RetrievalSettingsRepository(
         store.libraryPath().getParent().resolve("retrieval-settings.json"),
         properties.workspaceId());
@@ -20,7 +20,7 @@ public class RetrievalSettingsConfiguration {
 
   @Bean
   RetrievalSettingsService retrievalSettingsService(
-      RetrievalSettingsRepository repository, RagProperties properties) {
+      RetrievalSettingsRepository repository, RagSettings properties) {
     return new RetrievalSettingsService(repository, properties.workspaceId());
   }
 }

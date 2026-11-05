@@ -110,7 +110,7 @@ class PdfOcrRuntimeTest {
       MockEnvironment environment, boolean ingestion, boolean indexing, boolean answers) {
     return new RuntimeConfiguration()
         .runtimeService(
-            new RagProperties("test", "org-main", "development_headers", "", "", "", directory),
+            new RagSettings("test", "org-main", "development_headers", "", "", "", directory),
             new IngestionSettings(ingestion, 30000, 30000),
             new IndexingSettings(indexing, 60000),
             new AnswersSettings(answers, 60000, 2),

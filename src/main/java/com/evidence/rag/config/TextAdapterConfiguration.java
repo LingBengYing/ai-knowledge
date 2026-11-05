@@ -14,10 +14,10 @@ import org.springframework.core.env.ConfigurableEnvironment;
 @Configuration(proxyBeanMethods = false)
 @Conditional(LegacyTextCondition.class)
 @ConditionalOnExpression("${rag.indexing.enabled:false} || ${rag.answers.enabled:false}")
-public class TextAdaptersConfiguration {
+public class TextAdapterConfiguration {
   @Bean
   TextAdapterSettings textAdapterSettings(
-      ConfigurableEnvironment environment, RagProperties properties) {
+      ConfigurableEnvironment environment, RagSettings properties) {
     return IndexingConfiguration.loadAdapters(environment, properties.workspaceId());
   }
 

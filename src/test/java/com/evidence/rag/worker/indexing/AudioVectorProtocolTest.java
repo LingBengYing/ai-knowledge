@@ -47,7 +47,7 @@ class AudioVectorProtocolTest {
   static AudioVectorProtocol.Request request() {
     try (var models = new GeminiAudioEmbeddingModels(MODEL)) {
       var projection =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               URI.create("http://127.0.0.1:1"),
               "",
               "default",

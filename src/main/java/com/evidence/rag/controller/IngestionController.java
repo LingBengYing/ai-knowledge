@@ -5,6 +5,7 @@ import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.vo.TaskResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.IngestionService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.TaskResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -44,11 +45,10 @@ public final class IngestionController {
   }
 
   private static void noQueryOrBody(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw new ApplicationException(
-          FailureKind.INVALID_INPUT, "invalid_request", "此任务操作不接受参数或请求体。");
-    }
+    RequestGuards.noQueryOrBody(
+        request,
+        () ->
+            new ApplicationException(
+                FailureKind.INVALID_INPUT, "invalid_request", "此任务操作不接受参数或请求体。"));
   }
 }

@@ -13,7 +13,7 @@ import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.RetrievalSettings;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
-import com.evidence.rag.model.dto.KnowledgeCitation;
+import com.evidence.rag.model.dto.KnowledgeCitationResult;
 import com.evidence.rag.model.dto.KnowledgeSourceResult;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -190,7 +190,7 @@ public final class KnowledgeAnswerService implements AutoCloseable {
         receipt.reasonCode(),
         answered
             ? proposal.references().stream()
-                .map(ref -> KnowledgeCitation.from(receipt.traceId(), ref))
+                .map(ref -> KnowledgeCitationResult.from(receipt.traceId(), ref))
                 .toList()
             : List.of());
   }

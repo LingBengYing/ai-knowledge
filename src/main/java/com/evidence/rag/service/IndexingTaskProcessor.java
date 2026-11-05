@@ -32,7 +32,7 @@ public final class IndexingTaskProcessor {
 
   private final Duration timeout;
   private final Function<Duration, ProcessTextIndexer> workers;
-  private MilvusRestProjection.Settings cleanupProjection;
+  private MilvusRestProjection.Configuration cleanupProjection;
   private final ReindexVectorVerifier receiptVerifier;
   private volatile TransientRetry retry = TransientRetry.NONE;
   private volatile IndexDeadline deadlines;
@@ -60,7 +60,7 @@ public final class IndexingTaskProcessor {
       IndexingService authority,
       String workspace,
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       IndexTarget target,
       Duration timeout) {
     this(
@@ -77,7 +77,7 @@ public final class IndexingTaskProcessor {
       IndexingService authority,
       String workspace,
       OpenAiCompatibleModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       IndexTarget target,
       Duration timeout,
       ReindexVectorVerifier receiptVerifier) {
@@ -182,7 +182,7 @@ public final class IndexingTaskProcessor {
           return;
         }
         var attempt = new TransientRetry(allowance, policy.baseDelay(), policy.maxDelay());
-        com.evidence.rag.model.domain.IndexingResult result;
+        com.evidence.rag.model.domain.IndexingOutcome result;
         try {
           result = indexWhenFree(worker, claim, attempt, policy, started, total);
         } finally {
@@ -343,7 +343,7 @@ public final class IndexingTaskProcessor {
   private static final Duration HELD_POLL = Duration.ofMillis(500);
 
   /** A busy indexer starts no child and sends no model request; wait for a slot and try again. */
-  private com.evidence.rag.model.domain.IndexingResult indexWhenFree(
+  private com.evidence.rag.model.domain.IndexingOutcome indexWhenFree(
       ProcessTextIndexer worker,
       IndexClaim claim,
       TransientRetry attempt,

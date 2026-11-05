@@ -1,8 +1,8 @@
 package com.evidence.rag.tool.answer;
 
 import com.evidence.rag.model.domain.GroundedQuote;
+import com.evidence.rag.model.domain.GroundingOutcome;
 import com.evidence.rag.model.domain.GroundingQuote;
-import com.evidence.rag.model.domain.GroundingResult;
 import com.evidence.rag.model.domain.GroundingText;
 import com.evidence.rag.model.domain.PublishedEvidence;
 import com.evidence.rag.model.domain.QuestionFact;
@@ -23,7 +23,7 @@ public final class TextGrounding {
   private static final int MAX_CANDIDATES = 64;
   private static final int MAX_QUOTES = 32;
 
-  public GroundingResult verifyFact(
+  public GroundingOutcome verifyFact(
       String question,
       QuestionFact fact,
       List<GroundingText> candidates,
@@ -39,7 +39,7 @@ public final class TextGrounding {
     if (!result.supported()) {
       return result;
     }
-    return new GroundingResult(
+    return new GroundingOutcome(
         true,
         "supported",
         result.quotes().stream()
@@ -54,12 +54,12 @@ public final class TextGrounding {
             .toList());
   }
 
-  public GroundingResult verifyText(
+  public GroundingOutcome verifyText(
       String question, List<GroundingText> candidates, List<GroundingQuote> quotes) {
     return verifyMapped(question, candidates, quotes, Function.identity());
   }
 
-  public GroundingResult verify(
+  public GroundingOutcome verify(
       String question, List<PublishedEvidence> candidates, List<GroundingQuote> quotes) {
     return verifyMapped(
         question,
@@ -75,7 +75,7 @@ public final class TextGrounding {
                 source.segment().end()));
   }
 
-  private <T> GroundingResult verifyMapped(
+  private <T> GroundingOutcome verifyMapped(
       String question,
       List<T> candidates,
       List<GroundingQuote> quotes,
@@ -83,7 +83,7 @@ public final class TextGrounding {
     return verifyMapped(question, candidates, quotes, contextMapping, null);
   }
 
-  private <T> GroundingResult verifyMapped(
+  private <T> GroundingOutcome verifyMapped(
       String question,
       List<T> candidates,
       List<GroundingQuote> quotes,
@@ -248,7 +248,7 @@ public final class TextGrounding {
     if (complete.size() > MAX_QUOTES) {
       return refused("invalid_quote");
     }
-    return new GroundingResult(true, "supported", List.copyOf(complete.values()));
+    return new GroundingOutcome(true, "supported", List.copyOf(complete.values()));
   }
 
   private static void merge(Map<String, GroundedQuote> quotes, GroundedQuote next) {
@@ -274,7 +274,7 @@ public final class TextGrounding {
     return text.codePoints().noneMatch(point -> point == 0 || (point >= 0xD800 && point <= 0xDFFF));
   }
 
-  private static GroundingResult refused(String reason) {
-    return new GroundingResult(false, reason, List.of());
+  private static GroundingOutcome refused(String reason) {
+    return new GroundingOutcome(false, reason, List.of());
   }
 }

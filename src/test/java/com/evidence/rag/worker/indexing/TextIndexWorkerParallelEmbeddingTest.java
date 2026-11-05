@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  * Phase 2 #5: the actual child embeds one document with several requests in flight, still writes
  * Milvus strictly in segment order, and keeps the request audit and the retry allowance exact.
  */
-class IndexWorkerParallelEmbeddingTest {
+class TextIndexWorkerParallelEmbeddingTest {
   private static final TransientRetry RETRY =
       new TransientRetry(2, Duration.ofMillis(10), Duration.ofSeconds(5));
   private static final Pattern ORDINAL = Pattern.compile("第(\\d+)段");

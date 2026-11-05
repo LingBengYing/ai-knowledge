@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.support.PublishedCorpusFixture;
 import java.net.URI;
@@ -205,7 +205,7 @@ class WikiPageLifecycleHttpTest {
             "--rag.environment=test",
             "--rag.auth-mode=development_headers",
             "--rag.data-directory=" + directory);
-    assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
+    assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
     return context;
   }
 

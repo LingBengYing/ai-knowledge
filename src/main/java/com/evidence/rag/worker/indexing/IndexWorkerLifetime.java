@@ -83,12 +83,15 @@ final class IndexWorkerLifetime implements AutoCloseable {
   }
 
   static IndexWorkerLifetime acquire(
-      MilvusRestProjection.Settings settings, Parent parent, Duration timeout, boolean isolated) {
+      MilvusRestProjection.Configuration settings,
+      Parent parent,
+      Duration timeout,
+      boolean isolated) {
     return acquire(settings, parent, timeout, isolated, "");
   }
 
   static IndexWorkerLifetime acquireDocument(
-      MilvusRestProjection.Settings settings,
+      MilvusRestProjection.Configuration settings,
       Parent parent,
       Duration timeout,
       boolean isolated,
@@ -100,7 +103,7 @@ final class IndexWorkerLifetime implements AutoCloseable {
   }
 
   private static IndexWorkerLifetime acquire(
-      MilvusRestProjection.Settings settings,
+      MilvusRestProjection.Configuration settings,
       Parent parent,
       Duration timeout,
       boolean isolated,
@@ -230,7 +233,7 @@ final class IndexWorkerLifetime implements AutoCloseable {
     }
   }
 
-  private static Path leaseFile(MilvusRestProjection.Settings settings, String scope)
+  private static Path leaseFile(MilvusRestProjection.Configuration settings, String scope)
       throws IOException {
     Path root = privateRoot();
     var endpoint = settings.endpoint();

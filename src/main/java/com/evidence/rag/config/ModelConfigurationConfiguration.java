@@ -85,7 +85,7 @@ public class ModelConfigurationConfiguration {
 
   @Bean
   ModelConfigurationPermissionPolicy modelConfigurationPermissionPolicy(
-      RagProperties properties, ManagedTextSettings settings) {
+      RagSettings properties, ManagedTextSettings settings) {
     return new ModelConfigurationPermissionPolicy(
         properties.workspaceId(), settings.administrators());
   }
@@ -106,7 +106,7 @@ public class ModelConfigurationConfiguration {
       SqliteAuthorityStore store,
       IndexingService indexing,
       EvidenceService evidence,
-      RagProperties properties,
+      RagSettings properties,
       ManagedTextSettings settings,
       AnswersSettings answerLimits,
       IndexingSettings indexLimits,
@@ -233,7 +233,7 @@ public class ModelConfigurationConfiguration {
   LegacyTextProfileGuard legacyTextProfileGuard(
       ManagedTextRuntime runtime,
       ConfigurableEnvironment environment,
-      RagProperties properties,
+      RagSettings properties,
       ManagedMediaTextFactory media) {
     IndexTarget target = null;
     try {
@@ -269,7 +269,7 @@ public class ModelConfigurationConfiguration {
       DocumentPermissionPolicy permissions,
       ManagedTextRuntime runtime,
       IndexingService indexing,
-      RagProperties properties,
+      RagSettings properties,
       ManagedTextSettings settings) {
     return new ModelRebuildService(
         store,

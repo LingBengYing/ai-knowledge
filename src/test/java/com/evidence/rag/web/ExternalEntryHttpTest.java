@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.security.web.ExternalEntryPolicy;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -181,7 +181,7 @@ class ExternalEntryHttpTest {
 
   @Test
   void startupRejectsHeaderAuthenticationPublicBackendAndInvalidOrigin() {
-    RagProperties properties = context.getBean(RagProperties.class);
+    RagSettings properties = context.getBean(RagSettings.class);
     MockEnvironment environment =
         new MockEnvironment()
             .withProperty("rag.external-entry.enabled", "true")
@@ -201,14 +201,14 @@ class ExternalEntryHttpTest {
       assertThrows(IllegalArgumentException.class, () -> externalPolicy(environment, properties));
     }
     environment.withProperty("rag.external-entry.public-origin", ORIGIN);
-    RagProperties developmentHeaders =
-        new RagProperties("test", "org-main", "development_headers", "", "", "", directory);
+    RagSettings developmentHeaders =
+        new RagSettings("test", "org-main", "development_headers", "", "", "", directory);
     assertThrows(
         IllegalArgumentException.class, () -> externalPolicy(environment, developmentHeaders));
   }
 
   private static ExternalEntryPolicy externalPolicy(
-      MockEnvironment environment, RagProperties properties) {
+      MockEnvironment environment, RagSettings properties) {
     return new ExternalEntryPolicy(
         environment.getProperty("rag.external-entry.enabled", Boolean.class, false),
         environment.getProperty("rag.external-entry.public-origin", ""),

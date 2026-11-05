@@ -7,6 +7,7 @@ import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.ManagedTextRuntime;
 import com.evidence.rag.web.MediaContentResponse;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.VideoAnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
@@ -105,12 +106,9 @@ public final class VideoAnswerController {
   }
 
   private static void validateSource(HttpServletRequest request, int ordinal) {
-    if (ordinal < 1
-        || ordinal > 32
-        || request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
+    if (ordinal < 1 || ordinal > 32) {
       throw ModelValues.invalid();
     }
+    RequestGuards.noQueryOrBody(request);
   }
 }

@@ -22,7 +22,7 @@ import com.evidence.rag.model.domain.VideoOcrCompilation;
 import com.evidence.rag.model.domain.VideoOcrSegment;
 import com.evidence.rag.model.dto.AnswerCommand;
 import com.evidence.rag.model.dto.KnowledgeAnswerResult;
-import com.evidence.rag.model.dto.KnowledgeCitation;
+import com.evidence.rag.model.dto.KnowledgeCitationResult;
 import com.evidence.rag.repository.IngestionRepository;
 import com.evidence.rag.repository.ManagementRepository;
 import com.evidence.rag.security.authorization.DocumentPermissionPolicy;
@@ -128,7 +128,7 @@ class KnowledgeAnswerServiceTest {
       assertEquals(
           Set.of("document_text", "video_transcript"),
           answer.citations().stream()
-              .map(KnowledgeCitation::evidenceKind)
+              .map(KnowledgeCitationResult::evidenceKind)
               .collect(java.util.stream.Collectors.toSet()));
       assertSources(fixture, answer);
     }
@@ -199,7 +199,7 @@ class KnowledgeAnswerServiceTest {
       assertEquals(
           Set.of("document_text", "video_frame_ocr", "video_transcript"),
           answer.citations().stream()
-              .map(KnowledgeCitation::evidenceKind)
+              .map(KnowledgeCitationResult::evidenceKind)
               .collect(java.util.stream.Collectors.toSet()));
       var document = citation(answer, "document_text");
       assertEquals(manual, document.documentId());
@@ -291,7 +291,7 @@ class KnowledgeAnswerServiceTest {
     }
   }
 
-  private static KnowledgeCitation citation(KnowledgeAnswerResult answer, String kind) {
+  private static KnowledgeCitationResult citation(KnowledgeAnswerResult answer, String kind) {
     return answer.citations().stream()
         .filter(value -> value.evidenceKind().equals(kind))
         .findFirst()

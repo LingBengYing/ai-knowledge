@@ -9,6 +9,7 @@ import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.SynopsisLibraryService;
 import com.evidence.rag.service.SynopsisTaskProcessor;
 import com.evidence.rag.web.MediaContentResponse;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.SynopsisResponseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;

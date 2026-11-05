@@ -6,7 +6,7 @@ import org.springframework.core.env.Environment;
 public final class RuntimeGuard {
   private RuntimeGuard() {}
 
-  public static void check(RagProperties properties, String address) {
+  public static void check(RagSettings properties, String address) {
     if ("development_headers".equals(properties.authMode()) && !isLiteralLoopback(address)) {
       throw new IllegalArgumentException(
           "Development identity headers require a literal loopback bind address");

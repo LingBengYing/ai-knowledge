@@ -12,7 +12,7 @@ import org.springframework.core.env.Environment;
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
   @Bean
-  ExternalEntryPolicy externalEntryPolicy(Environment environment, RagProperties properties) {
+  ExternalEntryPolicy externalEntryPolicy(Environment environment, RagSettings properties) {
     return new ExternalEntryPolicy(
         environment.getProperty("rag.external-entry.enabled", Boolean.class, false),
         environment.getProperty("rag.external-entry.public-origin", ""),
@@ -21,7 +21,7 @@ public class SecurityConfiguration {
   }
 
   @Bean
-  JwtAuthenticator jwtAuthenticator(RagProperties p) {
+  JwtAuthenticator jwtAuthenticator(RagSettings p) {
     return new JwtAuthenticator(
         new AuthenticationOptions(
             p.authMode(), p.workspaceId(), p.jwtSecret(), p.jwtIssuer(), p.jwtAudience()),
@@ -29,7 +29,7 @@ public class SecurityConfiguration {
   }
 
   @Bean
-  RequestAuthenticator requestAuthenticator(RagProperties p, JwtAuthenticator jwt) {
+  RequestAuthenticator requestAuthenticator(RagSettings p, JwtAuthenticator jwt) {
     return new RequestAuthenticator(p.authMode(), p.workspaceId(), jwt);
   }
 }

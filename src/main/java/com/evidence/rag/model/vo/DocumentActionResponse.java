@@ -7,6 +7,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record DocumentActionResponse(
     @JsonProperty("document_id") String documentId,
     boolean ok,
-    DocumentActionReceipt receipt,
+    DocumentActionReceiptResponse receipt,
     @JsonProperty("error_code") String errorCode,
     String detail) {}

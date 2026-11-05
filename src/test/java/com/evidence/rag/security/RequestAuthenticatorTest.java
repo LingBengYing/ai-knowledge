@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AuthenticationOptions;
@@ -37,14 +37,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 class RequestAuthenticatorTest {
-  static JwtAuthenticator verifier(RagProperties p, Clock clock) {
+  static JwtAuthenticator verifier(RagSettings p, Clock clock) {
     return new JwtAuthenticator(
         new AuthenticationOptions(
             p.authMode(), p.workspaceId(), p.jwtSecret(), p.jwtIssuer(), p.jwtAudience()),
         clock);
   }
 
-  static RequestAuthenticator authenticator(RagProperties p, Clock clock) {
+  static RequestAuthenticator authenticator(RagSettings p, Clock clock) {
     return new RequestAuthenticator(p.authMode(), p.workspaceId(), verifier(p, clock));
   }
 
@@ -54,8 +54,8 @@ class RequestAuthenticatorTest {
   static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
   @TempDir Path directory;
 
-  static RagProperties properties(Path path, String mode) {
-    return new RagProperties(
+  static RagSettings properties(Path path, String mode) {
+    return new RagSettings(
         "test", "org-main", mode, SECRET, "evidence-test", "evidence-browser", path);
   }
 

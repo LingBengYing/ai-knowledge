@@ -50,10 +50,6 @@ public record RetrievalSettings(
     };
   }
 
-  public String thresholdScoreKind() {
-    return rerank() ? "rerank_score" : retrievalScoreKind();
-  }
-
   public String fingerprint() {
     return ModelValues.sha256(
         ("java-retrieval-settings-v1\n"

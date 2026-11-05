@@ -10,7 +10,7 @@ import com.evidence.rag.RagApplication;
 import com.evidence.rag.client.model.TextModels;
 import com.evidence.rag.client.model.VisionModels;
 import com.evidence.rag.client.vector.RetrievalProjection;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.job.IndexingJob;
 import com.evidence.rag.job.IngestionJob;
 import com.evidence.rag.model.domain.Actor;
@@ -745,8 +745,8 @@ class ManagedMediaRoleSwitchMainlineHttpTest {
             .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
             .toArray(String[]::new);
     var context = app.run(arguments);
-    assertEquals("development_headers", context.getBean(RagProperties.class).authMode());
-    assertEquals(directory, context.getBean(RagProperties.class).dataDirectory());
+    assertEquals("development_headers", context.getBean(RagSettings.class).authMode());
+    assertEquals(directory, context.getBean(RagSettings.class).dataDirectory());
     // Seed complete typed compilation through real Services, without racing native background work.
     context.getBean(IngestionJob.class).close();
     context.getBean(IndexingJob.class).close();

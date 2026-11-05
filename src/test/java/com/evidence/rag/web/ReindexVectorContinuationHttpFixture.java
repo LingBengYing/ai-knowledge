@@ -234,7 +234,7 @@ final class ReindexVectorContinuationHttpFixture {
   }
 
   private static void verifySeed(
-      MilvusRestProjection.Settings settings,
+      MilvusRestProjection.Configuration settings,
       List<RetrievalProjection.Entry> entries,
       RetrievalProjection.RevisionManifest manifest) {
     try (var projection = new MilvusRestProjection(settings)) {

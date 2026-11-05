@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class RagPropertiesTest {
+class RagSettingsTest {
   @TempDir Path directory;
 
   @Test
@@ -67,7 +67,7 @@ class RagPropertiesTest {
         () -> config("test", "workspace", "development_headers", null, null, null, directory));
   }
 
-  private RagProperties config(
+  private RagSettings config(
       String environment,
       String workspace,
       String mode,
@@ -75,6 +75,6 @@ class RagPropertiesTest {
       String issuer,
       String audience,
       Path dataDirectory) {
-    return new RagProperties(environment, workspace, mode, secret, issuer, audience, dataDirectory);
+    return new RagSettings(environment, workspace, mode, secret, issuer, audience, dataDirectory);
   }
 }

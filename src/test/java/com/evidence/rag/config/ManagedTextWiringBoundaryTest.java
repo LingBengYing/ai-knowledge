@@ -12,7 +12,7 @@ import com.evidence.rag.controller.RuntimeController;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.model.domain.TextModelConfiguration;
 import com.evidence.rag.model.domain.TextModelRole;
-import com.evidence.rag.model.dto.RuntimeCapabilities;
+import com.evidence.rag.model.dto.RuntimeCapabilitiesResult;
 import com.evidence.rag.repository.SqliteAuthorityStore;
 import com.evidence.rag.service.RuntimeService;
 import com.evidence.rag.support.AnswerProtocolServer;
@@ -294,8 +294,8 @@ class ManagedTextWiringBoundaryTest {
         new TextModelConfiguration.Role("fixture-generation", "synthetic-setup-key"));
   }
 
-  private static RuntimeCapabilities capabilities() {
-    return new RuntimeCapabilities(
+  private static RuntimeCapabilitiesResult capabilities() {
+    return new RuntimeCapabilitiesResult(
         "development_headers",
         "org-main",
         "text_answers",

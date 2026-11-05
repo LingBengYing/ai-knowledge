@@ -15,7 +15,7 @@ import java.util.Set;
 
 /** Explicit configuration only: does not create clients, Spring beans, or remote resources. */
 public record TextAdapterSettings(
-    OpenAiCompatibleModels.Configuration models, MilvusRestProjection.Settings projection) {
+    OpenAiCompatibleModels.Configuration models, MilvusRestProjection.Configuration projection) {
   private static final Set<String> NAMES =
       Set.of(
           "RAG_EMBEDDING_BASE_URL",
@@ -78,7 +78,7 @@ public record TextAdapterSettings(
           new OpenAiCompatibleModels.Configuration(
               embedding, rerank, generation, dimensions, timeout, bytes, loopback);
       var projection =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               URI.create(required(environment, "RAG_MILVUS_ENDPOINT")),
               secret(environment, "RAG_MILVUS_TOKEN"),
               environment.getOrDefault("RAG_MILVUS_DATABASE", "default"),

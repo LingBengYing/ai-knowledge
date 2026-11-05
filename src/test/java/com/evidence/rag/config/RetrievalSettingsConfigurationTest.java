@@ -35,9 +35,8 @@ class RetrievalSettingsConfigurationTest {
   void enabledConfigurationUsesAuthoritySiblingAndReadsWithoutWriting() {
     try (var context = context(Map.of("rag.model-configuration.enabled", "true"))) {
       context.registerBean(
-          RagProperties.class,
-          () ->
-              new RagProperties("test", "org", "development_headers", null, null, null, directory));
+          RagSettings.class,
+          () -> new RagSettings("test", "org", "development_headers", null, null, null, directory));
       context.registerBean(SqliteAuthorityStore.class, () -> new SqliteAuthorityStore(directory));
       context.refresh();
       var store = context.getBean(SqliteAuthorityStore.class);

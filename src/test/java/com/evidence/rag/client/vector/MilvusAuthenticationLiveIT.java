@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.client.vector.MilvusRestProjection.Settings;
 import com.evidence.rag.client.vector.RetrievalProjection.AuthorizedScope;
 import com.evidence.rag.client.vector.RetrievalProjection.Entry;
 import com.evidence.rag.client.vector.RetrievalProjection.Query;
@@ -111,7 +110,7 @@ class MilvusAuthenticationLiveIT {
   }
 
   private static final class IsolatedCollection implements AutoCloseable {
-    private final Settings settings;
+    private final MilvusRestProjection.Configuration settings;
     private final HttpClient admin =
         HttpClient.newBuilder()
             .connectTimeout(ADMIN_TIMEOUT)
@@ -120,7 +119,7 @@ class MilvusAuthenticationLiveIT {
     private boolean initializationAttempted;
     private boolean owned;
 
-    private IsolatedCollection(Settings settings) {
+    private IsolatedCollection(MilvusRestProjection.Configuration settings) {
       this.settings = settings;
     }
 
@@ -209,7 +208,7 @@ class MilvusAuthenticationLiveIT {
       // Only this negative fixture bypasses the loader's nonempty-token requirement. All other
       // settings, including the production-derived embedding identity, remain unchanged.
       var rejectedSettings =
-          new Settings(
+          new MilvusRestProjection.Configuration(
               settings.endpoint(),
               token,
               settings.database(),

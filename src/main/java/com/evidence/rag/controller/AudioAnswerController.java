@@ -6,7 +6,8 @@ import com.evidence.rag.model.dto.AudioSourceResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.AnswerService;
 import com.evidence.rag.service.ManagedTextRuntime;
-import com.evidence.rag.web.AudioContentResponse;
+import com.evidence.rag.web.MediaContentResponse;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.AnswerRequestMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
@@ -76,17 +77,16 @@ public final class AudioAnswerController {
     var actor = AuthenticatedActor.require(request);
     var original = selected().audioContent(actor, answerId, ordinal);
     // Resolve the entire current-authorized source before Range parsing can expose its length.
-    return AudioContentResponse.create(
-        original, Collections.list(request.getHeaders(HttpHeaders.RANGE)));
+    return MediaContentResponse.create(
+        original.mimeType(),
+        original.content(),
+        Collections.list(request.getHeaders(HttpHeaders.RANGE)));
   }
 
   private static void validateSource(HttpServletRequest request, int ordinal) {
-    if (ordinal < 1
-        || ordinal > 32
-        || request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
+    if (ordinal < 1 || ordinal > 32) {
       throw ModelValues.invalid();
     }
+    RequestGuards.noQueryOrBody(request);
   }
 }

@@ -3,10 +3,11 @@ package com.evidence.rag.controller;
 import com.evidence.rag.exception.ApplicationException;
 import com.evidence.rag.exception.FailureKind;
 import com.evidence.rag.model.domain.ModelValues;
-import com.evidence.rag.model.dto.AgentConfiguration;
+import com.evidence.rag.model.dto.AgentConfigurationResult;
 import com.evidence.rag.model.dto.AgentRunResult;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.KnowledgeAgentService;
+import com.evidence.rag.web.RequestGuards;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.time.Duration;
@@ -33,13 +34,13 @@ public final class KnowledgeAgentController {
   }
 
   @GetMapping(value = "/v1/knowledge-agent/config", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<AgentConfiguration> configuration(HttpServletRequest request) {
+  public ResponseEntity<AgentConfigurationResult> configuration(HttpServletRequest request) {
     read(request);
     AuthenticatedActor.require(request);
     return ResponseEntity.ok()
         .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
         .body(
-            new AgentConfiguration(
+            new AgentConfigurationResult(
                 services.getIfAvailable() != null,
                 "knowledge-native-agent",
                 KnowledgeAgentService.MAX_STEPS));
@@ -143,9 +144,7 @@ public final class KnowledgeAgentController {
   }
 
   private static void read(HttpServletRequest request) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) throw ModelValues.invalid();
+    RequestGuards.noQueryOrBody(request);
   }
 
   private static ResponseEntity<AgentRunResult> response(AgentRunResult result) {

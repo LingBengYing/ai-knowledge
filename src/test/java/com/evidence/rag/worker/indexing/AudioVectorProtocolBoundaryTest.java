@@ -44,7 +44,7 @@ class AudioVectorProtocolBoundaryTest {
     }
     var settings = request.projection();
     var dimensionMismatch =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             settings.endpoint(),
             settings.token(),
             settings.database(),
@@ -83,7 +83,7 @@ class AudioVectorProtocolBoundaryTest {
             true);
     try (var models = new GeminiAudioEmbeddingModels(changedDecoder)) {
       var projection =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               settings.endpoint(),
               settings.token(),
               settings.database(),

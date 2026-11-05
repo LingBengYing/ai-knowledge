@@ -112,7 +112,7 @@ public final class AuthorityTestContext implements AutoCloseable {
   public Map<String, Object> documentActions(Actor actor, Map<String, Object> body) {
     return response(
         ManagementResponseMapper.actions(
-            management.documentActions(actor, ManagementRequestMapper.action(body))));
+            management.documentActions(actor, ManagementRequestMapper.action(body)), null));
   }
 
   public Map<String, Object> uploadDocument(

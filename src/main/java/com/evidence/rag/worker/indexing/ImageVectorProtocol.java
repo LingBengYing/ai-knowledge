@@ -39,7 +39,7 @@ final class ImageVectorProtocol {
 
   record Request(
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       ImageVectorBuildClaim claim,
       IndexWorkerLifetime.Parent parent) {
@@ -51,7 +51,7 @@ final class ImageVectorProtocol {
 
   static Request request(
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout,
       ImageVectorBuildClaim claim) {
     var request =
@@ -62,7 +62,7 @@ final class ImageVectorProtocol {
 
   static void validateSettings(
       SiliconFlowImageEmbeddingModels.Configuration models,
-      MilvusRestProjection.Settings projection,
+      MilvusRestProjection.Configuration projection,
       Duration timeout) {
     if (models == null
         || projection == null
@@ -180,7 +180,7 @@ final class ImageVectorProtocol {
             reader.readInt(),
             flag(reader));
     var projection =
-        new MilvusRestProjection.Settings(
+        new MilvusRestProjection.Configuration(
             URI.create(string(reader, 4096)),
             string(reader, 4096),
             string(reader, 128),

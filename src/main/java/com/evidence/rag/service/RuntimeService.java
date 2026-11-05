@@ -1,6 +1,6 @@
 package com.evidence.rag.service;
 
-import com.evidence.rag.model.dto.RuntimeCapabilities;
+import com.evidence.rag.model.dto.RuntimeCapabilitiesResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -8,10 +8,10 @@ import java.util.function.Supplier;
 
 /** Publishes explicit local migration capabilities without exposing provider credentials. */
 public final class RuntimeService {
-  private final RuntimeCapabilities capabilities;
-  private Supplier<RuntimeCapabilities> dynamic;
+  private final RuntimeCapabilitiesResult capabilities;
+  private Supplier<RuntimeCapabilitiesResult> dynamic;
 
-  public RuntimeService(Supplier<RuntimeCapabilities> dynamic) {
+  public RuntimeService(Supplier<RuntimeCapabilitiesResult> dynamic) {
     this.capabilities = null;
     this.dynamic = Objects.requireNonNull(dynamic);
   }
@@ -332,7 +332,7 @@ public final class RuntimeService {
       enabled.add("audio_vector_retrieval");
     }
     capabilities =
-        new RuntimeCapabilities(
+        new RuntimeCapabilitiesResult(
             authMode,
             workspaceId,
             visual && answers
@@ -346,7 +346,7 @@ public final class RuntimeService {
             unavailable);
   }
 
-  public RuntimeCapabilities capabilities() {
+  public RuntimeCapabilitiesResult capabilities() {
     return dynamic == null ? capabilities : Objects.requireNonNull(dynamic.get());
   }
 }

@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import com.evidence.rag.RagApplication;
 import com.evidence.rag.client.model.AudioModels;
 import com.evidence.rag.client.model.OpenAiCompatibleAudioModels;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.AudioTranscriptSpan;
 import com.evidence.rag.model.domain.DocumentSelection;
@@ -143,7 +143,7 @@ class AudioAnswersNativeIT {
               "--rag.ingestion.parse-timeout-ms=30000",
               "--rag.indexing.timeout-ms=15000",
               "--rag.answers.timeout-ms=15000")) {
-        assertEquals(data, context.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, context.getBean(RagSettings.class).dataDirectory());
         assertInstanceOf(ProcessAudioDecoder.class, context.getBean(AudioDecoder.class));
         assertInstanceOf(OpenAiCompatibleAudioModels.class, context.getBean(AudioModels.class));
         base = "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port");

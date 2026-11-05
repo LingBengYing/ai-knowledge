@@ -32,7 +32,7 @@ generation隔离用于处理取消/超时后结果未知的远程写入：旧HTT
 ```text
 IndexingController → ManagementModule.createIndexing (ACL + immutable source/target + queued)
   → IndexingRuntime claim (new generation + immutable attempt ledger; transaction ends)
-  → ProcessTextIndexer → bounded stdin → separate IndexWorker JVM
+  → ProcessTextIndexer → bounded stdin → separate TextIndexWorker JVM
       → parent lifetime + collection lease → embed → generation-scoped upsert/verify
   ← complete digest manifest + VerifiedRevision
   → ManagementModule.completeIndexing (current claim + ACL + authority identity)
@@ -52,7 +52,7 @@ IndexingController → ManagementModule.createIndexing (ACL + immutable source/t
 | Milvus `id` / `Entry.segmentId` | 共享`physicalSegmentId(generation, sourceSegmentId)`；对`evidence-rag-physical-segment-v1`、generation、source ID进行长度前缀UTF-8编码后SHA-256，前缀`seg-` |
 | `index_publication_entries` | 完整不可变`source_segment_id → physical_segment_id → entry_sha256`映射 |
 
-[ProcessTextIndexer](../src/main/java/com/evidence/rag/worker/indexing/ProcessTextIndexer.java)的Interface是`index(IndexClaim) → IndexingResult`与`close()`。整个应用单索引并发，HTTP线程和authority事务不调用模型/Milvus。`--index-worker`在Spring启动前分流，不打开authority数据库；一个子进程处理一个请求。
+[ProcessTextIndexer](../src/main/java/com/evidence/rag/worker/indexing/ProcessTextIndexer.java)的Interface是`index(IndexClaim) → IndexingOutcome`与`close()`。整个应用单索引并发，HTTP线程和authority事务不调用模型/Milvus。`--index-worker`在Spring启动前分流，不打开authority数据库；一个子进程处理一个请求。
 
 父进程清空继承环境，通过有界stdin协议v2传递显式模型/Milvus配置、source segment快照、projection generation及父进程PID/startInstant；不传JWT、authority token、数据目录、用户路径或任意环境变量。协议请求最多8MiB、输出最多1MiB；配置凭据经pipe传递，不在argv、任务HTTP、审计或日志中输出。stdout只用于协议，库日志与stderr被丢弃；协议坏结构、截断、超限、错identity或额外数据失败关闭。
 
@@ -68,7 +68,7 @@ worker另以固定`/tmp`下按当前OS用户隔离的lease目录，对规范化e
 
 ## 完整revision验证与publication
 
-[IndexWorker](../src/main/java/com/evidence/rag/worker/indexing/IndexWorker.java)按响应字节预算与向量维度选择batch，最多16段；无法容纳1段就失败，不截断。模型返回数量、索引、维度、有限值与非零向量，以及完整upsert receipt均严格校验。每批完成只保留摘要，不把整个revision所有向量常驻内存。revision必须包含1–4096段。
+[TextIndexWorker](../src/main/java/com/evidence/rag/worker/indexing/TextIndexWorker.java)按响应字节预算与向量维度选择batch，最多16段；无法容纳1段就失败，不截断。模型返回数量、索引、维度、有限值与非零向量，以及完整upsert receipt均严格校验。每批完成只保留摘要，不把整个revision所有向量常驻内存。revision必须包含1–4096段。
 
 `RAG_TEXT_MAX_RESPONSE_BYTES`默认4194304、范围1024–4194304；`RAG_TEXT_DEADLINE_MS`默认30000、范围1–60000。HTTP完整响应体受限，重定向被拒绝；projection的每个公开操作使用一个总budget，完整verify的多次请求共享该budget，外层索引任务deadline继续限制全部操作。
 

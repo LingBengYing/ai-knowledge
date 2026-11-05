@@ -208,14 +208,14 @@ class MilvusLiveIT {
     private static final Duration ADMIN_TIMEOUT = Duration.ofSeconds(15);
     private static final int MAX_ADMIN_RESPONSE_BYTES = 1_048_576;
     private final String generatedName = "java_it_" + UUID.randomUUID().toString().replace("-", "");
-    private final MilvusRestProjection.Settings settings;
+    private final MilvusRestProjection.Configuration settings;
     private final HttpClient admin;
     private boolean initializationAttempted;
     private boolean owned;
 
     private IsolatedCollection(URI endpoint, String token, String database) {
       settings =
-          new MilvusRestProjection.Settings(
+          new MilvusRestProjection.Configuration(
               endpoint,
               token,
               database,

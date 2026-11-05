@@ -16,7 +16,7 @@ public class ReindexVectorConfiguration {
       ObjectProvider<ImageEmbeddingSettings> images,
       ObjectProvider<AudioEmbeddingSettings> audios) {
     var targets = new LinkedHashMap<String, IndexTarget>();
-    var projections = new LinkedHashMap<String, MilvusRestProjection.Settings>();
+    var projections = new LinkedHashMap<String, MilvusRestProjection.Configuration>();
     var image = images.getIfAvailable();
     if (image != null) {
       targets.put("image", image.target());

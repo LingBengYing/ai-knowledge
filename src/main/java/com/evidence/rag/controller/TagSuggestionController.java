@@ -5,6 +5,7 @@ import com.evidence.rag.model.vo.DocumentResponse;
 import com.evidence.rag.model.vo.TagSuggestionResponse;
 import com.evidence.rag.security.web.AuthenticatedActor;
 import com.evidence.rag.service.TagSuggestionService;
+import com.evidence.rag.web.RequestGuards;
 import com.evidence.rag.web.converter.ManagementResponseMapper;
 import com.evidence.rag.web.converter.TagSuggestionRequestMapper;
 import com.evidence.rag.web.converter.TagSuggestionResponseMapper;
@@ -34,11 +35,7 @@ public final class TagSuggestionController {
       value = "/v1/documents/{documentId}/tag-suggestions",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public TagSuggestionResponse get(HttpServletRequest request, @PathVariable String documentId) {
-    if (request.getQueryString() != null
-        || request.getContentLengthLong() > 0
-        || request.getHeader("Transfer-Encoding") != null) {
-      throw ModelValues.invalid();
-    }
+    RequestGuards.noQueryOrBody(request);
     return TagSuggestionResponseMapper.response(
         suggestions.get(AuthenticatedActor.require(request), documentId));
   }

@@ -86,7 +86,7 @@ class AudioEmbeddingConfigurationTest {
   void enabledGraphComposesCurrentDecoderAndBuildServiceWithNoDecodeOrRemotePreparation() {
     try (var context = new AnnotationConfigApplicationContext()) {
       context.setEnvironment(local());
-      context.registerBean(RagProperties.class, AudioEmbeddingConfigurationTest::properties);
+      context.registerBean(RagSettings.class, AudioEmbeddingConfigurationTest::properties);
       context.registerBean(TextAdapterSettings.class, () -> text());
       context.registerBean(AudioDecoder.class, () -> decoder());
       context.registerBean(SqliteAuthorityStore.class, () -> new SqliteAuthorityStore(directory));
@@ -347,8 +347,8 @@ class AudioEmbeddingConfigurationTest {
         .withProperty("rag.audio-embedding.milvus.allow-loopback-http", "true");
   }
 
-  private static RagProperties properties() {
-    return new RagProperties(
+  private static RagSettings properties() {
+    return new RagSettings(
         "test", "org-main", "development_headers", "", "", "", Path.of("unused-audio-embedding"));
   }
 
@@ -366,8 +366,8 @@ class AudioEmbeddingConfigurationTest {
         projection(collection, "text-model-v1"));
   }
 
-  private static MilvusRestProjection.Settings projection(String collection, String identity) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration projection(String collection, String identity) {
+    return new MilvusRestProjection.Configuration(
         URI.create("http://127.0.0.1:1"),
         "",
         "default",

@@ -3,14 +3,14 @@ package com.evidence.rag.config;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.evidence.rag.model.dto.RuntimeCapabilities;
+import com.evidence.rag.model.dto.RuntimeCapabilitiesResult;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** A batch only completes through automatic import indexing, so both must be available. */
 class BatchUploadCapabilityTest {
-  private static RuntimeCapabilities base(String... enabled) {
-    return new RuntimeCapabilities(
+  private static RuntimeCapabilitiesResult base(String... enabled) {
+    return new RuntimeCapabilitiesResult(
         "development_headers", "org-main", "text_answers", List.of(enabled), List.of());
   }
 

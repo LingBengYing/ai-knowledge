@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.evidence.rag.RagApplication;
-import com.evidence.rag.config.RagProperties;
+import com.evidence.rag.config.RagSettings;
 import com.evidence.rag.model.domain.Actor;
 import com.evidence.rag.model.domain.ModelValues;
 import com.evidence.rag.model.domain.VideoCompilation;
@@ -148,7 +148,7 @@ class VideoOcrAnswersNativeIT {
               "--rag.video.vision.allow-loopback-http=true",
               "--rag.indexing.timeout-ms=15000",
               "--rag.answers.timeout-ms=15000")) {
-        assertEquals(data, app.getBean(RagProperties.class).dataDirectory());
+        assertEquals(data, app.getBean(RagSettings.class).dataDirectory());
         base = "http://127.0.0.1:" + app.getEnvironment().getProperty("local.server.port");
         assertTrue(models.requests.isEmpty());
         assertTrue(indexing.requests.isEmpty());

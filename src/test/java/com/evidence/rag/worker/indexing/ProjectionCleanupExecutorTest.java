@@ -78,8 +78,8 @@ class ProjectionCleanupExecutorTest {
     }
   }
 
-  private static MilvusRestProjection.Settings settings(URI endpoint, Duration timeout) {
-    return new MilvusRestProjection.Settings(
+  private static MilvusRestProjection.Configuration settings(URI endpoint, Duration timeout) {
+    return new MilvusRestProjection.Configuration(
         endpoint,
         "",
         "default",

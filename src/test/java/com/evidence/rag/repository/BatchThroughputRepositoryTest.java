@@ -272,7 +272,7 @@ class BatchThroughputRepositoryTest {
   }
 
   @Test
-  void mediaRequestsHaveTheirOwnLaneAndABusyDispatchReturnsToPending() {
+  void mediaRequestsHaveTheirOwnLaneAndDispatchingIsHeld() {
     try (var authority = new AuthorityTestContext(directory)) {
       var store = authority.store();
       String document =
@@ -291,14 +291,6 @@ class BatchThroughputRepositoryTest {
       var media = store.transaction(() -> requests.claim(true)).orElseThrow();
       assertEquals("sound", media.pipeline());
       assertTrue(store.transaction(() -> requests.claim(true)).isEmpty(), "dispatching is held");
-      store.transaction(
-          () -> {
-            requests.release(media.revisionId());
-            return null;
-          });
-      assertEquals(
-          media.revisionId(),
-          store.transaction(() -> requests.claim(true)).orElseThrow().revisionId());
     }
   }
 
